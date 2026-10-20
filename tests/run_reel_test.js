@@ -135,7 +135,7 @@ console.log('=== ۳) سیم‌کشیِ رانر ===');
   ok('۳.۱ فقط ریلزِ ساخته‌نشده یا با امضای تازه، و فقط آن‌که صدا دارد', td.length === 1 && td[0].key === 'ig:special:2', JSON.stringify(td.map(x => x.key)));
   ok('۳.۲ پروب ریلز را «کار» می‌شمرد', R.probeWork({ items: [], reels: q.reels }, map, {}, new Date()) === '1');
   const rj = fs.readFileSync('tools/render.js', 'utf8');
-  ok('۳.۳ اجرای اصلی ریلزها را می‌سازد و نقشه را می‌نویسد', /rlMade = buildReels\(rlTodo, map, tmp\)/.test(rj) && /if \(made \|\| plMade \|\| bnMade \|\| rlMade\) writeMap\(map\)/.test(rj));
+  ok('۳.۳ اجرای اصلی ریلزها را می‌سازد و نقشه را می‌نویسد', /rlMade = buildReels\(rlTodo, map, tmp\)/.test(rj) && /if \(made \|\| plMade \|\| bnMade \|\| rlMade( \|\| muMade)?\) writeMap\(map\)/.test(rj));
 }
 
 console.log('=== ۴) هم‌ترازیِ واژه‌ها با صدا (tools/reelalign.py، ۹.۲۶) ===');

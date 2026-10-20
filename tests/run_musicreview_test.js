@@ -550,4 +550,92 @@ console.log('=== ۱۳) «بازه رو از روی خودِ موسیقی و پل
   ok('۱۳.۸ «بی‌بازه» ⇒ برمی‌گردد به تشخیصِ خودکار', mrMap_(hub)[fX.getId()].range === '' && !(musicBank_(hub).filter(b => b.id === fX.getId())[0] || {}).range);
 }
 
+console.log('=== ۱۴) موسیقیِ خودِ صاحبِ برنامه از تلگرام، هر قالب (۹.۸۵) ===');
+{
+  const mkWav = (rate, sec) => {
+    const n = Math.floor(rate * sec), b = [], str = x => { for (const c of x) b.push(c.charCodeAt(0)); };
+    const u32 = v => b.push(v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255), u16 = v => b.push(v & 255, (v >>> 8) & 255);
+    str('RIFF'); u32(36 + n * 2); str('WAVE'); str('fmt '); u32(16); u16(1); u16(1); u32(rate); u32(rate * 2); u16(2); u16(16);
+    str('data'); u32(n * 2);
+    for (let i = 0; i < n; i++) { const v = Math.round(8000 * Math.sin(i / 9)), u = v < 0 ? v + 65536 : v; b.push(u & 255, (u >>> 8) & 255); }
+    return b;
+  };
+  const WAV = mkWav(8000, 3), MP3 = [0x49, 0x44, 0x33, 3, 0, 0, 0, 0, 0, 0].concat(new Array(500).fill(7));
+  const files = { 'f-wav': { path: 'music/a.wav', bytes: WAV }, 'f-mp3': { path: 'music/b.mp3', bytes: MP3 } };
+  let rmap = { items: {} }, getFiles = 0, conv = WAV;
+  const old = global.__STUB;
+  global.__STUB = (url, body, opt) => {
+    if (/api\.telegram\.org\/file\/bot/.test(url)) { const f = Object.keys(files).map(k => files[k]).filter(x => url.endsWith(x.path))[0]; return f ? { code: 200, bytes: f.bytes, mime: 'application/octet-stream' } : { code: 404, json: {} }; }
+    if (/api\.telegram\.org\/bot[^/]+\/getFile/.test(url)) { getFiles++; tg.push({ m: 'getFile', b: body }); const f = files[body.file_id]; return { code: 200, json: { ok: true, result: f ? { file_path: f.path } : {} } }; }
+    if (/renders\.json/.test(url)) return { code: 200, text: JSON.stringify(rmap) };
+    if (/github\.com\/.*music-.*\.wav/.test(url)) return { code: 200, bytes: conv, mime: 'audio/wav' };
+    if (/api\.github\.com/.test(url)) return { code: 204, json: {} };
+    return old(url, body, opt);
+  };
+  const musRows = () => { const sh = hub.getSheetByName(CFG.MUSIC_TAB); return sh.getRange(2, 1, sh.getLastRow() - 1, MUSIC_HEADERS.length).getValues(); };
+  const rowOf = id => musRows().filter(r => String(r[MC.ID - 1]) === String(id))[0];
+  const n0 = musRows().length;
+  tg.length = 0;
+  ups.push({ update_id: ++mid, message: { message_id: 900, chat: { id: 777 }, caption: 'آرام و نوستالژیک، از ثانیهٔ ۵ تا ۱۵',
+    document: { file_id: 'f-wav', file_unique_id: 'U1', file_name: 'Rain Piano.wav', mime_type: 'audio/x-wav', file_size: WAV.length } } });
+  tgPollTick();
+  const S1 = mrUpState_().items.U1 || {}, r1 = rowOf(S1.wav) || [];
+  ok('۱۴.۱ WAVِ فرستاده ⇒ فایل در پوشهٔ موسیقی و ردیفِ تازه در «موسیقی» با نام، مدت و «✅ صاحبِ برنامه فرستاد»',
+     S1.state === 'done' && musRows().length === n0 + 1 && r1[MC.NAME - 1] === 'Rain Piano.wav' && r1[MC.SEC - 1] === 3 && /^✅ صاحبِ برنامه فرستاد/.test(r1[MC.HEARD - 1]) &&
+     musicFolder_().getFilesByName('Rain Piano.wav').hasNext(), JSON.stringify(r1));
+  const rv1 = mrMap_(hub)[S1.wav] || {};
+  ok('۱۴.۲ نوشتهٔ زیرِ فایل خوانده شد: وایبِ «آرام، نوستالژیک»، بازهٔ ۵–۱۵، یادداشت؛ و داوریِ «تأیید»',
+     rv1.verdict === 'تأیید' && rv1.vibe === 'آرام، نوستالژیک' && rv1.range === '5-15' && /از ثانیهٔ/.test(rv1.note), JSON.stringify(rv1));
+  const licAsk = calls('sendMessage').filter(x => /حقِ پخش/.test(x.b.text))[0];
+  const lkb = licAsk && [].concat.apply([], JSON.parse(licAsk.b.reply_markup).inline_keyboard);
+  ok('۱۴.۳ مجوز پرسیده شد با سه دکمه، و کارتش برگشت (sendDocument) با پیامِ «در بانک نشست»',
+     lkb && lkb.length === 3 && lkb.every(x => /^mu\|U1\|(own|free|unk)$/.test(x.callback_data)) &&
+     calls('sendDocument').some(x => /Rain Piano/.test(x.b.caption)) && calls('sendMessage').some(x => /در بانک نشست: «Rain Piano»/.test(x.b.text)));
+  ok('۱۴.۴ تا مجوز گفته نشده، پخش نمی‌شود (بیرون از بانک)', !musicBank_(hub).some(b => b.id === S1.wav));
+  tg.length = 0;
+  ups.push(cq('mu|U1|own', 905));
+  tgPollTick();
+  const bk = musicBank_(hub).filter(b => b.id === S1.wav)[0];
+  ok('۱۴.۵ «ساختهٔ خودم» ⇒ ستونِ منبع عوض شد، در بانک است با همان بازه، و دکمه همان لحظه جواب گرفت',
+     bk && /ساختهٔ خودِ صاحبِ برنامه/.test(bk.lic) && bk.mood.split('آرام').length === 2 && bk.range && bk.range.from === 5 && bk.range.to === 15 &&
+     calls('answerCallbackQuery').some(x => /مجوز ثبت شد/.test(x.b.text)) && calls('editMessageText').some(x => /پخش می‌شود/.test(x.b.text)), JSON.stringify(bk));
+  /* MP3 از چتِ خصوصیِ ربات (همان که پیوندِ امضاشدهٔ بازه را باز کرد، ۱۳.۴) */
+  tg.length = 0;
+  ups.push({ update_id: ++mid, message: { message_id: 910, chat: { id: 555, type: 'private' }, caption: 'این جلوهٔ صوتی است',
+    audio: { file_id: 'f-mp3', file_unique_id: 'U2', file_name: 'door knock.mp3', mime_type: 'audio/mpeg', file_size: MP3.length } } });
+  tgPollTick();
+  const S2 = mrUpState_().items.U2 || {}, q = getOutJson_(ytRenderName_()) || {};
+  const orig = S2.orig ? DriveApp.getFileById(S2.orig) : null;
+  ok('۱۴.۶ MP3 ⇒ اصل در زیرپوشهٔ «' + CFG.MR_UP_FOLDER + '» با اشتراکِ پیوندی، و درخواستِ تبدیل در صفِ رانر',
+     S2.state === 'conv' && orig && orig.getName() === 'door knock.mp3' && orig._share && orig._share.access === DriveApp.Access.ANYONE_WITH_LINK &&
+     (q.musicConv || []).length === 1 && q.musicConv[0].id === S2.orig && q.musicConv[0].sig === S2.sig &&
+     calls('sendMessage').some(x => x.b.chat_id === 555 && /رسید: «door knock»/.test(x.b.text) && /جلوهٔ صوتی/.test(x.b.text)), JSON.stringify(q.musicConv));
+  const R = require('../tools/render.js');
+  ok('۱۴.۷ رانر همان درخواست را «کار» می‌بیند؛ پس از پاسخ نه', R.musicConvTodo(q, { items: {} }).length === 1 &&
+     R.musicConvTodo(q, { items: {}, musicConv: { [S2.orig]: { req: S2.sig } } }).length === 0 && R.probeWork(q, { items: {} }, {}, new Date()) === '1');
+  rmap = { items: {}, musicConv: { [S2.orig]: { req: S2.sig, url: 'https://github.com/x/releases/download/renders/music-a.wav', sec: 3 } } };
+  const st2 = mrState_(); st2.upPollAt = 0; mrSave_(st2);
+  tg.length = 0;
+  tgPollTick();
+  const S2b = mrUpState_().items.U2 || {}, r2 = rowOf(S2b.wav) || [];
+  ok('۱۴.۸ WAVِ رانر برداشته شد ⇒ «door knock.wav» در بانک به‌عنوانِ جلوه، اصل خصوصی شد، صف خالی',
+     S2b.state === 'done' && r2[MC.NAME - 1] === 'door knock.wav' && r2[MC.KIND - 1] === 'افکت' && orig._share.access === DriveApp.Access.PRIVATE &&
+     ((getOutJson_(ytRenderName_()) || {}).musicConv || []).length === 0, JSON.stringify(S2b));
+  /* نادرست‌ها */
+  tg.length = 0; getFiles = 0;
+  ups.push({ update_id: ++mid, message: { message_id: 920, chat: { id: 777 }, audio: { file_id: 'f-mp3', file_unique_id: 'U3', file_name: 'big.flac', file_size: 30 * 1048576 } } },
+           { update_id: ++mid, message: { message_id: 921, chat: { id: 4242 }, audio: { file_id: 'f-mp3', file_unique_id: 'U4', file_name: 'x.mp3', file_size: 100 } } },
+           { update_id: ++mid, message: { message_id: 922, chat: { id: 777 }, document: { file_id: 'f-wav', file_unique_id: 'U1', file_name: 'Rain Piano.wav', mime_type: 'audio/x-wav', file_size: 10 } } },
+           { update_id: ++mid, message: { message_id: 923, chat: { id: 777 }, document: { file_id: 'f-pdf', file_unique_id: 'U5', file_name: 'notes.pdf', mime_type: 'application/pdf', file_size: 10 } } });
+  tgPollTick();
+  ok('۱۴.۹ بیش از ۲۰ مگ ⇒ علت با عدد؛ چتِ ناشناس ⇒ هیچ؛ همان فایل دوباره ⇒ «قبلاً»؛ PDF ⇒ صوت نیست — و هیچ getFileی',
+     getFiles === 0 && calls('sendMessage').some(x => /فقط فایلِ تا ۲۰ مگابایت/.test(x.b.text) && /۳۰ مگ/.test(x.b.text)) &&
+     calls('sendMessage').some(x => /قبلاً در بانک نشسته: «Rain Piano»/.test(x.b.text)) && !calls('sendMessage').some(x => x.b.chat_id === 4242) && !mrUpState_().items.U5);
+  ups.push(cq('mu|U2|unk', 930));
+  tgPollTick();
+  ok('۱۴.۱۰ «نمی‌دانم» ⇒ پخش نمی‌شود', !musicBank_(hub).some(b => b.id === S2b.wav) && musicLicense_(mrUpLicTag_('unk')).ok === false && musicLicense_(mrUpLicTag_('free')).ok === true);
+  ok('۱۴.۱۱ توکنِ ربات در هیچ پیامی نیست', tg.every(x => JSON.stringify(x.b || {}).indexOf('botBOT') === -1));
+  global.__STUB = old;
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ بازبینیِ موسیقی گذشت.');

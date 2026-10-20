@@ -3403,6 +3403,11 @@ var SFX_CATS = [
  * NC یعنی کارِ تجاری نه (کانالِ درآمددار تجاری است)؛ ND یعنی بی‌تغییر (ما می‌بُریم و محو می‌کنیم). هیچ‌کدام. */
 function musicLicense_(txt) {
   var t = String(txt || '').toLowerCase();
+  /* ۹.۸۵: موسیقیِ فرستادهٔ صاحبِ برنامه مجوزش را از پاسخِ خودِ او دارد (`mrUpLicTag_`). تا نگفته، پخش نمی‌شود. */
+  if (t.indexOf('مجوز: خودِ صاحبِ برنامه') !== -1) return { ok: true, label: 'ساختهٔ خودِ صاحبِ برنامه', credit: false };
+  if (t.indexOf('مجوز: آزادِ تجاری به گفتهٔ صاحبِ برنامه') !== -1) return { ok: true, label: 'آزادِ تجاری — به گفتهٔ صاحبِ برنامه', credit: false };
+  if (t.indexOf('مجوز: نامعلوم به گفتهٔ صاحبِ برنامه') !== -1) return { ok: false, label: 'نامعلوم (به گفتهٔ خودتان) — پخش نمی‌شود' };
+  if (t.indexOf('مجوز: هنوز گفته نشده') !== -1) return { ok: false, label: 'هنوز نگفته‌اید — تا بگویید پخش نمی‌شود' };
   if (!/creativecommons|publicdomain|cc0|cc-by|cc by|public domain|مالکیتِ عمومی|مجوز/.test(t)) return { ok: null, label: 'نامعلوم' };
   if (/noncommercial|by-nc|\/nc[\/-]|cc[ -]by[ -]nc|غیرتجاری/.test(t)) return { ok: false, label: 'غیرتجاری (NC) — برای یوتیوبِ درآمددار ممنوع' };
   if (/noderiv|by-nd|\/nd[\/-]|cc[ -]by[ -]nd/.test(t)) return { ok: false, label: 'بی‌تغییر (ND) — بریدن و میکس مجاز نیست' };

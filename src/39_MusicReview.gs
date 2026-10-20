@@ -595,6 +595,8 @@ function mrStartRange_(hub, st, msg) {
     try { tgApi_('sendMessage', { chat_id: msg.chat.id, text: 'این پیوند معتبر نیست — از دکمهٔ «✂️ بازه با پخش‌کننده» روی همان کارت باز کنید.' }); } catch (eX) {}
     return true;
   }
+  /* پیوندِ امضاشده فقط در کارت‌های چتِ موتور است؛ پس چتِ خصوصی‌ای که آن را باز کرد مالِ اوست و فایلِ صوتی‌اش هم پذیرفته می‌شود (۹.۸۵). */
+  if (msg.chat && msg.chat.type === 'private') st.ownerDm = String(msg.chat.id);
   var r = mrMap_(hub)[id] || {}, b = mrBankItem_(hub, id), clear = !(e > s);
   var rangeTxt = clear ? '' : s + '-' + e;
   var say = clear ? 'بازه برداشته شد — از این به بعد مثلِ قبل، به تشخیصِ خودِ موتور'
@@ -760,7 +762,8 @@ var MR_HELP = ['❓ راهنمای بانکِ موسیقی',
   '• «✂️ بازه با پخش‌کننده»: صفحه‌ای باز می‌شود؛ پخش کنید، «شروع اینجا» و «پایان اینجا» را بزنید، بعد «ثبت» (و در تلگرام «Start»). فقط همان تکه پخش می‌شود.',
   '• «⌨️ بازه با نوشتن»، یا در یادداشت و توضیحِ رد: «از ثانیهٔ ۱۰ تا ۴۰». قطعهٔ بی‌بازه مثلِ قبل به تشخیصِ موتور بریده می‌شود.',
   '• «✍️ رد با توضیح» خوانده می‌شود: «این جلوهٔ صوتی است» یعنی به بانکِ جلوه برود، نه دور ریخته شود.',
-  '• دکمه‌های پایینِ صفحه هر فهرست را باز می‌کنند؛ روی هر قطعه بزنید تا کارتش دوباره بیاید.'].join('\n');
+  '• دکمه‌های پایینِ صفحه هر فهرست را باز می‌کنند؛ روی هر قطعه بزنید تا کارتش دوباره بیاید.',
+  '• موسیقی یا جلوهٔ خودتان را همین‌جا بفرستید — هر قالبی (MP3، M4A، OGG، WAV …، تا ۲۰ مگ). زیرش هرچه بنویسید خوانده می‌شود: وایب، «جلوه است»، «از ثانیهٔ ۱۰ تا ۴۰». مجوزش را می‌پرسم؛ تا نگویید پخش نمی‌شود.'].join('\n');
 
 /** متنِ دکمه‌های منوی ثابت ⇒ کار. */
 function mrOnMenuText_(hub, st, txt, chatId) {
@@ -791,6 +794,241 @@ function mrOnMenuButton_(hub, st, data, chatId, msgId) {
   if (p[0] === 'mb') return mrBrowse_(hub, chatId, p[1], p[2], msgId);
   if (p[0] === 'mc') return mrResend_(hub, p[1]);
   return false;
+}
+
+/* ═══ موسیقیِ خودِ صاحبِ برنامه، از همین چت، در هر قالب (۹.۸۵) ═══
+ * «اگر فرمت‌های غیر از wave هم بود نباید نادیده بگیره … موسیقی‌هایی که میدم باید با تگِ مناسب در درایو در همون فولدرِ
+ * موسیقی‌ها ثبت بشه و در شیت‌ها» و «حتی موسیقی که خودم هم می‌فرستم باید بررسی شه و برچسب بخوره». Apps Script فقط WAV
+ * می‌خوانَد؛ پس WAV همان‌جا در بانک می‌نشیند و هر قالبِ دیگر به رانرِ رندر می‌رود (`musicConv` در صف ⇒ ffmpeg ⇒
+ * `docs/renders.json`) و برمی‌گردد. نوشتهٔ زیرِ فایل (caption) همان کارِ یادداشت را می‌کند: وایب، بازه، «جلوه است».
+ * مجوز پرسیده می‌شود و **تا جواب نیاید پخش نمی‌شود** — قطعه‌ای که حقش معلوم نیست کانالِ درآمددار را به خطر می‌اندازد.
+ * فرستادنِ خودِ او یعنی شنیده و پسندیده: داوریِ «تأیید» می‌گیرد، و کارتش برمی‌گردد تا ستاره و جایگاه بدهد. */
+var MR_UP_EXT = /\.(wav|wave|mp3|m4a|aac|ogg|oga|opus|flac|wma|aif|aiff|webm|mp4|amr|3gp)$/i;
+var MR_UP_LIC = { own: 'خودِ صاحبِ برنامه', free: 'آزادِ تجاری به گفتهٔ صاحبِ برنامه', unk: 'نامعلوم به گفتهٔ صاحبِ برنامه' };
+
+function mrUpState_() {
+  try { var s = JSON.parse(props_().getProperty('MUSIC_UPLOADS') || '{}'); if (s && s.items) return s; } catch (e) {}
+  return { items: {} };
+}
+function mrUpSave_(s) { try { props_().setProperty('MUSIC_UPLOADS', JSON.stringify(s)); } catch (e) {} }
+
+/** پیامِ تلگرام ⇒ {fid, uid, name, mime, size} اگر صوت است؛ وگرنه null. سندی که نه mimeِ صوت دارد نه پسوندِ صوت، صوت نیست. */
+function mrUpOf_(msg) {
+  if (!msg) return null;
+  var a = msg.audio || msg.voice || null, doc = msg.document || null;
+  if (!a && doc && (/^audio\//i.test(String(doc.mime_type || '')) || MR_UP_EXT.test(String(doc.file_name || '')))) a = doc;
+  if (!a || !a.file_id) return null;
+  var nm = String(a.file_name || '') ||
+           (a.title ? String(a.performer ? a.performer + ' - ' : '') + String(a.title) : '') ||
+           ('صدای فرستاده‌شده ' + String(nowStr_()).slice(0, 16).replace(/:/g, '-'));
+  return { fid: String(a.file_id), uid: String(a.file_unique_id || a.file_id).slice(0, 40), name: nm,
+           mime: String(a.mime_type || ''), size: Number(a.file_size) || 0, voice: !!msg.voice };
+}
+
+/** نامِ بی‌پسوند و بی‌نویسهٔ ناجور؛ تکراری در پوشه ⇒ « (۲)». */
+function mrUpBase_(name, folder) {
+  var b = String(name || '').replace(/\.[A-Za-z0-9]{2,5}$/, '').replace(/[\\/:*?"<>|#\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'قطعهٔ فرستاده‌شده';
+  if (/^_/.test(b)) b = b.replace(/^_+/, '');
+  var out = b;
+  for (var k = 2; k < 30 && folder && folder.getFilesByName(out + '.wav').hasNext(); k++) out = b + ' (' + faDigitsOut_(String(k)) + ')';
+  return out;
+}
+
+/** نوشتهٔ زیرِ فایل ⇒ نوع، وایب، بازه. همان خواننده‌های یادداشت؛ مدل لازم نیست. */
+function mrUpRead_(cap) {
+  var c = String(cap || '').trim(), out = { kind: /جلوه|افکت|\bsfx\b/i.test(c) ? 'افکت' : 'موسیقی', vibe: [], range: mrRangeParse_(c), note: c.slice(0, 300) };
+  mrVibes_().forEach(function (v) { if (c.indexOf(v) !== -1) out.vibe.push(v); });
+  return out;
+}
+
+function mrUpFolder_() {
+  var mf = musicFolder_(), nm = String(CFG.MR_UP_FOLDER || 'اصلِ فایل‌های فرستاده‌شده'), it = mf.getFoldersByName(nm);
+  return it.hasNext() ? it.next() : mf.createFolder(nm);
+}
+
+function mrUpLicTag_(lic) { return 'مجوز: ' + (MR_UP_LIC[lic] || 'هنوز گفته نشده'); }
+
+function mrUpLicKb_(uid) {
+  return JSON.stringify({ inline_keyboard: [[{ text: '👤 ساختهٔ خودم', callback_data: 'mu|' + uid + '|own' },
+                                             { text: '🆓 مجوزِ آزادِ تجاری', callback_data: 'mu|' + uid + '|free' }],
+                                            [{ text: '❔ نمی‌دانم — پخش نشود', callback_data: 'mu|' + uid + '|unk' }]] });
+}
+
+/** فایلِ صوتیِ رسیده ⇒ دریافت از تلگرام، WAV به بانک یا اصل به صفِ تبدیل، و پرسشِ مجوز. همیشه true (پیام مالِ این‌جاست). */
+function mrOnUpload_(hub, st, msg) {
+  var u = mrUpOf_(msg), chatId = msg.chat.id;
+  var say = function (t, kb) { try { tgApi_('sendMessage', kb ? { chat_id: chatId, text: t, reply_to_message_id: msg.message_id, reply_markup: kb }
+                                                              : { chat_id: chatId, text: t, reply_to_message_id: msg.message_id }); } catch (e) {} };
+  if (CFG.MR_UP_ON === false) { say('دریافتِ موسیقی از این چت خاموش است (MR_UP_ON).'); return true; }
+  var S = mrUpState_(), was = S.items[u.uid];
+  if (was && was.state === 'done') { say('این فایل قبلاً در بانک نشسته: «' + was.base + '».'); return true; }
+  if (was && was.state === 'conv') { say('این فایل در راهِ تبدیل است: «' + was.base + '» — کارتش که آماده شد می‌آید.'); return true; }
+  var maxB = Math.max(1, Number(CFG.MR_UP_MAX_MB) || 20) * 1048576;
+  if (u.size > maxB) {
+    say('❗ تلگرام به ربات‌ها فقط فایلِ تا ' + faDigitsOut_(String(Number(CFG.MR_UP_MAX_MB) || 20)) + ' مگابایت می‌دهد و این ' +
+        faDigitsOut_(String(Math.round(u.size / 104857.6) / 10)) + ' مگ است. فشرده‌ترش (مثلاً MP3) را بفرستید، یا مستقیم در پوشهٔ «موسیقی و افکت» درایو بگذارید.');
+    return true;
+  }
+  var gf = null;
+  try { gf = tgApi_('getFile', { file_id: u.fid }); } catch (eG) { gf = null; }
+  var fp = gf && gf.result && gf.result.file_path;
+  if (!fp) { say('❗ تلگرام نشانیِ فایل را نداد — دوباره بفرستید.'); return true; }
+  var res = null;
+  /* نشانیِ دانلود توکنِ ربات را در خود دارد؛ هرگز در پیام یا سیاهه نمی‌آید — فقط کدِ پاسخ. */
+  try { res = UrlFetchApp.fetch('https://api.telegram.org/file/bot' + tgToken_() + '/' + fp, { muteHttpExceptions: true }); } catch (eF) { res = null; }
+  if (!res || res.getResponseCode() !== 200) { say('❗ فایل از تلگرام نیامد (' + (res ? res.getResponseCode() : 'شبکه') + ') — دوباره بفرستید.'); return true; }
+  var bytes = res.getBlob().getBytes(), rd = mrUpRead_(msg.caption);
+  var info = null; try { info = wavInfo_(bytes); } catch (eW) { info = null; }
+  var it = { uid: u.uid, name: u.name, at: nowStr_(), chat: String(chatId), cap: rd.note, kind: rd.kind, vibe: rd.vibe.join('، '),
+             range: rd.range ? rd.range.from + '-' + rd.range.to : '', lic: (was && was.lic) || '' };
+  if (info && wavReadable_(info)) {
+    it.base = mrUpBase_(u.name, musicFolder_());
+    var wf = musicFolder_().createFile(Utilities.newBlob(bytes, 'audio/wav', it.base + '.wav'));
+    S.items[u.uid] = it; mrUpSave_(S);
+    mrUpFinish_(hub, st, it, wf, bytes, info);
+  } else {
+    var ext = (/\.([A-Za-z0-9]{2,5})$/.exec(u.name) || [, (/ogg|opus/.test(u.mime) || u.voice) ? 'ogg' : 'bin'])[1];
+    it.base = mrUpBase_(u.name, musicFolder_());
+    var of = mrUpFolder_().createFile(Utilities.newBlob(bytes, u.mime || 'application/octet-stream', it.base + '.' + ext));
+    try { of.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (eSh) {}
+    it.orig = of.getId(); it.state = 'conv'; it.sig = ytSig8_(it.orig + '|' + it.at); it.kickAt = Date.now();
+    S.items[u.uid] = it; mrUpSave_(S);
+    mrUpQueue_(S);
+    say('📥 رسید: «' + it.base + '» (' + ext.toUpperCase() + '، ' + faDigitsOut_(String(Math.round(bytes.length / 104857.6) / 10)) + ' مگ). ' +
+        'به WAV تبدیل می‌شود — معمولاً ده تا بیست دقیقه — و کارتش همین‌جا می‌آید.' + mrUpReadLine_(it));
+  }
+  if (!it.lic) say('⚖️ حقِ پخشِ «' + it.base + '» چیست؟ کانال درآمددار است؛ تا نگویید، در هیچ قسمتی پخش نمی‌شود.', mrUpLicKb_(u.uid));
+  st.answeredAt = Date.now();
+  return true;
+}
+
+function mrUpReadLine_(it) {
+  var p = [];
+  if (it.kind === 'افکت') p.push('جلوهٔ صوتی');
+  if (it.vibe) p.push('وایب: ' + it.vibe);
+  if (it.range) p.push('فقط ثانیهٔ ' + faDigitsOut_(it.range.replace('-', ' تا ')));
+  if (it.cap && !p.length) p.push('یادداشت ثبت می‌شود');
+  return p.length ? '\n🧠 از نوشته‌تان: ' + p.join(' · ') : '';
+}
+
+/** صفِ تبدیل در `_YT-RENDER.json` = فقط آن‌هایی که هنوز در راه‌اند. نوشتن فقط وقتی فهرست عوض شده. */
+function mrUpQueue_(S) {
+  var want = [];
+  for (var k in S.items) if (S.items[k] && S.items[k].state === 'conv') want.push({ id: S.items[k].orig, sig: S.items[k].sig, name: S.items[k].base });
+  try {
+    var d = ytRenderRead_();
+    if (JSON.stringify(d.musicConv || []) === JSON.stringify(want)) return false;
+    d.musicConv = want;
+    if (ytRenderSave_(d)) {
+      try { ytQueueShare_(); } catch (eQs) {}
+      if (want.length) { try { ghRenderDue_('تبدیلِ موسیقیِ صاحبِ برنامه'); } catch (eGk) {} }
+    }
+    return true;
+  } catch (e) { return false; }
+}
+
+/** WAV در بانک ⇒ ردیفِ «موسیقی» (بی خواندنِ دوبارهٔ پوشه)، شناسنامه، داوریِ «تأیید» و کارت. */
+function mrUpFinish_(hub, st, it, wf, bytes, info) {
+  var id = wf.getId(), name = wf.getName(), sec = Math.round(info.seconds || 0);
+  var src = it.base + ' — فرستادهٔ صاحبِ برنامه در تلگرام (' + mrUpLicTag_(it.lic) + ')';
+  var heard = '✅ صاحبِ برنامه فرستاد — ' + (it.kind === 'افکت' ? 'جلوهٔ صوتی' : 'موسیقی');
+  var note = 'صاحبِ برنامه فرستاد' + (it.cap ? ': ' + it.cap : '');
+  var fmt = musicNative_(info) ? 'آماده' : info.rate + 'Hz/' + info.channels + 'ch/' + info.bits + 'bit — تبدیل هنگام استفاده';
+  try {
+    musicMetaWrite_(name, { title: it.base, kind: it.kind, mood: it.vibe, slots: it.kind === 'افکت' ? 'میانه' : 'شروع، پایان، میانه',
+                            license: mrUpLicTag_(it.lic), url: 'telegram', owner: true, note: it.cap, at: it.at });
+  } catch (eM) {}
+  var sh = ensureTab_(hub, CFG.MUSIC_TAB || 'موسیقی', MUSIC_HEADERS);
+  /* «سرشت» پر می‌شود تا پویشِ شبانه این فایل را دوباره بایت‌به‌بایت نخوانَد (همان قاعدهٔ «سنجیده‌شده دوباره خوانده نمی‌شود»). */
+  /* وایب در «بازبینیِ موسیقی» می‌نشیند و `mrApply_` آن را روی برچسب می‌گذارد؛ این‌جا هم بنویسیم دو بار شمرده می‌شود. */
+  sh.appendRow([id, name, it.kind, '', it.kind === 'افکت' ? 'میانه' : 'شروع، پایان، میانه', sec, fmt, 1, 0, '', note,
+                'فرستادهٔ صاحبِ برنامه — سنجیده نشد', src, musicUrl_(id), heard]);
+  var r = mrSet_(hub, id, { name: name, verdict: 'تأیید', vibe: it.vibe, range: it.range, sent: nowStr_(),
+                            note: it.cap ? String(nowStr_()).slice(0, 10) + ': ' + it.cap : '', read: 'فرستادهٔ خودتان' + (it.range ? '؛ فقط همان بازه' : '') });
+  mrLog_(hub, id, name, 'فرستادنِ صاحبِ برنامه', it.lic || 'مجوز گفته نشده', it.cap || '');
+  it.state = 'done'; it.wav = id; it.sec = sec;
+  var S = mrUpState_(); S.items[it.uid] = it; mrUpSave_(S);
+  var b = mrBankItem_(hub, id); b.lic = musicLicense_(src).label;
+  var msgId = '';
+  try { msgId = mrSendOne_(b, r); } catch (eS) { msgId = ''; }
+  if (msgId) mrSet_(hub, id, { msg: msgId });
+  try {
+    tgApi_('sendMessage', { chat_id: it.chat || tgChat_(), text: '✓ در بانک نشست: «' + it.base + '» — ' + faDigitsOut_(String(sec)) + ' ثانیه، ' +
+                            (it.kind === 'افکت' ? 'جلوهٔ صوتی' : 'موسیقی') + ' · ⚖️ ' + b.lic + mrUpReadLine_(it) +
+                            '\nکارتش بالاست: ستاره، جایگاه و «✂️ بازه» را همان‌جا بزنید.' });
+  } catch (eT) {}
+  return id;
+}
+
+/** دکمهٔ مجوز (mu|<uid>|own/free/unk). اگر فایل در بانک است، ستونِ «منبع» و شناسنامه همان لحظه عوض می‌شوند. */
+function mrOnUpLic_(hub, data, chatId, msgId) {
+  var p = String(data || '').split('|'), S = mrUpState_(), it = S.items[p[1]];
+  if (!it || !MR_UP_LIC[p[2]]) return false;
+  it.lic = p[2]; S.items[p[1]] = it; mrUpSave_(S);
+  var tag = mrUpLicTag_(it.lic), lab = musicLicense_(tag).label;
+  if (it.wav) {
+    try {
+      var sh = hub.getSheetByName(CFG.MUSIC_TAB || 'موسیقی'), ids = sh.getRange(2, MC.ID, Math.max(1, sh.getLastRow() - 1), 1).getValues();
+      for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === String(it.wav)) {
+        sh.getRange(i + 2, MC.SRC).setValue(it.base + ' — فرستادهٔ صاحبِ برنامه در تلگرام (' + tag + ')'); break;
+      }
+      var wn = DriveApp.getFileById(it.wav).getName();
+      musicMetaWrite_(wn, { title: it.base, kind: it.kind, mood: it.vibe, license: tag, url: 'telegram', owner: true, note: it.cap, at: it.at });
+    } catch (eW) {}
+    mrLog_(hub, it.wav, it.base, 'مجوز', lab, '');
+  }
+  try { tgApi_('editMessageText', { chat_id: chatId, message_id: msgId, text: '⚖️ «' + it.base + '»: ' + lab + (musicLicense_(tag).ok ? ' — پخش می‌شود.' : '.') }); } catch (eE) {}
+  return true;
+}
+
+/**
+ * تبدیل‌هایی که رانر تمام کرده ⇒ دریافت، سنجشِ RIFF، بانک. هر سه دقیقه یک خواندنِ نقشه، فقط وقتی چیزی در راه است.
+ * نرسیده پس از `MR_UP_KICK_MIN` ⇒ رانر دوباره؛ پس از `MR_UP_STUCK_H` ⇒ یک بار به او گفته می‌شود — کاری که بی‌صدا گیر کند، همان
+ * بانکِ خالیِ هفت‌هفته‌ای است.
+ */
+function mrUpPut_(it) { var S = mrUpState_(); S.items[it.uid] = it; mrUpSave_(S); return S; }
+
+function mrUpPoll_(hub, st) {
+  var S = mrUpState_(), pend = [];
+  for (var k in S.items) if (S.items[k] && S.items[k].state === 'conv') pend.push(S.items[k]);
+  if (!pend.length) return 0;
+  if (Date.now() - (Number(st.upPollAt) || 0) < 3 * 60000) return 0;
+  st.upPollAt = Date.now();
+  /* هاب فقط وقتی باز می‌شود که کاری رسیده — بازکردنش در هر دقیقه سهمیهٔ روزانهٔ اجرا را می‌خورد (۷.۵). */
+  if (typeof hub === 'function') { var hubF = hub; hub = null; var hubOf = function () { return hub || (hub = hubF()); }; } else { var hub0 = hub; var hubOf = function () { return hub0; }; }
+  var d = ytRenderDocFetch_(), mc = (d && d.musicConv) || {}, done = 0;
+  for (var i = 0; i < pend.length; i++) {
+    var it = pend[i], got = mc[it.orig];
+    if (got && String(got.req || '') === String(it.sig)) {
+      if (got.err || !got.url) {
+        it.state = 'fail'; it.why = String(got.err || 'نشانی نیامد'); mrUpPut_(it);
+        try { tgApi_('sendMessage', { chat_id: it.chat || tgChat_(), text: '❗ «' + it.base + '» به WAV تبدیل نشد: ' + it.why + '\nاصلِ فایل در پوشهٔ «' + (CFG.MR_UP_FOLDER || '') + '» مانده است.' }); } catch (eF) {}
+        continue;
+      }
+      var res = null;
+      try { res = UrlFetchApp.fetch(String(got.url), { muteHttpExceptions: true, followRedirects: true }); } catch (eD) { res = null; }
+      var bytes = res && res.getResponseCode() === 200 ? res.getBlob().getBytes() : null, info = null;
+      try { info = bytes ? wavInfo_(bytes) : null; } catch (eI) { info = null; }
+      if (!info || !wavReadable_(info)) { it.why = 'WAVِ رانر خوانده نشد (' + (res ? res.getResponseCode() : 'شبکه') + ')'; mrUpPut_(it); continue; }
+      var wf = musicFolder_().createFile(Utilities.newBlob(bytes, 'audio/wav', mrUpBase_(it.base, musicFolder_()) + '.wav'));
+      try { DriveApp.getFileById(it.orig).setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE); } catch (eP) {}
+      if (got.cut) it.cap = (it.cap ? it.cap + ' · ' : '') + 'فقط هشت دقیقهٔ اول تبدیل شد';
+      mrUpFinish_(hubOf(), st, it, wf, bytes, info);
+      done++;
+      continue;
+    }
+    var age = Date.now() - (Number(new Date(String(it.at).replace(' ', 'T'))) || Date.now());
+    if (Date.now() - (Number(it.kickAt) || 0) > (Number(CFG.MR_UP_KICK_MIN) || 60) * 60000) {
+      it.kickAt = Date.now(); try { ghRenderDue_('تبدیلِ موسیقیِ صاحبِ برنامه'); } catch (eK) {}
+    }
+    if (!it.told && age > (Number(CFG.MR_UP_STUCK_H) || 6) * 3600000) {
+      it.told = 1;
+      try { tgApi_('sendMessage', { chat_id: it.chat || tgChat_(), text: '⏳ تبدیلِ «' + it.base + '» هنوز نرسیده (رانرِ رندر). خودش دوباره امتحان می‌کند؛ اگر فوری است، WAVش را بفرستید.' }); } catch (eT) {}
+    }
+    mrUpPut_(it);
+  }
+  mrUpQueue_(mrUpState_());
+  return done;
 }
 
 /* ───── تریگر ───── */
@@ -826,6 +1064,7 @@ function mrLease_(take) {
 function mrAckText_(data) {
   var p = String(data || '').split('|');
   if (p[0] === 'mm') return p[1] === 'more' ? 'تا چند دقیقهٔ دیگر' : '';
+  if (p[0] === 'mu') return '⚖️ مجوز ثبت شد';
   if (p[0] === 'mb') return '';
   if (p[0] === 'mc') return 'کارتش همین الان می‌آید';
   if (p[2] === 's') { var n = Math.max(1, Math.min(5, Number(p[3]) || 1)); return new Array(n + 1).join('⭐') + ' ثبت شد'; }
@@ -856,10 +1095,11 @@ function tgPollRun_() {
         try {
           if (u.callback_query) {
             var cq = u.callback_query, m = cq.message || {};
-            if (!mrChatOk_(m.chat)) continue;
+            if (!mrChatOk_(m.chat) && !(st.ownerDm && String(m.chat && m.chat.id) === String(st.ownerDm))) continue;
             try { tgApi_('answerCallbackQuery', { callback_query_id: cq.id, text: mrAckText_(cq.data) }); } catch (eA) {}
             st.hotUntil = Date.now() + (Number(CFG.MR_HOT_MIN) || 10) * 60000;
-            if (/^m[mbc]\|/.test(String(cq.data || ''))) mrOnMenuButton_(getHub(), st, cq.data, m.chat.id, m.message_id);
+            if (/^mu\|/.test(String(cq.data || ''))) mrOnUpLic_(getHub(), cq.data, m.chat.id, m.message_id);
+            else if (/^m[mbc]\|/.test(String(cq.data || ''))) mrOnMenuButton_(getHub(), st, cq.data, m.chat.id, m.message_id);
             else mrOnButton_(getHub(), st, cq.data, m.chat.id, m.message_id, !m.audio && !m.document);
             st.clickAt = Date.now();
             out.got++;
@@ -868,6 +1108,8 @@ function tgPollRun_() {
             var um = u.message || u.channel_post;
             /* بازه از صفحهٔ پخش‌کننده (۹.۸۳): از چتِ خصوصیِ ربات می‌آید، نه لزوماً چتِ موتور — امضای پیام جای سدِ چت است. */
             if (um && /^\/start\s+r/.test(String(um.text || ''))) { if (mrStartRange_(getHub(), st, um)) out.got++; }
+            /* موسیقیِ خودِ او (۹.۸۵): از چتِ موتور، یا از چتِ خصوصیِ ربات که با پیوندِ امضاشدهٔ بازه شناخته شد. */
+            else if (um && (mrChatOk_(um.chat) || (st.ownerDm && String(um.chat && um.chat.id) === String(st.ownerDm))) && mrUpOf_(um)) { if (mrOnUpload_(getHub(), st, um)) out.got++; }
             else if (um && mrChatOk_(um.chat) && mrOnText_(getHub(), st, um)) out.got++;
           }
         } catch (eH) { st.lastWhy = String(eH.message || eH).slice(0, 120); }
@@ -877,6 +1119,7 @@ function tgPollRun_() {
     } while (hot() && Date.now() - t0 < maxRun - 8000);
     /* ۹.۸۱، یک بار: ردهای با توضیحی که پیش از این نسخه نوشته شده‌اند هم خوانده می‌شوند. */
     if (st.kbVer !== String(CFG.CODE_VERSION)) { try { mrFixedMenu_(st); } catch (eKb) { st.kbVer = String(CFG.CODE_VERSION); } }
+    try { mrUpPoll_(getHub, st); } catch (eUp) { st.lastWhy = 'upload: ' + String(eUp.message || eUp).slice(0, 100); }
     if (!st.why981) { try { mrRereadWhys_(getHub(), st); } catch (eRw) { st.lastWhy = 'why981: ' + String(eRw.message || eRw).slice(0, 100); } st.why981 = 1; }
     /* تریگر هر دقیقه است (۹.۷۷)؛ بازکردنِ هابِ ۲۹ مگابایتی هر دقیقه سهمیهٔ روزانهٔ اجرا را می‌خورد. پس فرستادن فقط
        وقتی سهمِ امروز پر نیست و ده دقیقه از تلاشِ قبلی گذشته — و سهمِ پر بی هیچ خواندنی دانسته می‌شود. */

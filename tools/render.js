@@ -1296,6 +1296,56 @@ function buildBanner(bn, map, tmp) {
   }
 }
 
+/* ── موسیقیِ فرستاده‌شدهٔ صاحبِ برنامه (۹.۸۵) ─────────────────────────────
+ * Apps Script فقط WAV می‌خوانَد و ffmpeg ندارد؛ او هر قالبی می‌فرستد (MP3، M4A، OGG، FLAC، صدای تلگرام).
+ * موتور اصلِ فایل را «هرکس با لینک» می‌کند و `musicConv` را در صف می‌گذارد؛ این‌جا WAVِ تک‌کاناله
+ * ۴۴٫۱ کیلوهرتز ساخته می‌شود — تک‌کاناله چون موتور هر موسیقی را تک‌کاناله میکس می‌کند، و چون سقفِ ۵۰
+ * مگابایتیِ دریافتِ موتور با دوکاناله زیرِ پنج دقیقه می‌ماند. بیش از هشت دقیقه بریده می‌شود و **گفته** می‌شود.
+ * پاسخ در `map.musicConv[id]` با `req` = امضای درخواست؛ شکست هم با علتش، تا موتور به او بگوید.
+ */
+const MUSIC_CONV_MAX_SEC = 480;
+
+function musicConvTodo(queue, map) {
+  const L = (queue && Array.isArray(queue.musicConv)) ? queue.musicConv : [];
+  const have = map.musicConv || {};
+  return L.filter(x => x && x.id && x.sig && String((have[x.id] || {}).req || '') !== String(x.sig));
+}
+
+function buildMusicConv(list, map, tmp) {
+  let n = 0;
+  for (const x of (list || []).slice(0, 6)) {
+    const dir = fs.mkdtempSync(path.join(tmp, 'mu-'));
+    const at = new Date().toISOString().slice(0, 16).replace('T', ' ');
+    map.musicConv = map.musicConv || {};
+    try {
+      const src = path.join(dir, 'in.bin');
+      fetchTo(dlUrl(x.id), src);
+      if (/^\s*</.test(head(src, Math.min(64, fs.statSync(src).size)).toString('latin1'))) {
+        throw new Error('به‌جای فایل صفحهٔ HTMLی گوگل رسید — اشتراکِ فایل باز نیست');
+      }
+      const out = path.join(dir, 'out.wav');
+      ff(['-i', src, '-vn', '-map', '0:a:0', '-ac', '1', '-ar', '44100', '-c:a', 'pcm_s16le',
+          '-t', String(MUSIC_CONV_MAX_SEC), out]);
+      if (!isWav(out)) throw new Error('WAV ساخته نشد — شاید فایل اصلاً صدا ندارد');
+      const sec = wavSeconds(out);
+      if (!(sec > 0.3)) throw new Error('صدای ساخته‌شده خالی است (' + sec + ' ثانیه)');
+      const url = uploadAsset(ensureRelease(), out, 'music-' + slugOf(x.id) + '-' + slugOf(x.sig) + '.wav', 'audio/wav');
+      if (!url) throw new Error('نشانی برنگشت');
+      map.musicConv[x.id] = { req: String(x.sig), url: url, sec: Math.round(sec * 10) / 10,
+                              bytes: fs.statSync(out).size, cut: sec >= MUSIC_CONV_MAX_SEC - 0.5, at: at };
+      log('  ✔ موسیقیِ صاحبِ برنامه: ' + (x.name || x.id) + ' — ' + Math.round(sec) + ' ثانیه');
+      n++;
+    } catch (e) {
+      map.musicConv[x.id] = { req: String(x.sig), err: String(e.message || e).split('\n')[0].slice(0, 160), at: at };
+      log('  ✗ موسیقیِ صاحبِ برنامه: ' + (x.name || x.id) + ' — ' + map.musicConv[x.id].err);
+      n++;
+    } finally {
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}
+    }
+  }
+  return n;
+}
+
 /* ── ریلزِ اینستاگرام (۹.۲۱) ──────────────────────────────────────────────
  * همان راهِ کاورِ پلی‌لیست: موتور فهرستِ `reels` را در `_YT-RENDER.json` می‌گذارد (صدا، تصویرها، جمله‌ها با زمان)،
  * این‌جا با `reelkit` کشیده می‌شود و نشانیِ MP4 و کاورش در `docs/renders.json` (`reels`) می‌نشیند. جدا از `items`
@@ -1400,7 +1450,7 @@ function brandMark(queue) {
 /** پاسخِ پروب: «کاری هست» = ویدئوی ساخته‌نشده یا کاورِ پلی‌لیستِ کشیده‌نشده. */
 function probeWork(queue, map, hold, now) {
   return (itemsTodo(queue, map, hold, now).todo.length || plCoversTodo(queue, map).length || reelsTodo(queue, map).length ||
-          bannerTodo(queue, map)) ? '1' : '0';
+          bannerTodo(queue, map) || musicConvTodo(queue, map).length) ? '1' : '0';
 }
 
 /** ردیف‌های ساخته‌نشده و نگه‌داشته‌نشده — یک تعریف برای پروب و برای کار. */
@@ -1485,7 +1535,9 @@ function main() {
   }
   const rlTodo = reelsTodo(queue, map);
   if (rlTodo.length) log('ریلزِ اینستاگرام: ' + rlTodo.length + ' تا در صف.');
-  if (!todo.length && !plTodo.length && !bannerTodo(queue, map) && !rlTodo.length) { log('کاری نیست.'); return; }
+  const muTodo = musicConvTodo(queue, map);
+  if (muTodo.length) log('موسیقیِ صاحبِ برنامه برای تبدیل: ' + muTodo.length + ' تا.');
+  if (!todo.length && !plTodo.length && !bannerTodo(queue, map) && !rlTodo.length && !muTodo.length) { log('کاری نیست.'); return; }
 
   let rel = null, made = 0;
   const runT0 = Date.now();
@@ -1643,7 +1695,11 @@ function main() {
   let rlMade = 0;
   try { rlMade = buildReels(rlTodo, map, tmp); }
   catch (eRl) { log('ریلزِ اینستاگرام: ' + String(eRl.message).split('\n')[0]); }
-  if (made || plMade || bnMade || rlMade) writeMap(map);
+  /* موسیقیِ صاحبِ برنامه پیش از همه نیست ولی جدا از آن‌هاست: یک تبدیلِ چندثانیه‌ای نباید پشتِ ویدئوی کشته‌شده بماند. */
+  let muMade = 0;
+  try { muMade = buildMusicConv(muTodo, map, tmp); }
+  catch (eMu) { log('موسیقیِ صاحبِ برنامه: ' + String(eMu.message).split('\n')[0]); }
+  if (made || plMade || bnMade || rlMade || muMade) writeMap(map);
   log('ساخته شد: ' + made + ' از ' + Math.min(todo.length, MAX_PER_RUN) + ' تلاش' +
       (plMade ? ' · ' + plMade + ' کاورِ پلی‌لیست' : ''));
   try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) {}
@@ -1653,7 +1709,7 @@ function main() {
    * نیست؛ از کلِ محیط است (همان ENOENTِ ffmpeg). آن باید قرمز شود تا دیده
    * شود. ولی یک قسمتِ خرابِ تنها نباید هفته‌ها اکشن را قرمز نگه دارد —
    * هشدارِ همیشه‌قرمز همان هشداری است که آدم یاد می‌گیرد نبیند. */
-  if (todo.length && made === 0 && !plMade && !bnMade && !rlMade) {
+  if (todo.length && made === 0 && !plMade && !bnMade && !rlMade && !muMade) {
     log('هیچ ویدئویی ساخته نشد در حالی که ' + todo.length + ' تا در صف بود.');
     process.exitCode = 1;
   }
@@ -1672,5 +1728,5 @@ module.exports = {
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
   specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo, prepMedia, spliceMoments, fitSize,
   momentSize, plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, brandMark, itemsTodo, slugOf, probeWork, builtFor,
-  reelsTodo, buildReels
+  reelsTodo, buildReels, musicConvTodo, buildMusicConv
 };

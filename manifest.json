@@ -1,13 +1,14 @@
 {
-  "version": "9.84",
+  "version": "9.85",
   "codeFile": "engine.gs",
-  "sha256": "ec422c303c5fdb6289e328de322d928e0038c3a17d572313e91140948aa82c07",
-  "releasedAt": "2026-10-20T20:24:28Z",
-  "summary": "بازهٔ صاحبِ برنامه کامل پخش می‌شود و اضافه‌اش کم‌صدا زیرِ گفتارِ بعدی می‌نشیند",
+  "sha256": "6ccef827915954c8f569048c7fbb2e0ad05e195a6dd1ec6f83a4fc8e5c241ba2",
+  "releasedAt": "2026-10-20T20:48:27Z",
+  "summary": "موسیقیِ فرستاده به ربات در هر قالب ⇒ WAV در بانک، با برچسب از نوشتهٔ زیرش و پرسشِ مجوز",
   "fixes": [
-    "clipOf: قطعهٔ بازه‌دار از آغازِ بازه و تا پایانش (سقفِ MUSIC_MAX_CLIP_SEC)",
-    "musicUnderOut_ + pcmXfade_ حالتِ under: موسیقی تا MUSIC_UNDER_BED زیرِ گفتار، سپس محو",
-    "synthCarry_ حالتِ خروج را در ازسرگیری نگه می‌دارد"
+    "mrOnUpload_: فایلِ صوتی از چتِ موتور یا چتِ خصوصیِ شناخته‌شده ⇒ getFile ⇒ WAV در بانک یا اصل در صفِ تبدیل",
+    "render.js musicConvTodo/buildMusicConv: ffmpeg ⇒ WAVِ تک‌کاناله، نشانی در docs/renders.json",
+    "mrUpPoll_: برداشتن، سنجشِ RIFF، خصوصی‌کردنِ اصل؛ یادآوری پس از ۶ ساعت",
+    "mrOnUpLic_ + musicLicense_: تا مجوز گفته نشده پخش نمی‌شود"
   ],
   "sourceReportIds": [],
   "answers": []
