@@ -1364,6 +1364,15 @@ function musicPlanCachePut_(key, plan) {
 /* طولِ هم‌پوشانی، جایگاه‌به‌جایگاه. یک عددِ ثابت برای هر سه غلط است:
    ۲٫۴ ثانیه سرِ یک قطعهٔ میانهٔ هفت‌ثانیه‌ای، دو سرش را می‌خورد و از خودِ
    موسیقی چیزی نمی‌مانَد. */
+/** بازهٔ بلندِ صاحبِ برنامه ⇒ خروجِ «زیرِ گفتار» برای تکهٔ موسیقی؛ بی بازه یا کوتاه ⇒ {} (همان رفتارِ قبل). */
+function musicUnderOut_(b, slotSecs) {
+  if (!b || !b.range || !(b.range.to > b.range.from) || CFG.MUSIC_UNDER === false) return {};
+  var len = Math.min(Number(CFG.MUSIC_MAX_CLIP_SEC) || 45, b.range.to - b.range.from);
+  var extra = len - (Number(slotSecs) || 0);
+  if (!(extra > 1)) return {};
+  return { xfadeOut: Math.min(extra, Number(CFG.MUSIC_UNDER_MAX_SEC) || 40), xmodeOut: 'under' };
+}
+
 function xfEdgeSec_() {
   var v = Number(CFG.MUSIC_XFADE_EDGE_SEC);
   return v > 0 ? v : (Number(CFG.MUSIC_XFADE_SEC) || 1.8);
@@ -1711,11 +1720,11 @@ function musicWrap_(chunks, hub, opt) {
        `bridgeStart`ِ مشترک. */
     var st0 = (opts.start !== undefined && opts.start !== null && opts.start !== '')
             ? Number(opts.start) : Number(plan[slot + 'Start']);
-    /* بازهٔ صاحبِ برنامه (۹.۸۱): «فلان ثانیه تا فلان … بقیه رو در نظر نگیره» — شروع و طول درونِ همان بازه. */
+    /* بازهٔ صاحبِ برنامه (۹.۸۱، کامل از ۹.۸۴): «اونایی که می‌زنم و پایانشم مشخص می‌کنم بهتره کامل انجام بشه». از شروعِ
+       همان بازه تا پایانش (تا سقفِ برش)؛ آنچه از جای معمولِ این جایگاه بیشتر است، کم‌صدا زیرِ حرفِ گوینده (`musicUnderOut_`). */
     if (b.range && b.range.to > b.range.from) {
-      st0 = Math.max(b.range.from, Math.min(Number(st0) || 0, b.range.to - 1));
-      if (!(Number(st0) >= b.range.from)) st0 = b.range.from;
-      len = Math.max(1, Math.min(len, b.range.to - st0));
+      st0 = b.range.from;
+      len = Math.max(1, Math.min(Number(CFG.MUSIC_MAX_CLIP_SEC) || 45, b.range.to - b.range.from));
     }
     return musicClip_(b.id, {
       startSec: Number(st0) || 0, lenSec: len, fadeCurve: tail ? 'tail' : '',
@@ -1737,8 +1746,8 @@ function musicWrap_(chunks, hub, opt) {
     // آغازِ قسمت همسایه‌ای ندارد → محوِ کامل؛ انتهایش به گفتار می‌رسد → تلفیق.
     var ib = clipOf(intro, 'intro', Number(CFG.MUSIC_INTRO_SEC) || 8,
                     { inEdge: 'soft', outEdge: 'xf' });
-    if (ib) { out.push({ pcm: ib, label: 'موسیقیِ آغاز — ' + intro.name,
-                         xfade: xfEdgeSec_() });
+    if (ib) { out.push(Object.assign({ pcm: ib, label: 'موسیقیِ آغاز — ' + intro.name,
+                         xfade: xfEdgeSec_() }, musicUnderOut_(intro, Number(CFG.MUSIC_INTRO_SEC) || 8)));
               // نسخه، نه خودِ ردیف: وقتی یک قطعه هم آغاز است هم پایان،
               // `track.slot = ...` دومی اولی را بازنویسی می‌کرد و ردیفِ
               // «شروع» در تاریخچه «پایان» ثبت می‌شد. در قسمتِ ۱۸ همین شد.
@@ -1876,9 +1885,9 @@ function musicWrap_(chunks, hub, opt) {
       var bb = clipOf(w.track, 'bridge', Number(CFG.MUSIC_BRIDGE_SEC) || 4,
                       { inEdge: 'bed', bed: bridgeBed, outEdge: 'xf', start: w.start });
       if (bb) {
-        out.push({ pcm: bb, label: 'موسیقیِ میانه — ' + w.track.name +
+        out.push(Object.assign({ pcm: bb, label: 'موسیقیِ میانه — ' + w.track.name +
                         (w.head ? ' (پیش از «' + w.head + '»)' : ''),
-                   xfade: xfBridgeSec_(), xmode: 'bed' });
+                   xfade: xfBridgeSec_(), xmode: 'bed' }, musicUnderOut_(w.track, Number(CFG.MUSIC_BRIDGE_SEC) || 4)));
         picks.push(pickOf_(w.track, 'میانه'));
       }
     }

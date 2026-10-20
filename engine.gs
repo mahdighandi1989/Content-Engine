@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.83
+ *  موتور محتوا و پادکست — نسخهٔ 9.84
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1835,6 +1835,9 @@ var CFG = {
   MUSIC_TALKUP_BED: 0.4,       // موسیقی → گفتار: بلندیِ موسیقی زیرِ نخستین جمله‌ها، پیش از محوِ آرام (۹.۴۰؛ جای FLOOR/RISE)
   MUSIC_TALKUP_DUCK_SEC: 0.6,  // و در چند ثانیه تا آن بستر پایین می‌آید
   MUSIC_BED_RISE_SEC: 2.5,     // گفتار → پل: پس از رفتنِ صدا، از بستر تا بلندیِ کامل (۹.۴۰)
+  MUSIC_UNDER: true,           // ۹.۸۴: بازهٔ بلندِ صاحبِ برنامه کامل پخش می‌شود؛ بیش از جای معمول، کم‌صدا زیرِ گوینده
+  MUSIC_UNDER_BED: 0.22,       // بلندیِ موسیقی زیرِ حرف (کمتر از بسترِ پایان — این‌جا طولانی است)
+  MUSIC_UNDER_MAX_SEC: 40,     // سقفِ زیرِ گفتار
   MUSIC_DUCK_UNDER: 0.5,       // موسیقی زیرِ صدای گوینده تا این ضریب
   MUSIC_XFADE_HOLD: 0.5,       // گفتار→موسیقی: واژه‌های پایانی بریده نشوند
   MUSIC_SPEECH_LEAD_SEC: 0.12, // موسیقی→گفتار: سکوتِ آغازِ گفتار تا این‌قدر کوتاه می‌شود تا تلفیق روی خودِ صدا بیفتد (۹.۰۱)
@@ -2202,7 +2205,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.83',
+  CODE_VERSION: '9.84',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -10686,7 +10689,11 @@ function pcmXfade_(prevB64, nextB64, secs, prevIsMusic, mode) {
      تکهٔ گفتارِ کوتاه (یک جملهٔ پایانِ بخش) دقیقاً همان‌جایی است که
      موسیقیِ میانه می‌آید، پس این حالت نادر نبود؛ قاعده بود. */
   var wantChars = Math.floor(Math.floor((Number(secs) || 0) * sr) * 2 / 6) * 6 / 3 * 4;
-  var room = Math.min(Math.floor(prevB64.length / 2), Math.floor(nextB64.length / 2));
+  /* «زیرِ گفتار» (۹.۸۴): بازه‌ای که صاحبِ برنامه خودش تا پایانش زده، کامل پخش می‌شود — بیش از آنچه جای موسیقیِ تنهاست،
+     کم‌صدا زیرِ حرفِ گوینده. هم‌پوشانی دیگر به نیمِ هر طرف محدود نیست؛ به کلِ موسیقی و کلِ تکهٔ گفتار. */
+  var underMode = (mode === 'under' && prevIsMusic === true);
+  var room = underMode ? Math.min(prevB64.length - 8, nextB64.length - 8)
+                       : Math.min(Math.floor(prevB64.length / 2), Math.floor(nextB64.length / 2));
   var chars = Math.min(wantChars, room);
   chars = Math.floor(chars / 8) * 8;          // مرزِ نمونه × مرزِ گروهِ base64
   var minChars = Math.floor(
@@ -10718,10 +10725,18 @@ function pcmXfade_(prevB64, nextB64, secs, prevIsMusic, mode) {
   var duckN = Math.max(1, Math.min(Math.floor(cnt * 0.3),
                                    Math.floor(sr * (Number(CFG.MUSIC_TALKUP_DUCK_SEC) || 0.6))));
 
+  var ubed = Number(CFG.MUSIC_UNDER_BED); if (!(ubed > 0 && ubed < 1)) ubed = 0.22;
+  var uDuck = Math.max(1, Math.min(Math.floor(cnt * 0.2), Math.floor(sr * 0.8)));
+  var uFade = Math.max(1, Math.min(Math.floor(cnt * 0.3), Math.floor(sr * 3)));
   var out = [];
   for (var k = 0; k < cnt; k++) {
     var i2 = k * 2, t = k / cnt, ga, gb;
-    if (bedMode && prevIsMusic === false) {
+    if (underMode) {
+      // موسیقی زیرِ حرف: در ۰٫۸ ثانیه تا بستر، همان‌جا می‌ماند، و در سه ثانیهٔ آخر با شیبِ S تا صفر؛ گوینده کامل.
+      ga = k < uDuck ? 1 - (1 - ubed) * xfRc_(k / uDuck)
+         : k > cnt - uFade ? ubed * xfRc_((cnt - k) / uFade) : ubed;
+      gb = 1;
+    } else if (bedMode && prevIsMusic === false) {
       // بسترِ پایانی (۶٫۷۰): موسیقی از پیش در خودِ قطعه شکل گرفته (bedIn)
       // و همین‌طور که هست زیرِ آخرین جمله‌ها می‌نشیند؛ گفتار تا نزدیکِ
       // انتها دست‌نخورده می‌مانَد و فقط دنباله‌اش با شیبِ S فرود می‌آید.
@@ -10904,7 +10919,8 @@ function synthCarry_(st, chunks) {
   if (!bytes || bytes.length <= 54 + 6) return null;
   var b64 = alignB64_(Utilities.base64Encode(bytes.slice(54)));   // سرِ ۵۴ بایتیِ wavHeader54_
   if (!b64) return null;
-  return { file: last, b64: b64, prevMusic: a, prevXf: Number(chunks[i - 1] && chunks[i - 1].xfade) || 0 };
+  return { file: last, b64: b64, prevMusic: a, prevXf: Number(chunks[i - 1] && chunks[i - 1].xfade) || 0,
+           prevXfOut: Number(chunks[i - 1] && chunks[i - 1].xfadeOut) || 0, prevXmOut: String((chunks[i - 1] && chunks[i - 1].xmodeOut) || '') };
 }
 
 /**
@@ -10930,12 +10946,15 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
   // نیست: تکه‌ای که b64ِ خالی داد اصلاً وارد بافر نشده، پس طولش هم مالِ
   // این اتصال نیست.
   var prevXf = 0;
+  /* و خروجِ موسیقی، اگر جدا اعلام شده (۹.۸۴: بازهٔ بلندِ صاحبِ برنامه ⇒ «زیرِ گفتار»). */
+  var prevXfOut = 0, prevXmOut = '';
   /* ══ مرزِ دو اجرا کنارِ موسیقی (۹.۴۰) ══ — `synthCarry_` بخشِ پیشین را برگردانده؛ همین‌جا ادامه‌اش می‌دهیم تا تلفیق
      رویش بیفتد. فایلِ کهنه فقط **پس از** نوشتنِ جانشینش به سطل می‌رود. */
   var carryOld = '';
   if (carry && carry.b64) {
     buf.push(carry.b64); bufChars = carry.b64.length;
     prevMusic = !!carry.prevMusic; prevXf = Number(carry.prevXf) || 0;
+    prevXfOut = Number(carry.prevXfOut) || 0; prevXmOut = String(carry.prevXmOut || '');
     carryOld = carry.file && carry.file.id ? String(carry.file.id) : '';
   }
   var carryDrop = function () {
@@ -11026,13 +11045,13 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     }
     if (CFG.MUSIC_XFADE !== false && buf.length && prevMusic !== null &&
         prevMusic !== curMusic) {
-      var xs = curMusic ? Number(chunks[i] && chunks[i].xfade) : prevXf;
+      var xs = curMusic ? Number(chunks[i] && chunks[i].xfade) : (prevXfOut > 0 ? prevXfOut : prevXf);
       if (!(xs > 0)) xs = Number(CFG.MUSIC_XFADE_SEC) || 0;
       try {
         // شکلِ گذر به این بستگی دارد که کدام طرف موسیقی است — گفتار
         // هرگز مثل موسیقی محو نمی‌شود. تکهٔ موسیقی می‌تواند حالتِ خودش را
         // اعلام کند (xmode='outro' → بسترِ پایانی زیرِ آخرین جمله‌ها).
-        var xm = curMusic ? String((chunks[i] && chunks[i].xmode) || '') : '';
+        var xm = curMusic ? String((chunks[i] && chunks[i].xmode) || '') : prevXmOut;
         var mix = pcmXfade_(buf[buf.length - 1], b64, xs, !curMusic, xm);
         if (mix) {
           bufChars += mix[0].length - buf[buf.length - 1].length;
@@ -11043,6 +11062,7 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     }
     prevMusic = curMusic;
     prevXf = Number(chunks[i] && chunks[i].xfade) || 0;
+    prevXfOut = Number(chunks[i] && chunks[i].xfadeOut) || 0; prevXmOut = String((chunks[i] && chunks[i].xmodeOut) || '');
 
     if (bufChars + b64.length > maxB64 && buf.length) {
       var f = writeWavPart_(buf, baseName, partNo, folder);
@@ -41126,6 +41146,15 @@ function musicPlanCachePut_(key, plan) {
 /* طولِ هم‌پوشانی، جایگاه‌به‌جایگاه. یک عددِ ثابت برای هر سه غلط است:
    ۲٫۴ ثانیه سرِ یک قطعهٔ میانهٔ هفت‌ثانیه‌ای، دو سرش را می‌خورد و از خودِ
    موسیقی چیزی نمی‌مانَد. */
+/** بازهٔ بلندِ صاحبِ برنامه ⇒ خروجِ «زیرِ گفتار» برای تکهٔ موسیقی؛ بی بازه یا کوتاه ⇒ {} (همان رفتارِ قبل). */
+function musicUnderOut_(b, slotSecs) {
+  if (!b || !b.range || !(b.range.to > b.range.from) || CFG.MUSIC_UNDER === false) return {};
+  var len = Math.min(Number(CFG.MUSIC_MAX_CLIP_SEC) || 45, b.range.to - b.range.from);
+  var extra = len - (Number(slotSecs) || 0);
+  if (!(extra > 1)) return {};
+  return { xfadeOut: Math.min(extra, Number(CFG.MUSIC_UNDER_MAX_SEC) || 40), xmodeOut: 'under' };
+}
+
 function xfEdgeSec_() {
   var v = Number(CFG.MUSIC_XFADE_EDGE_SEC);
   return v > 0 ? v : (Number(CFG.MUSIC_XFADE_SEC) || 1.8);
@@ -41473,11 +41502,11 @@ function musicWrap_(chunks, hub, opt) {
        `bridgeStart`ِ مشترک. */
     var st0 = (opts.start !== undefined && opts.start !== null && opts.start !== '')
             ? Number(opts.start) : Number(plan[slot + 'Start']);
-    /* بازهٔ صاحبِ برنامه (۹.۸۱): «فلان ثانیه تا فلان … بقیه رو در نظر نگیره» — شروع و طول درونِ همان بازه. */
+    /* بازهٔ صاحبِ برنامه (۹.۸۱، کامل از ۹.۸۴): «اونایی که می‌زنم و پایانشم مشخص می‌کنم بهتره کامل انجام بشه». از شروعِ
+       همان بازه تا پایانش (تا سقفِ برش)؛ آنچه از جای معمولِ این جایگاه بیشتر است، کم‌صدا زیرِ حرفِ گوینده (`musicUnderOut_`). */
     if (b.range && b.range.to > b.range.from) {
-      st0 = Math.max(b.range.from, Math.min(Number(st0) || 0, b.range.to - 1));
-      if (!(Number(st0) >= b.range.from)) st0 = b.range.from;
-      len = Math.max(1, Math.min(len, b.range.to - st0));
+      st0 = b.range.from;
+      len = Math.max(1, Math.min(Number(CFG.MUSIC_MAX_CLIP_SEC) || 45, b.range.to - b.range.from));
     }
     return musicClip_(b.id, {
       startSec: Number(st0) || 0, lenSec: len, fadeCurve: tail ? 'tail' : '',
@@ -41499,8 +41528,8 @@ function musicWrap_(chunks, hub, opt) {
     // آغازِ قسمت همسایه‌ای ندارد → محوِ کامل؛ انتهایش به گفتار می‌رسد → تلفیق.
     var ib = clipOf(intro, 'intro', Number(CFG.MUSIC_INTRO_SEC) || 8,
                     { inEdge: 'soft', outEdge: 'xf' });
-    if (ib) { out.push({ pcm: ib, label: 'موسیقیِ آغاز — ' + intro.name,
-                         xfade: xfEdgeSec_() });
+    if (ib) { out.push(Object.assign({ pcm: ib, label: 'موسیقیِ آغاز — ' + intro.name,
+                         xfade: xfEdgeSec_() }, musicUnderOut_(intro, Number(CFG.MUSIC_INTRO_SEC) || 8)));
               // نسخه، نه خودِ ردیف: وقتی یک قطعه هم آغاز است هم پایان،
               // `track.slot = ...` دومی اولی را بازنویسی می‌کرد و ردیفِ
               // «شروع» در تاریخچه «پایان» ثبت می‌شد. در قسمتِ ۱۸ همین شد.
@@ -41638,9 +41667,9 @@ function musicWrap_(chunks, hub, opt) {
       var bb = clipOf(w.track, 'bridge', Number(CFG.MUSIC_BRIDGE_SEC) || 4,
                       { inEdge: 'bed', bed: bridgeBed, outEdge: 'xf', start: w.start });
       if (bb) {
-        out.push({ pcm: bb, label: 'موسیقیِ میانه — ' + w.track.name +
+        out.push(Object.assign({ pcm: bb, label: 'موسیقیِ میانه — ' + w.track.name +
                         (w.head ? ' (پیش از «' + w.head + '»)' : ''),
-                   xfade: xfBridgeSec_(), xmode: 'bed' });
+                   xfade: xfBridgeSec_(), xmode: 'bed' }, musicUnderOut_(w.track, Number(CFG.MUSIC_BRIDGE_SEC) || 4)));
         picks.push(pickOf_(w.track, 'میانه'));
       }
     }

@@ -5999,7 +5999,11 @@ function pcmXfade_(prevB64, nextB64, secs, prevIsMusic, mode) {
      تکهٔ گفتارِ کوتاه (یک جملهٔ پایانِ بخش) دقیقاً همان‌جایی است که
      موسیقیِ میانه می‌آید، پس این حالت نادر نبود؛ قاعده بود. */
   var wantChars = Math.floor(Math.floor((Number(secs) || 0) * sr) * 2 / 6) * 6 / 3 * 4;
-  var room = Math.min(Math.floor(prevB64.length / 2), Math.floor(nextB64.length / 2));
+  /* «زیرِ گفتار» (۹.۸۴): بازه‌ای که صاحبِ برنامه خودش تا پایانش زده، کامل پخش می‌شود — بیش از آنچه جای موسیقیِ تنهاست،
+     کم‌صدا زیرِ حرفِ گوینده. هم‌پوشانی دیگر به نیمِ هر طرف محدود نیست؛ به کلِ موسیقی و کلِ تکهٔ گفتار. */
+  var underMode = (mode === 'under' && prevIsMusic === true);
+  var room = underMode ? Math.min(prevB64.length - 8, nextB64.length - 8)
+                       : Math.min(Math.floor(prevB64.length / 2), Math.floor(nextB64.length / 2));
   var chars = Math.min(wantChars, room);
   chars = Math.floor(chars / 8) * 8;          // مرزِ نمونه × مرزِ گروهِ base64
   var minChars = Math.floor(
@@ -6031,10 +6035,18 @@ function pcmXfade_(prevB64, nextB64, secs, prevIsMusic, mode) {
   var duckN = Math.max(1, Math.min(Math.floor(cnt * 0.3),
                                    Math.floor(sr * (Number(CFG.MUSIC_TALKUP_DUCK_SEC) || 0.6))));
 
+  var ubed = Number(CFG.MUSIC_UNDER_BED); if (!(ubed > 0 && ubed < 1)) ubed = 0.22;
+  var uDuck = Math.max(1, Math.min(Math.floor(cnt * 0.2), Math.floor(sr * 0.8)));
+  var uFade = Math.max(1, Math.min(Math.floor(cnt * 0.3), Math.floor(sr * 3)));
   var out = [];
   for (var k = 0; k < cnt; k++) {
     var i2 = k * 2, t = k / cnt, ga, gb;
-    if (bedMode && prevIsMusic === false) {
+    if (underMode) {
+      // موسیقی زیرِ حرف: در ۰٫۸ ثانیه تا بستر، همان‌جا می‌ماند، و در سه ثانیهٔ آخر با شیبِ S تا صفر؛ گوینده کامل.
+      ga = k < uDuck ? 1 - (1 - ubed) * xfRc_(k / uDuck)
+         : k > cnt - uFade ? ubed * xfRc_((cnt - k) / uFade) : ubed;
+      gb = 1;
+    } else if (bedMode && prevIsMusic === false) {
       // بسترِ پایانی (۶٫۷۰): موسیقی از پیش در خودِ قطعه شکل گرفته (bedIn)
       // و همین‌طور که هست زیرِ آخرین جمله‌ها می‌نشیند؛ گفتار تا نزدیکِ
       // انتها دست‌نخورده می‌مانَد و فقط دنباله‌اش با شیبِ S فرود می‌آید.
@@ -6217,7 +6229,8 @@ function synthCarry_(st, chunks) {
   if (!bytes || bytes.length <= 54 + 6) return null;
   var b64 = alignB64_(Utilities.base64Encode(bytes.slice(54)));   // سرِ ۵۴ بایتیِ wavHeader54_
   if (!b64) return null;
-  return { file: last, b64: b64, prevMusic: a, prevXf: Number(chunks[i - 1] && chunks[i - 1].xfade) || 0 };
+  return { file: last, b64: b64, prevMusic: a, prevXf: Number(chunks[i - 1] && chunks[i - 1].xfade) || 0,
+           prevXfOut: Number(chunks[i - 1] && chunks[i - 1].xfadeOut) || 0, prevXmOut: String((chunks[i - 1] && chunks[i - 1].xmodeOut) || '') };
 }
 
 /**
@@ -6243,12 +6256,15 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
   // نیست: تکه‌ای که b64ِ خالی داد اصلاً وارد بافر نشده، پس طولش هم مالِ
   // این اتصال نیست.
   var prevXf = 0;
+  /* و خروجِ موسیقی، اگر جدا اعلام شده (۹.۸۴: بازهٔ بلندِ صاحبِ برنامه ⇒ «زیرِ گفتار»). */
+  var prevXfOut = 0, prevXmOut = '';
   /* ══ مرزِ دو اجرا کنارِ موسیقی (۹.۴۰) ══ — `synthCarry_` بخشِ پیشین را برگردانده؛ همین‌جا ادامه‌اش می‌دهیم تا تلفیق
      رویش بیفتد. فایلِ کهنه فقط **پس از** نوشتنِ جانشینش به سطل می‌رود. */
   var carryOld = '';
   if (carry && carry.b64) {
     buf.push(carry.b64); bufChars = carry.b64.length;
     prevMusic = !!carry.prevMusic; prevXf = Number(carry.prevXf) || 0;
+    prevXfOut = Number(carry.prevXfOut) || 0; prevXmOut = String(carry.prevXmOut || '');
     carryOld = carry.file && carry.file.id ? String(carry.file.id) : '';
   }
   var carryDrop = function () {
@@ -6339,13 +6355,13 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     }
     if (CFG.MUSIC_XFADE !== false && buf.length && prevMusic !== null &&
         prevMusic !== curMusic) {
-      var xs = curMusic ? Number(chunks[i] && chunks[i].xfade) : prevXf;
+      var xs = curMusic ? Number(chunks[i] && chunks[i].xfade) : (prevXfOut > 0 ? prevXfOut : prevXf);
       if (!(xs > 0)) xs = Number(CFG.MUSIC_XFADE_SEC) || 0;
       try {
         // شکلِ گذر به این بستگی دارد که کدام طرف موسیقی است — گفتار
         // هرگز مثل موسیقی محو نمی‌شود. تکهٔ موسیقی می‌تواند حالتِ خودش را
         // اعلام کند (xmode='outro' → بسترِ پایانی زیرِ آخرین جمله‌ها).
-        var xm = curMusic ? String((chunks[i] && chunks[i].xmode) || '') : '';
+        var xm = curMusic ? String((chunks[i] && chunks[i].xmode) || '') : prevXmOut;
         var mix = pcmXfade_(buf[buf.length - 1], b64, xs, !curMusic, xm);
         if (mix) {
           bufChars += mix[0].length - buf[buf.length - 1].length;
@@ -6356,6 +6372,7 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     }
     prevMusic = curMusic;
     prevXf = Number(chunks[i] && chunks[i].xfade) || 0;
+    prevXfOut = Number(chunks[i] && chunks[i].xfadeOut) || 0; prevXmOut = String((chunks[i] && chunks[i].xmodeOut) || '');
 
     if (bufChars + b64.length > maxB64 && buf.length) {
       var f = writeWavPart_(buf, baseName, partNo, folder);

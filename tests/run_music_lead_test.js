@@ -120,3 +120,32 @@ console.log('=== ۴) شکلِ گذرها: گوینده کامل، موسیقی �
      s[Math.floor(SR * (3.5 + Number(CFG.MUSIC_BED_RISE_SEC)))] === 10000);
 }
 console.log('\n' + pass + ' passed');
+
+console.log('=== ۵) «اگر طولانی هم بود … زیرِ صحبتِ گوینده با صدای کم پخش بشه» (۹.۸۴) ===');
+{
+  const mono = (n, f) => { const b = []; for (let i = 0; i < n; i++) { let v = f(i); if (v < 0) v += 65536;
+    const lo = v & 255, hi = (v >>> 8) & 255; b.push(lo > 127 ? lo - 256 : lo, hi > 127 ? hi - 256 : hi); }
+    while (b.length % 6) b.push(0); return Utilities.base64Encode(b); };
+  /* بازهٔ ۴۰ ثانیه‌ایِ او برای آغاز (جای معمول ۱۸) ⇒ ۲۲ ثانیه زیرِ گفتار */
+  const tr = { id: 'T', name: 't', range: { from: 0, to: 40 } };
+  const uo = musicUnderOut_(tr, 18);
+  ok('۵.۱ بازهٔ بلند ⇒ خروجِ «زیرِ گفتار» به اندازهٔ زیادی‌اش؛ بی بازه یا کوتاه ⇒ همان رفتارِ قبل',
+     uo.xmodeOut === 'under' && Math.abs(uo.xfadeOut - 22) < 0.01 && !musicUnderOut_({ id: 'x' }, 18).xmodeOut && !musicUnderOut_({ range: { from: 0, to: 18.5 } }, 18).xmodeOut, JSON.stringify(uo));
+  const music = mono(SR * 40, () => 6000);
+  const speech = mono(SR * 30, (i) => Math.round(6000 * Math.sin(2 * Math.PI * 220 * i / SR)));
+  const realTts = global.ttsChunk_, realCue = global.ttsCueWanted_;
+  global.ttsChunk_ = () => speech; global.ttsCueWanted_ = () => false;
+  const folder = DriveApp.getFolderById('nope').createFolder('under');
+  const chunks = [Object.assign({ pcm: music, xfade: 3 }, uo), { text: 'گفتار' }];
+  const r = synthesizeStep_(chunks, 'ز', folder, 0, 1, Date.now() + 600000, null, 0);
+  global.ttsChunk_ = realTts; global.ttsCueWanted_ = realCue;
+  const b = DriveApp.getFileById(r.files[r.files.length - 1].id).getBlob().getBytes().slice(54);
+  const meanAt = (fromSec, lenSec) => { let s = 0, n = 0; for (let k = Math.floor(fromSec * SR); k < Math.floor((fromSec + lenSec) * SR); k++) { s += rd16_(b, k * 2); n++; } return s / n; };
+  const total = b.length / 2 / SR;
+  /* گفتار از ثانیهٔ ۱۸ شروع می‌شود (۴۰ − ۲۲)؛ موسیقیِ ثابت میانگینِ مثبت دارد، گفتار میانگینِ صفر */
+  const alone = meanAt(10, 1), under = meanAt(18 + 10, 1), after = meanAt(18 + 25, 1);
+  ok('۵.۲ پیش از گفتار موسیقی کامل', Math.abs(alone - 6000) < 300, alone.toFixed(0));
+  ok('۵.۳ ده ثانیه پس از آغازِ گفتار، موسیقی هنوز زیرِ حرف هست — کم‌صدا (بستر)', under > 0.15 * 6000 && under < 0.3 * 6000, under.toFixed(0));
+  ok('۵.۴ و پس از پایانِ بازه رفته است؛ کلِ فایل = ۴۰ + ۳۰ − ۲۲ ثانیه (هم‌پوشانی، نه دنباله)', Math.abs(after) < 200 && Math.abs(total - 48) < 0.6, after.toFixed(0) + ' / ' + total.toFixed(2));
+  ok('۵.۵ هر دو جای موسیقی (آغاز و پل) خروجِ «زیرِ گفتار» را می‌گیرند', (fs.readFileSync('src/23_Music.gs', 'utf8').match(/musicUnderOut_\((intro|w\.track),/g) || []).length === 2);
+}

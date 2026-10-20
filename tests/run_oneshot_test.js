@@ -2507,7 +2507,7 @@ console.log('=== ۳۲) تلفیقِ لبهٔ موسیقی و گفتار ===');
   const p03b = fs.readFileSync('src/03_Producer.gs', 'utf8');
   ok('۳۲.۱۷ در حلقهٔ صداگذاری صدا زده می‌شود، با اعلامِ اینکه کدام طرف موسیقی است',
      /pcmXfade_\(buf\[buf\.length - 1\], b64, xs, !curMusic, xm\)/.test(p03b) &&
-     /var xm = curMusic \? String\(\(chunks\[i\] && chunks\[i\]\.xmode\) \|\| ''\) : ''/.test(p03b));
+     /var xm = curMusic \? String\(\(chunks\[i\] && chunks\[i\]\.xmode\) \|\| ''\) : prevXmOut/.test(p03b));
   ok('۳۲.۱۸ فقط سرِ مرزِ موسیقی↔گفتار، نه میانِ دو تکهٔ گفتار',
      /prevMusic !== curMusic/.test(p03b));
   ok('۳۲.۱۹ و طولِ تلفیق از تکه‌ای می‌آید که واقعاً در بافر نشست',

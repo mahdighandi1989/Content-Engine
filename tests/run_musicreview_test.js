@@ -431,7 +431,7 @@ console.log('=== ۱۱) «رد با توضیح … بهش حتماً توجه ب�
   const bR = musicBank_(hub).filter(b => b.id === fR.getId())[0];
   ok('۱۱.۷ بانک بازه را می‌شناسد', bR && bR.range && bR.range.from === 30 && bR.range.to === 60);
   const clipSrc = String(musicWrap_);
-  ok('۱۱.۸ و برشِ قطعه درونِ همان بازه است (شروع و طول)', /b\.range && b\.range\.to > b\.range\.from/.test(clipSrc) && /len = Math\.max\(1, Math\.min\(len, b\.range\.to - st0\)\)/.test(clipSrc));
+  ok('۱۱.۸ و برشِ قطعه درونِ همان بازه است (شروع و طول)', /b\.range && b\.range\.to > b\.range\.from/.test(clipSrc) && /st0 = b\.range\.from/.test(clipSrc) && /len = Math\.max\(1, Math\.min\([^;]*b\.range\.to - b\.range\.from\)\)/.test(clipSrc));
 
   const rw = mrReadWhy_('صدای زشتیه، اصلاً موسیقی نیست', { kind: 'موسیقی' });
   ok('۱۱.۹ ردِ واقعی رد می‌ماند', rw.act === 'رد');
