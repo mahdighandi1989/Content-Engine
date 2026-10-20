@@ -660,6 +660,7 @@ function igImgGate_(items) {
     var r = v && v[String(k)];
     if (!r) return { ok: false, why: 'داور تصویرِ ' + k + ' را نسنجید' };
     if (r.txt) return { ok: false, why: 'تصویرِ ' + k + ' نوشته داشت' + (r.why ? ' (' + r.why + ')' : '') };
+    if (r.holy) return { ok: false, why: 'تصویرِ ' + k + ' پیکرِ پیامبر یا چهره‌ای مقدس را نشان می‌داد' + (r.why ? ' (' + r.why + ')' : '') };
     if (r.face) return { ok: false, why: 'تصویرِ ' + k + ' چهرهٔ واقعی داشت' };
   }
   return { ok: true, why: '' };
@@ -695,7 +696,7 @@ function igStepImages_(it, fo, plan, deadline) {
             ids.push({ id: cp.getId(), src: pick[q].getId() });
           }
           how = 'نقاشی‌های درس';
-          plan.imgOk = 1;
+          plan.imgOk = IG_IMG_GATE_V;
         } else {
           plan.imgGate = gate.why;
         }
@@ -713,7 +714,7 @@ function igStepImages_(it, fo, plan, deadline) {
         var ln = scs.length ? { scene: scs[Math.min(scs.length - 1, Math.floor(j * scs.length / want))] }
                             : lines[Math.min(lines.length - 2, Math.floor(j * (lines.length - 1) / want))];
         var pr = 'Vertical 9:16 painterly editorial illustration for an educational Persian video. ' +
-                 'Absolutely no text, letters, numbers, captions, signs or logos. ' + String(ln.scene || ln.text);
+                 'Absolutely no text, letters, numbers, captions, signs or logos. ' + LV_HOLY_EN + ' ' + String(ln.scene || ln.text);
         var g = null, tries = 0;
         /* ۹.۵۴: تصویرِ تازه هم همان داوری را می‌گذرد؛ نوشته یا چهره ⇒ یک بار از نو، باز بد ⇒ کنار (کمتر، نه بد). */
         while (tries < 2 && Date.now() < deadline) {
@@ -726,7 +727,7 @@ function igStepImages_(it, fo, plan, deadline) {
         }
         if (g && g.blob) ids.push({ id: fo.createFile(g.blob.setName('ریلز — تصویر ' + (ids.length + 1) + '.png')).getId(), gen: true });
       }
-      if (ids.length) plan.imgOk = 1;   // هر تصویرِ تازه‌ای که ماند، از سد گذشته است
+      if (ids.length) plan.imgOk = IG_IMG_GATE_V;   // هر تصویرِ تازه‌ای که ماند، از سد گذشته است
       how = 'تصویرهای تازه (' + ids.length + ')' + (plan.imgGate ? ' — ' + plan.imgGate : '');
     } else {
       how = 'بی تصویر — ' + (model ? 'سقفِ هزینهٔ ماهانهٔ تصویرسازی' : 'تصویرسازی خاموش است');
@@ -1239,10 +1240,13 @@ function igResumePhase_(fo0) {
  * گامِ بعدی ادامه دادند — هیچ‌وقت از سد نگذشتند و منتشر شدند. ریلزِ منتشرنشده‌ای که تصویرِ درس دارد و مُهرِ گذر از سد
  * (`imgOk`) ندارد، پیش از ساخت و انتشار به گامِ تصویر برمی‌گردد. سد باید سرِ در باشد، نه روی یکی از راه‌های رسیدن به آن.
  */
+/* نسخهٔ سد (۹.۶۶): ۲ = داور «پیکرِ مقدس» را هم می‌پرسد. مُهرِ کهنه‌تر یعنی سدِ امروز را نگذشته — ریلزِ منتشرنشده دوباره. */
+var IG_IMG_GATE_V = 2;
 function igImgUnchecked_(plan) {
-  if (!plan || plan.reelId || plan.imgOk) return false;
+  if (!plan || plan.reelId || Number(plan.imgOk) >= IG_IMG_GATE_V) return false;
   if (['ask', 'got', 'ok', 'pub'].indexOf(String(plan.phase)) === -1) return false;
-  return (plan.imgs || []).some(function (x) { return x && x.src; });
+  /* تصویرِ ساخته‌شده هم (۹.۶۶): سدِ پیش از ۹.۶۶ پیکرِ مقدس را نمی‌پرسید، پس مُهرِ کهنه برای هیچ‌کدام کافی نیست. */
+  return (plan.imgs || []).some(function (x) { return x && (x.src || x.id); });
 }
 
 /** برنامه به گامِ تصویر — ویدئو، کاور و شورتزِ ساخته‌شده از تصویرهای ردشده کنار می‌روند. */

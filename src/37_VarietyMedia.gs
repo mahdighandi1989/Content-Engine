@@ -652,7 +652,8 @@ function vmCover_(folder, idea, ctx) {
     if (lvGenRoom_(model) < 1) { out.why = 'سقفِ ماهانهٔ تصویر جا ندارد'; return out; }
     var prompt = 'Cinematic, professional podcast episode cover art, 16:9. ' + idea +
                  ' Strong single focal point, rich color and depth, editorial photography or high-end illustration. ' +
-                 'Absolutely no text, letters, numbers, logos or watermarks. No identifiable real person.';
+                 'Absolutely no text, letters, numbers, logos or watermarks. No identifiable real person. ' +
+                 (typeof LV_HOLY_EN === 'string' ? LV_HOLY_EN : '');
     var g = lvGenOne_(model, prompt, { aspect: '16:9' });
     if (!g.blob) { out.why = 'تصویرِ کاور ساخته نشد: ' + g.why; return out; }
     g.blob.setName(nm);

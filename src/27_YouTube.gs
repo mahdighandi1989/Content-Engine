@@ -6055,6 +6055,7 @@ function lvScenePrompt_(groups, ctx, art, cast, only, first) {
          'سند یا کتابِ واقعی را نشان نده. اگر متن از کسی نام می‌برد، **ایده‌اش** را ' +
          'نشان بده، نه او را. شخصیت‌ها عام و بی‌نام‌اند. در «روایت»ی که دربارهٔ آدمی واقعی ' +
          'است (زندگی‌نامه، تاریخ)، او پیکری عام و بی‌چهره است — از پشت، سایه‌وار، یا دور.');
+  L.push('• ' + LV_HOLY_FA);
   L.push('• دو صحنهٔ پشتِ‌هم یک ترکیب‌بندی نداشته باشند: زاویه، فاصله یا مکان عوض شود.');
   L.push('• هر صحنه به **متنِ خودش** مربوط باشد، نه به کلِ ویدئو.');
   return L.join('\n');
@@ -6522,6 +6523,18 @@ function lvOvWeak_(ov) { return !!ov && (ov.kind === 'headline' || ov.kind === '
 /** کارتِ ساختاردار: فهرست، گام، مقایسه — آنچه چکیدهٔ یک استدلال را می‌کشد. */
 function lvOvStruct_(ov) { return !!ov && ['points', 'steps', 'compare'].indexOf(ov.kind) !== -1; }
 
+/* ══ پیامبر، امام و چهره‌های مقدس هرگز به شکلِ آدم کشیده نمی‌شوند (۹.۶۶) ══
+   ریلزِ ۱۸ِ مصباح (سخنی از پیامبر) پیرمردی عمامه‌دار را وسطِ صحنهٔ «گفت‌وگوی پیامبر» نشاند و پیکری را «حرفِ پیامبر»؛
+   قیدِ «شخصِ واقعی» از پشت و سایه‌وار را مجاز می‌دانست و هیچ‌جا این مرز را نمی‌شناخت. برای مخاطبِ این کانال
+   کشیدنِ پیامبر یا امام — حتی بی‌چهره — حرمت‌شکنی است، و یک بار انتشارش برگشت‌پذیر نیست. یک متن، همه‌جا. */
+var LV_HOLY_FA = 'هیچ پیامبر، امام، معصوم، قدیس یا چهرهٔ مقدسِ دینی به شکلِ آدم کشیده نشود — نه با چهره، نه از پشت، ' +
+                 'نه سایه‌وار، نه دور؛ و صحنه‌ای که متنش دربارهٔ آن‌هاست، هیچ پیکری را جانشینشان نکند. فقط نماد: نور، ' +
+                 'جای خالی، در، کتاب، چشم‌انداز، شیء.';
+var LV_HOLY_EN = 'Never depict any prophet, imam, saint or sacred religious figure as a person in any form — not with a ' +
+                 'face, not from behind, not as a silhouette, not small in the distance — and when the scene is about such ' +
+                 'a figure, no person may stand in for them; show only symbols such as light, an empty place, a door, ' +
+                 'a book, a landscape or an object.';
+
 /** دستورِ نهاییِ تصویر — انگلیسی، با قیدهای قطعی **در خودِ کد**. */
 function lvSceneImgPrompt_(desc, art, cast, extra) {
   return String(art || LV_STYLES[0].art) + '.\n' +
@@ -6530,7 +6543,7 @@ function lvSceneImgPrompt_(desc, art, cast, extra) {
     'Widescreen 16:9 composition with one clear focal point and breathing room; ' +
     'part of a cohesive series of illustrations in exactly this style.\n' +
     'Absolutely no text, letters, words, numbers, captions, signs, labels, logos or ' +
-    'watermarks anywhere in the image. No real or identifiable person, no real document.' +
+    'watermarks anywhere in the image. No real or identifiable person, no real document. ' + LV_HOLY_EN +
     (extra ? '\n' + extra : '');
 }
 
@@ -6565,7 +6578,9 @@ function lvSceneJudge_(batch) {
     'برای هر تصویر بگو چقدر **همان ایده — یا اگر متن ماجرا تعریف می‌کند، همان لحظهٔ ماجرا — را که متنِ کنارش می‌گوید** به بیننده نشان ' +
     'می‌دهد (۰ تا ۱۰؛ ۷ یعنی بیننده ربطش را فوراً می‌فهمد، ۳ یعنی فقط حال‌وهوای کلی). ' +
     'و جدا بگو آیا در تصویر **هر نوع نوشته، حرف یا عدد** دیده می‌شود (بله/خیر)، و آیا ' +
-    'چهرهٔ شناختنیِ یک شخصِ واقعی دارد (بله/خیر). دلیل را در یک جملهٔ کوتاهِ فارسی بنویس. ' +
+    'چهرهٔ شناختنیِ یک شخصِ واقعی دارد (بله/خیر)، و در `holy` آیا پیکری را نشان می‌دهد که — با تصویر یا با متنِ ' +
+    'کنارش — پیامبر، امام، معصوم، قدیس یا چهرهٔ مقدسِ دینی خوانده می‌شود، حتی از پشت یا دور (بله/خیر). ' +
+    'دلیل را در یک جملهٔ کوتاهِ فارسی بنویس. ' +
     'و در `space` بگو کدام بخشِ تصویر **خالی و آرام** است، طوری که نوشته‌ای کوتاه آن‌جا روی هیچ ' +
     'چهره، آدم یا شیءِ اصلی نیفتد: right یا left یا top — و اگر هیچ‌جا نیست، none. ' +
     'و اگر کنارِ تصویر «کانون» آمده، در `box` جای همان عنصر را در خودِ تصویر بده، به شکلِ ' +
@@ -6579,7 +6594,7 @@ function lvSceneJudge_(batch) {
   }
   var schema = { type: 'OBJECT', properties: { items: { type: 'ARRAY', items: {
     type: 'OBJECT', properties: { n: { type: 'STRING' }, score: { type: 'STRING' },
-      hasText: { type: 'STRING' }, realFace: { type: 'STRING' }, why: { type: 'STRING' },
+      hasText: { type: 'STRING' }, realFace: { type: 'STRING' }, holy: { type: 'STRING' }, why: { type: 'STRING' },
       space: { type: 'STRING' }, box: { type: 'STRING' } },
     required: ['n', 'score'] } } }, required: ['items'] };
   /* «فکر»ِ مدل از همان سقفِ توکن می‌خورد؛ سقفِ کوچک بی بودجهٔ فکر یعنی پاسخِ
@@ -6597,7 +6612,9 @@ function lvSceneJudge_(batch) {
     var sp = String(items[k].space || '').trim().toLowerCase();
     out[String(n)] = { s: isNaN(sc) ? -1 : Math.max(0, Math.min(10, sc)),
                        txt: /بله|yes/i.test(String(items[k].hasText || '')),
-                       face: /بله|yes/i.test(String(items[k].realFace || '')),
+                       /* `holy` (۹.۶۶) روی همان `face` می‌نشیند: هر سدی که چهرهٔ واقعی را رد می‌کند، این را هم رد می‌کند. */
+                       face: /بله|yes/i.test(String(items[k].realFace || '')) || /بله|yes/i.test(String(items[k].holy || '')),
+                       holy: /بله|yes/i.test(String(items[k].holy || '')),
                        why: String(items[k].why || '').slice(0, 140),
                        space: ['right', 'left', 'top', 'none'].indexOf(sp) !== -1 ? sp : '',
                        box: lvSceneBox_(items[k].box) };
@@ -7825,6 +7842,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
           if (bad && batch[b2].redo < 1 && (Number(d.redo) || 0) < redoMax &&
               lvGenRoom_(mk.id) > 0 && left() > 25000) {
             var fix = v.txt ? 'The previous attempt contained written text; this time there must be none at all.'
+                    : v.holy ? 'The previous attempt showed a figure that reads as a prophet, imam or holy person. ' + LV_HOLY_EN
                     : v.face ? 'The previous attempt showed a recognizable real person; use only generic, anonymous figures.'
                     : 'The previous attempt did not show the idea clearly (' + v.why + '); make the metaphor concrete and obvious.';
             var sp2 = lvSceneOvSpace_(batch[b2].ov);

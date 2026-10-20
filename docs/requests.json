@@ -663,6 +663,14 @@
    "how": "docs/renders.json (mode)، _STATUS.youtube.replace، _STATUS.lessonSceneFb",
    "ver": "9.65",
    "owner": false
+  },
+  {
+   "id": "R-20261020-02",
+   "ask": "برو ببین جای دیگه چیزی اشتباهی و خراب تو صف نرفته باشه",
+   "done": "هیچ ریلز/شورتز/ویدئوی منتشرشده پس از 9.66 پیکری که پیامبر، امام یا چهرهٔ مقدس خوانده شود ندارد؛ ریلزِ ig:special:18 پیش از انتشار با imgOk=2 از سد گذشته باشد",
+   "how": "_STATUS.instagram (inflight، lastWhy)، plan.imgOk و plan.imgGate در پوشهٔ اینستاگرامِ درس، docs/renders.json reels",
+   "ver": "9.66",
+   "owner": false
   }
  ]
 }

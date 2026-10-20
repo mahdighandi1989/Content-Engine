@@ -246,7 +246,7 @@ let fo, plan;
      JSON.stringify(plan.imgs));
   /* ۹.۶۱: ۱۴ و ۱۵ِ مصباح با قاب‌های متنیِ درس منتشر شدند — تصویرشان پیش از سدِ ۹.۵۴ برداشته شده بود و هرگز از سد نگذشت. */
   ok('۳.۷-ب گذر از سد مُهر می‌خورد (`imgOk`)؛ ردشده بی‌تصویر جلو نمی‌رود — منتظر، نه ریلزِ خالی',
-     plan.imgOk === 1 && planT.imgOk === 0 && planT.phase === 'img' && planQ.phase === 'img', JSON.stringify([plan.imgOk, planT.phase]));
+     plan.imgOk === IG_IMG_GATE_V && planT.imgOk === 0 && planT.phase === 'img' && planQ.phase === 'img', JSON.stringify([plan.imgOk, planT.phase]));
   const planN = JSON.parse(JSON.stringify(plan)); planN.phase = 'img';
   const rN = igStepImages_(Object.assign({}, it, { noLesson: 1 }), fo, planN, Date.now() + 60000);
   ok('۳.۷-پ درسی که تصویرش یک بار رد شد (`noLesson`) دیگر سراغِ «تصویرها»ی درس نمی‌رود', !!rN.wait && planN.imgs.length === 0 &&
@@ -254,9 +254,27 @@ let fo, plan;
   const old = { phase: 'pub', imgs: [{ id: 'a', src: 'b' }], video: 'v', cover: 'c', short: 's', sig: 'x' };
   ok('۳.۷-ت سرِ در: ریلزِ منتشرنشده با تصویرِ درس و بی مُهر ⇒ به گامِ تصویر (ویدئو و کاور و شورتز کنار)؛ تصویرِ تازه یا منتشرشده دست نمی‌خورد',
      igImgUnchecked_(old) && igImgReset_(old).phase === 'img' && !old.video && !old.cover && !old.short && !old.imgs.length &&
-     !igImgUnchecked_({ phase: 'pub', imgs: [{ id: 'a', gen: true }] }) &&
-     !igImgUnchecked_({ phase: 'pub', imgs: [{ id: 'a', src: 'b' }], imgOk: 1 }) &&
+     !igImgUnchecked_({ phase: 'pub', imgs: [{ id: 'a', gen: true }], imgOk: IG_IMG_GATE_V }) &&
+     !igImgUnchecked_({ phase: 'pub', imgs: [{ id: 'a', src: 'b' }], imgOk: IG_IMG_GATE_V }) &&
      !igImgUnchecked_({ phase: 'yts', reelId: 'r', imgs: [{ id: 'a', src: 'b' }] }), JSON.stringify(old));
+
+  /* ۹.۶۶: ریلزِ ۱۸ِ مصباح — پیکری که پیامبر خوانده می‌شد. */
+  ok('۳.۷-ث مُهرِ سدِ پیش از ۹.۶۶ (بی پرسشِ «پیکرِ مقدس») کافی نیست — درسی یا ساخته‌شده، ریلزِ منتشرنشده دوباره به سد',
+     IG_IMG_GATE_V >= 2 && igImgUnchecked_({ phase: 'ok', imgs: [{ id: 'a', src: 'b' }], imgOk: 1 }) &&
+     igImgUnchecked_({ phase: 'ok', imgs: [{ id: 'a', gen: true }], imgOk: 1 }) &&
+     !igImgUnchecked_({ phase: 'yts', reelId: 'r', imgs: [{ id: 'a' }], imgOk: 1 }));
+  {
+    const kJ2 = global.lvSceneJudge_;
+    global.lvSceneJudge_ = batch => { const o = {}; batch.forEach(b => { o[String(b.n)] = { s: 8, txt: false, face: b.n === 2, holy: b.n === 2, why: 'پیرمردِ عمامه‌دار در صحنهٔ پیامبر' }; }); return o; };
+    const g = igImgGate_([{ blob: Utilities.newBlob('x', 'image/png', 'a') }, { blob: Utilities.newBlob('y', 'image/png', 'b') }]);
+    global.lvSceneJudge_ = kJ2;
+    ok('۳.۷-ج پیکرِ پیامبر یا امام ⇒ رد، با علتِ خودش', !g.ok && /پیامبر/.test(g.why), g.why);
+  }
+  const ysrc66 = fs.readFileSync('src/27_YouTube.gs', 'utf8'), isrc66 = fs.readFileSync('src/38_Instagram.gs', 'utf8');
+  ok('۳.۷-چ قیدِ «پیکرِ مقدس» در دستورِ صحنه، دستورِ تصویر، تصویرِ ریلز، و پرسشِ داور',
+     /L\.push\('• ' \+ LV_HOLY_FA\)/.test(ysrc66) && /No real or identifiable person, no real document\. ' \+ LV_HOLY_EN/.test(ysrc66) &&
+     /captions, signs or logos\. ' \+ LV_HOLY_EN/.test(isrc66) && /holy: \{ type: 'STRING' \}/.test(ysrc66) &&
+     /face: [^\n]*realFace[^\n]*\|\| [^\n]*holy/.test(ysrc66) && /^var LV_HOLY_EN = 'Never depict any prophet, imam/m.test(ysrc66));
 
   /* صف: ردیفی در `reels`، نه `items`؛ اشتراکِ موقت. */
   let saved = null; const shared = [];

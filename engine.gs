@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.65
+ *  موتور محتوا و پادکست — نسخهٔ 9.66
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2165,7 +2165,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.65',
+  CODE_VERSION: '9.66',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -55266,6 +55266,7 @@ function lvScenePrompt_(groups, ctx, art, cast, only, first) {
          'سند یا کتابِ واقعی را نشان نده. اگر متن از کسی نام می‌برد، **ایده‌اش** را ' +
          'نشان بده، نه او را. شخصیت‌ها عام و بی‌نام‌اند. در «روایت»ی که دربارهٔ آدمی واقعی ' +
          'است (زندگی‌نامه، تاریخ)، او پیکری عام و بی‌چهره است — از پشت، سایه‌وار، یا دور.');
+  L.push('• ' + LV_HOLY_FA);
   L.push('• دو صحنهٔ پشتِ‌هم یک ترکیب‌بندی نداشته باشند: زاویه، فاصله یا مکان عوض شود.');
   L.push('• هر صحنه به **متنِ خودش** مربوط باشد، نه به کلِ ویدئو.');
   return L.join('\n');
@@ -55733,6 +55734,18 @@ function lvOvWeak_(ov) { return !!ov && (ov.kind === 'headline' || ov.kind === '
 /** کارتِ ساختاردار: فهرست، گام، مقایسه — آنچه چکیدهٔ یک استدلال را می‌کشد. */
 function lvOvStruct_(ov) { return !!ov && ['points', 'steps', 'compare'].indexOf(ov.kind) !== -1; }
 
+/* ══ پیامبر، امام و چهره‌های مقدس هرگز به شکلِ آدم کشیده نمی‌شوند (۹.۶۶) ══
+   ریلزِ ۱۸ِ مصباح (سخنی از پیامبر) پیرمردی عمامه‌دار را وسطِ صحنهٔ «گفت‌وگوی پیامبر» نشاند و پیکری را «حرفِ پیامبر»؛
+   قیدِ «شخصِ واقعی» از پشت و سایه‌وار را مجاز می‌دانست و هیچ‌جا این مرز را نمی‌شناخت. برای مخاطبِ این کانال
+   کشیدنِ پیامبر یا امام — حتی بی‌چهره — حرمت‌شکنی است، و یک بار انتشارش برگشت‌پذیر نیست. یک متن، همه‌جا. */
+var LV_HOLY_FA = 'هیچ پیامبر، امام، معصوم، قدیس یا چهرهٔ مقدسِ دینی به شکلِ آدم کشیده نشود — نه با چهره، نه از پشت، ' +
+                 'نه سایه‌وار، نه دور؛ و صحنه‌ای که متنش دربارهٔ آن‌هاست، هیچ پیکری را جانشینشان نکند. فقط نماد: نور، ' +
+                 'جای خالی، در، کتاب، چشم‌انداز، شیء.';
+var LV_HOLY_EN = 'Never depict any prophet, imam, saint or sacred religious figure as a person in any form — not with a ' +
+                 'face, not from behind, not as a silhouette, not small in the distance — and when the scene is about such ' +
+                 'a figure, no person may stand in for them; show only symbols such as light, an empty place, a door, ' +
+                 'a book, a landscape or an object.';
+
 /** دستورِ نهاییِ تصویر — انگلیسی، با قیدهای قطعی **در خودِ کد**. */
 function lvSceneImgPrompt_(desc, art, cast, extra) {
   return String(art || LV_STYLES[0].art) + '.\n' +
@@ -55741,7 +55754,7 @@ function lvSceneImgPrompt_(desc, art, cast, extra) {
     'Widescreen 16:9 composition with one clear focal point and breathing room; ' +
     'part of a cohesive series of illustrations in exactly this style.\n' +
     'Absolutely no text, letters, words, numbers, captions, signs, labels, logos or ' +
-    'watermarks anywhere in the image. No real or identifiable person, no real document.' +
+    'watermarks anywhere in the image. No real or identifiable person, no real document. ' + LV_HOLY_EN +
     (extra ? '\n' + extra : '');
 }
 
@@ -55776,7 +55789,9 @@ function lvSceneJudge_(batch) {
     'برای هر تصویر بگو چقدر **همان ایده — یا اگر متن ماجرا تعریف می‌کند، همان لحظهٔ ماجرا — را که متنِ کنارش می‌گوید** به بیننده نشان ' +
     'می‌دهد (۰ تا ۱۰؛ ۷ یعنی بیننده ربطش را فوراً می‌فهمد، ۳ یعنی فقط حال‌وهوای کلی). ' +
     'و جدا بگو آیا در تصویر **هر نوع نوشته، حرف یا عدد** دیده می‌شود (بله/خیر)، و آیا ' +
-    'چهرهٔ شناختنیِ یک شخصِ واقعی دارد (بله/خیر). دلیل را در یک جملهٔ کوتاهِ فارسی بنویس. ' +
+    'چهرهٔ شناختنیِ یک شخصِ واقعی دارد (بله/خیر)، و در `holy` آیا پیکری را نشان می‌دهد که — با تصویر یا با متنِ ' +
+    'کنارش — پیامبر، امام، معصوم، قدیس یا چهرهٔ مقدسِ دینی خوانده می‌شود، حتی از پشت یا دور (بله/خیر). ' +
+    'دلیل را در یک جملهٔ کوتاهِ فارسی بنویس. ' +
     'و در `space` بگو کدام بخشِ تصویر **خالی و آرام** است، طوری که نوشته‌ای کوتاه آن‌جا روی هیچ ' +
     'چهره، آدم یا شیءِ اصلی نیفتد: right یا left یا top — و اگر هیچ‌جا نیست، none. ' +
     'و اگر کنارِ تصویر «کانون» آمده، در `box` جای همان عنصر را در خودِ تصویر بده، به شکلِ ' +
@@ -55790,7 +55805,7 @@ function lvSceneJudge_(batch) {
   }
   var schema = { type: 'OBJECT', properties: { items: { type: 'ARRAY', items: {
     type: 'OBJECT', properties: { n: { type: 'STRING' }, score: { type: 'STRING' },
-      hasText: { type: 'STRING' }, realFace: { type: 'STRING' }, why: { type: 'STRING' },
+      hasText: { type: 'STRING' }, realFace: { type: 'STRING' }, holy: { type: 'STRING' }, why: { type: 'STRING' },
       space: { type: 'STRING' }, box: { type: 'STRING' } },
     required: ['n', 'score'] } } }, required: ['items'] };
   /* «فکر»ِ مدل از همان سقفِ توکن می‌خورد؛ سقفِ کوچک بی بودجهٔ فکر یعنی پاسخِ
@@ -55808,7 +55823,9 @@ function lvSceneJudge_(batch) {
     var sp = String(items[k].space || '').trim().toLowerCase();
     out[String(n)] = { s: isNaN(sc) ? -1 : Math.max(0, Math.min(10, sc)),
                        txt: /بله|yes/i.test(String(items[k].hasText || '')),
-                       face: /بله|yes/i.test(String(items[k].realFace || '')),
+                       /* `holy` (۹.۶۶) روی همان `face` می‌نشیند: هر سدی که چهرهٔ واقعی را رد می‌کند، این را هم رد می‌کند. */
+                       face: /بله|yes/i.test(String(items[k].realFace || '')) || /بله|yes/i.test(String(items[k].holy || '')),
+                       holy: /بله|yes/i.test(String(items[k].holy || '')),
                        why: String(items[k].why || '').slice(0, 140),
                        space: ['right', 'left', 'top', 'none'].indexOf(sp) !== -1 ? sp : '',
                        box: lvSceneBox_(items[k].box) };
@@ -57036,6 +57053,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
           if (bad && batch[b2].redo < 1 && (Number(d.redo) || 0) < redoMax &&
               lvGenRoom_(mk.id) > 0 && left() > 25000) {
             var fix = v.txt ? 'The previous attempt contained written text; this time there must be none at all.'
+                    : v.holy ? 'The previous attempt showed a figure that reads as a prophet, imam or holy person. ' + LV_HOLY_EN
                     : v.face ? 'The previous attempt showed a recognizable real person; use only generic, anonymous figures.'
                     : 'The previous attempt did not show the idea clearly (' + v.why + '); make the metaphor concrete and obvious.';
             var sp2 = lvSceneOvSpace_(batch[b2].ov);
@@ -80060,7 +80078,8 @@ function vmCover_(folder, idea, ctx) {
     if (lvGenRoom_(model) < 1) { out.why = 'سقفِ ماهانهٔ تصویر جا ندارد'; return out; }
     var prompt = 'Cinematic, professional podcast episode cover art, 16:9. ' + idea +
                  ' Strong single focal point, rich color and depth, editorial photography or high-end illustration. ' +
-                 'Absolutely no text, letters, numbers, logos or watermarks. No identifiable real person.';
+                 'Absolutely no text, letters, numbers, logos or watermarks. No identifiable real person. ' +
+                 (typeof LV_HOLY_EN === 'string' ? LV_HOLY_EN : '');
     var g = lvGenOne_(model, prompt, { aspect: '16:9' });
     if (!g.blob) { out.why = 'تصویرِ کاور ساخته نشد: ' + g.why; return out; }
     g.blob.setName(nm);
@@ -81208,6 +81227,7 @@ function igImgGate_(items) {
     var r = v && v[String(k)];
     if (!r) return { ok: false, why: 'داور تصویرِ ' + k + ' را نسنجید' };
     if (r.txt) return { ok: false, why: 'تصویرِ ' + k + ' نوشته داشت' + (r.why ? ' (' + r.why + ')' : '') };
+    if (r.holy) return { ok: false, why: 'تصویرِ ' + k + ' پیکرِ پیامبر یا چهره‌ای مقدس را نشان می‌داد' + (r.why ? ' (' + r.why + ')' : '') };
     if (r.face) return { ok: false, why: 'تصویرِ ' + k + ' چهرهٔ واقعی داشت' };
   }
   return { ok: true, why: '' };
@@ -81243,7 +81263,7 @@ function igStepImages_(it, fo, plan, deadline) {
             ids.push({ id: cp.getId(), src: pick[q].getId() });
           }
           how = 'نقاشی‌های درس';
-          plan.imgOk = 1;
+          plan.imgOk = IG_IMG_GATE_V;
         } else {
           plan.imgGate = gate.why;
         }
@@ -81261,7 +81281,7 @@ function igStepImages_(it, fo, plan, deadline) {
         var ln = scs.length ? { scene: scs[Math.min(scs.length - 1, Math.floor(j * scs.length / want))] }
                             : lines[Math.min(lines.length - 2, Math.floor(j * (lines.length - 1) / want))];
         var pr = 'Vertical 9:16 painterly editorial illustration for an educational Persian video. ' +
-                 'Absolutely no text, letters, numbers, captions, signs or logos. ' + String(ln.scene || ln.text);
+                 'Absolutely no text, letters, numbers, captions, signs or logos. ' + LV_HOLY_EN + ' ' + String(ln.scene || ln.text);
         var g = null, tries = 0;
         /* ۹.۵۴: تصویرِ تازه هم همان داوری را می‌گذرد؛ نوشته یا چهره ⇒ یک بار از نو، باز بد ⇒ کنار (کمتر، نه بد). */
         while (tries < 2 && Date.now() < deadline) {
@@ -81274,7 +81294,7 @@ function igStepImages_(it, fo, plan, deadline) {
         }
         if (g && g.blob) ids.push({ id: fo.createFile(g.blob.setName('ریلز — تصویر ' + (ids.length + 1) + '.png')).getId(), gen: true });
       }
-      if (ids.length) plan.imgOk = 1;   // هر تصویرِ تازه‌ای که ماند، از سد گذشته است
+      if (ids.length) plan.imgOk = IG_IMG_GATE_V;   // هر تصویرِ تازه‌ای که ماند، از سد گذشته است
       how = 'تصویرهای تازه (' + ids.length + ')' + (plan.imgGate ? ' — ' + plan.imgGate : '');
     } else {
       how = 'بی تصویر — ' + (model ? 'سقفِ هزینهٔ ماهانهٔ تصویرسازی' : 'تصویرسازی خاموش است');
@@ -81787,10 +81807,13 @@ function igResumePhase_(fo0) {
  * گامِ بعدی ادامه دادند — هیچ‌وقت از سد نگذشتند و منتشر شدند. ریلزِ منتشرنشده‌ای که تصویرِ درس دارد و مُهرِ گذر از سد
  * (`imgOk`) ندارد، پیش از ساخت و انتشار به گامِ تصویر برمی‌گردد. سد باید سرِ در باشد، نه روی یکی از راه‌های رسیدن به آن.
  */
+/* نسخهٔ سد (۹.۶۶): ۲ = داور «پیکرِ مقدس» را هم می‌پرسد. مُهرِ کهنه‌تر یعنی سدِ امروز را نگذشته — ریلزِ منتشرنشده دوباره. */
+var IG_IMG_GATE_V = 2;
 function igImgUnchecked_(plan) {
-  if (!plan || plan.reelId || plan.imgOk) return false;
+  if (!plan || plan.reelId || Number(plan.imgOk) >= IG_IMG_GATE_V) return false;
   if (['ask', 'got', 'ok', 'pub'].indexOf(String(plan.phase)) === -1) return false;
-  return (plan.imgs || []).some(function (x) { return x && x.src; });
+  /* تصویرِ ساخته‌شده هم (۹.۶۶): سدِ پیش از ۹.۶۶ پیکرِ مقدس را نمی‌پرسید، پس مُهرِ کهنه برای هیچ‌کدام کافی نیست. */
+  return (plan.imgs || []).some(function (x) { return x && (x.src || x.id); });
 }
 
 /** برنامه به گامِ تصویر — ویدئو، کاور و شورتزِ ساخته‌شده از تصویرهای ردشده کنار می‌روند. */
