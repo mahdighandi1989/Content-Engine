@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-20 09:12",
+ "updatedAt": "2026-10-20 09:33",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -4144,10 +4144,73 @@
   },
   "variety:77": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-77.mp4",
-   "bytes": 7693951,
+   "bytes": 43088749,
    "parts": 1,
-   "at": "2026-10-20 05:25",
-   "replace": "r1-9.65"
+   "at": "2026-10-20 09:33",
+   "replace": "r2-9.70",
+   "mode": "scenes",
+   "scenes": 8,
+   "want": 8,
+   "snapped": 6,
+   "seconds": 469,
+   "qa": {
+    "n": 8,
+    "matched": 8,
+    "miss": [],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 3,
+       "t": 127.8,
+       "own": 0.72,
+       "nb": 0.11,
+       "ok": true,
+       "heard": "خانی درست و گنجین خاطرات شخصی.  اونهای که نیاز نیست رو بلخر از یه دوستی امانت بگیرید،  از یه کتاب خونی بگیرید."
+      },
+      {
+       "n": 5,
+       "t": 246.7,
+       "own": 0.78,
+       "nb": 0.17,
+       "ok": true,
+       "heard": "ایبتدار از خاطرات کودکی خودش و علاقه عشب بافتنی و خیاتی می گوید  و بعد مرز دقیقی میان دقالب نوشتاری می کشد"
+      },
+      {
+       "n": 7,
+       "t": 365,
+       "own": 0.57,
+       "nb": 0.14,
+       "ok": true,
+       "heard": "این فايل گوزیده یه از یک داستان هم خندمی شهود که راوی از ساختمانی که همچون عبکش سوراخ سوراخ شد بیرون میاید  گومبد مسجدول"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 3,
+    "placed": 2,
+    "busy": 1,
+    "failed": 0,
+    "kinds": {
+     "points": 1,
+     "steps": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 7,
+   "xf": {
+    "smoothright": 4,
+    "fade": 3
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-77-cover.jpg"
   },
   "special:76": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-76.mp4",
@@ -4414,6 +4477,11 @@
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/art-series-audi-2011-epistemology-a-contemporary-introduction-to-the-theory-of-knowledge.jpg",
    "from": "special:62",
    "at": "2026-10-06 21:18"
+  },
+  "show:variety": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/art-show-variety.jpg",
+   "from": "variety:77",
+   "at": "2026-10-20 09:33"
   }
  },
  "plCovers": {
@@ -4438,11 +4506,11 @@
   "show:variety": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/pl-show-variety.jpg",
    "req": "65207badc466",
-   "sig": "65207badc466|f2",
+   "sig": "65207badc466|variety:77|f2",
    "w": 1400,
    "h": 1400,
-   "art": false,
-   "at": "2026-10-09 10:30"
+   "art": true,
+   "at": "2026-10-20 09:33"
   }
  },
  "reels": {
