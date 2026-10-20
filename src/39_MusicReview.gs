@@ -18,8 +18,8 @@
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 var MR_HEADERS = ['شناسهٔ فایل', 'نام', 'فرستاده‌شده', 'داوری', 'ستاره', 'وایب', 'جایگاه', 'علتِ رد', 'دستهٔ رد',
-                  'آخرین تغییر', 'شناسهٔ پیام', 'شنیدنِ مدل', 'بازهٔ استفاده (ثانیه)', 'برداشت از توضیحِ شما'];
-var MRC = { ID: 1, NAME: 2, SENT: 3, VERD: 4, STAR: 5, VIBE: 6, SLOTS: 7, WHY: 8, WHYK: 9, AT: 10, MSG: 11, HEARD: 12, RANGE: 13, READ: 14 };
+                  'آخرین تغییر', 'شناسهٔ پیام', 'شنیدنِ مدل', 'بازهٔ استفاده (ثانیه)', 'برداشت از توضیحِ شما', 'یادداشتِ شما'];
+var MRC = { ID: 1, NAME: 2, SENT: 3, VERD: 4, STAR: 5, VIBE: 6, SLOTS: 7, WHY: 8, WHYK: 9, AT: 10, MSG: 11, HEARD: 12, RANGE: 13, READ: 14, NOTE: 15 };
 var MRL_HEADERS = ['زمان', 'شناسهٔ فایل', 'نام', 'کار', 'مقدار', 'توضیح'];
 
 /** دسته‌های رد — `nm` همان است که ریشه‌یابی می‌خواهد. */
@@ -55,7 +55,7 @@ function mrMap_(hub) {
                   why: String(v[i][MRC.WHY - 1] || ''), whyK: String(v[i][MRC.WHYK - 1] || ''),
                   msg: String(v[i][MRC.MSG - 1] || ''), at: String(v[i][MRC.AT - 1] || ''),
                   heard: String(v[i][MRC.HEARD - 1] || ''), range: String(v[i][MRC.RANGE - 1] || ''),
-                  read: String(v[i][MRC.READ - 1] || '') };
+                  read: String(v[i][MRC.READ - 1] || ''), note: String(v[i][MRC.NOTE - 1] || '') };
     }
   } catch (e) {}
   return out;
@@ -71,6 +71,7 @@ function mrApply_(b, r) {
   /* «فلان ثانیه‌ها و دقیقه‌ها رو در نظر بگیره و بقیه رو نه» (۹.۸۱) — برش فقط از همین بازه. */
   var rg = mrRangeParse_(r.range);
   if (rg) b.range = rg;
+  if (r.note) b.ownerNote = r.note;   // ۹.۸۲: هر بار که این قطعه انتخاب می‌شود خوانده می‌شود
   return b;
 }
 
@@ -97,7 +98,7 @@ function mrTasteOf_(map) {
     var r = map[k], w = (r.stars ? r.stars - 3 : 0) + (r.verdict === 'تأیید' ? 1 : 0) + (r.verdict === 'رد' ? -2 : 0);
     if (!w) return;
     n++;
-    mrTokens_(r.vibe + ' ' + r.heard).forEach(function (x) { t[x] = (t[x] || 0) + w; });
+    mrTokens_(r.vibe + ' ' + r.heard + ' ' + (r.note || '')).forEach(function (x) { t[x] = (t[x] || 0) + w; });
   });
   return { w: t, n: n };
 }
@@ -133,7 +134,7 @@ function mrSet_(hub, id, patch) {
   var cur = r ? sh.getRange(row, 1, 1, MR_HEADERS.length).getValues()[0] : MR_HEADERS.map(function () { return ''; });
   cur[MRC.ID - 1] = id;
   var keys = { name: MRC.NAME, sent: MRC.SENT, verdict: MRC.VERD, stars: MRC.STAR, vibe: MRC.VIBE, slots: MRC.SLOTS,
-               why: MRC.WHY, whyK: MRC.WHYK, msg: MRC.MSG, heard: MRC.HEARD, range: MRC.RANGE, read: MRC.READ };
+               why: MRC.WHY, whyK: MRC.WHYK, msg: MRC.MSG, heard: MRC.HEARD, range: MRC.RANGE, read: MRC.READ, note: MRC.NOTE };
   for (var k in patch) if (Object.prototype.hasOwnProperty.call(patch, k) && keys[k]) cur[keys[k] - 1] = patch[k];
   cur[MRC.AT - 1] = nowStr_();
   sh.getRange(row, 1, 1, MR_HEADERS.length).setValues([cur]);
@@ -164,7 +165,8 @@ function mrKeyboard_(id, r, kind) {
       return { text: (have.indexOf(t) !== -1 ? '✅ ' : '') + t, callback_data: cb('v', i + j) };
     }));
   }
-  rows.push((isSfx ? [] : [{ text: '✍️ وایبِ دیگر', callback_data: cb('vx') }]).concat([{ text: '✂️ بازهٔ استفاده', callback_data: cb('ux') }]));
+  if (!isSfx) rows.push([{ text: '✍️ وایبِ دیگر', callback_data: cb('vx') }]);
+  rows.push([{ text: '📝 یادداشت' + (r.note ? ' (+)' : ''), callback_data: cb('nx') }, { text: '✂️ بازهٔ استفاده', callback_data: cb('ux') }]);
   if (!isSfx) rows.push(MR_SLOTS.map(function (x) {
     return { text: (String(r.slots || '').indexOf(x.t) !== -1 ? '✅ ' : '') + x.ic + ' ' + x.t, callback_data: cb('o', x.k) };
   }));
@@ -196,7 +198,8 @@ function mrCaption_(b, r) {
          (r.vibe ? '\nوایب: ' + tgEsc_(r.vibe) : '') + (r.slots ? '\nجایگاه: ' + tgEsc_(r.slots) : '') +
          (r.verdict === 'رد' && r.why ? '\nعلت: ' + tgEsc_(r.why) : '') +
          (r.range ? '\n✂️ فقط ثانیهٔ ' + tgEsc_(faDigitsOut_(String(r.range).replace('-', ' تا '))) : '') +
-         (r.read ? '\n🧠 برداشت: ' + tgEsc_(String(r.read).slice(0, 160)) : ''));
+         (r.read ? '\n🧠 برداشت: ' + tgEsc_(String(r.read).slice(0, 160)) : '') +
+         (r.note ? '\n📝 یادداشتِ شما: ' + tgEsc_(String(r.note).slice(-220)) : ''));
   if (!r.verdict) L.push('<i>ستاره، وایب و جایگاه را بزنید و بعد تأیید یا رد. «✍️» یعنی خودتان بنویسید.</i>');
   var c = L.join('\n');
   return c.length > 1000 ? c.slice(0, 1000) : c;
@@ -431,8 +434,9 @@ function mrOnButton_(hub, st, data, chatId, msgId, isText) {
     var w = (MR_WHY.concat(MR_WHY_SFX).filter(function (x) { return x.k === a; })[0] || { k: a, t: a });
     patch.verdict = 'رد'; patch.whyK = w.k; patch.why = w.t; logOp = 'رد'; logVal = w.t; reply = 'رد شد — دیگر پخش نمی‌شود';
   }
-  else if (op === 'vx' || op === 'rx' || op === 'ux') {
+  else if (op === 'vx' || op === 'rx' || op === 'ux' || op === 'nx') {
     var ask = op === 'vx' ? 'وایبِ این قطعه را بنویسید'
+            : op === 'nx' ? 'یادداشت دربارهٔ این قطعه — هر چیزی (کجا به کار بیاید، کجا نه، چه حسی دارد). داوری عوض نمی‌شود؛ هر بار که انتخاب شود خوانده می‌شود'
             : op === 'ux' ? 'کدام تکه استفاده شود؟ مثلاً «از ثانیهٔ ۱۰ تا ۴۰» یا «۰:۳۰ تا ۱:۲۰»'
             : 'توضیح بدهید — خوانده می‌شود و همان کار انجام می‌شود (مثلاً «این جلوهٔ صوتی است» یا «فقط ثانیهٔ ۵ تا ۲۰»؛ وگرنه رد)';
     var askTxt = '✍️ ' + ask + ' — «' + String(b.name || r.name || '').replace(/\.wav$/i, '') +
@@ -456,7 +460,7 @@ function mrOnButton_(hub, st, data, chatId, msgId, isText) {
 /** پاسخِ نوشتاری به «✍️» ⇒ وایبِ آزاد یا ردِ با توضیح. */
 function mrOnText_(hub, st, msg) {
   var rt = msg && msg.reply_to_message && String(msg.reply_to_message.text || '');
-  var m = /#m:([A-Za-z0-9_-]+):(vx|rx|ux)/.exec(rt || '');
+  var m = /#m:([A-Za-z0-9_-]+):(vx|rx|ux|nx)/.exec(rt || '');
   var txt = String((msg && msg.text) || '').trim();
   if (m && txt) {
     var id = m[1], b = mrBankItem_(hub, id), r = mrMap_(hub)[id] || {}, patch = {};
@@ -466,15 +470,24 @@ function mrOnText_(hub, st, msg) {
       patch.vibe = have.join('، ');
       var rgV = mrRangeParse_(txt);   // بازه در متنِ وایب هم شنیده می‌شود
       if (rgV) { patch.range = rgV.from + '-' + rgV.to; patch.read = 'فقط از ثانیهٔ ' + faDigitsOut_(String(rgV.from)) + ' تا ' + faDigitsOut_(String(rgV.to)); }
+    } else if (m[2] === 'nx') {
+      /* یادداشت (۹.۸۲): داوری را عوض نمی‌کند؛ ولی اگر بازه یا «جلوه/موسیقی است» گفته باشد، همان اجرا می‌شود. */
+      var rdN = mrReadWhy_(txt, b);
+      patch.note = (r.note ? r.note + ' | ' : '') + String(nowStr_()).slice(0, 10) + ': ' + txt.slice(0, 300);
+      if (rdN.range) patch.range = rdN.range.from + '-' + rdN.range.to;
+      if (rdN.act === 'جلوه') mrSetKind_(hub, id, 'افکت'); else if (rdN.act === 'موسیقی' && String(b.kind || '') === 'افکت') mrSetKind_(hub, id, 'موسیقی');
+      patch.read = 'یادداشت ثبت شد؛ هر بار که این قطعه انتخاب شود خوانده می‌شود' +
+                   (rdN.range ? '؛ و فقط از ثانیهٔ ' + faDigitsOut_(String(rdN.range.from)) + ' تا ' + faDigitsOut_(String(rdN.range.to)) : '') +
+                   (rdN.act === 'جلوه' ? '؛ و این جلوهٔ صوتی شمرده می‌شود' : '');
     } else if (m[2] === 'ux') {
       var rgU = mrRangeParse_(txt);
       if (rgU) { patch.range = rgU.from + '-' + rgU.to; patch.read = 'فقط از ثانیهٔ ' + faDigitsOut_(String(rgU.from)) + ' تا ' + faDigitsOut_(String(rgU.to)); }
       else patch.read = 'بازه‌ای در این نوشته پیدا نشد';
     } else { var ac = mrActOnWhy_(hub, id, b, txt); patch = ac.patch; }
     var r2 = mrSet_(hub, id, Object.assign({ name: b.name || r.name }, patch));
-    mrLog_(hub, id, b.name || r.name, m[2] === 'vx' ? 'وایبِ نوشتاری' : m[2] === 'ux' ? 'بازهٔ استفاده' : 'رد با توضیح', txt.slice(0, 300),
+    mrLog_(hub, id, b.name || r.name, m[2] === 'vx' ? 'وایبِ نوشتاری' : m[2] === 'ux' ? 'بازهٔ استفاده' : m[2] === 'nx' ? 'یادداشت' : 'رد با توضیح', txt.slice(0, 300),
            String(patch.read || patch.whyK || '').slice(0, 200));
-    if (patch.verdict === 'تأیید' && (patch.whyK === 'sfx' || patch.whyK === 'mus')) b = mrBankItem_(hub, id);   // نوعِ تازه روی کارت
+    if ((patch.verdict === 'تأیید' && (patch.whyK === 'sfx' || patch.whyK === 'mus')) || m[2] === 'nx') b = mrBankItem_(hub, id);   // نوعِ تازه روی کارت
     if (r2 && r2.msg) mrRefresh_(msg.chat.id, r2.msg, b, r2, false);
     if (patch.verdict === 'رد') { mrRootCause_(hub, st, b, r2); mrRejectStreak_(hub, st); }
     tgApi_('sendMessage', { chat_id: msg.chat.id, text: m[2] === 'vx' ? '✓ وایب ثبت شد: ' + txt + (patch.read ? '\n✓ ' + patch.read : '')
@@ -483,7 +496,7 @@ function mrOnText_(hub, st, msg) {
     st.answeredAt = Date.now();
     return true;
   }
-  if (/^\/(music|موسیقی)/.test(txt) || txt === 'موسیقی') { mrMenu_(hub, msg.chat.id); return true; }
+  if (mrOnMenuText_(hub, st, txt, msg.chat.id)) return true;
   return false;
 }
 
@@ -535,13 +548,185 @@ function mrSummary_(hub, withBank) {
   return n;
 }
 
-function mrMenu_(hub, chatId) {
-  var n = mrSummary_(hub, true), d = function (x) { return faDigitsOut_(String(x)); };
-  tgApi_('sendMessage', { chat_id: chatId,
-    text: '🎵 بانکِ موسیقی\n✅ تأییدشده: ' + d(n.ok) + '\n❌ ردشده: ' + d(n.no) + '\n⏳ فرستاده و بی‌جواب: ' + d(n.wait) +
-          '\n📭 هنوز فرستاده نشده: ' + (n.unsent == null ? '؟' : d(n.unsent)) +
-          (function () { var l = ''; try { l = mrTasteLine_(mrTasteOf_(mrMap_(hub))); } catch (e) {} return l ? '\n\n🧭 سلیقه‌ای که از ستاره‌ها و داوری‌هایتان فهمیده‌ام — ' + l : ''; })(),
-    reply_markup: JSON.stringify({ inline_keyboard: [[{ text: '۵ تای بعدی را بفرست', callback_data: 'mm|more' }]] }) });
+
+/* ═══ منوی ثابت، مرورِ بانک، و یادداشت روی هر کارت (۹.۸۲) ═══
+ * «یه منوی ثابت زیرش بذاره تا هی مجبور به تایپِ دستورها نشم … دسترسی‌هاش وسیع باشه و تنوع زیاد داشته باشه»؛
+ * «اگر تأیید هم می‌زنم یا معلق می‌ذارم، باز توضیحاتی بدم که ثبت بشه و بعداً که می‌خواد معرفی کنه با توجه به توضیحاتم باشه»؛
+ * «اونایی که معلق می‌مونه و پیامش می‌ره بالا باید یادت بمونه». هر کدام از همان تبِ «بازبینیِ موسیقی» خوانده می‌شود — حافظهٔ
+ * دوم نیست؛ دکمهٔ هر فهرست کارتِ همان قطعه را دوباره می‌فرستد تا بشنود و ویرایش کند. */
+
+var MR_MENU_KB = [['🎵 منوی موسیقی', '⏳ معلق‌ها'], ['⭐ پسندیده‌ها', '❌ ردشده‌ها'], ['🔊 جلوه‌ها', '🔎 بر اساسِ وایب'],
+                  ['📝 یادداشت‌دارها', '✂️ بازه‌دارها'], ['➕ ۵ تای بعدی', '❓ راهنما']];
+var MR_FILTERS = { p: '⏳ معلق (فرستاده و بی‌جواب)', a: '✅ تأییدشده', r: '❌ ردشده', s4: '⭐ چهار ستاره و بالاتر', s2: '☆ یک و دو ستاره',
+                   x: '🔊 جلوه‌های صوتی', m: '🎵 همهٔ موسیقی‌ها', g: '✂️ دارای بازه', n: '📝 دارای یادداشت', u: '📭 هنوز فرستاده‌نشده' };
+var MR_PAGE = 8;
+
+/** همهٔ ردیف‌های تبِ «موسیقی» با داوریِ هر کدام — ردشده‌ها هم (بانک آن‌ها را ندارد). */
+function mrRows_(hub) {
+  var sh = (hub || getHub_()).getSheetByName(CFG.MUSIC_TAB || 'موسیقی'), map = mrMap_(hub), out = [];
+  if (!sh || sh.getLastRow() < 2) return out;
+  sh.getRange(2, 1, sh.getLastRow() - 1, MUSIC_HEADERS.length).getValues().forEach(function (v) {
+    var id = String(v[MC.ID - 1] || '');
+    if (!id) return;
+    out.push({ id: id, name: String(v[MC.NAME - 1] || ''), kind: String(v[MC.KIND - 1] || 'موسیقی'), mood: String(v[MC.MOOD - 1] || ''),
+               sec: Number(v[MC.SEC - 1]) || 0, used: Number(v[MC.USED - 1]) || 0, r: map[id] || {} });
+  });
+  return out;
+}
+
+function mrFilter_(rows, f) {
+  var vb = mrVibes_();
+  return rows.filter(function (x) {
+    var r = x.r;
+    if (f === 'p') return r.sent && !r.verdict;
+    if (f === 'a') return r.verdict === 'تأیید';
+    if (f === 'r') return r.verdict === 'رد';
+    if (f === 's4') return Number(r.stars) >= 4;
+    if (f === 's2') return Number(r.stars) > 0 && Number(r.stars) <= 2;
+    if (f === 'x') return x.kind === 'افکت';
+    if (f === 'm') return x.kind !== 'افکت';
+    if (f === 'g') return !!r.range;
+    if (f === 'n') return !!r.note;
+    if (f === 'u') return !r.sent && !r.verdict;
+    var mv = /^v(\d+)$/.exec(f);
+    if (mv) { var t = vb[Number(mv[1])] || '~'; return String(r.vibe || '').indexOf(t) !== -1 || String(x.mood || '').indexOf(t) !== -1; }
+    return false;
+  }).sort(function (a, b) { return (Number(b.r.stars) || 0) - (Number(a.r.stars) || 0) || b.used - a.used || a.name.localeCompare(b.name); });
+}
+
+function mrFilterTitle_(f) {
+  var mv = /^v(\d+)$/.exec(f);
+  return mv ? '🔎 وایبِ «' + (mrVibes_()[Number(mv[1])] || '') + '»' : (MR_FILTERS[f] || f);
+}
+
+/** منوی اصلی: شمارِ هر فهرست، هر کدام یک دکمه. */
+function mrMenu_(hub, chatId, editId) {
+  var rows = mrRows_(hub), d = function (x) { return faDigitsOut_(String(x)); };
+  var cnt = function (f) { return mrFilter_(rows, f).length; };
+  var btn = function (f) { return { text: MR_FILTERS[f] + ' (' + d(cnt(f)) + ')', callback_data: 'mb|' + f + '|0' }; };
+  var taste = ''; try { taste = mrTasteLine_(mrTasteOf_(mrMap_(hub))); } catch (e) {}
+  var text = '🎵 بانکِ موسیقی و جلوه — ' + d(rows.length) + ' قطعه\nهر دکمه فهرستش را باز می‌کند؛ زدنِ هر قطعه کارتش را دوباره می‌فرستد تا بشنوید و ویرایش کنید.' +
+             (taste ? '\n\n🧭 سلیقه‌ای که از ستاره‌ها و داوری‌هایتان فهمیده‌ام — ' + taste : '');
+  var kb = [[btn('p'), btn('u')], [btn('a'), btn('r')], [btn('s4'), btn('s2')], [btn('m'), btn('x')], [btn('n'), btn('g')],
+            [{ text: '🔎 بر اساسِ وایب', callback_data: 'mm|vibes' }, { text: '➕ ۵ تای بعدی را بفرست', callback_data: 'mm|more' }]];
+  return mrShow_(chatId, editId, text, kb);
+}
+
+function mrVibeMenu_(hub, chatId, editId) {
+  var rows = mrRows_(hub), vb = mrVibes_(), kb = [];
+  for (var i = 0; i < vb.length; i += 2) {
+    kb.push(vb.slice(i, i + 2).map(function (t, j) {
+      return { text: t + ' (' + faDigitsOut_(String(mrFilter_(rows, 'v' + (i + j)).length)) + ')', callback_data: 'mb|v' + (i + j) + '|0' };
+    }));
+  }
+  kb.push([{ text: '↩️ منوی موسیقی', callback_data: 'mm|menu' }]);
+  return mrShow_(chatId, editId, '🔎 کدام وایب؟', kb);
+}
+
+/** یک صفحه از یک فهرست — هر قطعه یک دکمه، با ستاره و داوری؛ ورق زدن در همان پیام. */
+function mrBrowse_(hub, chatId, f, page, editId) {
+  var L = mrFilter_(mrRows_(hub), f), n = L.length, pages = Math.max(1, Math.ceil(n / MR_PAGE));
+  page = Math.max(0, Math.min(pages - 1, Number(page) || 0));
+  var d = function (x) { return faDigitsOut_(String(x)); };
+  var kb = L.slice(page * MR_PAGE, page * MR_PAGE + MR_PAGE).map(function (x) {
+    var r = x.r, mark = r.verdict === 'تأیید' ? '✅' : r.verdict === 'رد' ? '❌' : r.sent ? '⏳' : '📭';
+    var stars = r.stars ? ' ' + new Array(Number(r.stars) + 1).join('⭐') : '';
+    var extra = (r.note ? ' 📝' : '') + (r.range ? ' ✂️' : '') + (x.kind === 'افکت' ? ' 🔊' : '');
+    return [{ text: (mark + stars + ' ' + x.name.replace(/\.wav$/i, '') + extra).slice(0, 60), callback_data: 'mc|' + x.id }];
+  });
+  var nav = [];
+  if (page > 0) nav.push({ text: '◀️ قبلی', callback_data: 'mb|' + f + '|' + (page - 1) });
+  if (page < pages - 1) nav.push({ text: 'بعدی ▶️', callback_data: 'mb|' + f + '|' + (page + 1) });
+  if (nav.length) kb.push(nav);
+  kb.push([{ text: '↩️ منوی موسیقی', callback_data: 'mm|menu' }]);
+  var text = mrFilterTitle_(f) + ' — ' + d(n) + ' قطعه' + (pages > 1 ? ' · صفحهٔ ' + d(page + 1) + ' از ' + d(pages) : '') +
+             (n ? '\nروی هر قطعه بزنید تا کارتش برای شنیدن و ویرایش بیاید.' : '\nچیزی در این فهرست نیست.');
+  return mrShow_(chatId, editId, text, kb);
+}
+
+/** پیامِ فهرست: اگر از دکمه آمده، همان پیام عوض می‌شود (فهرستِ تازه زیرِ فهرستِ کهنه نمی‌نشیند). */
+function mrShow_(chatId, editId, text, kb) {
+  var rm = JSON.stringify({ inline_keyboard: kb });
+  if (editId) {
+    try { tgApi_('editMessageText', { chat_id: chatId, message_id: Number(editId), text: text, reply_markup: rm }); return true; } catch (e) {}
+  }
+  tgApi_('sendMessage', { chat_id: chatId, text: text, reply_markup: rm });
+  return true;
+}
+
+/** کارتِ یک قطعه، دوباره — شناسهٔ پیامِ تازه جای قبلی می‌نشیند تا دکمه‌هایش کارتِ تازه را عوض کنند. */
+function mrResend_(hub, id) {
+  var b = mrBankItem_(hub, id), r = mrMap_(hub)[id] || {};
+  if (!b.name && !r.name) return false;
+  var mid = mrSendOne_(b, r);
+  if (mid) mrSet_(hub, id, { name: b.name || r.name, msg: mid, sent: r.sent || nowStr_() });
+  return !!mid;
+}
+
+/** منوی ثابت زیرِ چت (یک بار برای هر نسخه) — و اگر چت آن را نپذیرفت (کانال)، همان منو سنجاق می‌شود. */
+function mrFixedMenu_(st) {
+  var chat = tgChat_();
+  try {
+    tgApi_('setMyCommands', { commands: [{ command: 'music', description: 'منوی موسیقی و جلوه' },
+                                         { command: 'pending', description: 'قطعه‌های معلق' },
+                                         { command: 'help', description: 'راهنما' }] });
+  } catch (eC) {}
+  var ok = false;
+  try {
+    var r = tgApi_('sendMessage', { chat_id: chat, text: '🎛 منوی ثابت پایینِ صفحه آماده است — دیگر لازم نیست دستوری تایپ کنید.',
+                                    reply_markup: JSON.stringify({ keyboard: MR_MENU_KB.map(function (row) { return row.map(function (t) { return { text: t }; }); }),
+                                                                   resize_keyboard: true, is_persistent: true }) });
+    ok = !!(r && r.result);
+  } catch (eK) { ok = false; }
+  if (!ok) {
+    try {
+      var m = tgApi_('sendMessage', { chat_id: chat, text: '🎛 منوی موسیقی (سنجاق‌شده)',
+        reply_markup: JSON.stringify({ inline_keyboard: [[{ text: '🎵 منوی موسیقی', callback_data: 'mm|menu' }, { text: '⏳ معلق‌ها', callback_data: 'mb|p|0' }],
+                                                         [{ text: '🔎 بر اساسِ وایب', callback_data: 'mm|vibes' }, { text: '➕ ۵ تای بعدی', callback_data: 'mm|more' }]] }) });
+      if (m && m.result) tgApi_('pinChatMessage', { chat_id: chat, message_id: m.result.message_id, disable_notification: true });
+      st.kbPinned = 1;
+    } catch (eP) { st.lastWhy = 'منوی ثابت: ' + String(eP.message || eP).slice(0, 100); }
+  }
+  st.kbVer = String(CFG.CODE_VERSION);
+  return ok;
+}
+
+var MR_HELP = ['❓ راهنمای بانکِ موسیقی',
+  '• هر روز چند کارت می‌آید؛ زیرِ هر کارت: ستاره، وایب، جایگاه، تأیید، «⏳ بعداً»، رد.',
+  '• «📝 یادداشت» روی هر کارت — تأییدشده، معلق یا ردشده — هر بار که آن قطعه برای قسمتی انتخاب می‌شود خوانده می‌شود.',
+  '• «✂️ بازهٔ استفاده»: فقط همان تکه پخش می‌شود. در یادداشت یا توضیحِ رد هم می‌شود نوشت «از ثانیهٔ ۱۰ تا ۴۰».',
+  '• «✍️ رد با توضیح» خوانده می‌شود: «این جلوهٔ صوتی است» یعنی به بانکِ جلوه برود، نه دور ریخته شود.',
+  '• دکمه‌های پایینِ صفحه هر فهرست را باز می‌کنند؛ روی هر قطعه بزنید تا کارتش دوباره بیاید.'].join('\n');
+
+/** متنِ دکمه‌های منوی ثابت ⇒ کار. */
+function mrOnMenuText_(hub, st, txt, chatId) {
+  var t = String(txt || '').trim();
+  if (/^\/(music|موسیقی)\b/.test(t) || t === 'موسیقی' || t === '🎵 منوی موسیقی') { mrMenu_(hub, chatId); return true; }
+  if (/^\/pending\b/.test(t) || t === '⏳ معلق‌ها') { mrBrowse_(hub, chatId, 'p', 0); return true; }
+  if (t === '⭐ پسندیده‌ها') { mrBrowse_(hub, chatId, 's4', 0); return true; }
+  if (t === '❌ ردشده‌ها') { mrBrowse_(hub, chatId, 'r', 0); return true; }
+  if (t === '🔊 جلوه‌ها') { mrBrowse_(hub, chatId, 'x', 0); return true; }
+  if (t === '📝 یادداشت‌دارها') { mrBrowse_(hub, chatId, 'n', 0); return true; }
+  if (t === '✂️ بازه‌دارها') { mrBrowse_(hub, chatId, 'g', 0); return true; }
+  if (t === '🔎 بر اساسِ وایب') { mrVibeMenu_(hub, chatId); return true; }
+  if (t === '➕ ۵ تای بعدی') {
+    st.dayN = Math.max(0, (Number(st.dayN) || 0) - 5); st.first = 1; st.sendTry = 0; st.more = (Number(st.more) || 0) + 5;
+    tgApi_('sendMessage', { chat_id: chatId, text: '➕ پنج کارتِ تازه تا یکی‌دو دقیقهٔ دیگر.' });
+    return true;
+  }
+  if (/^\/(help|start)\b/.test(t) || t === '❓ راهنما') { tgApi_('sendMessage', { chat_id: chatId, text: MR_HELP }); return true; }
+  return false;
+}
+
+/** دکمه‌های منو و فهرست (mm|… و mb|… و mc|…). */
+function mrOnMenuButton_(hub, st, data, chatId, msgId) {
+  var p = String(data || '').split('|');
+  if (p[0] === 'mm' && p[1] === 'more') { st.dayN = Math.max(0, (Number(st.dayN) || 0) - 5); st.first = 1; st.sendTry = 0; st.more = (Number(st.more) || 0) + 5; return true; }
+  if (p[0] === 'mm' && p[1] === 'menu') return mrMenu_(hub, chatId, msgId);
+  if (p[0] === 'mm' && p[1] === 'vibes') return mrVibeMenu_(hub, chatId, msgId);
+  if (p[0] === 'mb') return mrBrowse_(hub, chatId, p[1], p[2], msgId);
+  if (p[0] === 'mc') return mrResend_(hub, p[1]);
+  return false;
 }
 
 /* ───── تریگر ───── */
@@ -576,10 +761,12 @@ function mrLease_(take) {
 /** جوابِ فوریِ دکمه — پیش از هر خواندنِ هاب، تا چرخشِ دکمه همان لحظه بایستد. */
 function mrAckText_(data) {
   var p = String(data || '').split('|');
-  if (p[0] === 'mm') return 'تا چند دقیقهٔ دیگر';
+  if (p[0] === 'mm') return p[1] === 'more' ? 'تا چند دقیقهٔ دیگر' : '';
+  if (p[0] === 'mb') return '';
+  if (p[0] === 'mc') return 'کارتش همین الان می‌آید';
   if (p[2] === 's') { var n = Math.max(1, Math.min(5, Number(p[3]) || 1)); return new Array(n + 1).join('⭐') + ' ثبت شد'; }
   return ({ s: '⭐ ستاره ثبت شد', v: 'وایب ثبت شد', o: 'جایگاه ثبت شد', a: '✅ تأیید شد', u: 'معلق ماند',
-            r: '❌ رد شد — دیگر پخش نمی‌شود', vx: 'منتظرِ نوشتهٔ شما', rx: 'منتظرِ نوشتهٔ شما', ux: 'منتظرِ نوشتهٔ شما' })[p[2]] || '';
+            r: '❌ رد شد — دیگر پخش نمی‌شود', vx: 'منتظرِ نوشتهٔ شما', rx: 'منتظرِ نوشتهٔ شما', ux: 'منتظرِ نوشتهٔ شما', nx: 'منتظرِ نوشتهٔ شما' })[p[2]] || '';
 }
 
 function tgPollRun_() {
@@ -608,7 +795,7 @@ function tgPollRun_() {
             if (!mrChatOk_(m.chat)) continue;
             try { tgApi_('answerCallbackQuery', { callback_query_id: cq.id, text: mrAckText_(cq.data) }); } catch (eA) {}
             st.hotUntil = Date.now() + (Number(CFG.MR_HOT_MIN) || 10) * 60000;
-            if (String(cq.data || '') === 'mm|more') { st.dayN = Math.max(0, (Number(st.dayN) || 0) - 5); st.first = 1; st.sendTry = 0; st.more = (Number(st.more) || 0) + 5; }
+            if (/^m[mbc]\|/.test(String(cq.data || ''))) mrOnMenuButton_(getHub(), st, cq.data, m.chat.id, m.message_id);
             else mrOnButton_(getHub(), st, cq.data, m.chat.id, m.message_id, !m.audio && !m.document);
             st.clickAt = Date.now();
             out.got++;
@@ -623,6 +810,7 @@ function tgPollRun_() {
       if (idle) break;
     } while (hot() && Date.now() - t0 < maxRun - 8000);
     /* ۹.۸۱، یک بار: ردهای با توضیحی که پیش از این نسخه نوشته شده‌اند هم خوانده می‌شوند. */
+    if (st.kbVer !== String(CFG.CODE_VERSION)) { try { mrFixedMenu_(st); } catch (eKb) { st.kbVer = String(CFG.CODE_VERSION); } }
     if (!st.why981) { try { mrRereadWhys_(getHub(), st); } catch (eRw) { st.lastWhy = 'why981: ' + String(eRw.message || eRw).slice(0, 100); } st.why981 = 1; }
     /* تریگر هر دقیقه است (۹.۷۷)؛ بازکردنِ هابِ ۲۹ مگابایتی هر دقیقه سهمیهٔ روزانهٔ اجرا را می‌خورد. پس فرستادن فقط
        وقتی سهمِ امروز پر نیست و ده دقیقه از تلاشِ قبلی گذشته — و سهمِ پر بی هیچ خواندنی دانسته می‌شود. */

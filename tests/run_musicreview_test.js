@@ -139,7 +139,7 @@ console.log('=== ۵) یادآوری، منو، تریگر، وضعیت ===');
   tg.length = 0;
   ups.push({ update_id: ++mid, message: { message_id: 9, chat: { id: 777 }, text: '/music' } });
   tgPollTick();
-  ok('۵.۲ «/music» آمارِ بانک را می‌دهد', calls('sendMessage').some(x => /بانکِ موسیقی/.test(x.b.text) && /ردشده/.test(x.b.text)));
+  ok('۵.۲ «/music» آمارِ بانک را می‌دهد', calls('sendMessage').some(x => /بانکِ موسیقی/.test(x.b.text) && /ردشده/.test(x.b.reply_markup || '')));
   const w = wantedTriggers_().filter(x => x.fn === 'tgPollTick')[0];
   ok('۵.۳ تریگرِ چنددقیقه‌ای در همان فهرستی که نصب و وارسی می‌شود', w && w.kind === 'minutes' && trigMinutes_(w.every) === 1 &&
      trigMinutes_(7) === 10 && (fs.readFileSync('src/05_Setup.gs', 'utf8').match(/everyMinutes\(trigMinutes_/g) || []).length === 2);
@@ -444,6 +444,70 @@ console.log('=== ۱۱) «رد با توضیح … بهش حتماً توجه ب�
   const stO = mrState_(); delete stO.why981; mrSave_(stO);
   tgPollTick();
   ok('۱۱.۱۰ ردِ نوشتاریِ قبلی خوانده و اجرا شد، و خبرش رسید', mrMap_(hub)[fO.getId()].verdict === 'تأیید' && said.some(x => /دوباره خوانده شدند/.test(x) && /Old/.test(x)), said.join(' | '));
+}
+
+console.log('=== ۱۲) «منوی ثابت … دسترسی‌هاش وسیع»، «توضیحات حتی اگر تأیید یا معلق»، «معلق‌ها یادت بمونه» (۹.۸۲) ===');
+{
+  /* منوی ثابت، یک بار برای هر نسخه */
+  const st0 = mrState_(); delete st0.kbVer; mrSave_(st0);
+  tg.length = 0; tgPollTick();
+  const kbMsg = calls('sendMessage').filter(x => /keyboard/.test(x.b.reply_markup || '') && /is_persistent/.test(x.b.reply_markup || ''))[0];
+  ok('۱۲.۱ منوی ثابت پایینِ صفحه و فهرستِ دستورهای ربات', kbMsg && calls('setMyCommands').length === 1, kbMsg && kbMsg.b.reply_markup.slice(0, 80));
+  tg.length = 0; tgPollTick();
+  ok('۱۲.۲ و فقط یک بار (اجرای بعد دوباره نمی‌فرستد)', !calls('sendMessage').some(x => /is_persistent/.test(x.b.reply_markup || '')));
+  /* کانال: صفحه‌کلید پذیرفته نیست ⇒ همان منو سنجاق می‌شود */
+  const keep = global.__STUB;
+  global.__STUB = (url, body) => { if (/sendMessage$/.test(url) && /is_persistent/.test(body.reply_markup || '')) return { code: 400, json: { ok: false, description: 'Bad Request: reply keyboard not allowed' } }; return keep(url, body); };
+  const st1 = mrState_(); delete st1.kbVer; mrSave_(st1);
+  tg.length = 0;
+  try { tgPollTick(); } finally { global.__STUB = keep; }
+  ok('۱۲.۳ اگر چت صفحه‌کلید نپذیرفت، منو سنجاق می‌شود — بی‌منو نمی‌ماند', calls('pinChatMessage').length === 1);
+
+  ok('۱۲.۴ هیچ دکمهٔ مرده‌ای در منوی ثابت نیست', [].concat.apply([], MR_MENU_KB).every(t => { tg.length = 0; return mrOnMenuText_(hub, mrState_(), t, 777) === true && tg.length > 0; }));
+
+  /* معلق‌ها: هر چه فرستاده شده و بی‌جواب مانده — بیش از یک صفحه */
+  const P = [];
+  for (let i = 0; i < 10; i++) { const f = mk('P' + i + '.wav'); P.push(f); const r0 = mus.getLastRow(); mus.getRange(r0 + 1, 1, 1, MUSIC_HEADERS.length).setValues([row(f, 'P' + i + '.wav', 0, 'آهنگ — نی', 'میانه')]); mrSet_(hub, f.getId(), { name: 'P' + i + '.wav', sent: nowStr_(), msg: String(700 + i) }); }
+  const allP = mrFilter_(mrRows_(hub), 'p');
+  tg.length = 0;
+  mrOnMenuText_(hub, mrState_(), '⏳ معلق‌ها', 777);
+  const list = calls('sendMessage').slice(-1)[0], kbL = JSON.parse(list.b.reply_markup).inline_keyboard;
+  ok('۱۲.۵ «⏳ معلق‌ها» همهٔ معلق‌ها را می‌شمارد و صفحهٔ اول با دکمهٔ هر قطعه و «بعدی»', allP.length >= 10 && new RegExp(faDigitsOut_(String(allP.length))).test(list.b.text) &&
+     kbL.filter(r => /^mc\|/.test(r[0].callback_data)).length === MR_PAGE && kbL.some(r => r.some(x => /بعدی/.test(x.text))), list.b.text);
+  tg.length = 0;
+  ups.push({ update_id: ++mid, callback_query: { id: 'qb', data: 'mb|p|1', message: { message_id: 4242, chat: { id: 777 } } } });
+  tgPollTick();
+  ok('۱۲.۶ ورق زدن همان پیام را عوض می‌کند، نه پیامِ تازه', calls('editMessageText').some(x => x.b.message_id === 4242 && /صفحهٔ ۲/.test(x.b.text)));
+  const idP = P[3].getId();
+  tg.length = 0;
+  ups.push({ update_id: ++mid, callback_query: { id: 'qc', data: 'mc|' + idP, message: { message_id: 4242, chat: { id: 777 } } } });
+  tgPollTick();
+  ok('۱۲.۷ زدنِ یک قطعه کارتش را دوباره می‌فرستد و شناسهٔ پیامِ تازه در تب می‌نشیند', calls('sendDocument').length === 1 && mrMap_(hub)[idP].msg !== '703');
+
+  /* همهٔ فیلترهای منو و وایب‌ها بی‌خطا */
+  tg.length = 0;
+  const fs2 = Object.keys(MR_FILTERS).concat(mrVibes_().map((_, i) => 'v' + i));
+  ok('۱۲.۸ هر فهرستِ منو (و هر وایب) باز می‌شود', fs2.every(f => mrBrowse_(hub, 777, f, 0) === true) && mrMenu_(hub, 777) && mrVibeMenu_(hub, 777));
+
+  /* یادداشت روی کارتِ تأییدشده */
+  const idA = fA.getId(), mA = Number(mrMap_(hub)[idA].msg);
+  mrSet_(hub, idA, { verdict: 'تأیید' });
+  tg.length = 0;
+  ups.push(cq('m|' + idA + '|nx', mA));
+  tgPollTick();
+  const askN = calls('sendMessage').filter(x => /#m:.*:nx/.test(x.b.text))[0];
+  ups.push({ update_id: ++mid, message: { message_id: 700, chat: { id: 777 }, text: 'برای داستان‌های ترسناک عالیه، برای طنز نه؛ فقط از ثانیهٔ ۵ تا ۲۵', reply_to_message: { text: askN.b.text } } });
+  tgPollTick();
+  const rA = mrMap_(hub)[idA];
+  ok('۱۲.۹ یادداشت روی تأییدشده: داوری همان می‌ماند، یادداشت و بازه ثبت می‌شود', rA.verdict === 'تأیید' && /ترسناک/.test(rA.note) && rA.range === '5-25', JSON.stringify(rA).slice(0, 200));
+  ok('۱۲.۱۰ و پاسخ و کارت هر دو یادداشت را نشان می‌دهند', calls('sendMessage').some(x => /یادداشت ثبت شد/.test(x.b.text)) && calls('editMessageCaption').some(x => /📝 یادداشتِ شما/.test(x.b.caption)));
+  const bA = musicBank_(hub).filter(b => b.id === idA)[0];
+  let asked = '';
+  const kG = global.geminiText_;
+  global.geminiText_ = (prompt) => { asked = asked || prompt; return null; };
+  try { musicPlanModel_(musicBank_(hub), { bounds: [], sections: [], show: 'variety', title: 'x' }); } catch (e) {} finally { global.geminiText_ = kG; }
+  ok('۱۲.۱۱ هر بار که موسیقی انتخاب می‌شود، یادداشتِ او در پرسش هست', bA && /ترسناک/.test(bA.ownerNote) && /یادداشتِ صاحبِ برنامه: «[^»]*ترسناک/.test(asked));
+  ok('۱۲.۱۲ کارت دکمهٔ «📝 یادداشت» دارد — حتی ردشده', [].concat.apply([], mrKeyboard_('x', { verdict: 'رد' }).inline_keyboard).some(x => /📝 یادداشت/.test(x.text)));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ بازبینیِ موسیقی گذشت.');
