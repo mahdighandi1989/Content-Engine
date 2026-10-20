@@ -78,8 +78,16 @@ console.log('=== ۲) ساختِ واقعی ===');
   const io = { wav: P('a.wav'), dur: R.wavSeconds(P('a.wav')),
     imgs: [{ file: P('wide.png'), w: 1920, h: 1080 }, { file: P('tall.png'), w: 768, h: 1344 }],
     mark: {}, dir: dir, ff: ff, shoot: (html, png, w, h) => SKIT.shoot(exe, html, png, w, h, ff) };
+  const calls = [];
+  io.ff = (a) => { calls.push(a); return ff(a); };
   const r = RK.build(reel, io, P('reel.mp4'));
   const pr = MKIT.probe(FF, r.file) || {};
+  /* ۲.۰ (۲۰ اکتبر): رانر دو بار با ۱۵ گیگ حافظه کشته شد — هر لایه یک ورودیِ `-loop 1` بود و ffmpeg هر کدام را از ثانیهٔ صفر
+     صف می‌کرد. گذرِ نهایی حالا شمارِ ورودیِ ثابت دارد (ویدئو، صدا، نوار، خطِ زمانِ لایه‌ها)، هرچند لایه که باشد. */
+  const fin = calls.filter(a => a.indexOf('+faststart') !== -1);
+  ok('۲.۰ گذرِ نهایی ورودیِ جدا برای هر لایه ندارد — همهٔ لایه‌ها یک خطِ زمانِ concat‌اند',
+     fin.length === 2 && fin.every(a => a.filter(x => x === '-i').length === 4 && a.indexOf('-loop') === -1 && a.indexOf('concat') !== -1),
+     JSON.stringify(fin.map(a => a.filter(x => x === '-i').length)));
   ok('۲.۱ ریلز ۱۰۸۰×۱۹۲۰، با صدا، به طولِ صدا', pr.w === 1080 && pr.h === 1920 && pr.audio && Math.abs(pr.dur - 12) < 0.4, JSON.stringify(pr));
   const fr = (t, f) => spawnSync(FF, ['-hide_banner', '-loglevel', 'error', '-ss', String(t), '-i', f || r.file, '-vf', 'scale=54:96,format=gray',
     '-frames:v', '1', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 20 }).stdout || Buffer.alloc(0);
@@ -89,6 +97,7 @@ console.log('=== ۲) ساختِ واقعی ===');
   const endF = fr(11.0), midF = fr(7.5);
   ok('۲.۳ کارتِ پایانی روی جملهٔ دعوت: قابِ تیره و مات', band(endF, 0, 96) < band(midF, 0, 96) && sd(endF, midF) > 8,
      band(endF, 0, 96).toFixed(0) + ' < ' + band(midF, 0, 96).toFixed(0));
+  ok('۲.۳-ب میانِ دو عبارت (لایهٔ شفاف) تصویرِ زیر دیده می‌شود، نه قابِ سیاه', band(fr(3.1), 0, 96) > 40, band(fr(3.1), 0, 96).toFixed(0));
   const cp = MKIT.probe(FF, r.cover) || {};
   ok('۲.۴ کاورِ JPEGِ ۱۰۸۰×۱۹۲۰ کنارِ ویدئو', cp.w === 1080 && cp.h === 1920 && R.sniffKind(r.cover) === 'jpeg', JSON.stringify(cp));
   ok('۲.۵ جمله‌های میانی عبارت‌به‌عبارت؛ جملهٔ اول قلاب است؛ دو تصویر با یک گذار', r.phrases >= 4 && r.subs >= 3 && r.segs === 2 && r.trans === 1, JSON.stringify(r));

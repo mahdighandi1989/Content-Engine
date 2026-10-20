@@ -241,29 +241,54 @@ function build(reel, io, out) {
   ov.forEach((o, i) => { o.png = io.shoot(o.html, path.join(dir, 'ov' + String(i).padStart(3, '0') + '.png'), RK.w, RK.h); });
   endOv.png = io.shoot(endOv.html, path.join(dir, 'ovend.png'), RK.w, RK.h);
 
-  /* یک گذر: نوارِ پیشرفت بالای قاب و کمی سایه‌روشنِ لبه (vignette)، سپس لایه‌ها. */
-  const render = (layers, T, file) => {
-    const args = ['-i', base, '-i', io.wav, '-f', 'lavfi', '-i', 'color=c=0xffe14d:s=' + RK.w + 'x10:r=' + RK.fps];
-    layers.forEach(o => args.push('-loop', '1', '-i', o.png));
-    const fl = ['[0:v]vignette=angle=PI/5[vg]', "[vg][2:v]overlay=x='-W+W*t/" + T.toFixed(3) + "':y=0:shortest=1[pb]"];
-    let cur = 'pb';
-    layers.forEach((o, i) => {
-      const nx = 'v' + i;
-      fl.push('[' + cur + '][' + (i + 3) + ':v]overlay=0:0:shortest=1:enable=\'between(t,' + o.a.toFixed(3) + ',' + o.b.toFixed(3) + ')\'[' + nx + ']');
-      cur = nx;
+  /* ══ همهٔ لایه‌ها یک ورودی‌اند، نه یک ورودی برای هر لایه (۲۰ اکتبر) ══
+     نگارشِ ۹.۲۶ هر عبارت را `-loop 1 -i png` می‌کرد: ffmpeg هر ورودیِ حلقه‌ای را از ثانیهٔ صفر رمزگشایی و صف می‌کند تا
+     `enable`ش برسد — ~۱۰۰ مگ برای هر لایهٔ ۱۰۸۰×۱۹۲۰. ریلزِ پرعبارت به ۱۵ گیگ رسید و رانر دو بار وسطِ کار کشته شد
+     (اجراهای ۵۲۱ و ۵۲۲، «Run failed: render-youtube-video»). حالا خطِ زمانِ لایه‌ها یک فهرستِ concat است — شفاف میانِ
+     لایه‌ها، و هر لایه تا آغازِ بعدی — پس حافظه با شمارِ لایه‌ها بالا نمی‌رود. */
+  let blank = '';
+  const timeline = (layers, T, tag) => {
+    if (!blank) {
+      blank = path.join(dir, 'ovblank.png');
+      /* `format` درونِ خودِ منبع، نه با `-vf`: آن‌جا رنگ اول بی‌آلفا ساخته می‌شود و «شفاف» سیاهِ کدر درمی‌آید
+         (۲.۶ همین را گرفت: شورتز میانِ عبارت‌ها سیاه بود). */
+      ff(['-f', 'lavfi', '-i', 'color=c=black@0.0:s=' + RK.w + 'x' + RK.h + ',format=rgba', '-frames:v', '1', blank]);
+    }
+    const ls = layers.filter(o => o.png && o.b > o.a).slice().sort((x, y) => x.a - y.a);
+    const rows = ['ffconcat version 1.0'];
+    const put = (f, d) => { if (d > 0.0005) rows.push("file '" + f.replace(/'/g, "'\\''") + "'", 'duration ' + d.toFixed(4)); };
+    let t = 0, last = blank;
+    ls.forEach((o, i) => {
+      const a = Math.max(t, Math.min(T, o.a));
+      const b = Math.min(T, o.b, i + 1 < ls.length ? Math.max(a, ls[i + 1].a) : T);
+      put(blank, a - t);
+      if (b > a) { put(o.png, b - a); last = o.png; t = b; } else t = a;
     });
-    ff(args.concat(['-filter_complex', fl.join(';'), '-map', '[' + cur + ']', '-map', '1:a',
+    if (T > t) { put(blank, T - t); last = blank; }
+    rows.push("file '" + last.replace(/'/g, "'\\''") + "'");   // concat: مدتِ آخرین ردیف بی تکرارش خوانده نمی‌شود
+    const lf = path.join(dir, 'ov-' + tag + '.ffconcat');
+    fs.writeFileSync(lf, rows.join('\n') + '\n');
+    return lf;
+  };
+  /* یک گذر: نوارِ پیشرفت بالای قاب و کمی سایه‌روشنِ لبه (vignette)، سپس خطِ زمانِ لایه‌ها. */
+  const render = (layers, T, file, tag) => {
+    const args = ['-i', base, '-i', io.wav, '-f', 'lavfi', '-i', 'color=c=0xffe14d:s=' + RK.w + 'x10:r=' + RK.fps,
+                  '-f', 'concat', '-safe', '0', '-i', timeline(layers, T, tag)];
+    const fl = ['[0:v]vignette=angle=PI/5[vg]', "[vg][2:v]overlay=x='-W+W*t/" + T.toFixed(3) + "':y=0:shortest=1[pb]",
+                '[3:v]fps=' + RK.fps + ',format=rgba,setpts=PTS-STARTPTS[ovs]',
+                '[pb][ovs]overlay=0:0:eof_action=pass[vo]'];
+    ff(args.concat(['-filter_complex', fl.join(';'), '-map', '[vo]', '-map', '1:a',
       '-t', T.toFixed(3), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-maxrate', '6M', '-bufsize', '12M',
       '-pix_fmt', 'yuv420p', '-r', String(RK.fps), '-c:a', 'aac', '-b:a', '160k', '-ar', '48000', '-ac', '2',
       '-movflags', '+faststart', file]));
   };
-  render(ov.concat([endOv]), dur, out);
+  render(ov.concat([endOv]), dur, out, 'reel');
   /* ── نسخهٔ شورتز (۹.۲۶): همان، بی کارتِ پایانی و بی جملهٔ دعوت — صدا سرِ آغازِ دعوت بریده می‌شود. ── */
   let short = '', shortT = 0;
   if (reel.short && ctaI > 0) {
     shortT = Math.min(dur, (Number(lines[ctaI].t0) || dur) + 0.25);
     short = path.join(dir, 'short.mp4');
-    render(ov.filter(o => o.a < shortT).map(o => Object.assign({}, o, { b: Math.min(o.b, shortT) })), shortT, short);
+    render(ov.filter(o => o.a < shortT).map(o => Object.assign({}, o, { b: Math.min(o.b, shortT) })), shortT, short, 'short');
   }
 
   const cpng = io.shoot(coverHtml(reel.coverTitle || reel.hook || '', reel.kicker, io.mark, bg), path.join(dir, 'cover.png'), RK.w, RK.h);
