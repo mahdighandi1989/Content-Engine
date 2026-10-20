@@ -1107,7 +1107,7 @@ function musicPick_(bank, slot, moodWords, wantedId) {
     var need = (slot === 'میانه')
       ? (Number(CFG.MUSIC_MIN_BRIDGE_SEC) || 4)
       : (Number(CFG.MUSIC_MIN_EDGE_SEC) || 8);
-    if (b.sec < need) continue;
+    if ((b.range ? (b.range.to - b.range.from) : b.sec) < need) continue;
     cands.push(b);
   }
   if (!cands.length) return null;
@@ -1711,6 +1711,12 @@ function musicWrap_(chunks, hub, opt) {
        `bridgeStart`ِ مشترک. */
     var st0 = (opts.start !== undefined && opts.start !== null && opts.start !== '')
             ? Number(opts.start) : Number(plan[slot + 'Start']);
+    /* بازهٔ صاحبِ برنامه (۹.۸۱): «فلان ثانیه تا فلان … بقیه رو در نظر نگیره» — شروع و طول درونِ همان بازه. */
+    if (b.range && b.range.to > b.range.from) {
+      st0 = Math.max(b.range.from, Math.min(Number(st0) || 0, b.range.to - 1));
+      if (!(Number(st0) >= b.range.from)) st0 = b.range.from;
+      len = Math.max(1, Math.min(len, b.range.to - st0));
+    }
     return musicClip_(b.id, {
       startSec: Number(st0) || 0, lenSec: len, fadeCurve: tail ? 'tail' : '',
       gain: b.gain * (Number(opt.gain) > 0 ? Number(opt.gain) : (Number(CFG.MUSIC_GAIN) || 1)),
@@ -2452,7 +2458,8 @@ function musicPlanModel_(bank, ctx) {
     return '• ' + b.id + ' | «' + b.name + '» | حال‌وهوا: ' + (b.mood || '—') +
            ' | مناسب: ' + (b.slots || '—') + ' | مدت: ' + b.sec + 'ث | بارِ استفاده: ' + b.used +
            (b.rev && (b.rev.ok || b.rev.stars) ? ' | داوریِ صاحبِ برنامه: ' + (b.rev.ok ? 'تأیید' : '') + (b.rev.stars ? ' ' + b.rev.stars + '/5' : '') : '') +
-           (b.like ? ' | شباهت به سلیقه‌اش: ' + (b.like > 0 ? '+' : '') + (Math.round(b.like * 10) / 10) : '');
+           (b.like ? ' | شباهت به سلیقه‌اش: ' + (b.like > 0 ? '+' : '') + (Math.round(b.like * 10) / 10) : '') +
+           (b.range ? ' | فقط ثانیهٔ ' + b.range.from + ' تا ' + b.range.to + ' (شروعِ برش درونِ همین بازه)' : '');
   }).join('\n');
 
   /* مرزهای مجاز — حالا با وایبِ دو طرف.

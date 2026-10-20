@@ -388,4 +388,62 @@ console.log('=== ۱۰) «۵ تای بعدی رو زدم و ده دقیقه گذ�
   ok('۱۰.۷ بانک سقفِ ۹۰تایی ندارد — رشد ادامه دارد', !CFG.MUSIC_BANK_MAX);
 }
 
+console.log('=== ۱۱) «رد با توضیح … بهش حتماً توجه بشه» و «فلان ثانیه‌ها رو در نظر بگیره، بقیه رو نه» (۹.۸۱) ===');
+{
+  const ok11 = (t, f, to) => { const r = mrRangeParse_(t); return r && r.from === f && r.to === to; };
+  ok('۱۱.۱ بازه از نوشتهٔ آزاد — ثانیه، دقیقه، «:»، رقمِ فارسی و لاتین',
+     ok11('از ثانیهٔ ۱۰ تا ۴۰', 10, 40) && ok11('۰:۳۰ تا ۱:۲۰', 30, 80) && ok11('دقیقهٔ ۱ تا ۲', 60, 120) && ok11('از 15 ثانیه تا دقیقه 2', 15, 120) && !mrRangeParse_('بد بود'));
+
+  /* حالتِ واقعی: جلوه‌ای با کارتِ موسیقی، «رد با توضیح» با «این جلوهٔ صوتی است … قبولش دارم». */
+  const fS = mk('Whoosh.wav'), b0 = mus.getLastRow();
+  mus.getRange(b0 + 1, 1, 1, MUSIC_HEADERS.length).setValues([row(fS, 'Whoosh.wav', 0, 'آهنگ — گذر', 'میانه')]);
+  const mS = Number(mrSendOne_({ id: fS.getId(), name: 'Whoosh.wav', kind: 'موسیقی', sec: 3, used: 0 }, null));
+  mrSet_(hub, fS.getId(), { name: 'Whoosh.wav', sent: nowStr_(), msg: String(mS) });
+  tg.length = 0;
+  ups.push(cq('m|' + fS.getId() + '|rx', mS));
+  tgPollTick();
+  const ask = calls('sendMessage').filter(x => /#m:/.test(x.b.text))[0];
+  ups.push({ update_id: ++mid, message: { message_id: 600, chat: { id: 777 }, text: 'این جلوهٔ صوتیه و به‌عنوانِ جلوه قبولش دارم، ولی ممکنه بعداً با موسیقی اشتباه گرفته بشه',
+             reply_to_message: { text: ask.b.text } } });
+  tgPollTick();
+  const rS = mrMap_(hub)[fS.getId()];
+  const kindNow = mus.getRange(2, 1, mus.getLastRow() - 1, MUSIC_HEADERS.length).getValues().filter(x => x[MC.ID - 1] === fS.getId())[0][MC.KIND - 1];
+  ok('۱۱.۲ «جلوهٔ صوتیه … قبولش دارم» ⇒ نه رد: نوعش «افکت» شد و پذیرفته ماند', rS.verdict === 'تأیید' && kindNow === 'افکت' && /جلوهٔ صوتی/.test(rS.read), JSON.stringify(rS));
+  ok('۱۱.۳ و همان لحظه به او گفته شد چه فهمیدم', calls('sendMessage').some(x => /فهمیدم: این جلوهٔ صوتی است/.test(x.b.text)));
+  const bk = musicBank_(hub).filter(b => b.id === fS.getId())[0];
+  ok('۱۱.۴ در بانک: افکت است، پس هرگز به‌عنوانِ موسیقی انتخاب نمی‌شود', bk && bk.kind === 'افکت' && musicPick_([bk], 'میانه', '', null) === null);
+
+  /* بازه: از دکمهٔ «✂️ بازهٔ استفاده» و از نوشتهٔ رد. */
+  const fR = mk('Long.wav'), b1 = mus.getLastRow();
+  const rr = row(fR, 'Long.wav', 0, 'آهنگ — پیانو', 'شروع، میانه، پایان'); rr[MC.SEC - 1] = 180;
+  mus.getRange(b1 + 1, 1, 1, MUSIC_HEADERS.length).setValues([rr]);
+  mrSet_(hub, fR.getId(), { name: 'Long.wav', sent: nowStr_(), msg: '901' });
+  const kbR = [].concat.apply([], mrKeyboard_(fR.getId(), {}).inline_keyboard).map(x => x.text);
+  ok('۱۱.۵ کارت دکمهٔ «✂️ بازهٔ استفاده» دارد (موسیقی و افکت)', kbR.indexOf('✂️ بازهٔ استفاده') !== -1 &&
+     [].concat.apply([], mrKeyboard_('x', {}, 'افکت').inline_keyboard).some(x => x.text === '✂️ بازهٔ استفاده'));
+  tg.length = 0;
+  ups.push(cq('m|' + fR.getId() + '|ux', 901));
+  tgPollTick();
+  const askU = calls('sendMessage').filter(x => /#m:.*:ux/.test(x.b.text))[0];
+  ups.push({ update_id: ++mid, message: { message_id: 601, chat: { id: 777 }, text: 'از ثانیهٔ ۳۰ تا دقیقهٔ ۱', reply_to_message: { text: askU.b.text } } });
+  tgPollTick();
+  ok('۱۱.۶ نوشتهٔ «از ثانیهٔ ۳۰ تا دقیقهٔ ۱» ⇒ بازهٔ ۳۰–۶۰ در تب', mrMap_(hub)[fR.getId()].range === '30-60', mrMap_(hub)[fR.getId()].range);
+  const bR = musicBank_(hub).filter(b => b.id === fR.getId())[0];
+  ok('۱۱.۷ بانک بازه را می‌شناسد', bR && bR.range && bR.range.from === 30 && bR.range.to === 60);
+  const clipSrc = String(musicWrap_);
+  ok('۱۱.۸ و برشِ قطعه درونِ همان بازه است (شروع و طول)', /b\.range && b\.range\.to > b\.range\.from/.test(clipSrc) && /len = Math\.max\(1, Math\.min\(len, b\.range\.to - st0\)\)/.test(clipSrc));
+
+  const rw = mrReadWhy_('صدای زشتیه، اصلاً موسیقی نیست', { kind: 'موسیقی' });
+  ok('۱۱.۹ ردِ واقعی رد می‌ماند', rw.act === 'رد');
+
+  /* ردهای با توضیحِ پیشین یک بار بازخوانده می‌شوند. */
+  const fO = mk('Old.wav'), b2 = mus.getLastRow();
+  mus.getRange(b2 + 1, 1, 1, MUSIC_HEADERS.length).setValues([row(fO, 'Old.wav', 0, 'آهنگ — طبل', 'میانه')]);
+  mrSet_(hub, fO.getId(), { name: 'Old.wav', verdict: 'رد', why: 'این افکته نه موسیقی، به عنوان جلوه خوبه', whyK: 'x' });
+  said.length = 0;
+  const stO = mrState_(); delete stO.why981; mrSave_(stO);
+  tgPollTick();
+  ok('۱۱.۱۰ ردِ نوشتاریِ قبلی خوانده و اجرا شد، و خبرش رسید', mrMap_(hub)[fO.getId()].verdict === 'تأیید' && said.some(x => /دوباره خوانده شدند/.test(x) && /Old/.test(x)), said.join(' | '));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ بازبینیِ موسیقی گذشت.');

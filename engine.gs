@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.80
+ *  موتور محتوا و پادکست — نسخهٔ 9.81
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2200,7 +2200,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.80',
+  CODE_VERSION: '9.81',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -40867,7 +40867,7 @@ function musicPick_(bank, slot, moodWords, wantedId) {
     var need = (slot === 'میانه')
       ? (Number(CFG.MUSIC_MIN_BRIDGE_SEC) || 4)
       : (Number(CFG.MUSIC_MIN_EDGE_SEC) || 8);
-    if (b.sec < need) continue;
+    if ((b.range ? (b.range.to - b.range.from) : b.sec) < need) continue;
     cands.push(b);
   }
   if (!cands.length) return null;
@@ -41471,6 +41471,12 @@ function musicWrap_(chunks, hub, opt) {
        `bridgeStart`ِ مشترک. */
     var st0 = (opts.start !== undefined && opts.start !== null && opts.start !== '')
             ? Number(opts.start) : Number(plan[slot + 'Start']);
+    /* بازهٔ صاحبِ برنامه (۹.۸۱): «فلان ثانیه تا فلان … بقیه رو در نظر نگیره» — شروع و طول درونِ همان بازه. */
+    if (b.range && b.range.to > b.range.from) {
+      st0 = Math.max(b.range.from, Math.min(Number(st0) || 0, b.range.to - 1));
+      if (!(Number(st0) >= b.range.from)) st0 = b.range.from;
+      len = Math.max(1, Math.min(len, b.range.to - st0));
+    }
     return musicClip_(b.id, {
       startSec: Number(st0) || 0, lenSec: len, fadeCurve: tail ? 'tail' : '',
       gain: b.gain * (Number(opt.gain) > 0 ? Number(opt.gain) : (Number(CFG.MUSIC_GAIN) || 1)),
@@ -42212,7 +42218,8 @@ function musicPlanModel_(bank, ctx) {
     return '• ' + b.id + ' | «' + b.name + '» | حال‌وهوا: ' + (b.mood || '—') +
            ' | مناسب: ' + (b.slots || '—') + ' | مدت: ' + b.sec + 'ث | بارِ استفاده: ' + b.used +
            (b.rev && (b.rev.ok || b.rev.stars) ? ' | داوریِ صاحبِ برنامه: ' + (b.rev.ok ? 'تأیید' : '') + (b.rev.stars ? ' ' + b.rev.stars + '/5' : '') : '') +
-           (b.like ? ' | شباهت به سلیقه‌اش: ' + (b.like > 0 ? '+' : '') + (Math.round(b.like * 10) / 10) : '');
+           (b.like ? ' | شباهت به سلیقه‌اش: ' + (b.like > 0 ? '+' : '') + (Math.round(b.like * 10) / 10) : '') +
+           (b.range ? ' | فقط ثانیهٔ ' + b.range.from + ' تا ' + b.range.to + ' (شروعِ برش درونِ همین بازه)' : '');
   }).join('\n');
 
   /* مرزهای مجاز — حالا با وایبِ دو طرف.
@@ -83016,8 +83023,8 @@ function igInsights_(st, deadline) {
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 var MR_HEADERS = ['شناسهٔ فایل', 'نام', 'فرستاده‌شده', 'داوری', 'ستاره', 'وایب', 'جایگاه', 'علتِ رد', 'دستهٔ رد',
-                  'آخرین تغییر', 'شناسهٔ پیام', 'شنیدنِ مدل'];
-var MRC = { ID: 1, NAME: 2, SENT: 3, VERD: 4, STAR: 5, VIBE: 6, SLOTS: 7, WHY: 8, WHYK: 9, AT: 10, MSG: 11, HEARD: 12 };
+                  'آخرین تغییر', 'شناسهٔ پیام', 'شنیدنِ مدل', 'بازهٔ استفاده (ثانیه)', 'برداشت از توضیحِ شما'];
+var MRC = { ID: 1, NAME: 2, SENT: 3, VERD: 4, STAR: 5, VIBE: 6, SLOTS: 7, WHY: 8, WHYK: 9, AT: 10, MSG: 11, HEARD: 12, RANGE: 13, READ: 14 };
 var MRL_HEADERS = ['زمان', 'شناسهٔ فایل', 'نام', 'کار', 'مقدار', 'توضیح'];
 
 /** دسته‌های رد — `nm` همان است که ریشه‌یابی می‌خواهد. */
@@ -83052,7 +83059,8 @@ function mrMap_(hub) {
                   vibe: String(v[i][MRC.VIBE - 1] || ''), slots: String(v[i][MRC.SLOTS - 1] || ''),
                   why: String(v[i][MRC.WHY - 1] || ''), whyK: String(v[i][MRC.WHYK - 1] || ''),
                   msg: String(v[i][MRC.MSG - 1] || ''), at: String(v[i][MRC.AT - 1] || ''),
-                  heard: String(v[i][MRC.HEARD - 1] || '') };
+                  heard: String(v[i][MRC.HEARD - 1] || ''), range: String(v[i][MRC.RANGE - 1] || ''),
+                  read: String(v[i][MRC.READ - 1] || '') };
     }
   } catch (e) {}
   return out;
@@ -83065,6 +83073,9 @@ function mrApply_(b, r) {
   b.rev = { ok: r.verdict === 'تأیید', stars: r.stars || 0, vibe: r.vibe || '', slots: r.slots || '' };
   if (r.vibe) b.mood = r.vibe + (b.mood ? '، ' + b.mood : '');
   if (r.slots) b.slots = r.slots;
+  /* «فلان ثانیه‌ها و دقیقه‌ها رو در نظر بگیره و بقیه رو نه» (۹.۸۱) — برش فقط از همین بازه. */
+  var rg = mrRangeParse_(r.range);
+  if (rg) b.range = rg;
   return b;
 }
 
@@ -83127,7 +83138,7 @@ function mrSet_(hub, id, patch) {
   var cur = r ? sh.getRange(row, 1, 1, MR_HEADERS.length).getValues()[0] : MR_HEADERS.map(function () { return ''; });
   cur[MRC.ID - 1] = id;
   var keys = { name: MRC.NAME, sent: MRC.SENT, verdict: MRC.VERD, stars: MRC.STAR, vibe: MRC.VIBE, slots: MRC.SLOTS,
-               why: MRC.WHY, whyK: MRC.WHYK, msg: MRC.MSG, heard: MRC.HEARD };
+               why: MRC.WHY, whyK: MRC.WHYK, msg: MRC.MSG, heard: MRC.HEARD, range: MRC.RANGE, read: MRC.READ };
   for (var k in patch) if (Object.prototype.hasOwnProperty.call(patch, k) && keys[k]) cur[keys[k] - 1] = patch[k];
   cur[MRC.AT - 1] = nowStr_();
   sh.getRange(row, 1, 1, MR_HEADERS.length).setValues([cur]);
@@ -83158,7 +83169,7 @@ function mrKeyboard_(id, r, kind) {
       return { text: (have.indexOf(t) !== -1 ? '✅ ' : '') + t, callback_data: cb('v', i + j) };
     }));
   }
-  if (!isSfx) rows.push([{ text: '✍️ وایبِ دیگر', callback_data: cb('vx') }]);
+  rows.push((isSfx ? [] : [{ text: '✍️ وایبِ دیگر', callback_data: cb('vx') }]).concat([{ text: '✂️ بازهٔ استفاده', callback_data: cb('ux') }]));
   if (!isSfx) rows.push(MR_SLOTS.map(function (x) {
     return { text: (String(r.slots || '').indexOf(x.t) !== -1 ? '✅ ' : '') + x.ic + ' ' + x.t, callback_data: cb('o', x.k) };
   }));
@@ -83188,7 +83199,9 @@ function mrCaption_(b, r) {
   var vd = r.verdict === 'تأیید' ? '✅ تأییدشده' : r.verdict === 'رد' ? '❌ رد — دیگر هرگز پخش نمی‌شود' : '⏳ معلق';
   L.push('<b>داوریِ شما:</b> ' + vd + (r.stars ? ' · ' + new Array(r.stars + 1).join('⭐') : '') +
          (r.vibe ? '\nوایب: ' + tgEsc_(r.vibe) : '') + (r.slots ? '\nجایگاه: ' + tgEsc_(r.slots) : '') +
-         (r.verdict === 'رد' && r.why ? '\nعلت: ' + tgEsc_(r.why) : ''));
+         (r.verdict === 'رد' && r.why ? '\nعلت: ' + tgEsc_(r.why) : '') +
+         (r.range ? '\n✂️ فقط ثانیهٔ ' + tgEsc_(faDigitsOut_(String(r.range).replace('-', ' تا '))) : '') +
+         (r.read ? '\n🧠 برداشت: ' + tgEsc_(String(r.read).slice(0, 160)) : ''));
   if (!r.verdict) L.push('<i>ستاره، وایب و جایگاه را بزنید و بعد تأیید یا رد. «✍️» یعنی خودتان بنویسید.</i>');
   var c = L.join('\n');
   return c.length > 1000 ? c.slice(0, 1000) : c;
@@ -83301,6 +83314,102 @@ function mrBankItem_(hub, id) {
   return { id: String(id), name: '', sec: 0, used: 0, heard: '', mood: '', slots: '' };
 }
 
+/* ═══ توضیحِ صاحبِ برنامه خوانده می‌شود، نه فقط بایگانی (۹.۸۱) ═══
+ * «وقتی رد با توضیح می‌زنم بهش حتماً توجه بشه» — او جلوه‌ای را که کارتِ موسیقی گرفته بود رد کرد و نوشت که جلوهٔ صوتی است
+ * و قبولش دارد، ولی نمی‌خواهد با موسیقی اشتباه گرفته شود. تا ۹.۸۰ هر «رد با توضیح» یعنی «رد»، و آن قطعه برای همیشه از هر
+ * دو بانک بیرون می‌رفت — خلافِ آنچه نوشته بود. حالا توضیح خوانده و اجرا می‌شود: جلوه ⇒ بانکِ جلوه، پذیرفته · موسیقی ⇒
+ * بانکِ موسیقی · بازهٔ زمانی ⇒ فقط همان تکه · رد ⇒ رد. و «فهمیدم: …» به خودش گفته می‌شود تا اگر غلط فهمیدم، همان لحظه ببیند. */
+
+/** «از ثانیهٔ ۱۰ تا ۴۰»، «۰:۳۰ تا ۱:۲۰»، «دقیقهٔ ۱ تا ۲»، «از 15 ثانیه تا دقیقه 2» ⇒ {from, to} به ثانیه؛ وگرنه null. */
+function mrRangeParse_(txt) {
+  var t = String(txt || '').replace(/[۰-۹]/g, function (d) { return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)); })
+    .replace(/[٠-٩]/g, function (d) { return String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)); }).replace(/٫/g, '.');
+  var m = /(ثانیه|دقیقه)?[ٔه‌ی\s]*(\d+(?::\d{1,2})?(?:\.\d+)?)\s*(ثانیه|دقیقه|sec|min)?[ٔه‌ی\s]*(?:تا|-|–|—|to)\s*(ثانیه|دقیقه)?[ٔه‌ی\s]*(\d+(?::\d{1,2})?(?:\.\d+)?)\s*(ثانیه|دقیقه|sec|min)?/i.exec(t);
+  if (!m) return null;
+  var sec = function (v, u) {
+    if (/:/.test(v)) { var q = v.split(':'); return Number(q[0]) * 60 + Number(q[1]); }
+    return Number(v) * (/^(دقیقه|min)$/i.test(u || '') ? 60 : 1);
+  };
+  /* واحدِ هر سر: آنچه کنارش آمده؛ وگرنه واحدِ سرِ دیگر («دقیقهٔ ۱ تا ۲»)؛ وگرنه ثانیه. */
+  var u1 = m[1] || m[3] || '', u2 = m[4] || m[6] || '';
+  var from = sec(m[2], u1 || u2), to = sec(m[5], u2 || u1);
+  if (!(to > from) || from < 0) return null;
+  return { from: Math.round(from * 10) / 10, to: Math.round(to * 10) / 10 };
+}
+
+/** برداشت از توضیح: {act: 'رد'|'جلوه'|'موسیقی'|'بازه', range, say}. قاعده اول؛ مدل فقط برای آنچه قاعده نمی‌فهمد. */
+function mrReadWhy_(txt, b) {
+  var t = String(txt || ''), isSfx = String((b && b.kind) || '') === 'افکت';
+  var rg = mrRangeParse_(t), act = '';
+  var saysSfx = /(جلوه|افکت|sfx|sound ?effect)/i.test(t) && !/(جلوه|افکت)[^.،]{0,12}(نیست|نمی)/.test(t);
+  var saysMusic = /(آهنگه|آهنگ است|موسیقیه|موسیقی است|به عنوانِ? موسیقی قبول)/.test(t) && !/موسیقی نیست/.test(t);
+  var keep = /(قبول|خوبه|خوب است|خوب بود|مشکلی نداره|نگه ?دار|دوست دارم)/.test(t);
+  if (!isSfx && saysSfx) act = 'جلوه';
+  else if (isSfx && saysMusic) act = 'موسیقی';
+  else if (rg && !/(اصلاً|کلاً|به هیچ)/.test(t)) act = 'بازه';
+  if (!act && keep && CFG.MUSIC_AUTO !== false) {
+    try {
+      var r = geminiText_('صاحبِ یک پادکست زیرِ یک قطعهٔ ' + (isSfx ? 'جلوهٔ صوتی' : 'موسیقی') + ' دکمهٔ «رد با توضیح» را زد و نوشت:\n«' + t +
+        '»\nمنظورش کدام است؟ فقط یکی: «رد» (اصلاً نمی‌خواهد)، «جلوه» (به‌عنوانِ جلوهٔ صوتی می‌خواهد)، «موسیقی» (به‌عنوانِ موسیقی می‌خواهد)، ' +
+        '«بازه» (فقط تکه‌ای از آن را می‌خواهد).',
+        { type: 'object', properties: { act: { type: 'string' } }, required: ['act'] }, 64);
+      var a = String((r && r.act) || '').trim();
+      if (/^(رد|جلوه|موسیقی|بازه)$/.test(a)) act = a;
+    } catch (e) {}
+  }
+  act = act || 'رد';
+  if (act === 'بازه' && !rg) act = 'رد';
+  var rgTxt = rg ? 'فقط از ثانیهٔ ' + faDigitsOut_(String(rg.from)) + ' تا ' + faDigitsOut_(String(rg.to)) : '';
+  var say = act === 'جلوه' ? 'این جلوهٔ صوتی است، نه موسیقی — از بانکِ موسیقی بیرون رفت و در بانکِ جلوه‌ها پذیرفته ماند'
+          : act === 'موسیقی' ? 'این موسیقی است، نه جلوهٔ صوتی — به بانکِ موسیقی رفت و پذیرفته ماند'
+          : act === 'بازه' ? rgTxt + ' استفاده می‌شود؛ بقیه نه'
+          : 'رد شد و دیگر پخش نمی‌شود';
+  if (rg && (act === 'جلوه' || act === 'موسیقی')) say += '؛ و ' + rgTxt;
+  return { act: act, range: rg, say: say };
+}
+
+/** نوعِ قطعه در تبِ «موسیقی» — همان ستونی که `musicBank_` و `sfxAllow_` می‌خوانند. */
+function mrSetKind_(hub, id, kind) {
+  var sh = (hub || getHub_()).getSheetByName(CFG.MUSIC_TAB || 'موسیقی');
+  if (!sh || sh.getLastRow() < 2) return false;
+  var ids = sh.getRange(2, MC.ID, sh.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === String(id)) {
+    sh.getRange(i + 2, MC.KIND).setValue(kind);
+    if (kind === 'افکت') sh.getRange(i + 2, MC.SLOTS).setValue('میانه');
+    return true;
+  }
+  return false;
+}
+
+/** توضیح را اجرا کن ⇒ وصلهٔ تبِ بازبینی. */
+function mrActOnWhy_(hub, id, b, txt) {
+  var rd = mrReadWhy_(txt, b);
+  var patch = { why: String(txt).slice(0, 300), whyK: mrWhyKind_(txt), read: rd.say.slice(0, 200) };
+  if (rd.range) patch.range = rd.range.from + '-' + rd.range.to;
+  if (rd.act === 'جلوه') { mrSetKind_(hub, id, 'افکت'); patch.verdict = 'تأیید'; patch.whyK = 'sfx'; patch.slots = ''; }
+  else if (rd.act === 'موسیقی') { mrSetKind_(hub, id, 'موسیقی'); patch.verdict = 'تأیید'; patch.whyK = 'mus'; }
+  else if (rd.act === 'بازه') { patch.verdict = 'تأیید'; patch.whyK = 'rng'; }
+  else patch.verdict = 'رد';
+  return { patch: patch, read: rd };
+}
+
+/** ردهای نوشتاریِ پیشین که هنوز «برداشت» ندارند ⇒ دوباره خوانده و اجرا، و یک پیامِ جمع‌بندی. */
+function mrRereadWhys_(hub, st) {
+  var map = mrMap_(hub), said = [];
+  Object.keys(map).forEach(function (id) {
+    var r = map[id];
+    if (r.verdict !== 'رد' || r.read || !r.why) return;
+    if (MR_WHY.concat(MR_WHY_SFX).some(function (w) { return w.t === r.why; })) return;   // دکمه، نه نوشته
+    var b = mrBankItem_(hub, id), ac = mrActOnWhy_(hub, id, b, r.why);
+    var r2 = mrSet_(hub, id, ac.patch);
+    mrLog_(hub, id, b.name || r.name, 'بازخوانیِ توضیح', r.why.slice(0, 200), ac.patch.read);
+    if (ac.patch.verdict !== 'رد' && r2 && r2.msg) mrRefresh_(tgChat_(), r2.msg, mrBankItem_(hub, id), r2, false);
+    said.push('• «' + String(b.name || r.name || '').replace(/\.wav$/i, '') + '»: ' + ac.patch.read);
+  });
+  if (said.length) { try { tgSend_('🧠 ردهای با توضیحِ قبلی دوباره خوانده شدند:\n' + said.slice(0, 15).join('\n')); } catch (e) {} }
+  return said.length;
+}
+
 /** یک دکمه ⇒ {text} برای answerCallbackQuery. */
 function mrOnButton_(hub, st, data, chatId, msgId, isText) {
   var p = String(data || '').split('|');
@@ -83327,8 +83436,10 @@ function mrOnButton_(hub, st, data, chatId, msgId, isText) {
     var w = (MR_WHY.concat(MR_WHY_SFX).filter(function (x) { return x.k === a; })[0] || { k: a, t: a });
     patch.verdict = 'رد'; patch.whyK = w.k; patch.why = w.t; logOp = 'رد'; logVal = w.t; reply = 'رد شد — دیگر پخش نمی‌شود';
   }
-  else if (op === 'vx' || op === 'rx') {
-    var ask = op === 'vx' ? 'وایبِ این قطعه را بنویسید' : 'علتِ رد را بنویسید (قطعه رد می‌شود)';
+  else if (op === 'vx' || op === 'rx' || op === 'ux') {
+    var ask = op === 'vx' ? 'وایبِ این قطعه را بنویسید'
+            : op === 'ux' ? 'کدام تکه استفاده شود؟ مثلاً «از ثانیهٔ ۱۰ تا ۴۰» یا «۰:۳۰ تا ۱:۲۰»'
+            : 'توضیح بدهید — خوانده می‌شود و همان کار انجام می‌شود (مثلاً «این جلوهٔ صوتی است» یا «فقط ثانیهٔ ۵ تا ۲۰»؛ وگرنه رد)';
     var askTxt = '✍️ ' + ask + ' — «' + String(b.name || r.name || '').replace(/\.wav$/i, '') +
                  '»\nدر پاسخ (Reply) به همین پیام بنویسید.\n#m:' + id + ':' + op;
     /* force_reply در کانال پذیرفته نیست — همان پیام بی آن، و پاسخ (Reply) همان کار را می‌کند. */
@@ -83350,7 +83461,7 @@ function mrOnButton_(hub, st, data, chatId, msgId, isText) {
 /** پاسخِ نوشتاری به «✍️» ⇒ وایبِ آزاد یا ردِ با توضیح. */
 function mrOnText_(hub, st, msg) {
   var rt = msg && msg.reply_to_message && String(msg.reply_to_message.text || '');
-  var m = /#m:([A-Za-z0-9_-]+):(vx|rx)/.exec(rt || '');
+  var m = /#m:([A-Za-z0-9_-]+):(vx|rx|ux)/.exec(rt || '');
   var txt = String((msg && msg.text) || '').trim();
   if (m && txt) {
     var id = m[1], b = mrBankItem_(hub, id), r = mrMap_(hub)[id] || {}, patch = {};
@@ -83358,12 +83469,21 @@ function mrOnText_(hub, st, msg) {
       var have = String(r.vibe || '').split(/[،,]\s*/).filter(Boolean);
       if (have.indexOf(txt) === -1) have.push(txt);
       patch.vibe = have.join('، ');
-    } else { patch.verdict = 'رد'; patch.why = txt.slice(0, 300); patch.whyK = mrWhyKind_(txt); }
+      var rgV = mrRangeParse_(txt);   // بازه در متنِ وایب هم شنیده می‌شود
+      if (rgV) { patch.range = rgV.from + '-' + rgV.to; patch.read = 'فقط از ثانیهٔ ' + faDigitsOut_(String(rgV.from)) + ' تا ' + faDigitsOut_(String(rgV.to)); }
+    } else if (m[2] === 'ux') {
+      var rgU = mrRangeParse_(txt);
+      if (rgU) { patch.range = rgU.from + '-' + rgU.to; patch.read = 'فقط از ثانیهٔ ' + faDigitsOut_(String(rgU.from)) + ' تا ' + faDigitsOut_(String(rgU.to)); }
+      else patch.read = 'بازه‌ای در این نوشته پیدا نشد';
+    } else { var ac = mrActOnWhy_(hub, id, b, txt); patch = ac.patch; }
     var r2 = mrSet_(hub, id, Object.assign({ name: b.name || r.name }, patch));
-    mrLog_(hub, id, b.name || r.name, m[2] === 'vx' ? 'وایبِ نوشتاری' : 'رد با توضیح', txt.slice(0, 300), patch.whyK || '');
+    mrLog_(hub, id, b.name || r.name, m[2] === 'vx' ? 'وایبِ نوشتاری' : m[2] === 'ux' ? 'بازهٔ استفاده' : 'رد با توضیح', txt.slice(0, 300),
+           String(patch.read || patch.whyK || '').slice(0, 200));
+    if (patch.verdict === 'تأیید' && (patch.whyK === 'sfx' || patch.whyK === 'mus')) b = mrBankItem_(hub, id);   // نوعِ تازه روی کارت
     if (r2 && r2.msg) mrRefresh_(msg.chat.id, r2.msg, b, r2, false);
     if (patch.verdict === 'رد') { mrRootCause_(hub, st, b, r2); mrRejectStreak_(hub, st); }
-    tgApi_('sendMessage', { chat_id: msg.chat.id, text: m[2] === 'vx' ? '✓ وایب ثبت شد: ' + txt : '✓ رد شد و علتش ثبت شد — دیگر پخش نمی‌شود.',
+    tgApi_('sendMessage', { chat_id: msg.chat.id, text: m[2] === 'vx' ? '✓ وایب ثبت شد: ' + txt + (patch.read ? '\n✓ ' + patch.read : '')
+                                                       : '✓ فهمیدم: ' + (patch.read || 'ثبت شد') + '.\nاگر منظورتان این نبود، دوباره بنویسید.',
                             reply_to_message_id: msg.message_id });
     st.answeredAt = Date.now();
     return true;
@@ -83464,7 +83584,7 @@ function mrAckText_(data) {
   if (p[0] === 'mm') return 'تا چند دقیقهٔ دیگر';
   if (p[2] === 's') { var n = Math.max(1, Math.min(5, Number(p[3]) || 1)); return new Array(n + 1).join('⭐') + ' ثبت شد'; }
   return ({ s: '⭐ ستاره ثبت شد', v: 'وایب ثبت شد', o: 'جایگاه ثبت شد', a: '✅ تأیید شد', u: 'معلق ماند',
-            r: '❌ رد شد — دیگر پخش نمی‌شود', vx: 'منتظرِ نوشتهٔ شما', rx: 'منتظرِ نوشتهٔ شما' })[p[2]] || '';
+            r: '❌ رد شد — دیگر پخش نمی‌شود', vx: 'منتظرِ نوشتهٔ شما', rx: 'منتظرِ نوشتهٔ شما', ux: 'منتظرِ نوشتهٔ شما' })[p[2]] || '';
 }
 
 function tgPollRun_() {
@@ -83507,6 +83627,8 @@ function tgPollRun_() {
       mrSave_(st);
       if (idle) break;
     } while (hot() && Date.now() - t0 < maxRun - 8000);
+    /* ۹.۸۱، یک بار: ردهای با توضیحی که پیش از این نسخه نوشته شده‌اند هم خوانده می‌شوند. */
+    if (!st.why981) { try { mrRereadWhys_(getHub(), st); } catch (eRw) { st.lastWhy = 'why981: ' + String(eRw.message || eRw).slice(0, 100); } st.why981 = 1; }
     /* تریگر هر دقیقه است (۹.۷۷)؛ بازکردنِ هابِ ۲۹ مگابایتی هر دقیقه سهمیهٔ روزانهٔ اجرا را می‌خورد. پس فرستادن فقط
        وقتی سهمِ امروز پر نیست و ده دقیقه از تلاشِ قبلی گذشته — و سهمِ پر بی هیچ خواندنی دانسته می‌شود. */
     var today = String(nowStr_()).slice(0, 10);
