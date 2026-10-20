@@ -188,7 +188,7 @@ const RAW = { idea: 'دانستن بیش از باورِ صادقِ موجه ا�
      igKicker_('معرفت شناسی مجتبی مصباح', 'x') === 'معرفت شناسی مجتبی مصباح' &&
      igKicker_('Audi (2011) Epistemology A Contemporary Introduction to the Theory of Knowledge', 'معرفت‌شناسیِ آئودی') === 'معرفت‌شناسیِ آئودی' &&
      igKicker_('Audi (2011) Epistemology', 'Audi Epistemology') === '' && igKicker_('Audi (2011) Epistemology', '') === '' &&
-     /kicker: igKicker_\(plan\.series, plan\.plan\.kicker\)/.test(String(igStepAsk_)) && IG_REEL_SCHEMA.required.indexOf('kicker') !== -1);
+     /kicker: (plan\.recap [^?]*\? plan\.plan\.kicker : )?igKicker_\(plan\.series, plan\.plan\.kicker\)/.test(String(igStepAsk_)) && IG_REEL_SCHEMA.required.indexOf('kicker') !== -1);
   const cap = igCaption_(p, 'https://youtu.be/v5', 'معرفت‌شناسی', 4);
   ok('۲.۵ کپشن: پیوندِ همان ویدئو، نامِ مجموعه و درس، برچسبِ پایه و درس بی تکرار', cap.indexOf('https://youtu.be/v5') !== -1 &&
      cap.indexOf('«معرفت‌شناسی» — درسِ ۴') !== -1 && /#درسنامه/.test(cap) && /#فلسفه/.test(cap) &&
@@ -922,6 +922,63 @@ console.log('=== ۱۵) گیر ⇒ همان لحظه تلگرام، یک بار؛
      JSON.stringify(igSeenRead_()));
   ok('۱۵.۶ هر ریلزِ انجام‌شده ثبت می‌شود (همان‌جا که «done» می‌شود)، و یک‌بار مصباحِ پیشین', /igSeenAdd_\(plan, igUid_\(it\)\)/.test(String(igStep_)) &&
      /igSeenSeed_\(st,/.test(String(igTick)));
+}
+
+console.log('=== ۱۶) مرورِ ۱۹: «مرور» روی کاور و در آغاز، صدای ثابت، و ساختِ دوباره به ترتیب (۹.۷۳) ===');
+{
+  const LS = [{ ep: 1, lesson: 1 }, { ep: 2, lesson: 2 }, { ep: 3, lesson: 3 }, { ep: 4, recap: 1, lesson: 0 }, { ep: 5, lesson: 4 }, { ep: 6, lesson: 5 }, { ep: 7, recap: 1, lesson: 0 }];
+  ok('۱۶.۱ بازهٔ مرور از خودِ پوشه: درس‌های پیش از آن تا مرورِ قبلی', igRecapRange_(LS, 4) === 'درس‌های ۱ تا ۳' && igRecapRange_(LS, 7) === 'درس‌های ۴ تا ۵' &&
+     igRecapRange_(LS, 1) === '' && igRecapRange_(LS, 99) === '', [igRecapRange_(LS, 4), igRecapRange_(LS, 7)].join(' / '));
+
+  /* پرونده بازه ندارد (همان حالتِ مرورِ ۱۹ِ مصباح) و مدل «مرور» را در جملهٔ اول نگفت. */
+  const ser = global.__ROOT_FOLDER.createFolder('مجموعهٔ مرورِ ۱۶');
+  const rf = ser.createFolder('قسمت 0004 — مرورِ بزرگ');
+  rf.createFile(Utilities.newBlob(JSON.stringify({ seriesName: 'مصباح', recap: true, recapMode: 'pick',
+    ep: { title: 'مرورِ بزرگ', sections: [{ heading: 'درسِ ۱', narration: 'الف.' }, { heading: 'درسِ ۲', narration: 'ب.' }] } }), 'application/json', '_special.json'));
+  const long = Array.from({ length: 18 }, (_, i) => 'گامِ ' + (i + 1) + ' از همین مسیر ما را به گامِ بعدی می‌رساند و یک نکتهٔ تازه می‌دهد.').join(' ');
+  const RAW = { idea: 'مسیر', script: 'چطور مطمئن شویم عقل و حواس ما واقعیت را درست نشان می‌دهند؟ ' + long, scenes: Array.from({ length: 9 }, (_, i) => 's' + i),
+                coverTitle: 'ترازوی عقل و حواس سالم است؟', caption: 'سطر', story: 's', tags: ['مرور'], emph: [], ytDesc: 'مرور.' };
+  const kStub = global.__STUB, kLs = global.ytSeriesLessons_;
+  let wPrompt = '';
+  global.ytSeriesLessons_ = () => LS;
+  global.__STUB = (url, body) => {
+    if (/generateContent/.test(url) && !/tts/.test(url)) {
+      const txt = JSON.stringify(body), isJ = txt.indexOf('داورِ سخت‌گیر') !== -1;
+      if (!isJ) wPrompt = txt;
+      const out = isJ ? { oneIdea: 'بله', flows: 'بله', answersHook: 'بله', faithful: 'بله', popular: 'بله', thirst: 'بله', weak: '', fix: '' } : RAW;
+      return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify(out) }] } }] } };
+    }
+    return kStub ? kStub(url, body) : { code: 404, json: {} };
+  };
+  let r;
+  try { r = igStepPlan_({ key: 'ig:special:4', ep: 4, series: 'مصباح', folderId: rf.getId(), yt: 'https://youtu.be/r', phase: 'plan', recap: 1 }, igFolder_(rf)); }
+  finally { global.__STUB = kStub; global.ytSeriesLessons_ = kLs; }
+  const pl = r && r.plan;
+  ok('۱۶.۲ جملهٔ اول «مروری بر درس‌های ۱ تا ۳» (از کد، چون مدل نگفت) و همان قلابِ بالای قاب است', pl && /^مروری بر درس‌های ۱ تا ۳/.test(pl.plan.lines[0].text) &&
+     pl.plan.hook === pl.plan.lines[0].text && /چطور مطمئن شویم/.test(pl.plan.lines[1].text) && pl.plan.recapIntro === 1, JSON.stringify(pl && pl.plan.lines.slice(0, 2)));
+  ok('۱۶.۳ کاور: برچسبِ «مرورِ درس‌های ۱ تا ۳»؛ عنوانِ کاور کوتاه و دست‌نخورده', pl && pl.plan.kicker === 'مرورِ درس‌های ۱ تا ۳' &&
+     pl.plan.coverTitle === RAW.coverTitle && /مرورِ بزرگِ درس‌های ۱ تا ۳/.test(pl.caption), pl && pl.plan.kicker);
+  ok('۱۶.۴ و از نویسنده هم خواسته شد جملهٔ اول بگوید مرور است', /جملهٔ اول بگوید این مرورِ درس‌های گذشته است/.test(wPrompt));
+  ok('۱۶.۵ صفِ رانر برچسبِ مرور را می‌برد، نه نامِ مجموعه', /plan\.recap && \/\^مرور\/\.test\(String\(plan\.plan\.kicker/.test(String(igStepAsk_)));
+  ok('۱۶.۶ صدای ریلز ثابت (IG_VOICE)، نه گویندهٔ اصلیِ درس', pl && pl.voice === ttsVoiceFree_(CFG.IG_VOICE) && pl.voice !== 'Gacrux' &&
+     (() => { const k = CFG.IG_VOICE; CFG.IG_VOICE = ''; const v = igVoice_({ __cast: { lead: 'Gacrux' } }); CFG.IG_VOICE = k; return v === 'Gacrux'; })(), pl && pl.voice);
+
+  /* ساختِ دوباره: ۱۹ِ منتشرشده و ۲۰ِ آماده. */
+  const f19 = global.__ROOT_FOLDER.createFolder('قسمت ۱۹ (۱۶)'), f20 = global.__ROOT_FOLDER.createFolder('قسمت ۲۰ (۱۶)');
+  igPlanWrite_(igFolder_(f19), { v: 4, phase: 'done', reelId: 'R19', permalink: 'P19', plan: { hook: 'h', lines: [] } });
+  igPlanWrite_(igFolder_(f20), { v: 4, phase: 'ok', plan: { hook: 'h', lines: [] } });
+  const st = { done: '17,18,19', shortQ: [{ key: 'ig:special:18', ep: 18 }, { key: 'ig:special:19', ep: 19, folderId: f19.getId() }],
+               inflight: [{ key: 'ig:special:20', ep: 20, phase: 'ok', folderId: f20.getId() }, { key: 'ig:special:21', ep: 21, phase: 'pub' }], fails: { '20': 1 } };
+  const n = igRedoEps_(st, ['19', '20'], { '19': 'https://www.instagram.com/reel/X/' });
+  const p19 = igPlanRead_(igFolder_(f19)), p20 = igPlanRead_(igFolder_(f20));
+  ok('۱۶.۷ ۱۹ و ۲۰ از «انجام‌شده»، صفِ شورتز و در جریان بیرون؛ ۱۸ و ۲۱ دست نمی‌خورند', n === 2 && st.done === '17,18' && st.shortQ.length === 1 &&
+     st.shortQ[0].ep === 18 && st.inflight.length === 1 && st.inflight[0].ep === 21 && !st.fails['20'], JSON.stringify(st));
+  ok('۱۶.۸ هر دو از گامِ «plan» از نو — ۲۰ِ آماده هم (وگرنه همان صدا و زمان می‌رفت)', p19.phase === 'plan' && p20.phase === 'plan' && p20.redoFrom === 'ok' &&
+     igResumePhase_(f19, 1) === 'plan' && igResumePhase_(f20, 1) === 'plan' && p19.archivedReel === 'P19', JSON.stringify([p19.phase, p20.phase]));
+  st.order = { s: [{ n: 'مصباح', e: '17:17,18:18,19r,20:19,21:20' }] };
+  ok('۱۶.۹ تا ۱۹ منتشر نشود، ۲۰ و ۲۱ منتظر می‌مانند (ترتیب)', /مرورِ بزرگ \(19\)/.test(igEarlierPending_(st, 21, 1)) && /19/.test(igEarlierPending_(st, 20, 1)),
+     igEarlierPending_(st, 21, 1));
+  ok('۱۶.۱۰ یک بار، از خودِ igTick', /if \(!st\.redo973\)/.test(String(igTick)) && /igRedoEps_\(st, \['19', '20'\]/.test(String(igTick)));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');

@@ -486,7 +486,8 @@ function igPromptRecap_(ep, seriesName, opt, W) {
     'بیرون بیاید («اول…»، «بعد…»، «همین ما را می‌رساند به…»). یک مثالِ روزمره هر جا مفهوم سنگین است. بیننده باید در پایان بداند این',
     'مسیر از کجا شروع شد، به کجا رسید و چرا هر گام لازم بود — و بخواهد درس‌ها را کامل ببیند.',
     'زبان: ساده، صمیمی، زنده؛ اصطلاحِ فلسفیِ بی‌توضیح و جملهٔ سنگین ممنوع.',
-    'idea = مسیرِ کلِ مرور در یک جمله. قلاب (جملهٔ اول): پرسشی که کلِ مسیر جوابش است — حداکثر ۱۴ واژه.',
+    'idea = مسیرِ کلِ مرور در یک جمله. **جملهٔ اول بگوید این مرورِ درس‌های گذشته است** (مثلاً «مروری بر ' + (opt.range ? String(opt.range).replace(/^مرورِ\s*(بزرگِ\s*)?/, '') : 'درس‌هایی که گذشت') + '…»)؛',
+    'قلاب (جملهٔ دوم): پرسشی که کلِ مسیر جوابش است — حداکثر ۱۴ واژه. coverTitle نباید مثلِ عنوانِ یک درسِ تازه باشد.',
     '• جمله‌ها کوتاه (حداکثر ۲۲ واژه). هیچ تاریخ، «امروز»، «در این قسمت»، «پادکست» یا شمارهٔ قسمت؛ دعوت به یوتیوب را **ننویس**.',
     '• ادعا و نام و عدد فقط از خودِ مرور.',
     '• scenes = ۷ تا ۹ توصیفِ انگلیسیِ تصویرِ نقاشی‌گونه به ترتیبِ مسیر؛ بی هیچ نوشته، حرف، عدد یا لوگو.',
@@ -634,6 +635,33 @@ function igShortMeta_(plan, plUrl) {
   return { title: title, desc: desc.slice(0, 4900), tags: tags };
 }
 
+/** صدای ریلز (۹.۷۳): `IG_VOICE` — از همان درِ `ttsVoiceFree_`، پس صدای کنارگذاشته جای خودش را به هم‌جنسِ مجاز می‌دهد؛ خالی ⇒ گویندهٔ اصلیِ درس. */
+function igVoice_(ep) {
+  var v = String(CFG.IG_VOICE || '').trim();
+  if (v) return ttsVoiceFree_(v);
+  return (ep && ep.__cast && ep.__cast.lead) || CFG.TTS_VOICE_SPECIAL || CFG.TTS_VOICE;
+}
+
+/**
+ * بازهٔ مرور از خودِ پوشهٔ مجموعه (۹.۷۳) ⇒ «درس‌های ۱ تا ۱۸» یا ''. درس‌های پیش از این قسمت تا مرورِ قبلی — همان چیزی که مرور
+ * پشتِ سر می‌گذارد. `ytRecapRange_` به فیلدهای پرونده تکیه دارد و برای مرورِ ۱۹ِ مصباح خالی برگشت.
+ */
+function igRecapRange_(lessons, ep) {
+  var L = lessons || [], at = -1;
+  for (var i = 0; i < L.length; i++) if (Number(L[i].ep) === Number(ep)) at = i;
+  if (at < 1) return '';
+  var lo = 0, hi = 0;
+  for (var k = at - 1; k >= 0; k--) {
+    if (L[k].recap) break;
+    var n = Number(L[k].lesson) || 0;
+    if (!n) continue;
+    if (!hi || n > hi) hi = n;
+    if (!lo || n < lo) lo = n;
+  }
+  if (!lo || !hi) return '';
+  return lo === hi ? 'درسِ ' + faDigitsOut_(String(lo)) : 'درس‌های ' + faDigitsOut_(String(lo)) + ' تا ' + faDigitsOut_(String(hi));
+}
+
 /* ───── مراحل ───── */
 
 function igStepPlan_(it, fo) {
@@ -643,9 +671,10 @@ function igStepPlan_(it, fo) {
   if (!ep || !ep.sections) return { fail: '_special.json یا متنِ درس پیدا نشد' };
   var seriesName = String(meta.seriesName || it.series || '');
   /* شمارهٔ درس از **پوشهٔ مجموعه** (۸.۶۸ — `lesson`ِ پرونده یک بار «درس ۸» برای درسِ ۱۳ داد)؛ مرورِ بزرگ بازه‌اش را. */
-  var recap = !!(it.recap || meta.recap), lesson = Number(it.lesson) || 0, range = '';
+  var recap = !!(it.recap || meta.recap), lesson = Number(it.lesson) || 0, range = '', lessons = [];
   try {
-    var par = epFo.getParents(), lessons = par.hasNext() ? ytSeriesLessons_(par.next()) : [];
+    var par = epFo.getParents();
+    lessons = par.hasNext() ? ytSeriesLessons_(par.next()) : [];
     for (var q = 0; q < lessons.length; q++) if (Number(lessons[q].ep) === Number(it.ep)) { recap = recap || !!lessons[q].recap; if (!lesson) lesson = lessons[q].lesson; }
     if (recap) range = ytRecapRange_(meta, lessons) || '';
   } catch (eL) {}
@@ -705,16 +734,33 @@ function igStepPlan_(it, fo) {
     if (!jd.ok) return { fail: 'داورِ پیوستگی نپذیرفت: ' + jd.why };
   }
   p.judge = jd.why || 'پیوسته';
+  p.kicker = igKicker_(seriesName, p.kicker);
+  /* ══ مرور باید از همان ثانیهٔ اول و روی کاور «مرور» باشد (۹.۷۳) ══
+     ریلزِ مرورِ ۱۹ِ مصباح با قلابِ «چطور مطمئن شویم عقل و حواس ما…» و کاورِ «ترازوی عقل و حواس سالم است؟» رفت — شبیهِ درس‌های
+     اول، و بیننده نمی‌فهمید این مرورِ گذشته است. `ytRecapRange_` برای آن پوشه خالی برگشته بود، پس هیچ‌جا «مرور» نبود. حالا بازه از
+     خودِ پوشهٔ مجموعه حساب می‌شود، کاور برچسبِ «مرورِ درس‌های …» می‌گیرد (عنوان کوتاه می‌ماند)، و اگر جملهٔ اول «مرور» را نگفت،
+     یک جملهٔ کوتاهِ آغاز از کد پیش از آن می‌نشیند — قول در کد، نه در درخواست. */
+  if (recap) {
+    var rr0 = '';
+    try { rr0 = igRecapRange_(lessons, it.ep); } catch (eRr) { rr0 = ''; }
+    if (!opt.range && rr0) opt.range = 'مرورِ بزرگِ ' + rr0;
+    var rShort = String(opt.range || '').replace(/^مرورِ\s*(بزرگِ\s*)?/, '').trim();
+    if (!/مرور/.test(String((p.lines[0] || {}).text || ''))) {
+      p.lines.unshift({ text: rShort ? 'مروری بر ' + rShort + '.' : 'مروری بر درس‌های گذشته.', scene: (p.lines[0] || {}).scene || '' });
+      p.recapIntro = 1;
+    }
+    p.hook = String(p.lines[0].text).slice(0, 140);
+    p.kicker = rShort ? 'مرورِ ' + rShort : 'مرورِ بزرگِ درس‌های گذشته';
+  }
   p.lines.push({ text: IG_CTA_LINE, scene: '', cta: true });
   p.recap = recap; p.range = opt.range;
-  p.kicker = igKicker_(seriesName, p.kicker);
   var plan = { v: Number(CFG.IG_PLAN_V) || 2, key: it.key, ep: it.ep, part: opt.part, parts: opt.parts,
                series: seriesName, seriesKey: String(meta.seriesKey || ''), lesson: lesson,
                recap: recap, range: opt.range, title: String(ep.title || ''),
                yt: it.yt, at: nowStr_(), phase: 'voice', plan: p,
                caption: igCaption_({ caption: p.caption, tags: p.tags, recap: recap, range: opt.range, part: opt.part, parts: opt.parts },
                                    it.yt, p.kicker || seriesName, lesson),
-               voice: (ep.__cast && ep.__cast.lead) || CFG.TTS_VOICE_SPECIAL || CFG.TTS_VOICE };
+               voice: igVoice_(ep) };
   igPlanWrite_(fo, plan);
   try {
     var oldT = fo.getFilesByName('ریلز — متن و کپشن.txt');
@@ -923,7 +969,7 @@ function igStepAsk_(it, fo, plan) {
   var row = { key: it.key, sig: sig, at: nowStr_(),
               audio: { id: plan.audioId, url: ytDlUrl_(plan.audioId) },
               imgs: (plan.imgs || []).map(function (x) { return { id: x.id, url: ytDlUrl_(x.id) }; }),
-              lines: lines, hook: plan.plan.hook, kicker: igKicker_(plan.series, plan.plan.kicker), coverTitle: plan.plan.coverTitle || plan.plan.hook,
+              lines: lines, hook: plan.plan.hook, kicker: plan.recap && /^مرور/.test(String(plan.plan.kicker || '')) ? plan.plan.kicker : igKicker_(plan.series, plan.plan.kicker), coverTitle: plan.plan.coverTitle || plan.plan.hook,
               emph: plan.plan.emph || [], short: CFG.IG_SHORTS !== false,
               end: { l1: 'نسخهٔ کاملِ این درس در یوتیوب', l2: (mk && mk.name) || 'رد پای حقیقت',
                      handle: (mk && mk.handle) || '' },
@@ -1267,6 +1313,10 @@ function igTick() {
     /* ۹.۶۱، یک بار: ریلزهای ۱۴ و ۱۵ِ مصباح با قاب‌های متنیِ درس (نه نقاشی) منتشر شدند — صاحبِ برنامه ۱۴ را بایگانی کرد.
        هر دو از «انجام‌شده» بیرون و از نو، بی «تصویرها»ی درس؛ شورتزِ در صف یا در راهشان برداشته می‌شود، و اگر شورتزی
        همین حالا بالا رفته بود، خصوصی (نه پاک) — همان ویدئوی زشت. ۱۶ تا این دو منتشر نشوند منتظر می‌ماند (ترتیب). */
+    /* ۹.۷۳، یک بار: ریلزِ مرورِ ۱۹ِ مصباح بی «مرور» روی کاور و آغاز، با عکس‌هایی چند ثانیه جلوتر از گفتار و صدای «Gacrux» رفت —
+       صاحبِ برنامه بایگانی‌اش کرد. ۱۹ از «انجام‌شده» بیرون و از نو؛ ۲۰ِ هنوز منتشرنشده (همان صدا و همان زمان‌بندی) هم از نو.
+       درس‌های بعدی تا ۱۹ منتشر نشود منتظر می‌مانند (`igEarlierPending_`)، و شورتزِ در صفِ ۱۹ با قاعدهٔ ۹.۵۲ برداشته می‌شود. */
+    if (!st.redo973) { try { igRedoEps_(st, ['19', '20'], { '19': 'https://www.instagram.com/reel/DeuJ3IPiNW3/' }); } catch (eR3) { st.lastWhy = 'redo973: ' + String(eR3.message || eR3).slice(0, 100); } st.redo973 = 1; }
     if (!st.redo961) { try { igRedo961_(st); } catch (eR) { st.lastWhy = 'redo961: ' + String(eR.message || eR).slice(0, 100); } st.redo961 = 1; }
     if (!st.redo957) {
       st.firstAt = st.firstAt || {};
@@ -1353,6 +1403,49 @@ function igTick() {
     igStateSave_(st);
     runExit_('igTick');
   }
+}
+
+/**
+ * ریلزهایی که از نو ساخته می‌شوند (۹.۷۳ — تعمیمِ ۹.۶۱): از «انجام‌شده»، صفِ شورتز و در جریان بیرون؛ برنامه‌شان به گامِ «plan»
+ * برمی‌گردد (ریلزِ منتشرنشده هم، وگرنه `igResumePhase_` از گامِ آماده ادامه می‌داد و همان صدا و تصویر را می‌فرستاد)؛ شورتزی که
+ * بالا رفته بود خصوصی (نه پاک)، و پیوندِ ریلزِ بایگانی‌شده در برنامه می‌ماند.
+ */
+function igRedoEps_(st, eps, arch) {
+  arch = arch || {};
+  var fid = {};
+  (st.inflight || []).concat(st.shortQ || []).forEach(function (x) { if (x && x.folderId && eps.indexOf(String(x.ep)) !== -1) fid[String(x.ep)] = x.folderId; });
+  st.done = String(st.done || '').split(',').filter(function (x) { return x && eps.indexOf(x) === -1; }).join(',');
+  st.shortQ = (st.shortQ || []).filter(function (x) { return x && eps.indexOf(String(x.ep)) === -1; });
+  st.inflight = (st.inflight || []).filter(function (x) { return x && eps.indexOf(String(x.ep)) === -1; });
+  st.archived = st.archived || {};
+  var n = 0;
+  eps.forEach(function (e) {
+    if (arch[e]) st.archived[e] = arch[e];
+    if (st.fails) delete st.fails[e];
+    if (st.failAt) delete st.failAt[e];
+    if (st.firstAt) delete st.firstAt[e];
+    if (st.failWhy) delete st.failWhy[e];
+    var epFo = null;
+    try { epFo = fid[e] ? DriveApp.getFolderById(fid[e]) : ytFolderOf_(ENRICH_SHOW_SPECIAL, Number(e)); } catch (eF0) { epFo = null; }
+    if (!epFo) return;
+    try {
+      var fo = igFolder_(epFo), plan = igPlanRead_(fo);
+      if (!plan) return;
+      if (plan.shortId) {
+        var yt = ytSvc_();
+        if (yt && ytQuotaTake_(YT_COST.videosUpdate, false)) {
+          yt.Videos.update({ id: plan.shortId, status: { privacyStatus: 'private', selfDeclaredMadeForKids: false } }, 'status');
+          plan.shortHidden = plan.shortId;
+        }
+      }
+      if (plan.reelId || arch[e]) plan.archivedReel = plan.permalink || arch[e];
+      plan.redoFrom = String(plan.phase || '');
+      plan.phase = 'plan';
+      igPlanWrite_(fo, plan);
+      n++;
+    } catch (eF) { st.lastWhy = 'redo (' + e + '): ' + String(eF.message || eF).slice(0, 100); }
+  });
+  return n;
 }
 
 function igRedo961_(st) {

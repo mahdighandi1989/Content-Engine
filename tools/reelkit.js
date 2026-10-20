@@ -178,6 +178,36 @@ function dataUrl(file) {
 }
 
 /**
+ * زمانِ جمله‌ها از خودِ صدا (۹.۷۳) — «عکس‌ها چندین ثانیه زودتر از صدای گوینده و نوشته‌ها می‌آمدند». موتور `t0/t1` را با نسبتِ
+ * نویسه تخمین می‌زند؛ زیرنویس از ۹.۲۶ زمانِ واقعیِ هر واژه را داشت ولی تکه‌های تصویر و کارتِ پایانی هنوز روی همان تخمین
+ * بودند، و در ریلزِ ۱۷۰ ثانیه‌ای اختلاف به چند ثانیه رسید. حالا آغاز و پایانِ هر جملهٔ بدنه از نخستین و واپسین واژه‌اش، و
+ * جملهٔ دعوت پس از واپسین واژهٔ بدنه. بی زمانِ واژه (هم‌ترازی نشد) ⇒ همان تخمین، بی تغییر.
+ */
+function retime(lines, wt, dur) {
+  if (!wt || !wt.length) return lines;
+  const body = lines.filter(x => !x.cta);
+  const need = body.reduce((n, x) => n + String(x.text).split(/\s+/).filter(Boolean).length, 0);
+  if (wt.length < need) return lines;
+  let wi = 0, lastEnd = 0;
+  return lines.map(x => {
+    const y = Object.assign({}, x);
+    if (x.cta) {
+      y.t0 = Math.max(lastEnd, Math.min(Number(x.t0) || lastEnd, dur));
+      if (!(Number(y.t1) > y.t0)) y.t1 = dur;
+      return y;
+    }
+    const n = String(x.text).split(/\s+/).filter(Boolean).length;
+    if (n) {
+      y.t0 = Number(wt[wi][0]);
+      y.t1 = Number(wt[wi + n - 1][1]);
+      lastEnd = y.t1;
+    }
+    wi += n;
+    return y;
+  });
+}
+
+/**
  * reel: {lines:[{t0,t1,text,img,cta}], hook, kicker, coverTitle, emph:[...], end:{l1,l2,handle}, short}
  * io:   {wav, dur, imgs:[{file,w,h}|null], mark:{logo}, dir, ff, shoot(html,png,w,h), wordTimes?}
  * ⇒ {file, cover, short?, shortSeconds?, seconds, segs, subs}
@@ -185,7 +215,7 @@ function dataUrl(file) {
 function build(reel, io, out) {
   const dir = io.dir, ff = io.ff, dur = Number(io.dur) || 0;
   if (!(dur > 2)) throw new Error('صدای ریلز کوتاه‌تر از ۲ ثانیه است');
-  const lines = (reel.lines || []).filter(x => x && String(x.text || '').trim());
+  const lines = retime((reel.lines || []).filter(x => x && String(x.text || '').trim()), io.wordTimes, dur);
   if (!lines.length) throw new Error('ریلز هیچ جمله‌ای ندارد');
   const segs = segmentsOf(lines, dur);
   /* ── تکه‌ها با حرکتِ گوناگون، به هم با گذار (xfade) ── هر تکه جز آخری X ثانیه بلندتر ساخته می‌شود تا گذار از سهمِ
@@ -298,4 +328,4 @@ function build(reel, io, out) {
            segs: segs.length, subs: ov.length - (reel.hook ? 1 : 0), phrases: phs.length, trans: Math.max(0, segs.length - 1) };
 }
 
-module.exports = { RK, TRANS, segmentsOf, motionFilter, phrasesOf, phraseHtml, markKeys, hookHtml, endHtml, coverHtml, build };
+module.exports = { RK, TRANS, retime, segmentsOf, motionFilter, phrasesOf, phraseHtml, markKeys, hookHtml, endHtml, coverHtml, build };
