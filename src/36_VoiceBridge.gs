@@ -2178,9 +2178,14 @@ function vbrSoulSeedDue_() {
   var today = String(nowStr_()).slice(0, 10);
   var pkey = 'VSOUL_SEED_DAY';
   var n = 0;
+  /* ══ سقفِ روز مالِ همین فهرستِ بذر است، نه هر فهرستی (۹.۷۲) ══
+     ۲۰ اکتبر بذرهای «گامِ دقیق»ِ ۹.۶۸ ساعتِ ۱۰:۱۲ نصب شدند و هیچ‌کدام نوبت نگرفت: نمونه‌های بامدادِ همان روز
+     (بذرهای ۹.۶۳) سقف را پر کرده بودند، پس او که «منتظرم نمونهٔ بعدی» گفته بود تا فردا بامداد بی‌خبر می‌ماند.
+     سقف برای این است که بذرِ ناکام حلقه نشود؛ فهرستِ تازه ناکامیِ قبلی را به ارث نمی‌برد. */
+  var sig = vbrSeedSig_(list);
   try {
     var parts = String(props_().getProperty(pkey) || '').split('|');
-    if (parts[0] === today) n = Number(parts[1]) || 0;
+    if (parts[0] === today && String(parts[2] || '') === sig) n = Number(parts[1]) || 0;
   } catch (eP) {}
   if (n >= max) { out.why = 'سقفِ امروز پر شد (' + n + ')'; return out; }
 
@@ -2223,7 +2228,7 @@ function vbrSoulSeedDue_() {
   try {
     clearRetryTriggers_('runVoiceSoulSeed');
     ScriptApp.newTrigger('runVoiceSoulSeed').timeBased().after(60 * 1000).create();
-    props_().setProperty(pkey, today + '|' + (n + 1));
+    props_().setProperty(pkey, today + '|' + (n + 1) + '|' + sig);
     out.scheduled = true;
     out.speaker = String(pend.speaker);
     out.ep = String(pend.ep);
@@ -2239,6 +2244,18 @@ function vbrSoulSeedDue_() {
     out.why = 'زمان‌بندی نشد: ' + String((eT && eT.message) || eT).slice(0, 60);
   }
   return out;
+}
+
+
+/** امضای کوتاهِ فهرستِ بذر — گوینده، قسمت و برچسب؛ همان سه‌تایی که کلیدِ صف را می‌سازد. */
+function vbrSeedSig_(list) {
+  var t = (list || []).map(function (se) {
+    se = se || {};
+    return String(se.speaker || '') + '/' + String(se.ep || '') + '/' + String(se.tag || '');
+  }).join('\n');
+  var h = 0;
+  for (var i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
 }
 
 

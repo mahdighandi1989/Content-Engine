@@ -1,16 +1,12 @@
 {
-  "version": "9.71",
-  "codeFile": "engine.gs",
-  "sha256": "b3427eefcb189443f56619722b3dd1d4c9b58c4617de74a84f8a25fa185e0065",
-  "releasedAt": "2026-10-20T13:30:00+04:00",
-  "summary": "نوشتنِ وضعیت دیگر هر بار پوشه‌های جزوه را نمی‌پیماید (۸۲–۹۱ ثانیه، اجرای تولید سرش کشته شد) و در هر دو تولید آخرین کار است؛ رانر فایلِ نهاییِ ویدئوی رسانه‌ای را برای تصویرِ یخ‌زده می‌سنجد.",
-  "fixes": [
-    "src/26_Handout.gs: handoutStatusCached_ + handoutStatCacheSave_؛ handoutHealth_ پیمایشِ همان وارسی را می‌پذیرد",
-    "src/08_Health.gs: writeStatus_ بیرون از وارسیِ سلامت از حافظهٔ جزوه",
-    "src/03_Producer.gs, src/14_Special.gs: writeStatus_ پس از بدهیِ یوتیوب/جزوه/SP_LAST",
-    "tools/mediakit.js + tools/render.js: freezes روی فایلِ نهاییِ رسانه‌ای ⇒ qa.ok=false",
-    "docs/renders.json: variety:78 qa رد (۵۰۱–۵۲۹ ثانیه قابِ ساکن) تا عمومی نشود"
-  ],
-  "sourceReportIds": [],
-  "answers": {}
+ "version": "9.72",
+ "codeFile": "engine.gs",
+ "sha256": "b4fcf39788f31dd059145e5fd48a7b779017ce292e352d37f826a229fd9f77de",
+ "releasedAt": "2026-10-20T09:42:41Z",
+ "summary": "نمونه‌های تازهٔ صدا دیگر پشتِ سقفِ روزانهٔ بذرهای قبلی نمی‌مانند",
+ "fixes": [
+  "VSOUL_SEED_DAY امضای فهرستِ بذر را نگه می‌دارد؛ فهرستِ تازه (یا مقدارِ کهنهٔ بی‌امضا) شمار را از صفر می‌گیرد — بذرهای «گامِ دقیق»ِ ۹.۶۸ تا فردا بامداد پشتِ سقفِ پرشده با بذرهای ۹.۶۳ می‌ماندند"
+ ],
+ "sourceReportIds": [],
+ "answers": []
 }

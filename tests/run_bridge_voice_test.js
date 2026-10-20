@@ -2695,11 +2695,23 @@ console.log('\n══ ۲۸) شباهتِ کم «آماده» نیست (۷٫۷۹)
 
   /* ── ۳۱.۵ سقفِ روزانه: خرابیِ پایدار حلقه نمی‌شود ── */
   {
-    try { props_().setProperty('VSOUL_SEED_DAY', String(nowStr_()).slice(0, 10) + '|99'); } catch (e) {}
+    try { props_().setProperty('VSOUL_SEED_DAY', String(nowStr_()).slice(0, 10) + '|99|' + vbrSeedSig_(vbrSoulSeeds_())); } catch (e) {}
     const due = vbrSoulSeedDue_();
     ok('۳۱.۵ سقفِ روزانه جلوِ تریگرِ بی‌پایان را می‌گیرد',
        due.scheduled === false && /سقف/.test(String(due.why)),
        JSON.stringify(due));
+    /* ۳۱.۵-ب (۹.۷۲): همان روز، فهرستِ بذرِ دیگر ⇒ سقفِ پرشده به ارث نمی‌رسد (و مقدارِ کهنهٔ بی‌امضا هم). */
+    try { clearRetryTriggers_('runVoiceSoulSeed'); } catch (e) {}
+    try { props_().setProperty('VSOUL_SEED_DAY', String(nowStr_()).slice(0, 10) + '|99|zzz'); } catch (e) {}
+    const dueB = vbrSoulSeedDue_();
+    ok('۳۱.۵-ب فهرستِ تازهٔ بذر سقفِ پرشدهٔ فهرستِ قبلی را به ارث نمی‌برد',
+       dueB.scheduled === true, JSON.stringify(dueB));
+    try { clearRetryTriggers_('runVoiceSoulSeed'); } catch (e) {}
+    try { props_().setProperty('VSOUL_SEED_DAY', String(nowStr_()).slice(0, 10) + '|99'); } catch (e) {}
+    const dueC = vbrSoulSeedDue_();
+    ok('۳۱.۵-پ مقدارِ کهنهٔ بی‌امضا (پیش از ۹.۷۲) هم جلوی فهرستِ نصب‌شده را نمی‌گیرد',
+       dueC.scheduled === true, JSON.stringify(dueC));
+    try { clearRetryTriggers_('runVoiceSoulSeed'); } catch (e) {}
     try { props_().deleteProperty('VSOUL_SEED_DAY'); } catch (e) {}
   }
 
@@ -2953,7 +2965,7 @@ console.log('\n══ ۳۳) دو بذر، و نفرِ دوم که نوبت نم�
     try {
       try {
         props_().setProperty('VSOUL_SEED_DAY',
-                             String(nowStr_()).slice(0, 10) + '|99');
+                             String(nowStr_()).slice(0, 10) + '|99|' + vbrSeedSig_(vbrSoulSeeds_()));
       } catch (e) {}
       reads = 0;
       const dFull = vbrSoulSeedDue_();
