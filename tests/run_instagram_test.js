@@ -232,7 +232,7 @@ let fo, plan;
      plan.plan.judge === 'پیوسته' && plan.plan.lines[plan.plan.lines.length - 1].text === IG_CTA_LINE &&
      plan.plan.lines[plan.plan.lines.length - 1].cta === true &&
      plan.plan.lines.filter(x => /یوتیوب/.test(x.text)).length === 1, JSON.stringify(plan && plan.plan.lines.map(x => x.text.slice(0, 10))));
-  ok('۳.۲ صدای گویندهٔ همان درس، و کپشن با پیوند', plan.voice === 'Charon' && plan.caption.indexOf('https://youtu.be/v5') !== -1);
+  ok('۳.۲ صدای ثابتِ ریلز (IG_VOICE، ۹.۷۴)، و کپشن با پیوند', plan.voice === CFG.IG_VOICE && CFG.IG_VOICE === 'Alnilam' && plan.caption.indexOf('https://youtu.be/v5') !== -1);
   ok('۳.۳ `_ig.json` و متن در زیرپوشهٔ «اینستاگرام» — نه خودِ پوشهٔ قسمت',
      fo.getName() === 'اینستاگرام' && fo.getFilesByName('_ig.json').hasNext() && fo.getFilesByName('ریلز — متن و کپشن.txt').hasNext() &&
      !epFo.getFilesByName('_ig.json').hasNext() && igFolder_(epFo) === fo);
