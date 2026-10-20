@@ -342,9 +342,10 @@ console.log('\n══ ۱۱-ث) تا تأییدِ نمونه، قسمتِ تاز�
   const nO = vbrAskDue_(hub);
   ok('۱۱-ث.۲ و با باز شدن، همان قسمت خواسته می‌شود', nO === 1 && vbrRead_().items.map(x => x.key).join() === 'variety:80');
   const sd = (REAL_SOUL_SEED || []).filter(x => x.show === 'special' && String(x.ep) === '74' && !x.text);
-  ok('۱۱-ث.۳ بذرِ درسِ ۷۴ برای هر دو گوینده، با متنِ خودِ قسمت (نه متنِ آزمون)',
-     Array.from(new Set(sd.map(x => x.speaker))).sort().join() === 'razavi,spk-1g0r95d' && sd.every(x => x.tag) &&
-     new Set(sd.map(x => x.speaker + '|' + x.tag)).size === sd.length);
+  /* ۹.۶۷: نمونه‌های درسِ ۷۴ ساخته و شنیده شدند و «در همهٔ ساحت‌ها افتضاح» بودند — بذرِ خودکارِ تازه‌ای نمی‌ماند و ساختِ
+     دوبارهٔ خودکار صفر است، تا راهِ بعد با او تصمیم گرفته شود. */
+  ok('۱۱-ث.۳ (۹.۶۷) بذرِ خودکارِ درسِ ۷۴ ایستاده و ساختِ دوبارهٔ خودکار صفر',
+     sd.length === 0 && Number(CFG.VBR_RISE_RETRY) === 0, sd.map(x => x.tag).join(' | '));
 }
 
 console.log('\n══ ۱۱-ت) خروجیِ چیدنِ ناهم‌تراز یک بار دوباره ساخته می‌شود (۹.۴۴) ══');
@@ -2603,6 +2604,7 @@ console.log('\n══ ۲۸) شباهتِ کم «آماده» نیست (۷٫۷۹)
     /* سدِ پایانِ بالارونده: نگه داشتن، شمردن، برچسبِ تازه؛ پس از سقف رها با هشدار. */
     try { props_().deleteProperty('VSOUL_RETRY'); } catch (e) {}
     const itR = { key: 'نمونهٔ روح — razavi · ب:' + known.ep, speaker: 'razavi', tagBase: 'ب', riseEnd: { pct: 40, rise: 8, pauses: 20 } };
+    const rrWas = CFG.VBR_RISE_RETRY; CFG.VBR_RISE_RETRY = 2;   // ۹.۶۷: پیش‌فرض صفر است؛ سازوکار با ۲ سنجیده می‌شود
     const h1 = vbrRiseHold_(itR), tg2 = vbrSoulSeeds_().filter(x => x.tagBase === 'ب')[0].tag;
     const h2 = vbrRiseHold_(itR), h3 = vbrRiseHold_(itR);
     const okLow = vbrRiseHold_({ key: itR.key, speaker: 'razavi', tagBase: 'ب', riseEnd: { pct: 10 } });
@@ -2610,6 +2612,7 @@ console.log('\n══ ۲۸) شباهتِ کم «آماده» نیست (۷٫۷۹)
     ok('۳۱.۱-پ (۹.۶۳) پایانِ بالارونده بالای سقف ⇒ نگه داشته و «بارِ ۲» ساخته می‌شود؛ پس از ' + CFG.VBR_RISE_RETRY + ' بار با هشدار می‌رود؛ زیرِ سقف و قسمتِ واقعی هرگز',
        h1.hold && /بارِ 2/.test(tg2) && h2.hold && !h3.hold && /پس از/.test(itR.riseWarn || '') && !okLow.hold && !notSample.hold,
        JSON.stringify([h1, tg2, h2, h3, itR.riseWarn]));
+    CFG.VBR_RISE_RETRY = rrWas;
     try { props_().deleteProperty('VSOUL_RETRY'); } catch (e) {}
     const sl = vbrSpeedLine_([{ at: 0, c: 100, s: 10 }, { at: 30, c: 100, s: 10 }, { at: 60, c: 100, s: 10, m: 'a' },
                               { at: 245, c: 150, s: 10, d: true, m: 'b' }]);

@@ -1,13 +1,11 @@
 {
- "version": "9.66",
+ "version": "9.67",
  "codeFile": "engine.gs",
- "sha256": "d09172ba94b581f011b4fb1e51e0da2f7ffc5bb95aac2440b62734f88a81f6e9",
- "releasedAt": "2026-10-20T13:00:00+04:00",
- "summary": "تصویر: پیامبر، امام و چهرهٔ مقدس هرگز به شکلِ آدم کشیده نمی‌شوند — قید در همهٔ دستورهای تصویر، پرسشِ «holy» در داور (روی همان سدِ چهرهٔ واقعی)، و هر ریلزِ منتشرنشده‌ای که با سدِ کهنه گذشته بود دوباره از سد می‌گذرد (ریلزِ ۱۸ِ مصباح).",
+ "sha256": "6d8fba6ef7ee14e6c6051e0100f8faab6de17cdfef824c796aa85f65b441d03a",
+ "releasedAt": "2026-10-20T14:00:00+04:00",
+ "summary": "صدا: نمونهٔ رضوی با مبدأ Alnilam — که سنجه‌ها بهترینش می‌گفتند — به گوشِ صاحبِ برنامه در همهٔ ساحت‌ها افتضاح بود؛ بذرهای خودکارِ نمونه برداشته شدند و ساختِ دوبارهٔ خودکار صفر شد تا نمونهٔ دیگری بی تصمیمِ او ساخته نشود.",
  "fixes": [
-  "src/27_YouTube.gs: LV_HOLY_FA/EN, lvSceneImgPrompt_, صحنه‌نویس، lvSceneJudge_ (holy)",
-  "src/38_Instagram.gs: igImgGate_, igImgUnchecked_ (IG_IMG_GATE_V)",
-  "src/37_VarietyMedia.gs: کاور"
+  "src/00_Config.gs: VOICE_SOUL_SEED (بی بذرِ ۹.۶۳)، VBR_RISE_RETRY: 0"
  ],
  "sourceReportIds": [],
  "answers": {}

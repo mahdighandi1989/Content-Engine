@@ -671,6 +671,14 @@
    "how": "_STATUS.instagram (inflight، lastWhy)، plan.imgOk و plan.imgGate در پوشهٔ اینستاگرامِ درس، docs/renders.json reels",
    "ver": "9.66",
    "owner": false
+  },
+  {
+   "id": "R-20261020-03",
+   "ask": "اون نسخه رضوی که گفتی رو شنیدم ... وای افتضاح بود ... تو همه ساحت های ممکن افتضاح بود",
+   "done": "هیچ نمونهٔ صوتیِ خودکارِ تازه‌ای پس از 9.67 در docs/voice-renders.json ساخته نشود تا تصمیمِ صاحبِ برنامه؛ پلِ قسمت‌ها خاموش بماند",
+   "how": "docs/voice-renders.json (ردیفِ «نمونهٔ روح» با تاریخِ پس از نصبِ 9.67)، CFG.VBR_REPLACE",
+   "ver": "9.67",
+   "owner": false
   }
  ]
 }
