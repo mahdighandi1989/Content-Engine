@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-20 05:25",
+ "updatedAt": "2026-10-20 06:43",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -4159,6 +4159,159 @@
    "beats": 38,
    "bgs": 16,
    "seconds": 1630
+  },
+  "variety:78": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-78.mp4",
+   "bytes": 44583307,
+   "parts": 1,
+   "at": "2026-10-20 06:43",
+   "mode": "media",
+   "media": {
+    "clips": 17,
+    "photos": 12,
+    "found": 6,
+    "notFound": 0,
+    "failed": 0,
+    "why": [
+     "صحنهٔ 17: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)"
+    ],
+    "layouts": {
+     "fill": 12,
+     "right": 4,
+     "center": 7,
+     "left": 6
+    },
+    "teaserTiles": 5,
+    "teaserSec": 42.1,
+    "teaser": 4,
+    "filled": 5,
+    "filledSec": 86,
+    "tailCut": 12,
+    "cardOwn": 10,
+    "cards": 10,
+    "cropped": 6,
+    "mainPart": 1,
+    "moments": {
+     "asked": 6,
+     "placed": 5,
+     "made": 5,
+     "why": [],
+     "replaced": 4,
+     "sec": 164,
+     "whole": 1,
+     "fallback": 3
+    },
+    "fit": {
+     "mb": 42.5,
+     "was": 130.8,
+     "how": "بازکدگذاری"
+    }
+   },
+   "inserts": [
+    {
+     "at": 56.5,
+     "d": 9.9,
+     "cut": 31.6
+    },
+    {
+     "at": 187.2,
+     "d": 43.3,
+     "cut": 60.3
+    },
+    {
+     "at": 369,
+     "d": 37.3,
+     "cut": 80.9
+    },
+    {
+     "at": 496.4,
+     "d": 40.4
+    },
+    {
+     "at": 601.2,
+     "d": 33.9,
+     "cut": 80.3
+    }
+   ],
+   "scenes": 33,
+   "want": 33,
+   "snapped": 22,
+   "seconds": 724,
+   "qa": {
+    "n": 33,
+    "matched": 33,
+    "miss": [],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 9,
+       "t": 109.9,
+       "own": 0.59,
+       "nb": 0.27,
+       "ok": true,
+       "heard": "و ایدیو کارمندی به نام خانوم نسیری در چند موقعیت مختلف دیر سرکار میره سد  و سدای مردی در نخش مدیر به او اتراز می کند"
+      },
+      {
+       "n": 17,
+       "t": 248.2,
+       "own": 0.5,
+       "nb": 0.1,
+       "ok": true,
+       "heard": "و این بایدیوی بایدیی که یک این این میشینی دیگرد نست.  پداری که سر خر دارد، پیش مدیر یک رستوران میرود  و میپورسد میتونم ب"
+      },
+      {
+       "n": 23,
+       "t": 453.5,
+       "own": 0.52,
+       "nb": 0.24,
+       "ok": true,
+       "heard": "بایما کلیپ بایدی که در متب پزشگی بنام دکتور بهروز کاویانی می گوزرد.  بیماری به دکتور می گویدد دو سال است به شدد کمه..."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 15,
+    "placed": 14,
+    "busy": 1,
+    "failed": 0,
+    "kinds": {
+     "headline": 2,
+     "points": 10,
+     "quote": 2
+    },
+    "forced": 3
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 33,
+    "used": 33,
+    "why": []
+   },
+   "xf": {
+    "circleopen": 4,
+    "dissolve": 14,
+    "radial": 2,
+    "wiperight": 1,
+    "zoomin": 2,
+    "fade": 2,
+    "slideright": 2,
+    "smoothright": 2
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-78-cover.jpg",
+   "notes": [
+    "لحظهٔ 119s: مکثی بیرون از موسیقی نزدیکش نبود",
+    "برشِ کلیپ از آغاز: صحنهٔ 17: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)",
+    "اندازه: 130.8 ⇒ 42.5 مگابایت"
+   ]
   }
  },
  "art": {
