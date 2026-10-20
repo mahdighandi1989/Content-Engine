@@ -1,12 +1,12 @@
 {
- "version": "9.69",
+ "version": "9.70",
  "codeFile": "engine.gs",
- "sha256": "7f0ec7b753952f40a23ae476e0bf1c3088b31d823cb171c07827bec134fce73d",
- "releasedAt": "2026-10-20T16:00:00+04:00",
- "summary": "ریلز: از مجموعهٔ دوم (آئودی) هر درس دو ریلز و دو شورتز، هر کدام نیمهٔ خودش از سرفصل‌ها و به ترتیب؛ حافظهٔ ایده‌ها و نام‌هایی که صفحه در مجموعه‌های دیگر گفته تا آئودی از زاویهٔ دیگر بگوید؛ شورتز ۲ در روز؛ گیرِ ریلز همان لحظه به تلگرام.",
+ "sha256": "0fb5e5466d8ddd5e807030e11ad8c2e1087f78320ee00e0b066dc9710e9fc86c",
+ "releasedAt": "2026-10-20T17:00:00+04:00",
+ "summary": "یوتیوب: ویدئوی ساده یا کارتی‌ای که با کدِ پیشین خواسته شده بود و بعد رسید هم منتشر نمی‌شود — کنار می‌رود و صحنهٔ مصور از نو؛ شکستِ «_times.json نبود» وقتی فایل حالا هست همان دم از نو؛ و تریگرِ تکراریِ نصب.",
  "fixes": [
-  "src/38_Instagram.gs: igUid_, igPartsFor_, igPartSecs_, igPartBlock_, igSeenBlock_, igSeen*، igStuckTell_، igNextEp_/igEarlierPending_ بخش‌دار، سقفِ شورتزِ روزانه",
-  "src/00_Config.gs: IG_PARTS، IG_PARTS_FROM، IG_SHORTS_PER_DAY"
+  "src/27_YouTube.gs: ytPlainVideo_، سد در ytUploadOne_، بازگشایی در lvScenesBuild_",
+  "src/21_SelfUpdate.gs: یک selfUpdateRetry"
  ],
  "sourceReportIds": [],
  "answers": {}

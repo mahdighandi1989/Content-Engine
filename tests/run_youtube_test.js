@@ -10033,4 +10033,32 @@ console.log('\n=== ۱۰۶) ویدئوی بی‌تصویر خودکار منتش�
   global.getHub_ = hubWas;
 }
 
+console.log('\n=== ۱۰۷) ویدئوی ساده‌ای که پیش‌تر خواسته شده بود منتشر نمی‌شود (۹.۷۰) ===');
+{
+  _ytMapMemo = { 'variety:77': { url: 'u', replace: 'r1-9.65' }, 'special:77': { url: 'u', mode: 'cards' },
+                 'special:78': { url: 'u', mode: 'scenes' }, 'variety:78': { url: 'u', mode: 'media' } };
+  ok('۱۰۷.۱ ساده/کارتی شناخته می‌شود: variety بی حالت، special کارتی؛ صحنه و رسانه نه؛ ویدئوی دستی (بی ردیف) نه',
+     ytPlainVideo_({ key: 'variety:77', show: 'variety' }) === true && ytPlainVideo_({ key: 'special:77', show: 'special' }) === true &&
+     ytPlainVideo_({ key: 'special:78', show: 'special' }) === false && ytPlainVideo_({ key: 'variety:78', show: 'variety' }) === false &&
+     ytPlainVideo_({ key: 'variety:99', show: 'variety' }) === false);
+  const fV = DriveApp.__register('FV77', 'قسمت 0077 — آزمون');
+  fV.createFile(Utilities.newBlob([0, 0, 0, 24, 102, 116, 121, 112], 'video/mp4', 'قسمت 0077 — ویدئو.mp4'));
+  fV.createFile(Utilities.newBlob('RIFF' + 'x'.repeat(200) + 'WAVE', 'audio/wav', 'کامل.wav'));
+  const metaWas = global.ytEpisodeMeta_; global.ytEpisodeMeta_ = () => ({ ep: { title: 'ت', sections: [] } });
+  const r7 = ytUploadOne_({ key: 'variety:77', show: 'variety', ep: '77', folderId: 'FV77' }, null, {});
+  global.ytEpisodeMeta_ = metaWas;
+  const asideF = fV.getFoldersByName('ویدئوی پیشین — جایگزین‌شده');
+  ok('۱۰۷.۲ ytUploadOne_: ویدئوی ساده کنار (به «پیشین»، نه سطل) و منتظرِ صحنه — منتشر نمی‌شود',
+     r7.waiting === true && r7.held === true && !ytVideoIn_(fV) && asideF.hasNext(), JSON.stringify(r7));
+  _ytMapMemo = null;
+  const fT = DriveApp.__register('FT77', 'قسمت 077 — آزمون');
+  lvSceneWrite_(fT, { v: 1, key: 'special:77', at: nowStr_(), failed: 4, why: '`_times.json` در پوشهٔ قسمت نبود (4 بار)', scenes: [] });
+  epTimesSave_(fT, [{ i: 0, at: 0 }], 10);
+  const lvOnWas = global.lvSceneOn_; global.lvSceneOn_ = () => true;
+  const rT = lvScenesBuild_(fT, { ep: {} }, {}, { show: 'special', epRaw: '77', level: 'کم' });
+  global.lvSceneOn_ = lvOnWas;
+  ok('۱۰۷.۳ «_times.json نبود» که حالا هست ⇒ همان دم از نو، نه ۱۲ ساعت بعد', !(rT.fallback && /_times/.test(rT.why) && /4 بار/.test(rT.why)),
+     JSON.stringify(rT).slice(0, 200));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

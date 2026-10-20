@@ -481,7 +481,10 @@ function selfUpdateStep(force) {
       for (var i = 0; i < ts.length; i++) {
         if (ts[i].getHandlerFunction() === 'selfUpdateDaily') continue;
       }
-      ScriptApp.newTrigger('selfUpdateRetry').timeBased().after(2 * 60 * 60 * 1000).create();
+      /* ۹.۷۰: یک تریگر بس است — هر «مشغول» یکی تازه می‌ساخت (selfUpdateRetry ×۴ در سلامتِ ۲۰ اکتبر). */
+      var hasRetry = false;
+      for (var j = 0; j < ts.length; j++) if (ts[j].getHandlerFunction() === 'selfUpdateRetry') hasRetry = true;
+      if (!hasRetry) ScriptApp.newTrigger('selfUpdateRetry').timeBased().after(2 * 60 * 60 * 1000).create();
     } catch (eS) {}
     logLine_('نصبِ کدِ ' + info.version + ' به دو ساعت بعد موکول شد (موتور وسطِ کار است).');
     return { ok: false, reason: 'busy', retry: true };

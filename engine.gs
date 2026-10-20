@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.69
+ *  موتور محتوا و پادکست — نسخهٔ 9.70
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2168,7 +2168,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.69',
+  CODE_VERSION: '9.70',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -36153,7 +36153,10 @@ function selfUpdateStep(force) {
       for (var i = 0; i < ts.length; i++) {
         if (ts[i].getHandlerFunction() === 'selfUpdateDaily') continue;
       }
-      ScriptApp.newTrigger('selfUpdateRetry').timeBased().after(2 * 60 * 60 * 1000).create();
+      /* ۹.۷۰: یک تریگر بس است — هر «مشغول» یکی تازه می‌ساخت (selfUpdateRetry ×۴ در سلامتِ ۲۰ اکتبر). */
+      var hasRetry = false;
+      for (var j = 0; j < ts.length; j++) if (ts[j].getHandlerFunction() === 'selfUpdateRetry') hasRetry = true;
+      if (!hasRetry) ScriptApp.newTrigger('selfUpdateRetry').timeBased().after(2 * 60 * 60 * 1000).create();
     } catch (eS) {}
     logLine_('نصبِ کدِ ' + info.version + ' به دو ساعت بعد موکول شد (موتور وسطِ کار است).');
     return { ok: false, reason: 'busy', retry: true };
@@ -50738,6 +50741,19 @@ function ytVideoIn_(folder) {
   return null;
 }
 
+/**
+ * ویدئوی این قسمت در نقشهٔ رانر ساده یا کارتی است؟ (۹.۷۰) درس‌نامه فقط `scenes`؛ «از همه جا» `media` یا `scenes`. ردیفِ
+ * نقشه‌ای که نیست (ویدئوی دستی) ⇒ نه — آنچه صاحبِ برنامه خودش گذاشته دست نمی‌خورد.
+ */
+function ytPlainVideo_(item) {
+  try {
+    var rec = (ytRenderMapCached_() || {})[String(item.key || (item.show + ':' + item.ep))];
+    if (!rec || !rec.url) return false;
+    var mode = String(rec.mode || '');
+    return String(item.show) === ENRICH_SHOW_SPECIAL ? mode !== 'scenes' : (mode !== 'media' && mode !== 'scenes');
+  } catch (e) { return false; }
+}
+
 /** صوتِ «کامل» همین پوشه — پایهٔ رندر. */
 /**
  * همهٔ فایل‌های صوتیِ یک قسمت، **به ترتیب**.
@@ -56818,6 +56834,10 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
     try { logLine_('صحنه‌های مصورِ ' + key + ': ' + out.why); } catch (eL) {}
     return out;
   };
+  /* ۹.۷۰: «نبودِ _times.json» که حالا هست، دیگر نشد نیست — همان دم از نو، نه ۱۲ ساعت بعد (special:77). */
+  if (d && !d.scenes.length && Number(d.failed) > 0 && /_times\.json/.test(String(d.why || '')) && epTimesRead_(folder)) {
+    d.failed = 0; d.why = ''; d.at = '';
+  }
   if (d && !d.scenes.length && Number(d.failed) >= failMax) {
     /* ۹.۶۵: حالا که ویدئوی ساده منتشر نمی‌شود، «نشد» باید دوباره در بزند — هر `LV_SCENE_HOLD_RETRY_H` ساعت یک دورِ تازه. */
     var lastH = parseWhen_(String(d.at || ''));
@@ -58906,6 +58926,19 @@ function ytUploadOne_(item, hub, pub) {
     }
   }
 
+  /* ══ ویدئوی ساده‌ای که پیش‌تر خواسته شده بود، منتشر نمی‌شود (۹.۷۰) ══
+     ۹.۶۵ جلوی **خواستنِ** ویدئوی کارتی/ساده را گرفت، ولی ویدئویی که با کدِ پیشین خواسته شده بود و بعد رسید از درِ دیگری
+     می‌آمد: شاخهٔ صحنه فقط وقتی می‌دود که ویدئو نیست (`!ytVideoIn_`). ۲۰ اکتبر جایگزینیِ variety:77 با کدِ ۹.۶۴ دوباره
+     ویدئوی ساده ساخت و همان ساعتی رسید که ۹.۶۸ نصب شد. ویدئویی که نقشهٔ رانر حالتش را «صحنه/رسانه» نمی‌گوید کنار می‌رود
+     (به «پیشین»، نه سطل) و صحنه از نو. ویدئوی دستی (بی ردیف در نقشه) دست نمی‌خورد. */
+  if (CFG.YT_PLAIN_HOLD !== false && ytVideoIn_(folder) && ytPlainVideo_(item)) {
+    var asideN = 0;
+    try { asideN = ytReplaceAside_(folder); } catch (eAs) { asideN = 0; }
+    try { var dS = lvSceneRead_(folder); if (dS && !(dS.scenes || []).length) { dS.failed = 0; dS.why = ''; lvSceneWrite_(folder, dS); } } catch (eDs) {}
+    logLine_('ویدئوی ' + item.key + ' ساده/کارتی بود؛ ' + asideN + ' فایل به «پیشین» رفت و صحنه از نو ساخته می‌شود.');
+    res.waiting = true; res.held = true; res.why = 'ویدئوی ساده/کارتی کنار رفت؛ صحنهٔ مصور از نو';
+    return res;
+  }
   var sceneFb = '';
   /* ══ «از همه جا» با رسانه‌های خودِ منبع (بخشِ ۳۷، ۸.۹۶) ══
    * همان مسیرِ صحنه‌ها، با کلیپ و عکسِ منبع به‌جای نقاشیِ ساخته‌شده. نشد ⇒ با علت به مسیرِ قبلی.
