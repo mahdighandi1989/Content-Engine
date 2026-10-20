@@ -33,6 +33,7 @@ const MK = {
   collageMax: 5, teaserSlow: 0.6,                                              // ۹.۱۱: کاشی‌های کلاژِ پیش‌نمایش                        // ۹.۱۰: صحنهٔ بلندتر از کلیپ ⇒ چند قابِ متحرک، نه یک قابِ ساکن                      // بلندترین تکهٔ کلیپ که برای یک صحنه بریده می‌شود
   lead: 0.6,                       // چند ثانیه پیش از عبارت (تا جمله از وسط شروع نشود)
   momentMin: 3, momentTail: 0.7,
+  freezeMax: 10, freezeNoise: 0.003,   // ۹.۷۱: تصویرِ یخ‌زدهٔ بیش از این در ویدئوی نهایی ⇒ سنجش رد می‌کند
   fadeV: 0.35, fadeA: 0.45,      // ۹.۰۰: پایانِ صدا ۰٫۱۲ ثانیه بود — «سریع قطع می‌شد»
   loud: 'loudnorm=I=-16:TP=-1.5:LRA=11',
   crf: 20
@@ -567,4 +568,25 @@ function splice(ff, silent, wav, parts, dest, dir) {
   return { inserts: inserts };
 }
 
-module.exports = { collage, teaserPlan, contentEnd, fillTail, MK, BOX, probe, contentBox, placeIn, layoutOf, frameFilter, photo, photoClip, clip, brightFrom, moment, find, placeMoments, splice };
+/**
+ * بازه‌های تصویرِ یخ‌زده در یک فایل (۹.۷۱) — از خودِ قاب‌ها (`freezedetect`)، نه از نقشه.
+ * ۲۰ اکتبر ویدئوی «از همه جا» ۷۸ از ثانیهٔ ۵۰۱ تا ۵۲۹ فقط یک قابِ تارِ ساکن بود، با صدای کلیپ، درونِ «لحظهٔ» ۴۹۶ —
+ * و سنجشِ رانر «سالم» گفت، چون پیش از لای‌گذاریِ لحظه‌ها روی ویدئوی بی‌لحظه می‌دوید. ⇒ [{s, e, d}]
+ */
+function freezes(ff, file, minSec) {
+  const r = spawnSync(ff, ['-hide_banner', '-i', file, '-map', '0:v:0', '-vf',
+    'freezedetect=n=' + MK.freezeNoise + ':d=' + (Number(minSec) || MK.freezeMax), '-f', 'null', '-'],
+    { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  const t = String(r.stderr || ''), out = [];
+  const re = /freeze_start: ([\d.]+)[\s\S]*?freeze_end: ([\d.]+)/g;
+  let m;
+  while ((m = re.exec(t))) {
+    const a = Number(m[1]), b = Number(m[2]);
+    /* دو بازهٔ پیاپی (freezedetect پس از هر d ثانیه از نو می‌شمارد) یک یخ‌زدگی‌اند. */
+    if (out.length && a - out[out.length - 1].e < 0.1) out[out.length - 1].e = b;
+    else out.push({ s: a, e: b });
+  }
+  return out.map(x => ({ s: Math.round(x.s * 10) / 10, e: Math.round(x.e * 10) / 10, d: Math.round((x.e - x.s) * 10) / 10 }));
+}
+
+module.exports = { freezes, collage, teaserPlan, contentEnd, fillTail, MK, BOX, probe, contentBox, placeIn, layoutOf, frameFilter, photo, photoClip, clip, brightFrom, moment, find, placeMoments, splice };

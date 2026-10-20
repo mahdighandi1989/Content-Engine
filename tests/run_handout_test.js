@@ -339,7 +339,7 @@ console.log('=== ۷) وصل‌بودن — وگرنه همهٔ بالا نمای
      /nightHas_\(Number\(CFG\.HANDOUT_NIGHT_NEED_MS\) \|\| 180000, 'جزوهٔ مجموعه‌ها'\)/.test(su) &&
      /handoutRunDue_\([^;]*, hdBudget\)/.test(su) && Number(CFG.HANDOUT_NIGHT_NEED_MS) >= 150000);
   ok('۷.۵ وضعیت به _STATUS.json می‌رود', he.indexOf('handoutStatus_()') !== -1);
-  ok('۷.۶ و ناظر هر روز می‌سنجدش', he.indexOf('handoutHealth_(problems, notes)') !== -1);
+  ok('۷.۶ و ناظر هر روز می‌سنجدش', he.indexOf('handoutHealth_(problems, notes, st && st.handout)') !== -1);
   ok('۷.۷ دکمهٔ دستی هم هست', se.indexOf("'runHandoutBuild'") !== -1);
   ok('۷.۸ ساختِ جزوه هرگز داخلِ مسیرِ بحرانیِ صداگذاری نیست',
      sp.indexOf('handoutRunDue_(1)') > sp.indexOf('PK.SP_PENDING'));
@@ -2302,6 +2302,59 @@ console.log('\n=== ۲۷-پ) از همان دری که تولید وارد می�
      (((bk.figs || {})['7'] || [])[0] || {}).id === 'PROD1' &&
      (((bk.figs || {})['7'] || [])[0] || {}).cap === 'زیرنویسِ الف',
      JSON.stringify(Object.keys(bk.figs || {})));
+}
+
+
+console.log('=== ۲۸) نوشتنِ وضعیتِ میانِ روز پیمایشِ جزوه را تکرار نمی‌کند (۹.۷۱) ===');
+{
+  /* ۲۰ اکتبر: `handout` ۸۲–۹۱ ثانیه از هر نوشتنِ `_STATUS` بود و `produceEpisodeContinue` سرِ همان نوشتن کشته شد.
+     از درِ خودِ `writeStatus_` سنجیده می‌شود: شمارِ پیمایش‌های پوشه، نه حضورِ یک تابع. */
+  const realEps = handoutSeriesEpisodes_;
+  let walks = 0;
+  global.handoutSeriesEpisodes_ = function (f) { walks++; return realEps(f); };
+  props_().deleteProperty(PK.HANDOUT_STAT_CACHE);
+  const fresh = handoutStatus_();
+  const w1 = walks;
+  ok('۲۸.۱ پیمایشِ کامل حافظه را پر می‌کند', w1 > 0 && !!props_().getProperty(PK.HANDOUT_STAT_CACHE),
+     'پیمایش ' + w1);
+  const hub28 = getHub_();
+  let st28 = null;
+  const savedT0 = _healthT0;
+  _healthT0 = 0;
+  try { st28 = writeStatus_(hub28, 'آزمون ۲۸'); } catch (e) {}
+  ok('۲۸.۲ نوشتنِ میانِ روز همان نتیجه را برمی‌دارد و هیچ پوشه‌ای نمی‌پیماید',
+     walks === w1 && st28 && st28.handout && !!st28.handout.cachedAt &&
+     st28.handout.series.length === fresh.series.length,
+     'پیمایش ' + (walks - w1) + ' · cachedAt ' + (st28 && st28.handout && st28.handout.cachedAt));
+  handoutDueAdd_('kCache', '99');
+  const c2 = handoutStatusCached_();
+  ok('۲۸.۳ ولی صف و خط از نو حساب می‌شوند (همان چیزی که میانِ روز عوض می‌شود)',
+     c2.due === handoutDueList_().length && c2.line.indexOf(String(c2.due) + ' در صف') !== -1, c2.line);
+  const prevTtl = CFG.HANDOUT_STATUS_TTL_H;
+  CFG.HANDOUT_STATUS_TTL_H = 0;
+  const w2 = walks; handoutStatusCached_();
+  ok('۲۸.۴ و TTL صفر یعنی همیشه تازه', walks > w2);
+  CFG.HANDOUT_STATUS_TTL_H = prevTtl;
+  /* وارسیِ سلامت: یک پیمایش، که `handoutHealth_` هم همان را می‌خوانَد — پیش‌تر دو بار. */
+  const w3 = walks;
+  const pre = handoutStatus_();
+  const w4 = walks;
+  handoutHealth_([], [], pre);
+  ok('۲۸.۵ handoutHealth_ پیمایشِ تازهٔ همان وارسی را دوباره نمی‌کند', walks === w4 && w4 > w3);
+  handoutHealth_([], [], c2);
+  ok('۲۸.۶ ولی نتیجهٔ حافظه را جای پیمایشِ تازه نمی‌گیرد', walks > w4);
+  _healthT0 = savedT0;
+  global.handoutSeriesEpisodes_ = realEps;
+
+  /* ترتیب: نوشتنِ وضعیت آخرین کار است، پس کشته‌شدنش بدهیِ یوتیوب/جزوه را نمی‌بَرد. */
+  const p3 = fs.readFileSync('src/03_Producer.gs', 'utf8');
+  const a3 = p3.indexOf("ytDueAdd_(ENRICH_SHOW_VARIETY"), b3 = p3.indexOf("writeStatus_(hub, 'قسمت '");
+  ok('۲۸.۷ «از همه جا»: بدهیِ یوتیوب پیش از نوشتنِ وضعیت', a3 > 0 && b3 > a3);
+  const p14 = fs.readFileSync('src/14_Special.gs', 'utf8');
+  const a14 = p14.indexOf('ytDueAdd_(ENRICH_SHOW_SPECIAL'), h14 = p14.indexOf('handoutDueAdd_(meta.seriesKey, epNum)'),
+        s14 = p14.indexOf('PK.SP_LAST, JSON.stringify'), b14 = p14.indexOf("writeStatus_(hub, 'درس‌نامه '");
+  ok('۲۸.۸ درس‌نامه: SP_LAST، بدهیِ جزوه و یوتیوب پیش از نوشتنِ وضعیت',
+     a14 > 0 && h14 > 0 && s14 > 0 && b14 > a14 && b14 > h14 && b14 > s14);
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');

@@ -293,6 +293,8 @@ console.log('=== ۳) سرتاسری: ویدئوی رسانه‌ای با یک ل
   ok('۳.۸ زیرِ گفتار صدای کلیپ نیست (صحنهٔ کلیپِ عمودی، ثانیهٔ ۲)', Math.abs(tone(2.0).hz - 300) < 30,
      JSON.stringify(tone(2.0)));
   ok('۳.۹ سنجشِ قاب‌ها (پیش از لای‌گذاری) گذشت', vr.qa && vr.qa.ok === true, JSON.stringify(vr.qa));
+  ok('۳.۹-ب و فایلِ نهایی (با لحظه) هم سنجیده شد: یخ‌زدگی ندارد (۹.۷۱)', vr.qa && Array.isArray(vr.qa.freeze) && vr.qa.freeze.length === 0,
+     JSON.stringify(vr.qa && vr.qa.freeze));
   /* پس از لحظه، تصویر **پسِ** همان تکه را نشان می‌دهد، نه دوباره خودش را (بی‌صدا). سنجه از خودِ
      قاب‌ها: قابِ ۱٫۵ ثانیه پس از لحظه (بیرون از میان‌محوِ مرزِ صحنه) به کلیپ در ~۷٫۷ (پس از تکه) نزدیک‌تر است تا ~۴٫۲ (تکرارِ تکه). */
   const SKIT = require('../tools/scenekit.js');
@@ -518,6 +520,27 @@ console.log('=== ۱۳) تکهٔ تیرهٔ کلیپ (۹.۴۳، صحنهٔ ۱۴ِ
      'sd=' + (fr ? SKIT.sd(fr).toFixed(1) : 'نه') + ' from=' + c.from);
   ok('۱۳.۴ رانر جابه‌جایی را در notes می‌گوید و «ادامه»/usedTo از آغازِ واقعی حساب می‌شود',
      /c\.darkMoved/.test(fs.readFileSync('tools/render.js', 'utf8')) && /if \(c\.from !== undefined\) from = c\.from;/.test(fs.readFileSync('tools/render.js', 'utf8')));
+}
+
+console.log('=== ۱۴) تصویرِ یخ‌زده در فایلِ نهایی (۹.۷۱، «از همه جا» ۷۸: ۲۷ ثانیه قابِ تارِ ساکن، سنجش «سالم») ===');
+{
+  /* ۶ ثانیه متحرک، ۱۴ ثانیه یک قابِ ساکن (مثلِ لحظه‌ای که تصویرش تمام شده)، ۶ ثانیه متحرک.
+     پوشهٔ خودش: پوشهٔ مشترکِ بالا را بخش‌های پیشین پاک کرده‌اند. */
+  const fdir = fs.mkdtempSync(path.join(os.tmpdir(), 'frz-'));
+  const Q = n => path.join(fdir, n);
+  ff(['-f', 'lavfi', '-i', 'testsrc2=s=640x360:r=24:d=6', '-f', 'lavfi', '-i', 'testsrc2=s=640x360:r=24:d=6',
+      '-filter_complex', '[0:v]split[a][b];[b]trim=end_frame=1,loop=loop=335:size=1,setpts=N/24/TB[f];[a][f][1:v]concat=n=3:v=1:a=0[v]',
+      '-map', '[v]', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', Q('frz.mp4')]);
+  ff(['-f', 'lavfi', '-i', 'testsrc2=s=640x360:r=24:d=14', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', Q('mov.mp4')]);
+  const fz = MKIT.freezes(FF, Q('frz.mp4'), MKIT.MK.freezeMax);
+  ok('۱۴.۱ بازهٔ ساکنِ ۱۴ ثانیه‌ای یک بار، سرِ جایش (~۶ تا ~۲۰) پیدا شد',
+     fz.length === 1 && fz[0].s > 5 && fz[0].s < 7.5 && fz[0].e > 18.5 && fz[0].e < 21, JSON.stringify(fz));
+  const fz0 = MKIT.freezes(FF, Q('mov.mp4'), MKIT.MK.freezeMax);
+  ok('۱۴.۲ کلیپِ متحرک هیچ یخ‌زدگی ندارد', fz0.length === 0, JSON.stringify(fz0));
+  const rs = fs.readFileSync('tools/render.js', 'utf8');
+  const iFit = rs.indexOf("stage('اندازهٔ فایل: زیرِ سقفِ آپلود')"), iFz = rs.indexOf('MKf.freezes(ffmpegExe(), dest');
+  ok('۱۴.۳ سنجشِ یخ‌زدگی پس از لای‌گذاریِ لحظه‌ها و بازکدگذاریِ اندازه، روی همان فایلِ تحویلی، و سنجش را رد می‌کند',
+     iFit > 0 && iFz > iFit && /qa\.ok = false;/.test(rs.slice(iFz, iFz + 600)));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ ساختِ ویدئوی رسانه‌ای گذشت.');

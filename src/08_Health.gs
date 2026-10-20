@@ -656,7 +656,7 @@ function writeStatus_(hub, note) {
     // تازگیِ دستورِ روتین‌ها نسبت به نسخهٔ در حالِ اجرا
     promptFresh: (function () { try { return promptFreshStatus_(); } catch (e) { return null; } })(),
     // جزوهٔ هر مجموعه — چند فصل، چند ارجاع، و کدام مجموعه عقب مانده
-    handout: wsB_('handout', function () { return handoutStatus_(); }),
+    handout: wsB_('handout', function () { return _healthT0 ? handoutStatus_() : handoutStatusCached_(); }),
     youtube: wsB_('youtube', function () { return ytStatus_(); }),
     /* تصویرهای درس (۷.۹۵). هر دو حافظه‌اش در Properties است، پس این‌جا —
        داغ‌ترین مسیرِ موتور — هیچ فراخوانِ درایو یا شیتی اضافه نمی‌کند
@@ -2243,7 +2243,7 @@ function healthCheck() {
     /* جزوهٔ مجموعه‌ها. خواستهٔ صریح: «باید این قابلیت و به‌روزرسانی‌شدنش حتماً
        موردِ توجهِ ناظر به‌طور مکرر قرار بگیرد و گزارش بشود.» پس هر روز، نه
        یک بار. بخشِ ۲۶ جلوتر است، پس try/catch. */
-    try { handoutHealth_(problems, notes); } catch (eHh) {}
+    try { handoutHealth_(problems, notes, st && st.handout); } catch (eHh) {}
 
   /* یوتیوب — خطِ روزانه همیشه هست، حتی وقتی هیچ ایرادی نیست.
      مهم‌ترین بندش «منتظرِ ساختِ ویدئو» است: اگر کسی MP4 نسازد هیچ‌چیز منتشر

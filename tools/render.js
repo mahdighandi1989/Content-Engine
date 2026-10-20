@@ -1073,6 +1073,22 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
     stage('اندازهٔ فایل: زیرِ سقفِ آپلود');
     try { fit = fitSize(dest, dir, notes); } catch (eF) { notes.push('سنجشِ اندازه نشد: ' + String(eF.message).split('\n')[0].slice(0, 80)); }
   }
+  /* ۹.۷۱: سنجشِ قاب‌ها پیش از لحظه‌ها می‌دود (زمانِ صحنه‌ها همان است)، پس فایلِ **نهایی** را هیچ‌کس نمی‌دید. «از همه جا» ۷۸:
+     ۲۷ ثانیه قابِ تارِ ساکن درونِ یک لحظه، و سنجش «سالم». در حالتِ رسانه‌ای هیچ قابی عمداً ساکن نیست (عکس‌ها هم حرکت دارند)،
+     پس یخ‌زدگیِ بیش از `freezeMax` ثانیه در فایلِ نهایی سنجش را رد می‌کند — موتور یک بار از نو می‌خواهد، بارِ دوم Unlisted و یافته. */
+  if (mp) {
+    stage('سنجشِ فایلِ نهایی: تصویرِ یخ‌زده');
+    try {
+      const MKf = require('./mediakit.js');
+      const fz = MKf.freezes(ffmpegExe(), dest, MKf.MK.freezeMax);
+      qa.freeze = fz;
+      if (fz.length) {
+        qa.ok = false;
+        qa.why = (qa.why ? qa.why + ' · ' : '') + 'تصویر ' + fz.length + ' جا یخ زد (' +
+                 fz.slice(0, 3).map(x => x.s + '–' + x.e + 'ث').join('، ') + ')';
+      }
+    } catch (eFz) { notes.push('سنجشِ یخ‌زدگی نشد: ' + String(eFz.message).split('\n')[0].slice(0, 80)); }
+  }
   const media = mp ? Object.assign({}, mp.stat, { moments: mo ? mo.stat : { asked: (it.moments || []).length, placed: placed.length, made: 0 } }, fit ? { fit: fit } : {}) : null;
   return { media: media, inserts: mo ? mo.inserts : [],
            n: r.scenes, want: r.want, snapped: r.snapped, silences: r.silences,

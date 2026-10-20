@@ -10001,13 +10001,15 @@ function renderAudioStep_() {
     props_().deleteProperty(PK.PENDING);
     clearAudioContinuation_();
     rebuildIndex_(hub);
-    try { writeStatus_(hub, 'قسمت ' + epNum + ' کامل شد'); } catch (eS) {}
     logLine_('قسمت ' + epNum + ' کامل شد (' + dur + '، ' + st.files.length + ' فایل صوتی).');
     /* یوتیوب: فقط بدهی ثبت می‌شود؛ آپلود کارِ شبانه است.
        (فراخوانِ رو به جلو ۳ ← ۲۷، پس در try/catch — بارگذارِ جزئیِ آزمون‌ها
        وگرنه با ReferenceError می‌شکند و قسمتِ تحویل‌شده را زمین می‌زند.) */
     try { ytDueAdd_(ENRICH_SHOW_VARIETY, epNum, folder.getId()); }
     catch (eYq) { logLine_('صفِ یوتیوب ثبت نشد: ' + eYq.message); }
+    /* نوشتنِ وضعیت **آخرین** کار است (۹.۷۱): ۲۰ اکتبر همین اجرا وسطِ آن کشته شد و هر چه پس از آن بود —
+       بدهیِ یوتیوب — فقط با پیمایشِ پشتیبان به صف رسید. بدهی پیش از کارِ سنگین، همان قاعدهٔ جزوه. */
+    try { writeStatus_(hub, 'قسمت ' + epNum + ' کامل شد'); } catch (eS) {}
     return { ok: true, episode: epNum, title: ep.title, duration: dur, telegram: st.tg };
   } catch (err) {
     logLine_('خطای صداگذاری: ' + err.message);

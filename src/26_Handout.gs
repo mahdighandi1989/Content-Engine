@@ -3286,7 +3286,48 @@ function handoutStatus_() {
   // برای تشخیصِ «شبِ شلوغ» از «زنجیرهٔ شکسته» لازم دارد.
   try { out.recent = handoutHistory_(null, 8); } catch (e5) { out.recent = []; }
   out.line = handoutLineOf_(out);
+  handoutStatCacheSave_(out);
   return out;
+}
+
+/* ══ پیمایشی که «بی‌شبکه، ارزان» نامیده می‌شد و ۹۰ ثانیه بود (۹.۷۱) ══
+   ۲۰ اکتبر `produceEpisodeContinue` پس از تحویلِ قسمتِ ۷۸ سرِ «وضعیت: voiceIntake» در ثانیهٔ ۳۵۳ کشته شد.
+   `statusCost` همان روز گفت: نوشتنِ وضعیت ۱۵۵ تا ۱۸۵ ثانیه، و `handout` به‌تنهایی ۸۲ تا ۹۱ ثانیه — چون
+   `handoutStatus_` در هر نوشتن تا ۲۵ پوشهٔ مجموعه به‌علاوهٔ فهرستِ زیرِ نظر را پیمایش می‌کند. و این نوشتن
+   در پایانِ هر دو تولید، در `syncCatalog` و دو بار در `healthCheck` (یک بار از `writeStatus_`، یک بار از
+   `handoutHealth_`) تکرار می‌شد؛ جزوه‌ها روزی یکی‌دو بار عوض می‌شوند.
+   حالا پیمایشِ کامل فقط در وارسیِ سلامت (یک بار، که `handoutHealth_` هم همان را می‌خوانَد) و وقتی حافظه از
+   `HANDOUT_STATUS_TTL_H` کهنه‌تر شد؛ بقیهٔ نوشتن‌ها همان نتیجه را با `cachedAt` برمی‌دارند. `due` و خط از نو
+   حساب می‌شوند چون ارزان‌اند و همان چیزی‌اند که میانِ روز عوض می‌شود. */
+function handoutStatCacheSave_(out) {
+  try {
+    var t = new Date().getTime(), body = { t: t, at: nowStr_(), st: out };
+    var txt = JSON.stringify(body);
+    if (txt.length > 8500) {
+      var lite = JSON.parse(JSON.stringify(out)); lite.recent = [];
+      body.st = lite; txt = JSON.stringify(body);
+    }
+    if (txt.length > 8500) { props_().deleteProperty(PK.HANDOUT_STAT_CACHE); return false; }
+    props_().setProperty(PK.HANDOUT_STAT_CACHE, txt);
+    return true;
+  } catch (e) { return false; }
+}
+
+function handoutStatusCached_() {
+  var ttlH = Number(CFG.HANDOUT_STATUS_TTL_H);
+  if (ttlH > 0) {
+    try {
+      var c = JSON.parse(props_().getProperty(PK.HANDOUT_STAT_CACHE) || 'null');
+      if (c && c.st && c.t && (new Date().getTime() - Number(c.t)) < ttlH * 3600000) {
+        var st = c.st;
+        st.cachedAt = c.at;
+        try { st.due = handoutDueList_().length; } catch (eD) {}
+        st.line = handoutLineOf_(st);
+        return st;
+      }
+    } catch (e) {}
+  }
+  return handoutStatus_();
 }
 
 /**
@@ -3341,10 +3382,12 @@ function handoutLineOf_(st) {
  * شبِ شلوغ ساخته شود، همان هشداری است که آدم یاد می‌گیرد نادیده بگیرد —
  * درسی که `srcCycleHealth_` قبلاً داده. پس `HANDOUT_STUCK_DAYS` روزِ پیاپی.
  */
-function handoutHealth_(problems, notes) {
+function handoutHealth_(problems, notes, pre) {
   if (CFG.HANDOUT_ENABLED === false) return;
   var st = null;
-  try { st = handoutStatus_(); } catch (e) { return; }
+  /* `pre`: همان پیمایشِ تازه‌ای که `writeStatus_` سرِ همین وارسی کرد (۹.۷۱) — دومی ۹۰ ثانیهٔ دیگر بود. */
+  if (pre && pre.series && !pre.cachedAt) st = pre;
+  else { try { st = handoutStatus_(); } catch (e) { return; } }
   if (!st) return;
   /* خطِ حال، **همیشه** — حتی وقتی هیچ ایرادی نیست.
      سکوت را نمی‌شود از «این قابلیت مرده» تشخیص داد، و صاحبِ برنامه شیت

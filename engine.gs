@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.70
+ *  موتور محتوا و پادکست — نسخهٔ 9.71
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -902,6 +902,7 @@ var CFG = {
   ],
   HANDOUT_SCAN_MAX: 25,        // چند **پوشه** پیمایش شود؛ ردِ ارزان مجانی است
   HANDOUT_SCAN_MS: 90000,      // نگهبانِ زمانِ کاوش
+  HANDOUT_STATUS_TTL_H: 6,     // نوشتن‌های میانِ روزِ _STATUS پیمایشِ جزوه را از این حافظه برمی‌دارند (۹.۷۱)؛ ۰ = همیشه تازه
   HANDOUT_STUCK_DAYS: 3,       // چند روز عقب‌ماندگی تا «ایرادِ کد» شمرده شود
   HANDOUT_LAG_GRACE: 1,        // درسِ امروز: جزوه‌اش همان شب ساخته می‌شود، پس یک درس «در راه» عقب نیست (۸.۷۲)
   HANDOUT_NIGHT_NEED_MS: 180000, // کارِ شبانه بی این وقت واردِ بلوکِ جزوه نمی‌شود — ۶۰ ثانیه اجرا را کشت (۸.۷۲)
@@ -2168,7 +2169,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.70',
+  CODE_VERSION: '9.71',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3281,6 +3282,7 @@ var PK = {
   HANDOUT_SCAN: 'HANDOUT_SCAN_CUR', // مکان‌نمای واردکردنِ قسمت‌های گذشته
   HANDOUT_SEEN: 'HANDOUT_SEEN_LAG', // از کِی هر مجموعه عقب مانده — برای یافتهٔ کد
   HANDOUT_STAT: 'HANDOUT_STAT_CUR', // مکان‌نمای پنجرهٔ چرخانِ وارسیِ روزانه
+  HANDOUT_STAT_CACHE: 'HANDOUT_STAT_CACHE', // آخرین پیمایشِ کاملِ handoutStatus_ برای نوشتن‌های میانِ روز (۹.۷۱)
   // مهاجرتِ یک‌بارهٔ عنوانِ فصل‌ها (پیشوندِ «فصل ۳:» در کتاب‌های پیش از ۵٫۹۳)
   HANDOUT_RETITLE: 'HANDOUT_RETITLE',
   // ── یوتیوب (۵٫۹۷) ──
@@ -14649,13 +14651,15 @@ function renderAudioStep_() {
     props_().deleteProperty(PK.PENDING);
     clearAudioContinuation_();
     rebuildIndex_(hub);
-    try { writeStatus_(hub, 'قسمت ' + epNum + ' کامل شد'); } catch (eS) {}
     logLine_('قسمت ' + epNum + ' کامل شد (' + dur + '، ' + st.files.length + ' فایل صوتی).');
     /* یوتیوب: فقط بدهی ثبت می‌شود؛ آپلود کارِ شبانه است.
        (فراخوانِ رو به جلو ۳ ← ۲۷، پس در try/catch — بارگذارِ جزئیِ آزمون‌ها
        وگرنه با ReferenceError می‌شکند و قسمتِ تحویل‌شده را زمین می‌زند.) */
     try { ytDueAdd_(ENRICH_SHOW_VARIETY, epNum, folder.getId()); }
     catch (eYq) { logLine_('صفِ یوتیوب ثبت نشد: ' + eYq.message); }
+    /* نوشتنِ وضعیت **آخرین** کار است (۹.۷۱): ۲۰ اکتبر همین اجرا وسطِ آن کشته شد و هر چه پس از آن بود —
+       بدهیِ یوتیوب — فقط با پیمایشِ پشتیبان به صف رسید. بدهی پیش از کارِ سنگین، همان قاعدهٔ جزوه. */
+    try { writeStatus_(hub, 'قسمت ' + epNum + ' کامل شد'); } catch (eS) {}
     return { ok: true, episode: epNum, title: ep.title, duration: dur, telegram: st.tg };
   } catch (err) {
     logLine_('خطای صداگذاری: ' + err.message);
@@ -18210,7 +18214,7 @@ function writeStatus_(hub, note) {
     // تازگیِ دستورِ روتین‌ها نسبت به نسخهٔ در حالِ اجرا
     promptFresh: (function () { try { return promptFreshStatus_(); } catch (e) { return null; } })(),
     // جزوهٔ هر مجموعه — چند فصل، چند ارجاع، و کدام مجموعه عقب مانده
-    handout: wsB_('handout', function () { return handoutStatus_(); }),
+    handout: wsB_('handout', function () { return _healthT0 ? handoutStatus_() : handoutStatusCached_(); }),
     youtube: wsB_('youtube', function () { return ytStatus_(); }),
     /* تصویرهای درس (۷.۹۵). هر دو حافظه‌اش در Properties است، پس این‌جا —
        داغ‌ترین مسیرِ موتور — هیچ فراخوانِ درایو یا شیتی اضافه نمی‌کند
@@ -19797,7 +19801,7 @@ function healthCheck() {
     /* جزوهٔ مجموعه‌ها. خواستهٔ صریح: «باید این قابلیت و به‌روزرسانی‌شدنش حتماً
        موردِ توجهِ ناظر به‌طور مکرر قرار بگیرد و گزارش بشود.» پس هر روز، نه
        یک بار. بخشِ ۲۶ جلوتر است، پس try/catch. */
-    try { handoutHealth_(problems, notes); } catch (eHh) {}
+    try { handoutHealth_(problems, notes, st && st.handout); } catch (eHh) {}
 
   /* یوتیوب — خطِ روزانه همیشه هست، حتی وقتی هیچ ایرادی نیست.
      مهم‌ترین بندش «منتظرِ ساختِ ویدئو» است: اگر کسی MP4 نسازد هیچ‌چیز منتشر
@@ -28585,7 +28589,6 @@ function renderSpecialAudioStep_() {
 
     props_().deleteProperty(PK.SP_PENDING);
     clearSpecialContinuation_();
-    try { writeStatus_(hub, 'درس‌نامه ' + epNum + ' کامل شد'); } catch (eS) {}
     // شمارِ *تحویل‌شده*، نه شمارِ تکه‌های پیش از ادغام.
     //
     // ۲۳ اوت: قسمت ۱۴ در دو فایلِ «یکجا» تحویل شد، ولی هم سیاهه و هم
@@ -28642,6 +28645,9 @@ function renderSpecialAudioStep_() {
                     meta.seriesKey, meta.seriesName); }
     catch (eY) { logLine_('صفِ یوتیوب برای درس‌نامه ثبت نشد: ' + eY.message); }
 
+    /* نوشتنِ وضعیت **آخرین** کار است (۹.۷۱)، نه پیش از بدهیِ جزوه و یوتیوب و `SP_LAST`: نوشتنی که
+       ۲۰ اکتبر ۳۵۳ ثانیه شد و اجرا را کُشت، هر چه پس از خودش بود را می‌بُرد — و وقتِ ساختِ جزوه را هم می‌خورد. */
+    try { writeStatus_(hub, 'درس‌نامه ' + epNum + ' کامل شد'); } catch (eS) {}
     return { ok: true, episode: epNum, duration: dur, telegram: st.tg, done: true };
   } catch (err) {
     logLine_('خطای صداگذاری درس‌نامه: ' + err.message);
@@ -48905,7 +48911,48 @@ function handoutStatus_() {
   // برای تشخیصِ «شبِ شلوغ» از «زنجیرهٔ شکسته» لازم دارد.
   try { out.recent = handoutHistory_(null, 8); } catch (e5) { out.recent = []; }
   out.line = handoutLineOf_(out);
+  handoutStatCacheSave_(out);
   return out;
+}
+
+/* ══ پیمایشی که «بی‌شبکه، ارزان» نامیده می‌شد و ۹۰ ثانیه بود (۹.۷۱) ══
+   ۲۰ اکتبر `produceEpisodeContinue` پس از تحویلِ قسمتِ ۷۸ سرِ «وضعیت: voiceIntake» در ثانیهٔ ۳۵۳ کشته شد.
+   `statusCost` همان روز گفت: نوشتنِ وضعیت ۱۵۵ تا ۱۸۵ ثانیه، و `handout` به‌تنهایی ۸۲ تا ۹۱ ثانیه — چون
+   `handoutStatus_` در هر نوشتن تا ۲۵ پوشهٔ مجموعه به‌علاوهٔ فهرستِ زیرِ نظر را پیمایش می‌کند. و این نوشتن
+   در پایانِ هر دو تولید، در `syncCatalog` و دو بار در `healthCheck` (یک بار از `writeStatus_`، یک بار از
+   `handoutHealth_`) تکرار می‌شد؛ جزوه‌ها روزی یکی‌دو بار عوض می‌شوند.
+   حالا پیمایشِ کامل فقط در وارسیِ سلامت (یک بار، که `handoutHealth_` هم همان را می‌خوانَد) و وقتی حافظه از
+   `HANDOUT_STATUS_TTL_H` کهنه‌تر شد؛ بقیهٔ نوشتن‌ها همان نتیجه را با `cachedAt` برمی‌دارند. `due` و خط از نو
+   حساب می‌شوند چون ارزان‌اند و همان چیزی‌اند که میانِ روز عوض می‌شود. */
+function handoutStatCacheSave_(out) {
+  try {
+    var t = new Date().getTime(), body = { t: t, at: nowStr_(), st: out };
+    var txt = JSON.stringify(body);
+    if (txt.length > 8500) {
+      var lite = JSON.parse(JSON.stringify(out)); lite.recent = [];
+      body.st = lite; txt = JSON.stringify(body);
+    }
+    if (txt.length > 8500) { props_().deleteProperty(PK.HANDOUT_STAT_CACHE); return false; }
+    props_().setProperty(PK.HANDOUT_STAT_CACHE, txt);
+    return true;
+  } catch (e) { return false; }
+}
+
+function handoutStatusCached_() {
+  var ttlH = Number(CFG.HANDOUT_STATUS_TTL_H);
+  if (ttlH > 0) {
+    try {
+      var c = JSON.parse(props_().getProperty(PK.HANDOUT_STAT_CACHE) || 'null');
+      if (c && c.st && c.t && (new Date().getTime() - Number(c.t)) < ttlH * 3600000) {
+        var st = c.st;
+        st.cachedAt = c.at;
+        try { st.due = handoutDueList_().length; } catch (eD) {}
+        st.line = handoutLineOf_(st);
+        return st;
+      }
+    } catch (e) {}
+  }
+  return handoutStatus_();
 }
 
 /**
@@ -48960,10 +49007,12 @@ function handoutLineOf_(st) {
  * شبِ شلوغ ساخته شود، همان هشداری است که آدم یاد می‌گیرد نادیده بگیرد —
  * درسی که `srcCycleHealth_` قبلاً داده. پس `HANDOUT_STUCK_DAYS` روزِ پیاپی.
  */
-function handoutHealth_(problems, notes) {
+function handoutHealth_(problems, notes, pre) {
   if (CFG.HANDOUT_ENABLED === false) return;
   var st = null;
-  try { st = handoutStatus_(); } catch (e) { return; }
+  /* `pre`: همان پیمایشِ تازه‌ای که `writeStatus_` سرِ همین وارسی کرد (۹.۷۱) — دومی ۹۰ ثانیهٔ دیگر بود. */
+  if (pre && pre.series && !pre.cachedAt) st = pre;
+  else { try { st = handoutStatus_(); } catch (e) { return; } }
   if (!st) return;
   /* خطِ حال، **همیشه** — حتی وقتی هیچ ایرادی نیست.
      سکوت را نمی‌شود از «این قابلیت مرده» تشخیص داد، و صاحبِ برنامه شیت

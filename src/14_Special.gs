@@ -2711,7 +2711,6 @@ function renderSpecialAudioStep_() {
 
     props_().deleteProperty(PK.SP_PENDING);
     clearSpecialContinuation_();
-    try { writeStatus_(hub, 'درس‌نامه ' + epNum + ' کامل شد'); } catch (eS) {}
     // شمارِ *تحویل‌شده*، نه شمارِ تکه‌های پیش از ادغام.
     //
     // ۲۳ اوت: قسمت ۱۴ در دو فایلِ «یکجا» تحویل شد، ولی هم سیاهه و هم
@@ -2768,6 +2767,9 @@ function renderSpecialAudioStep_() {
                     meta.seriesKey, meta.seriesName); }
     catch (eY) { logLine_('صفِ یوتیوب برای درس‌نامه ثبت نشد: ' + eY.message); }
 
+    /* نوشتنِ وضعیت **آخرین** کار است (۹.۷۱)، نه پیش از بدهیِ جزوه و یوتیوب و `SP_LAST`: نوشتنی که
+       ۲۰ اکتبر ۳۵۳ ثانیه شد و اجرا را کُشت، هر چه پس از خودش بود را می‌بُرد — و وقتِ ساختِ جزوه را هم می‌خورد. */
+    try { writeStatus_(hub, 'درس‌نامه ' + epNum + ' کامل شد'); } catch (eS) {}
     return { ok: true, episode: epNum, duration: dur, telegram: st.tg, done: true };
   } catch (err) {
     logLine_('خطای صداگذاری درس‌نامه: ' + err.message);

@@ -1,13 +1,16 @@
 {
- "version": "9.70",
- "codeFile": "engine.gs",
- "sha256": "0fb5e5466d8ddd5e807030e11ad8c2e1087f78320ee00e0b066dc9710e9fc86c",
- "releasedAt": "2026-10-20T17:00:00+04:00",
- "summary": "یوتیوب: ویدئوی ساده یا کارتی‌ای که با کدِ پیشین خواسته شده بود و بعد رسید هم منتشر نمی‌شود — کنار می‌رود و صحنهٔ مصور از نو؛ شکستِ «_times.json نبود» وقتی فایل حالا هست همان دم از نو؛ و تریگرِ تکراریِ نصب.",
- "fixes": [
-  "src/27_YouTube.gs: ytPlainVideo_، سد در ytUploadOne_، بازگشایی در lvScenesBuild_",
-  "src/21_SelfUpdate.gs: یک selfUpdateRetry"
- ],
- "sourceReportIds": [],
- "answers": {}
+  "version": "9.71",
+  "codeFile": "engine.gs",
+  "sha256": "b3427eefcb189443f56619722b3dd1d4c9b58c4617de74a84f8a25fa185e0065",
+  "releasedAt": "2026-10-20T13:30:00+04:00",
+  "summary": "نوشتنِ وضعیت دیگر هر بار پوشه‌های جزوه را نمی‌پیماید (۸۲–۹۱ ثانیه، اجرای تولید سرش کشته شد) و در هر دو تولید آخرین کار است؛ رانر فایلِ نهاییِ ویدئوی رسانه‌ای را برای تصویرِ یخ‌زده می‌سنجد.",
+  "fixes": [
+    "src/26_Handout.gs: handoutStatusCached_ + handoutStatCacheSave_؛ handoutHealth_ پیمایشِ همان وارسی را می‌پذیرد",
+    "src/08_Health.gs: writeStatus_ بیرون از وارسیِ سلامت از حافظهٔ جزوه",
+    "src/03_Producer.gs, src/14_Special.gs: writeStatus_ پس از بدهیِ یوتیوب/جزوه/SP_LAST",
+    "tools/mediakit.js + tools/render.js: freezes روی فایلِ نهاییِ رسانه‌ای ⇒ qa.ok=false",
+    "docs/renders.json: variety:78 qa رد (۵۰۱–۵۲۹ ثانیه قابِ ساکن) تا عمومی نشود"
+  ],
+  "sourceReportIds": [],
+  "answers": {}
 }
