@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-20 19:39",
+ "updatedAt": "2026-10-20 21:57",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -4214,14 +4214,89 @@
   },
   "special:76": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-76.mp4",
-   "bytes": 45291216,
+   "bytes": 49502981,
    "parts": 3,
-   "at": "2026-10-19 15:16",
-   "mode": "cards",
-   "cards": 19,
-   "beats": 38,
-   "bgs": 16,
-   "seconds": 1630
+   "at": "2026-10-20 21:57",
+   "replace": "r1-9.70",
+   "mode": "scenes",
+   "scenes": 74,
+   "want": 74,
+   "snapped": 60,
+   "seconds": 1630,
+   "qa": {
+    "n": 74,
+    "matched": 65,
+    "miss": [
+     14,
+     22,
+     26,
+     33,
+     49,
+     60,
+     62,
+     70,
+     74
+    ],
+    "blank": [],
+    "ok": false,
+    "why": "فقط 65 از 74 صحنه سرِ جای خودش دیده شد",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 19,
+       "t": 374,
+       "own": 0.61,
+       "nb": 0.11,
+       "ok": true,
+       "heard": "حدیده یه اپتال توجی کاملن از طریق تداخل باورهای درونی قابل تبیین است.  اپتال توجی یعنی از بین رفتن یا تر..."
+      },
+      {
+       "n": 38,
+       "t": 832.9,
+       "own": 0.52,
+       "nb": 0.19,
+       "ok": true,
+       "heard": "وقتی می پورسیم آیا معرفت فی نفسه خیر است  تلویه هن از ارزش زاتی نو ای مناصبی از تجرب نسبت بeان می پور."
+      },
+      {
+       "n": 56,
+       "t": 1221.8,
+       "own": 0.56,
+       "nb": 0.25,
+       "ok": true,
+       "heard": "بتور کلی در موارد پیشینی، آن چه توجیه می کند فحمی از محتوى باور مواجهف فراف."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 26,
+    "placed": 18,
+    "busy": 8,
+    "failed": 0,
+    "kinds": {
+     "points": 11,
+     "headline": 6,
+     "compare": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 68,
+   "clip": {
+    "asked": 1,
+    "used": 1,
+    "why": []
+   },
+   "xf": {
+    "smoothright": 37,
+    "fade": 29
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-76-cover.jpg"
   },
   "variety:78": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-78.mp4",
