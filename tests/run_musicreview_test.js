@@ -522,8 +522,10 @@ console.log('=== ۱۳) «بازه رو از روی خودِ موسیقی و پل
   const kb = JSON.parse(calls('sendDocument')[0].b.reply_markup).inline_keyboard, btn = [].concat.apply([], kb).filter(x => x.url)[0];
   ok('۱۳.۱ کارت دکمهٔ «✂️ بازه با پخش‌کننده» دارد که صفحهٔ پخش را با شناسه، طول، ربات و کلید باز می‌کند',
      btn && /range\.html\?/.test(btn.url) && btn.url.indexOf('id=' + fX.getId()) !== -1 && /bot=TestBot/.test(btn.url) && /d=95/.test(btn.url) && /k=[0-9a-f]{6}/.test(btn.url), btn && btn.url);
-  ok('۱۳.۲ صفحه در ریپو هست، پخش از درایو، و «ثبت» پیامِ start با همان قالب می‌سازد', fs.existsSync('docs/webapp/range.html') &&
-     /uc\?export=download&id=/.test(fs.readFileSync('docs/webapp/range.html', 'utf8')) && /\?start=' \+ p/.test(fs.readFileSync('docs/webapp/range.html', 'utf8')));
+  /* ۹.۸۶: درایو به صوتِ صفحه‌ای بیرون از گوگل ۴۰۳ می‌دهد — صفحه هیچ نشانیِ دانلودِ درایو را نباید پخش کند. */
+  const pg = fs.readFileSync('docs/webapp/range.html', 'utf8');
+  ok('۱۳.۲ صفحه در ریپو هست، پخش از پیش‌نمایشِ رانر (musicPrev) نه درایو، و «ثبت» پیامِ start با همان قالب می‌سازد',
+     /musicPrev\[Q\.id\]/.test(pg) && !/uc\?export=download|drive\.usercontent/.test(pg) && /\?start=' \+ p/.test(pg));
 
   /* همان محاسبهٔ صفحه، این‌جا: شروع ۱۲٫۵، پایان ۴۷ */
   const k = /k=([0-9a-f]{6})/.exec(btn.url)[1];
@@ -635,6 +637,32 @@ console.log('=== ۱۴) موسیقیِ خودِ صاحبِ برنامه از تل
   tgPollTick();
   ok('۱۴.۱۰ «نمی‌دانم» ⇒ پخش نمی‌شود', !musicBank_(hub).some(b => b.id === S2b.wav) && musicLicense_(mrUpLicTag_('unk')).ok === false && musicLicense_(mrUpLicTag_('free')).ok === true);
   ok('۱۴.۱۱ توکنِ ربات در هیچ پیامی نیست', tg.every(x => JSON.stringify(x.b || {}).indexOf('botBOT') === -1));
+  global.__STUB = old;
+}
+
+console.log('=== ۱۵) پیش‌نمایشِ صفحهٔ بازه از ریلیز، نه درایو (۹.۸۶) ===');
+{
+  const want = () => JSON.parse(global.__PROPS['MUSIC_PREV_WANT'] || '[]');
+  ok('۱۵.۱ هر کارتِ فرستاده (و بارِ اول همهٔ کارت‌های پیشین) در فهرستِ پیش‌نمایش است', want().length >= 4 && want().indexOf(fA.getId()) !== -1, want().length);
+  const st = mrState_(); st.prevAt = 0; st.prevSig = ''; mrSave_(st);
+  const old = global.__STUB; let rmap = { items: {}, musicPrev: {} };
+  global.__STUB = (url, body, opt) => /renders\.json/.test(url) ? { code: 200, text: JSON.stringify(rmap) } : (/api\.github\.com/.test(url) ? { code: 204, json: {} } : old(url, body, opt));
+  tgPollTick();
+  const q = getOutJson_(ytRenderName_()) || {};
+  ok('۱۵.۲ صفِ رانر همان فهرست را دارد', (q.musicPrev || []).length === want().length && q.musicPrev.some(x => x.id === fA.getId()), (q.musicPrev || []).length);
+  const R = require('../tools/render.js');
+  ok('۱۵.۳ رانر همه را «کار» می‌بیند و پروب بیدار می‌شود', R.musicPrevTodo(q, rmap).length === q.musicPrev.length && R.probeWork(q, rmap, {}, new Date()) === '1');
+  rmap.musicPrev[fA.getId()] = { url: 'https://github.com/x/mprev-a.mp3' };
+  rmap.musicPrev[fC.getId()] = { err: 'بی‌اشتراک', tries: 3 };
+  ok('۱۵.۴ ساخته‌شده و سه‌بار‌ناشده دیگر کارِ رانر نیستند', R.musicPrevTodo(q, rmap).length === q.musicPrev.length - 2);
+  const st2 = mrState_(); st2.prevAt = 0; mrSave_(st2);
+  tgPollTick();
+  const q2 = getOutJson_(ytRenderName_()) || {};
+  ok('۱۵.۵ موتور آن دو را از فهرست و صف بیرون می‌برد', want().indexOf(fA.getId()) === -1 && want().indexOf(fC.getId()) === -1 &&
+     !(q2.musicPrev || []).some(x => x.id === fA.getId()) && (q2.musicPrev || []).length === q.musicPrev.length - 2);
+  const n0 = global.__FETCHES.filter(f => /renders\.json/.test(f.url)).length;
+  tgPollTick();
+  ok('۱۵.۶ دقیقهٔ بعد نقشه دوباره خوانده نمی‌شود (ده دقیقه)', global.__FETCHES.filter(f => /renders\.json/.test(f.url)).length === n0);
   global.__STUB = old;
 }
 

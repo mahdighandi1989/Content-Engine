@@ -1346,6 +1346,52 @@ function buildMusicConv(list, map, tmp) {
   return n;
 }
 
+/* ── پیش‌نمایشِ کارت‌های موسیقی برای صفحهٔ «✂️ بازه با پخش‌کننده» (۹.۸۶) ──────────
+ * درایو به صوتی که صفحه‌ای بیرون از گوگل بخواهد ۴۰۳ می‌دهد (CORP same-site، و Sec-Fetch-Dest: audio رد می‌شود) —
+ * صفحه هرگز پخش نمی‌کرد. ریلیزِ همین مخزن چنین سدی ندارد؛ پس هر کارت یک MP3 این‌جا می‌گیرد. موتور فهرست را در
+ * `musicPrev` می‌گذارد؛ نشانی در `map.musicPrev[id]`. فایلی که سه بار نشد دیگر کارِ پروب نیست (اجرای ده‌دقیقه‌ای را
+ * برای یک فایلِ بی‌اشتراک بیدار نگه نمی‌داریم) — و علتش در نقشه است تا صفحه بگوید.
+ */
+const MUSIC_PREV_PER_RUN = 30;
+
+function musicPrevTodo(queue, map) {
+  const L = (queue && Array.isArray(queue.musicPrev)) ? queue.musicPrev : [];
+  const have = map.musicPrev || {};
+  return L.filter(x => x && x.id && !(have[x.id] && (have[x.id].url || (have[x.id].tries || 0) >= 3)));
+}
+
+function buildMusicPrev(list, map, tmp) {
+  let n = 0;
+  map.musicPrev = map.musicPrev || {};
+  for (const x of (list || []).slice(0, MUSIC_PREV_PER_RUN)) {
+    const dir = fs.mkdtempSync(path.join(tmp, 'mp-'));
+    const at = new Date().toISOString().slice(0, 16).replace('T', ' ');
+    try {
+      const src = path.join(dir, 'in.bin');
+      fetchTo(dlUrl(x.id), src);
+      if (/^\s*</.test(head(src, Math.min(64, fs.statSync(src).size)).toString('latin1'))) {
+        throw new Error('به‌جای فایل صفحهٔ HTMLی گوگل رسید — اشتراکِ فایل باز نیست');
+      }
+      const out = path.join(dir, 'p.mp3');
+      ff(['-i', src, '-vn', '-map', '0:a:0', '-ac', '2', '-ar', '44100', '-c:a', 'libmp3lame', '-b:a', '160k', out]);
+      if (fs.statSync(out).size < 1000) throw new Error('MP3 ساخته نشد');
+      const url = uploadAsset(ensureRelease(), out, 'mprev-' + slugOf(x.id) + '.mp3', 'audio/mpeg');
+      if (!url) throw new Error('نشانی برنگشت');
+      map.musicPrev[x.id] = { url: url, bytes: fs.statSync(out).size, at: at };
+      n++;
+    } catch (e) {
+      const was = map.musicPrev[x.id] || {};
+      map.musicPrev[x.id] = { err: String(e.message || e).split('\n')[0].slice(0, 140), tries: (was.tries || 0) + 1, at: at };
+      log('  ✗ پیش‌نمایشِ موسیقی ' + x.id + ' — ' + map.musicPrev[x.id].err);
+      n++;
+    } finally {
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}
+    }
+  }
+  if (n) log('  ✔ پیش‌نمایشِ موسیقی: ' + n + ' تا');
+  return n;
+}
+
 /* ── ریلزِ اینستاگرام (۹.۲۱) ──────────────────────────────────────────────
  * همان راهِ کاورِ پلی‌لیست: موتور فهرستِ `reels` را در `_YT-RENDER.json` می‌گذارد (صدا، تصویرها، جمله‌ها با زمان)،
  * این‌جا با `reelkit` کشیده می‌شود و نشانیِ MP4 و کاورش در `docs/renders.json` (`reels`) می‌نشیند. جدا از `items`
@@ -1450,7 +1496,7 @@ function brandMark(queue) {
 /** پاسخِ پروب: «کاری هست» = ویدئوی ساخته‌نشده یا کاورِ پلی‌لیستِ کشیده‌نشده. */
 function probeWork(queue, map, hold, now) {
   return (itemsTodo(queue, map, hold, now).todo.length || plCoversTodo(queue, map).length || reelsTodo(queue, map).length ||
-          bannerTodo(queue, map) || musicConvTodo(queue, map).length) ? '1' : '0';
+          bannerTodo(queue, map) || musicConvTodo(queue, map).length || musicPrevTodo(queue, map).length) ? '1' : '0';
 }
 
 /** ردیف‌های ساخته‌نشده و نگه‌داشته‌نشده — یک تعریف برای پروب و برای کار. */
@@ -1535,9 +1581,9 @@ function main() {
   }
   const rlTodo = reelsTodo(queue, map);
   if (rlTodo.length) log('ریلزِ اینستاگرام: ' + rlTodo.length + ' تا در صف.');
-  const muTodo = musicConvTodo(queue, map);
+  const muTodo = musicConvTodo(queue, map), mpTodo = musicPrevTodo(queue, map);
   if (muTodo.length) log('موسیقیِ صاحبِ برنامه برای تبدیل: ' + muTodo.length + ' تا.');
-  if (!todo.length && !plTodo.length && !bannerTodo(queue, map) && !rlTodo.length && !muTodo.length) { log('کاری نیست.'); return; }
+  if (!todo.length && !plTodo.length && !bannerTodo(queue, map) && !rlTodo.length && !muTodo.length && !mpTodo.length) { log('کاری نیست.'); return; }
 
   let rel = null, made = 0;
   const runT0 = Date.now();
@@ -1699,7 +1745,10 @@ function main() {
   let muMade = 0;
   try { muMade = buildMusicConv(muTodo, map, tmp); }
   catch (eMu) { log('موسیقیِ صاحبِ برنامه: ' + String(eMu.message).split('\n')[0]); }
-  if (made || plMade || bnMade || rlMade || muMade) writeMap(map);
+  let mpMade = 0;
+  try { mpMade = buildMusicPrev(mpTodo, map, tmp); }
+  catch (eMp) { log('پیش‌نمایشِ موسیقی: ' + String(eMp.message).split('\n')[0]); }
+  if (made || plMade || bnMade || rlMade || muMade || mpMade) writeMap(map);
   log('ساخته شد: ' + made + ' از ' + Math.min(todo.length, MAX_PER_RUN) + ' تلاش' +
       (plMade ? ' · ' + plMade + ' کاورِ پلی‌لیست' : ''));
   try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) {}
@@ -1728,5 +1777,5 @@ module.exports = {
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
   specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo, prepMedia, spliceMoments, fitSize,
   momentSize, plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, brandMark, itemsTodo, slugOf, probeWork, builtFor,
-  reelsTodo, buildReels, musicConvTodo, buildMusicConv
+  reelsTodo, buildReels, musicConvTodo, buildMusicConv, musicPrevTodo, buildMusicPrev
 };

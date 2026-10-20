@@ -49,8 +49,27 @@
 var Q = {}; location.search.replace(/^\?/, '').split('&').forEach(function (kv) { var p = kv.split('='); if (p[0]) Q[p[0]] = decodeURIComponent((p[1] || '').replace(/\+/g, ' ')); });
 var au = document.getElementById('au'), S = Q.s ? Number(Q.s) : null, E = Q.e ? Number(Q.e) : null, stopAt = null;
 document.getElementById('name').textContent = Q.n || 'قطعه';
-au.src = 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(Q.id || '');
-au.onerror = function () { document.getElementById('err').textContent = 'فایل باز نشد. چند لحظه بعد دوباره امتحان کنید (پخش از درایو).'; };
+/* ══ چرا پخش از درایو نیست (۹.۸۶) ══
+   درایو روی فایل `Cross-Origin-Resource-Policy: same-site` می‌گذارد و درخواستِ صوتِ بیرون از گوگل را با ۴۰۳ رد می‌کند —
+   چه عادی، چه CORS. پس در کروم و اج «فایل باز نشد» همیشگی بود، نه کندی. رانرِ رندر از هر کارت یک پیش‌نمایشِ MP3 روی ریلیزِ
+   همین مخزن می‌گذارد (که چنین سدی ندارد) و نشانی‌اش را در docs/renders.json → musicPrev می‌نویسد. زمان‌ها همان زمانِ فایلِ
+   اصلی‌اند (رمزگذارِ MP3 حدودِ ۲۵ هزارمِ ثانیه سکوت در آغاز دارد — زیرِ دقتِ دهمِ ثانیه‌ای که ثبت می‌شود). */
+var MAP = 'https://raw.githubusercontent.com/mahdighandi1989/Content-Engine/main/docs/renders.json', tries = 0;
+function say(t) { document.getElementById('err').innerHTML = t; }
+function driveLink() { return '<a style="color:#7cc4ff" target="_blank" href="https://drive.google.com/file/d/' + encodeURIComponent(Q.id || '') + '/view">در درایو</a>'; }
+au.onerror = function () { say('پیش‌نمایش آمد ولی پخش نشد. ' + driveLink() + ' گوش بدهید و زمان‌ها را با «⌨️ بازه با نوشتن» بفرستید.'); };
+au.oncanplay = function () { say(''); };
+function load() {
+  tries++;
+  fetch(MAP + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (m) {
+    var x = m && m.musicPrev && m.musicPrev[Q.id];
+    if (x && x.url) { au.src = x.url; au.load(); return; }
+    var why = x && x.err ? ' (آخرین تلاش: ' + x.err + ')' : '';
+    say('⏳ پیش‌نمایشِ این قطعه هنوز ساخته نشده' + why + ' — معمولاً تا ده‌بیست دقیقه پس از رسیدنِ کارت. همین صفحه را باز بگذارید؛ خودش هر دقیقه سر می‌زند. یا ' + driveLink() + ' گوش بدهید.');
+    if (tries < 60) setTimeout(load, 60000);
+  }).catch(function () { say('نقشهٔ پیش‌نمایش‌ها خوانده نشد؛ دوباره امتحان می‌کنم…'); if (tries < 60) setTimeout(load, 30000); });
+}
+load();
 function dur() { return isFinite(au.duration) && au.duration > 0 ? au.duration : (Number(Q.d) || 0); }
 function fmt(t) { if (t == null || !isFinite(t)) return '—'; var m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); }
 function draw() {

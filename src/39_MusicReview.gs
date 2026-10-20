@@ -576,8 +576,11 @@ function mrBotName_() {
 /** نشانیِ صفحهٔ پخش‌کننده برای یک قطعه؛ '' اگر ربات یا صفحه معلوم نیست. `share` فایل را با پیوند قابلِ پخش می‌کند (فقط پوشهٔ موسیقیِ خودمان). */
 function mrRangeUrl_(b, r, share) {
   var page = String(CFG.MR_RANGE_PAGE || ''), bot = mrBotName_();
+  if (share && page && b && b.id) {
+    try { DriveApp.getFileById(b.id).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (eS) {}
+    mrPrevWant_([b.id]);   // ۹.۸۶: صفحه از درایو پخش نمی‌کند؛ پیش‌نمایشِ رانر
+  }
   if (!page || !bot || !b || !b.id) return '';
-  if (share) { try { DriveApp.getFileById(b.id).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (eS) {} }
   var rg = mrRangeParse_((r || {}).range);
   var q = { id: b.id, n: String(b.name || '').replace(/\.wav$/i, '').slice(0, 60), d: Math.round(Number(b.sec) || 0), bot: bot, k: mrRangeKey_(b.id) };
   if (rg) { q.s = rg.from; q.e = rg.to; }
@@ -612,6 +615,57 @@ function mrStartRange_(hub, st, msg) {
 function mrClock_(t) {
   var m = Math.floor(t / 60), s = Math.round((t - m * 60) * 10) / 10;
   return faDigitsOut_(m + ':' + (s < 10 ? '0' : '') + s);
+}
+
+/* ═══ پیش‌نمایشِ صفحهٔ بازه از ریلیزِ گیت‌هاب، نه درایو (۹.۸۶) ═══
+ * «فایل باز نشد» روی هر کارت: درایو صوتی را که صفحه‌ای بیرون از گوگل بخواهد با ۴۰۳ رد می‌کند (CORP same-site؛ درخواستِ
+ * CORS با Sec-Fetch-Dest: audio هم ۴۰۳) — در کروم با فایلِ واقعیِ او بازسازی شد. آزمونِ ۹.۸۳ صوت را از سرورِ محلی پخش کرده
+ * بود و درایو را هرگز ندیده بود. پس رانر از هر کارت یک MP3 روی ریلیزِ همین مخزن می‌گذارد و صفحه آن را پخش می‌کند. */
+function mrPrevWant_(ids) {
+  try {
+    var P = props_(), w = []; try { w = JSON.parse(P.getProperty('MUSIC_PREV_WANT') || '[]') || []; } catch (e0) { w = []; }
+    var n0 = w.length;
+    (ids || []).forEach(function (id) { if (id && w.indexOf(String(id)) === -1) w.push(String(id)); });
+    if (w.length === n0) return false;
+    P.setProperty('MUSIC_PREV_WANT', JSON.stringify(w.slice(-400)));
+    return true;
+  } catch (e) { return false; }
+}
+
+/** فهرستِ «هنوز پیش‌نمایش ندارد» ⇒ صفِ رانر. فقط وقتی چیزی در راه است، و نقشه هر ده دقیقه یک بار. ساخته‌ها از فهرست بیرون می‌روند. */
+function mrPrevSync_(st) {
+  var P = props_(), w = []; try { w = JSON.parse(P.getProperty('MUSIC_PREV_WANT') || '[]') || []; } catch (e0) { w = []; }
+  if (!w.length) return 0;
+  var sig = w.length + ':' + w[w.length - 1];
+  if (st.prevSig === sig && Date.now() - (Number(st.prevAt) || 0) < 10 * 60000) return 0;
+  st.prevAt = Date.now();
+  var mp = (ytRenderDocFetch_() || {}).musicPrev || {};
+  var left = w.filter(function (id) { var x = mp[id]; return !(x && (x.url || (Number(x.tries) || 0) >= 3)); });
+  if (left.length !== w.length) P.setProperty('MUSIC_PREV_WANT', JSON.stringify(left));
+  st.prevSig = left.length ? left.length + ':' + left[left.length - 1] : '';
+  var want = left.map(function (id) { return { id: id }; });
+  try {
+    var d = ytRenderRead_();
+    if (JSON.stringify(d.musicPrev || []) !== JSON.stringify(want)) {
+      d.musicPrev = want;
+      if (ytRenderSave_(d)) {
+        try { ytQueueShare_(); } catch (eQs) {}
+        if (want.length) { try { ghRenderDue_('پیش‌نمایشِ کارت‌های موسیقی'); } catch (eGk) {} }
+      }
+    }
+  } catch (eD) {}
+  return left.length;
+}
+
+/** یک بار: کارت‌هایی که پیش از ۹.۸۶ فرستاده شده‌اند هم پیش‌نمایش می‌گیرند (و پیوندِ پخششان باز می‌شود). */
+function mrPrevBackfill_(hub) {
+  var rows = mrRows_(hub), ids = [];
+  for (var i = 0; i < rows.length; i++) if (rows[i].r && rows[i].r.msg) {
+    ids.push(rows[i].id);
+    try { DriveApp.getFileById(rows[i].id).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (eS) {}
+  }
+  mrPrevWant_(ids);
+  return ids.length;
 }
 
 /* ═══ منوی ثابت، مرورِ بانک، و یادداشت روی هر کارت (۹.۸۲) ═══
@@ -1119,6 +1173,8 @@ function tgPollRun_() {
     } while (hot() && Date.now() - t0 < maxRun - 8000);
     /* ۹.۸۱، یک بار: ردهای با توضیحی که پیش از این نسخه نوشته شده‌اند هم خوانده می‌شوند. */
     if (st.kbVer !== String(CFG.CODE_VERSION)) { try { mrFixedMenu_(st); } catch (eKb) { st.kbVer = String(CFG.CODE_VERSION); } }
+    if (!st.prev986) { try { mrPrevBackfill_(getHub()); } catch (ePb) { st.lastWhy = 'prev986: ' + String(ePb.message || ePb).slice(0, 100); } st.prev986 = 1; }
+    try { mrPrevSync_(st); } catch (ePs) { st.lastWhy = 'prev: ' + String(ePs.message || ePs).slice(0, 100); }
     try { mrUpPoll_(getHub, st); } catch (eUp) { st.lastWhy = 'upload: ' + String(eUp.message || eUp).slice(0, 100); }
     if (!st.why981) { try { mrRereadWhys_(getHub(), st); } catch (eRw) { st.lastWhy = 'why981: ' + String(eRw.message || eRw).slice(0, 100); } st.why981 = 1; }
     /* تریگر هر دقیقه است (۹.۷۷)؛ بازکردنِ هابِ ۲۹ مگابایتی هر دقیقه سهمیهٔ روزانهٔ اجرا را می‌خورد. پس فرستادن فقط

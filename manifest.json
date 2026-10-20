@@ -1,14 +1,13 @@
 {
-  "version": "9.85",
+  "version": "9.86",
   "codeFile": "engine.gs",
-  "sha256": "6ccef827915954c8f569048c7fbb2e0ad05e195a6dd1ec6f83a4fc8e5c241ba2",
-  "releasedAt": "2026-10-20T20:48:27Z",
-  "summary": "موسیقیِ فرستاده به ربات در هر قالب ⇒ WAV در بانک، با برچسب از نوشتهٔ زیرش و پرسشِ مجوز",
+  "sha256": "235a6f6a7048b14849435c7c5bae5e4b94351dbda8fa3b5bb6cd93458dcaf25d",
+  "releasedAt": "2026-10-20T21:51:14Z",
+  "summary": "صفحهٔ «✂️ بازه با پخش‌کننده» پخش نمی‌کرد: درایو صوت را به سایتِ دیگر نمی‌دهد؛ پیش‌نمایشِ MP3 از ریلیزِ گیت‌هاب",
   "fixes": [
-    "mrOnUpload_: فایلِ صوتی از چتِ موتور یا چتِ خصوصیِ شناخته‌شده ⇒ getFile ⇒ WAV در بانک یا اصل در صفِ تبدیل",
-    "render.js musicConvTodo/buildMusicConv: ffmpeg ⇒ WAVِ تک‌کاناله، نشانی در docs/renders.json",
-    "mrUpPoll_: برداشتن، سنجشِ RIFF، خصوصی‌کردنِ اصل؛ یادآوری پس از ۶ ساعت",
-    "mrOnUpLic_ + musicLicense_: تا مجوز گفته نشده پخش نمی‌شود"
+    "mrPrevWant_/mrPrevSync_/mrPrevBackfill_: هر کارت (و کارت‌های پیشین) ⇒ musicPrev در صفِ رانر",
+    "render.js musicPrevTodo/buildMusicPrev: MP3ِ ۱۶۰k روی ریلیز، نشانی در docs/renders.json",
+    "range.html: پخش از نقشهٔ پیش‌نمایش، «در حال ساخت» با سرزدنِ دقیقه‌ای"
   ],
   "sourceReportIds": [],
   "answers": []
