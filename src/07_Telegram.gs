@@ -83,7 +83,14 @@ function tgMusicLine_() {
     var st = musicStatus_();
     var last = st && st.last;
     if (last && last.tracks && last.tracks.length) {
-      return '🎵 ' + tgEsc_(last.tracks.join(' · ')) +
+      /* ۹.۷۵: «باید بتونم ببینم اونجا واقعاً استفاده شده … و لینک بشه که بتونم بشنوم» — این فهرست از خودِ پخش است
+         (`musicRemember_` پس از چیدن)، و هر نام پیوندِ همان فایل با جایگاهش. */
+      var ids = last.ids || [], sl = last.slots || [];
+      var parts = last.tracks.map(function (t, i) {
+        var nm = tgEsc_(String(t).replace(/\.wav$/i, '')) + (sl[i] ? ' (' + tgEsc_(sl[i]) + ')' : '');
+        return ids[i] ? '<a href="' + musicUrl_(ids[i]) + '">' + nm + '</a>' : nm;
+      });
+      return '🎵 ' + parts.join(' · ') +
              (last.mood ? '  ·  ' + tgEsc_(last.mood) : '') + '\n';
     }
     if (st && !st.tracks) return '🎵 ' + tgEsc_('بی‌موسیقی — بانک خالی است') + '\n';

@@ -1015,10 +1015,16 @@ function musicBank_(hub) {
   if (!sh || sh.getLastRow() < 2) return [];
   var v = sh.getRange(2, 1, sh.getLastRow() - 1, MUSIC_HEADERS.length).getValues();
   var out = [];
+  /* ══ داوریِ صاحبِ برنامه در تلگرام (۹.۷۵، بخشِ ۳۹) ══ ردشده هرگز، تأییدشده با وایب و جایگاهِ خودش. بخشِ ۳۹ بعد از این
+     بخش است، پس پشتِ typeof — بارگذارِ جزئیِ آزمون‌ها بی آن ReferenceError می‌خورد. */
+  var rv = {};
+  try { if (typeof mrMap_ === 'function') rv = mrMap_(hub); } catch (eRv) { rv = {}; }
   for (var i = 0; i < v.length; i++) {
     var fmt = String(v[i][MC.FMT - 1] || '');
     if (!v[i][MC.ID - 1]) continue;
     if (fmt.indexOf('ناسازگار') !== -1 || fmt.indexOf('نیست') !== -1) continue;
+    var rvi = rv[String(v[i][MC.ID - 1])];
+    if (rvi && rvi.verdict === 'رد') continue;
     out.push({
       row: i + 2, id: String(v[i][MC.ID - 1]), name: String(v[i][MC.NAME - 1] || ''),
       kind: String(v[i][MC.KIND - 1] || 'موسیقی'),
@@ -1033,6 +1039,10 @@ function musicBank_(hub) {
       note: String(v[i][MC.NOTE - 1] || ''),
       lastAt: String(v[i][MC.LAST - 1] || '')
     });
+    if (rvi && typeof mrApply_ === 'function') {
+      var ap = mrApply_(out[out.length - 1], rvi);
+      if (ap) out[out.length - 1] = ap; else out.pop();
+    }
   }
   return out;
 }
@@ -1064,14 +1074,16 @@ function musicPick_(bank, slot, moodWords, wantedId) {
      * سدِ زیر فقط «زمینه» را از لبه دور می‌کرد و دربارهٔ داوریِ **خالی**
      * ساکت بود. پس قطعه‌ای که هیچ‌کس — نه آدم نه مدل — نشنیده بود،
      * می‌توانست آغازِ برنامه باشد. */
-    if (!heardPlayable_(b.heard, b.note)) continue;
-    if ((slot === 'شروع' || slot === 'پایان') && !heardCanEdge_(b.heard, b.note)) continue;
+    /* تأییدِ صاحبِ برنامه (۹.۷۵) از سدهای شنیدنِ مدل می‌گذرد — او خودش شنیده است. */
+    var hum = !!(b.rev && b.rev.ok);
+    if (!hum && !heardPlayable_(b.heard, b.note)) continue;
+    if (!hum && (slot === 'شروع' || slot === 'پایان') && !heardCanEdge_(b.heard, b.note)) continue;
     /* ── فقط آهنگ، در هر جایگاه — پل هم (۹.۵۷) ──
      * او شنید «یکی دوجا تو موسیقی‌های میانی … چیزای خیلی زشت که اصلاً موسیقی نبودن». علت از خودِ این بخش بود:
      * «زمینه» (drone، گرانولار، غرّشِ یکنواخت) از لبه دور می‌شد ولی **به پل فرستاده می‌شد** — `musicAutoTag_`
      * جایگاهِ هر زمینه را عمداً «میانه» می‌کرد، با این فرض که میانه «بی‌ضررترین جا»ست. نیست: پل تنها جایی است که
      * هیچ گفتاری رویش نیست و شنونده فقط همان را می‌شنود. حالا هر جایگاه فقط «آهنگ»ِ شنیده‌شده یا یادداشتِ آدم. */
-    if (!heardSays_(b.heard, 'آهنگ') && !musicHumanOk_(b.note)) continue;
+    if (!hum && !heardSays_(b.heard, 'آهنگ') && !musicHumanOk_(b.note)) continue;
     if (!b.sec) continue;
     /* ── کفِ طول ──
      * ۲۴ اوت فایلی سه‌ثانیه‌ای با نامِ «freemusicarchive public domain» وارد
@@ -1116,6 +1128,8 @@ function musicPick_(bank, slot, moodWords, wantedId) {
        را داشت باز جلو می‌افتاد — و «آرام» تقریباً در هر درس‌نامه‌ای هست. پس پلِ ۶ اکتبر
        باز طنین بود. آهنگ حالا بر هر هم‌خوانیِ تک‌واژه‌ای مقدم است. */
     if (slot === 'میانه' && heardSays_(b.heard, 'آهنگ')) s += 6;
+    /* داوریِ او (۹.۷۵): تأییدشده بر هر هم‌خوانیِ حال‌وهوا مقدم، و ستاره میانِ تأییدشده‌ها. */
+    if (b.rev) { if (b.rev.ok) s += 10; s += (Number(b.rev.stars) || 0) * 1.5; }
     return s;
   };
   cands.sort(function (a, b) {
@@ -2003,6 +2017,9 @@ function musicRemember_(mw, epLabel) {
       at: nowStr_(), episode: String(epLabel || ''),
       mood: String((mw && mw.mood) || ''),
       tracks: ((mw && mw.picks) || []).map(function (p) { return p.name; }),
+      /* ۹.۷۵: «باید بتونم ببینم واقعاً استفاده شده … و لینک بشه که بتونم بشنوم» — شناسه و جایگاهِ همان پخش. */
+      ids: ((mw && mw.picks) || []).map(function (p) { return String((p && p.id) || ''); }),
+      slots: ((mw && mw.picks) || []).map(function (p) { return String((p && p.slot) || ''); }),
       /* ══ کدامشان لبهٔ برنامه را گرفتند (۶٫۸۹) ══
          داوریِ غلط روی قطعه‌ای که کسی پخشش نمی‌کند هزینه‌ای ندارد؛ روی
          موسیقیِ آغازِ قسمتِ امشب، هر شنونده‌ای می‌شنود. پس صفِ بازشنیدن

@@ -29,7 +29,7 @@ global.ScriptApp.getProjectTriggers = () => TRIGS.slice();
 global.ScriptApp.newTrigger = (fn) => {
   const t = { _fn: fn, getHandlerFunction: () => fn,
     timeBased() { return this; }, after() { return this; }, atHour() { return this; },
-    nearMinute() { return this; }, everyDays() { return this; }, everyHours() { return this; },
+    nearMinute() { return this; }, everyDays() { return this; }, everyHours() { return this; }, everyMinutes() { return this; },
     inTimezone() { return this; }, create() { TRIGS.push(t); return t; } };
   return t;
 };

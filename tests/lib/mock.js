@@ -406,7 +406,7 @@ global.ScriptApp = {
   newTrigger: (fn) => ({
     _fn: String(fn || ''),
     timeBased: function () { return this; }, forSpreadsheet: function () { return this; },
-    everyHours: function () { return this; }, atHour: function () { return this; },
+    everyHours: function () { return this; }, everyMinutes: function () { return this; }, atHour: function () { return this; },
     nearMinute: function () { return this; }, everyDays: function () { return this; },
     inTimezone: function () { return this; }, onOpen: function () { return this; },
     after: function () { return this; },

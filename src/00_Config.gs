@@ -1711,6 +1711,20 @@ var CFG = {
 
   MUSE_TAB: 'کاربردِ موسیقی',   // تاریخچهٔ پخش: کدام قطعه، کدام قسمت، کدام جایگاه
   MUSIC_TAB: 'موسیقی',
+  /* ══ بازبینیِ موسیقی در تلگرام (۹.۷۵، بخشِ ۳۹) ══ «روزی حدودِ ده تا … امشب بیشتر». داوریِ او بر مدل مقدم است. */
+  MR_ON: true,
+  MR_TAB: 'بازبینیِ موسیقی',
+  MR_LOG_TAB: 'بازخوردِ موسیقی',
+  MR_FIRST_BATCH: 25,           // روزِ اول (امشب)
+  MR_PER_DAY: 10,
+  MR_PER_RUN: 4,                // هر اجرای tgPollTick حداکثر این‌قدر کارت
+  MR_POLL_MIN: 5,               // تریگرِ خواندنِ دکمه‌ها، دقیقه
+  MR_HOT_MIN: 10,               // پس از هر کلیک، این‌قدر دقیقه گوشِ تیز (long-poll)
+  MR_HOT_RUN_SEC: 50,
+  MR_NAG_H: 24,
+  MR_NM_FINDING: 2,             // چندمین «موسیقی نیست» برای «آهنگ»ِ مدل ⇒ یافتهٔ کد
+  MR_MAX_MB: 45,
+  MR_VIBES: ['آرام', 'شاد', 'گرم و صمیمی', 'متفکر', 'رازآلود', 'پرانرژی', 'حماسی', 'غمگین', 'نوستالژیک', 'دلهره‌آور'],
   /* ── طولِ قطعه‌ها ──
      ۲۴ اوت، پس از نخستین قسمتِ واقعاً موسیقی‌دار: «موسیقیِ اول و گاهی وسط
      در حدِ یک ثانیه است، آخری پنج ثانیه… خیلی غیرحرفه‌ای.» درست بود، و سه
@@ -2154,7 +2168,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.74',
+  CODE_VERSION: '9.75',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3341,6 +3355,7 @@ var PK = {
   IG_BOOK: 'IG_BOOK_ID',          // ۹.۳۰: شناسهٔ دفترِ اینستاگرام (شیتِ جدا از هاب)
   IG_SHORTQ: 'IG_SHORTS_QUEUE',   // ۹.۳۲: صفِ شورتزهای منتظرِ سهمیه — کلیدِ جدا، چون IG_STATE سقفِ ۹ کیلوبایت دارد
   VBR_DAY_ASK: 'VBR_DAY_ASK_DAY',  // ۹.۴۲: روزی که قسمتِ امروز به پل رفت (vbrDayAskDue_)
+  MR_STATE: 'MUSIC_REVIEW_STATE',  // ۹.۷۵: {offset, day, dayN, first, hotUntil, answeredAt, lastSentAt, nagAt, nm[], polledAt}
   IG_STATE: 'IG_REELS_STATE',      // ۹.۲۱: {done, inflight[], fails{}, stats{published, day, dayN}, armedAt, ranAt, lastWhy}
   GH_KICK: 'GH_KICK_STATE',        // {<wf>: {at, okAt, code, n, nDay, day, fail, why, fp}, exp}
   GH_RENDER_DUE: 'GH_RENDER_DUE',  // «کاری برای رانر نوشته شد» — زمان|علت

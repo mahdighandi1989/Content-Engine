@@ -152,7 +152,10 @@ function installTriggers() {
     var w = want[i];
     try {
       var b = ScriptApp.newTrigger(w.fn).timeBased();
-      if (w.kind === 'hours') {
+      if (w.kind === 'minutes') {
+        b.everyMinutes(trigMinutes_(w.every)).create();
+        made.push('• ' + trigLabel_(w.fn) + ': هر ' + faDigitsOut_(String(trigMinutes_(w.every))) + ' دقیقه');
+      } else if (w.kind === 'hours') {
         b.everyHours(Math.max(1, Number(w.every) || 1)).create();
         made.push('• ' + trigLabel_(w.fn) + ': هر ' +
                   faDigitsOut_(String(Math.max(1, Number(w.every) || 1))) + ' ساعت');
@@ -183,6 +186,7 @@ function installTriggers() {
 function trigLabel_(fn) {
   var m = {
     syncCatalog: 'همگام‌سازی',
+    tgPollTick: 'دکمه‌های تلگرام (بازبینیِ موسیقی)',
     prepareEpisode: 'آماده‌سازیِ متنِ «از همه جا از همه رنگ»',
     prepareSpecialEpisode: 'آماده‌سازیِ متنِ «درس‌نامه»',
     produceEpisode: '«از همه جا از همه رنگ»',
@@ -213,6 +217,13 @@ function trigLabel_(fn) {
  * بنویسد. `removeTriggers` دقیقاً همین کار را کرده بود و سه نام عقب افتاده
  * بود. یک فهرست، هر تعداد خواننده.
  */
+/** `everyMinutes` فقط ۱، ۵، ۱۰، ۱۵ یا ۳۰ می‌پذیرد — نزدیک‌ترین بزرگ‌تر. */
+function trigMinutes_(n) {
+  var ok = [1, 5, 10, 15, 30], v = Number(n) || 5;
+  for (var i = 0; i < ok.length; i++) if (v <= ok[i]) return ok[i];
+  return 30;
+}
+
 function wantedTriggers_() {
   var want = [
     { fn: 'syncCatalog',           kind: 'hours', every: 2 },
@@ -247,6 +258,10 @@ function wantedTriggers_() {
      نبودِ کار ارزان است و جدول زمانیِ خودش را دارد. */
   if (CFG.VBR_ON !== false) {
     want.push({ fn: 'vbrCollectHourly', kind: 'hours', every: 1 });
+  }
+  /* ۹.۷۵: دکمه‌های تلگرام (بازبینیِ موسیقی) — نخستین تریگرِ چنددقیقه‌ای؛ در سکوت هر اجرا یک getUpdatesِ بی‌انتظار است. */
+  if (CFG.MR_ON !== false) {
+    want.push({ fn: 'tgPollTick', kind: 'minutes', every: CFG.MR_POLL_MIN || 5 });
   }
   /* یوتیوب زمان‌بندیِ خودش را دارد (۶٫۳۷). تا اینجا دو نوبت داشت و هر دو
      مهمانِ اجرای کسِ دیگری بودند — کارِ شبانه (هشتمین بند، پشتِ موسیقی و
@@ -308,7 +323,9 @@ function ensureScheduledTriggers_() {
   for (var w = 0; w < want.length; w++) {
     if (have[want[w].fn]) continue;
     try {
-      if (want[w].kind === 'hours') {
+      if (want[w].kind === 'minutes') {
+        ScriptApp.newTrigger(want[w].fn).timeBased().everyMinutes(trigMinutes_(want[w].every)).create();
+      } else if (want[w].kind === 'hours') {
         ScriptApp.newTrigger(want[w].fn).timeBased().everyHours(want[w].every).create();
       } else {
         ScriptApp.newTrigger(want[w].fn).timeBased().atHour(want[w].hour).nearMinute(0)

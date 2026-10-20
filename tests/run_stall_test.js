@@ -24,7 +24,7 @@ function trigStub() {
   global.ScriptApp.newTrigger = (fn) => {
     const t = { _fn: fn, _after: 0, getHandlerFunction: () => fn,
       timeBased() { return this; }, after(ms) { this._after = ms; return this; },
-      everyHours() { return this; }, atHour() { return this; }, nearMinute() { return this; },
+      everyHours() { return this; }, everyMinutes() { return this; }, atHour() { return this; }, nearMinute() { return this; },
       everyDays() { return this; }, inTimezone() { return this; },
       create() { TRIGS.push(t); return t; } };
     return t;

@@ -670,6 +670,7 @@ function writeStatus_(hub, note) {
     /* «از همه جا» با رسانه‌های منبع (بخشِ ۳۷، ۸.۹۶) — فقط Properties. */
     varietyMedia: (function () { try { return vmStatus_(); } catch (e) { return null; } })(),
     instagram: (function () { try { return igStatus_(); } catch (e) { return null; } })(),
+    musicReview: (function () { try { return mrStatus_(); } catch (e) { return null; } })(),
     /* ۹.۱۱: دروازهٔ زمین‌گیری — چند جملهٔ ساختگی (تصویرِ ندیده، پند، ادعا) پیش از صدا حذف شد، یا چرا داوری نشد. */
     ground: (function () { try { return JSON.parse(props_().getProperty(PK.GROUND_LAST) || 'null'); } catch (e) { return null; } })(),
     /* نگهبانِ ادامهٔ قسمت‌ها (۸.۵۴) — فقط Properties. */
@@ -2698,7 +2699,8 @@ function healthCheck() {
      تشخیص داد. */
   try { lvHealth_(problems, notes); } catch (eLv) {}
   try { vmHealth_(problems, notes); } catch (eVmH) {}    // بخشِ ۳۷ پس از این بخش است ⇒ درونِ try
-  try { igHealth_(problems, notes); } catch (eIgH) {}   // ۹.۲۱: بخشِ ۳۸ ⇒ درونِ try
+  try { igHealth_(problems, notes); } catch (eIgH) {}
+  try { mrHealth_(problems, notes); } catch (eMrH) {}   // ۹.۷۵: بخشِ ۳۹   // ۹.۲۱: بخشِ ۳۸ ⇒ درونِ try
   /* ستونِ «سبکِ تصویر» (۷.۹۶): خانه‌های خالی با پیشنهادِ خودِ موتور پر
      می‌شوند — «پیشنهادِ خودت رو هم تو اون مجموعه بنویس» — و خانهٔ ناخوانا
      **با اسم** گزارش می‌شود، چون انتخابی که خوانده نشود یعنی سبکی که او
