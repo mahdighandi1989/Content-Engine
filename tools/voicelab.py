@@ -2710,8 +2710,8 @@ def run_rvc(ref, src, text, out):
         # `PITCH_SLACK` «ناسازگار» کنار می‌رفت: رضوی با مبدأ Alnilam ‎−۷ خواست و با ۱۶۰ هرتزِ خودِ
         # جمینای درآمد (هدف ۱۰۷)؛ گلدوز +۳/+۴ خواست و ۱۳۱–۱۳۵ هرتز شد (هدف ۱۵۸). صدایی که گامش
         # جابه‌جا نشده رضوی و گلدوز نیست — «در همهٔ ساحت‌ها افتضاح».
-        steps_ = [int(round(float(t))) for t in steps_]
-        pchk_ = {"exact": True, "steps": steps_, "dropped": [], "auto": None}
+        from voicebridge import pitchExact
+        steps_, pchk_ = pitchExact(steps_)
     else:
         steps_, pchk_ = pitchResolve(steps_, src, ref1_, OPT.get("rvc_target_hz"))
     print("گام:", json.dumps(pchk_, ensure_ascii=False), flush=True)

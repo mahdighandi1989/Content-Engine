@@ -1165,6 +1165,16 @@ def pitchGateErr(stOut, pitchAuto, vg=None):
         return ""
 
 
+def pitchExact(tokens):
+    """گام‌های «دقیق» (`--rvc-pitch-exact`) — همان شکلِ خروجیِ `pitchResolve`: **رشته**، نه عدد (۲۰ اکتبر).
+
+    نگارشِ ۹.۶۸ همین را در voicelab با `int(...)` می‌ساخت و نام‌گذاریِ فایل (`pv.startswith("-")`) روی عدد
+    افتاد: سه اجرای پل (۱۵۱–۱۵۳) هر کدام شش دقیقه دویدند و بی یک فایل مُردند. سنجه فقط متنِ کد را
+    می‌خواند، پس سبز ماند — خواندن به‌جای اجرا."""
+    steps = [str(int(round(float(str(t).strip())))) for t in tokens if str(t).strip()]
+    return steps, {"exact": True, "steps": steps, "dropped": [], "auto": None}
+
+
 def pitchResolve(tokens, src, ref, targetHz=None):
     """گام‌های جاروبِ آزمایشگاه — از هرتزِ همین مبدأ، نه از حافظه (۱۴ اکتبر).
 

@@ -1571,6 +1571,16 @@ console.log('\n=== ۲۱) گامِ خودکار و زیروبمِ خروجی (۸.
      p3 && JSON.stringify(p3[2][0]) === '["4"]', JSON.stringify(p3 && p3[2][1]));
   ok('۲۱.۹ مبدأ سنجیده نشد ⇒ همان اعداد، و auto=null (هشدار در voicelab)',
      p3 && JSON.stringify(p3[3][0]) === '["0","-12"]' && p3[3][1].auto === null, JSON.stringify(p3 && p3[3][1]));
+  /* ۲۱.۹-ب (۹.۷۳): گامِ «دقیق» همان شکلِ گامِ حل‌شده است — رشته — چون نامِ فایل با `pv.startswith("-")` ساخته می‌شود.
+     ۹.۶۸ عدد می‌داد و سه اجرای پل بی یک فایل مُرد؛ سنجهٔ ۱۳.۲ فقط متن را می‌خواند. این‌جا خودِ تابع و همان عبارتِ نام اجرا می‌شود. */
+  const r3b = run('st, ck = V.pitchExact(["-4", 3, "+2", " "]); ' +
+                  'print(json.dumps([st, ck["exact"], [(pv if pv.startswith("-") else "+" + pv) for pv in st]]))');
+  let p3b = null; try { p3b = JSON.parse(r3b.stdout); } catch (e) {}
+  ok('۲۱.۹-ب گامِ دقیق رشته است و نامِ فایل از آن ساخته می‌شود (۹.۶۸: \'int\' object has no attribute \'startswith\')',
+     p3b && JSON.stringify(p3b[0]) === '["-4","3","2"]' && p3b[1] === true && JSON.stringify(p3b[2]) === '["-4","+3","+2"]',
+     (r3b.stdout || r3b.stderr).slice(0, 300));
+  ok('۲۱.۹-پ آزمایشگاه گامِ دقیق را از همان تابع می‌گیرد',
+     /from voicebridge import pitchExact\s*\n\s*steps_, pchk_ = pitchExact\(steps_\)/.test(fs.readFileSync('tools/voicelab.py', 'utf8')));
   const lab = fs.readFileSync('tools/voicelab.py', 'utf8'), wf = fs.readFileSync('.github/workflows/voice-lab.yml', 'utf8');
   ok('۲۱.۱۰ آزمایشگاه گام را از همین در می‌گیرد و پیش‌فرضش auto است، نه ‎−۱۲ِ رضوی',
      /steps_, pchk_ = pitchResolve\(steps_, src, ref1_/.test(lab) && /default: 'auto-1,auto,auto\+1'/.test(wf) &&
