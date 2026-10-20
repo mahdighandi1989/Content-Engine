@@ -34,7 +34,8 @@ var IG_REEL_SCHEMA = { type: 'object', properties: {
   coverTitle: { type: 'string' }, caption: { type: 'string' }, story: { type: 'string' },
   tags: { type: 'array', items: { type: 'string' } },
   emph: { type: 'array', items: { type: 'string' } },
-  ytDesc: { type: 'string' }, kicker: { type: 'string' }
+  ytDesc: { type: 'string' }, kicker: { type: 'string' },
+  names: { type: 'array', items: { type: 'string' } }
 }, required: ['idea', 'script', 'scenes', 'coverTitle', 'caption', 'tags', 'emph', 'ytDesc', 'kicker'] };
 
 /**
@@ -94,6 +95,23 @@ function igDoneMap_(st) {
   var m = {}, a = String((st && st.done) || '').split(',');
   for (var i = 0; i < a.length; i++) if (a[i]) m[a[i]] = 1;
   return m;
+}
+
+/* ══ دو ریلز برای هر درس، از مجموعهٔ دوم (۹.۶۹) ══
+   «وقتی وارد مجموعهٔ بعدیِ درس‌نامه می‌شه … تعدادِ ریلز و شورت برای هر درس دوتا بشه جای یکی … بعضی وقتا یه ریلز و شورت
+   نمی‌تونه نشون بده دقیقاً اون درس دربارهٔ چیه». واحدِ کار «بخش» است: `14` بخشِ ۱ِ قسمتِ ۱۴، `14.2` بخشِ ۲. همهٔ حالت‌ها
+   (انجام‌شده، شکست، صف) با همین شناسه؛ بخشِ ۱ همان شناسهٔ قدیمی است، پس مصباح و هر چه پیش‌تر ساخته شده دست نمی‌خورد. */
+function igUid_(x) { return String(Number(x && x.ep) || 0) + (Number(x && x.part) > 1 ? '.' + Number(x.part) : ''); }
+/** چند بخش: مرورِ بزرگ همیشه یکی (طولش جداست)؛ مجموعهٔ شمارهٔ `IG_PARTS_FROM` به بعد (۰ = نخستین) `IG_PARTS`. */
+function igPartsFor_(seriesIdx, recap) {
+  if (recap) return 1;
+  var from = Number(CFG.IG_PARTS_FROM);
+  if (isNaN(from)) from = 1;
+  return Number(seriesIdx) >= from ? Math.max(1, Math.min(3, Number(CFG.IG_PARTS) || 1)) : 1;
+}
+/** برچسبِ بخش: «۱ از ۲» یا ''. */
+function igPartLabel_(x) {
+  return Number(x && x.parts) > 1 ? faDigitsOut_(String(Number(x.part) || 1)) + ' از ' + faDigitsOut_(String(x.parts)) : '';
 }
 
 /**
@@ -176,7 +194,7 @@ function igFailHold_(st, ep) {
  */
 function igNextEp_(pub, st, orderIn) {
   var done = igDoneMap_(st), busy = {};
-  (st.inflight || []).forEach(function (x) { busy[String(x.ep)] = 1; });
+  (st.inflight || []).forEach(function (x) { busy[igUid_(x)] = 1; });
   var order = orderIn || igOrder_(pub, st);
   var isPub = function (e) {
     var r = pub[ENRICH_SHOW_SPECIAL + ':' + e];
@@ -186,19 +204,21 @@ function igNextEp_(pub, st, orderIn) {
   for (var s = 0; s < order.length; s++) {
     var S = order[s], eps = S.eps || [];
     for (var i = 0; i < eps.length; i++) {
-      var x = eps[i], e = Number(x.ep);
-      if (done[String(e)]) continue;
-      if (busy[String(e)]) continue;
-      var label = x.recap ? 'مرورِ بزرگ (' + e + ')' : 'درسِ ' + x.lesson;
+      var x = eps[i], e = Number(x.ep), np = igPartsFor_(s, x.recap);
+      for (var pt = 1; pt <= np; pt++) {
+      var uid = igUid_({ ep: e, part: pt });
+      if (done[uid]) continue;
+      if (busy[uid]) continue;
+      var label = (x.recap ? 'مرورِ بزرگ (' + e + ')' : 'درسِ ' + x.lesson) + (np > 1 ? ' (' + igPartLabel_({ part: pt, parts: np }) + ')' : '');
       /* ۹.۵۱: مجموعه‌ای که گیر کرده، مجموعهٔ بعدی را **راه نمی‌دهد** — «مگه ریلزها برای مصباح تموم شده؟ … برای ائودی
          داره ریلز میذاره». تا ۹.۵۰ `break` فقط از همین مجموعه بیرون می‌رفت و حلقه سراغِ آئودی می‌رفت. فقط مجموعه‌ای که
          به آخرِ منتشرشده‌اش رسیده (`caught`) مجموعهٔ بعدی را هم‌زمان راه می‌دهد. */
-      if (igFailHold_(st, e)) { gaps.push('«' + S.name + '» ' + label + ': سه بار نشد، تا ' + (Number(CFG.IG_RETRY_H) || 24) + ' ساعت دیگر دوباره'); st.gaps = gaps; st.caught = caught; return null; }
+      if (igFailHold_(st, uid)) { gaps.push('«' + S.name + '» ' + label + ': سه بار نشد، تا ' + (Number(CFG.IG_RETRY_H) || 24) + ' ساعت دیگر دوباره'); st.gaps = gaps; st.caught = caught; return null; }
       if (isPub(e)) {
         var r = pub[ENRICH_SHOW_SPECIAL + ':' + e];
         st.gaps = gaps; st.caught = caught;
         return { ep: e, url: String(r.url || ('https://youtu.be/' + r.videoId)), series: S.name, title: String(r.title || ''),
-                 recap: !!x.recap, lesson: Number(x.lesson) || 0 };
+                 recap: !!x.recap, lesson: Number(x.lesson) || 0, part: pt, parts: np, sIdx: s };
       }
       var later = false;
       for (var j = i + 1; j < eps.length && !later; j++) if (isPub(eps[j].ep)) later = true;
@@ -209,6 +229,7 @@ function igNextEp_(pub, st, orderIn) {
       caught.push(S.name);
       st.gaps = gaps; st.caught = caught;
       return null;
+      }
     }
   }
   st.gaps = gaps; st.caught = caught;
@@ -216,13 +237,21 @@ function igNextEp_(pub, st, orderIn) {
 }
 
 /** درسِ قبلیِ همین مجموعه هنوز منتشر نشده؟ ⇒ برچسبش، یا ''. انتشار همیشه به ترتیب (۹.۳۰). */
-function igEarlierPending_(st, ep) {
+function igEarlierPending_(st, ep, part) {
   var done = igDoneMap_(st), order = igOrderDec_((st.order && st.order.s) || []);
+  var me = Math.max(1, Number(part) || 1);
   for (var s = 0; s < order.length; s++) {
     var eps = order[s].eps || [], at = -1;
     for (var i = 0; i < eps.length; i++) if (Number(eps[i].ep) === Number(ep)) at = i;
     if (at < 0) continue;
-    for (var k = 0; k < at; k++) if (!done[String(eps[k].ep)]) return eps[k].recap ? 'مرورِ بزرگ (' + eps[k].ep + ')' : 'درسِ ' + eps[k].lesson;
+    for (var k = 0; k <= at; k++) {
+      var np = igPartsFor_(s, eps[k].recap), last = k < at ? np : me - 1;
+      for (var pt = 1; pt <= last; pt++) {
+        if (done[igUid_({ ep: eps[k].ep, part: pt })]) continue;
+        return (eps[k].recap ? 'مرورِ بزرگ (' + eps[k].ep + ')' : 'درسِ ' + eps[k].lesson) +
+               (np > 1 ? ' (' + igPartLabel_({ part: pt, parts: np }) + ')' : '');
+      }
+    }
     return '';
   }
   return '';
@@ -230,12 +259,12 @@ function igEarlierPending_(st, ep) {
 
 /** ریلزِ آماده‌ای که فقط منتظرِ انتشارِ درسِ پیشینِ همان مجموعه است (۹.۵۸) — جای کار نمی‌گیرد. */
 function igWaitsEarlier_(st, x) {
-  return !!x && String(x.phase) === 'pub' && !!igEarlierPending_(st, x.ep);
+  return !!x && String(x.phase) === 'pub' && !!igEarlierPending_(st, x.ep, x.part);
 }
 
 /** پوشهٔ «اینستاگرام» درونِ پوشهٔ قسمت — همه‌چیزِ ریلز این‌جاست. */
-function igFolder_(epFolder) {
-  var nm = CFG.IG_FOLDER || 'اینستاگرام';
+function igFolder_(epFolder, part) {
+  var nm = (CFG.IG_FOLDER || 'اینستاگرام') + (Number(part) > 1 ? ' ' + faDigitsOut_(String(Number(part))) : '');
   var it = epFolder.getFoldersByName(nm);
   return it.hasNext() ? it.next() : epFolder.createFolder(nm);
 }
@@ -250,11 +279,39 @@ function igPlanWrite_(fo, p) {
   fo.createFile(Utilities.newBlob(body, 'application/json', '_ig.json'));
 }
 
-/** متنِ درس برای مدل — سرفصل‌ها و روایت، بی قلاب و جمع‌بندیِ رادیویی. */
-function igLessonText_(ep, cap) {
-  var L = [];
+/**
+ * بخش‌های درس برای ریلزِ `part` از `parts` (۹.۶۹): سرفصل‌ها به ترتیب، به `parts` تکهٔ تقریباً هم‌وزن (به نویسه) — مرز همیشه
+ * سرِ یک سرفصل، هرگز وسطش؛ و هر تکه دست‌کم یک سرفصل. ⇒ آرایهٔ اندیس‌ها.
+ */
+function igPartSecs_(ep, part, parts) {
+  var secs = (ep && ep.sections) || [], n = secs.length, P = Math.max(1, Number(parts) || 1), me = Math.max(1, Math.min(P, Number(part) || 1));
+  if (P <= 1 || n < 2) { var all = []; for (var a = 0; a < n; a++) all.push(a); return all; }
+  P = Math.min(P, n);
+  var w = secs.map(function (x) { return String((x && x.narration) || '').length + 1; }), tot = w.reduce(function (x, y) { return x + y; }, 0);
+  /* هر مرز نزدیک‌ترین سرِ سرفصل به سهمِ برابر — نه «نخستین جایی که از سهم گذشت» (که ۴۰۰/۳۰۰/۳۵۰/۳۸۰ را ۳ به ۱ می‌بُرد). */
+  var cum = [0];
+  for (var c = 0; c < n; c++) cum.push(cum[c] + w[c]);
+  var cuts = [], prev = 0;
+  for (var k = 1; k < P; k++) {
+    var best = -1, bestD = Infinity, target = tot * k / P;
+    for (var j = prev + 1; j <= n - (P - k); j++) {
+      var d = Math.abs(cum[j] - target);
+      if (d < bestD) { bestD = d; best = j; }
+    }
+    cuts.push(best); prev = best;
+  }
+  var lo = me === 1 ? 0 : cuts[me - 2], hi = me === P ? n : cuts[me - 1], out = [];
+  for (var j = lo; j < hi; j++) out.push(j);
+  return out;
+}
+
+/** متنِ درس برای مدل — سرفصل‌ها و روایت، بی قلاب و جمع‌بندیِ رادیویی. `only` = فقط این اندیس‌ها (بخشِ یک ریلز). */
+function igLessonText_(ep, cap, only) {
+  var L = [], keep = null;
+  if (only) { keep = {}; only.forEach(function (i) { keep[i] = 1; }); }
   if (ep && ep.title) L.push('عنوان: ' + ep.title);
-  ((ep && ep.sections) || []).forEach(function (s) {
+  ((ep && ep.sections) || []).forEach(function (s, si) {
+    if (keep && !keep[si]) return;
     if (!s) return;
     if (s.heading) L.push('## ' + s.heading);
     if (s.narration) L.push(String(s.narration));
@@ -297,10 +354,110 @@ function igPrompt_(ep, seriesName, lesson, opt) {
     '• tags = ۸ تا ۱۵ برچسبِ مرتبط، بی #. story = یک جملهٔ کوتاه برای استوری.',
     '• kicker = نامِ مجموعه برای برچسبِ روی تصویر: **فارسی**، ۲ تا ۴ واژه، بی هیچ حرفِ لاتین — اگر نامِ مجموعه انگلیسی یا عنوانِ کتاب است، موضوعش را کوتاه به فارسی بگو (مثلاً «معرفت‌شناسیِ آئودی»).',
     '• emph = ۴ تا ۸ واژه یا عبارتِ کوتاهِ کلیدی (۱ تا ۳ واژه) که **عیناً** در script آمده‌اند — روی تصویر برجسته می‌شوند.',
+    '• names = نامِ هر شخص، اثر یا مثالِ مشخصی (مثلِ «گتیه»، «ساعتِ خوابیده») که در script آمده — خالی اگر نیست.',
+    igPartBlock_(ep, opt),
+    igSeenBlock_(opt),
     '',
-    'متنِ درس:',
-    igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000)
+    'متنِ درس' + (Number(opt.parts) > 1 ? ' — **فقط بخشِ این ریلز** (بقیهٔ درس در ریلزِ دیگر است):' : ':'),
+    igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000, Number(opt.parts) > 1 ? igPartSecs_(ep, opt.part, opt.parts) : null)
   ].join('\n');
+}
+
+/**
+ * بخشِ این ریلز از درس (۹.۶۹): «دو ریلز که تمامِ خلاصهٔ یک درس رو بتونه پوشش بده». هر ریلز تکهٔ خودش از سرفصل‌ها را
+ * می‌گیرد و فهرستِ سرفصل‌های تکهٔ دیگر را می‌بیند (تا چیزی دو بار گفته نشود و چیزی هم جا نیفتد)؛ بخشِ دوم ایده و قلابِ
+ * بخشِ اول را هم می‌بیند. هر کدام **به‌تنهایی کامل** است — بیننده ممکن است فقط یکی را ببیند.
+ */
+function igPartBlock_(ep, opt) {
+  var P = Number(opt && opt.parts) || 1;
+  if (P <= 1) return '';
+  var me = Number(opt.part) || 1, secs = (ep && ep.sections) || [], mine = igPartSecs_(ep, me, P), other = [];
+  for (var i = 0; i < secs.length; i++) if (mine.indexOf(i) === -1 && secs[i] && secs[i].heading) other.push('«' + secs[i].heading + '»');
+  var L = ['',
+    '══ این ریلزِ ' + faDigitsOut_(String(me)) + ' از ' + faDigitsOut_(String(P)) + ' برای همین درس است ══',
+    'این درس ' + faDigitsOut_(String(P)) + ' ریلز دارد که **با هم کلِ خلاصهٔ درس را می‌پوشانند**؛ این یکی فقط بخشِ ' +
+      (me === 1 ? 'نخستِ' : 'بعدیِ') + ' درس را (متنِ زیر). ایدهٔ این ریلز باید **مهم‌ترین حرفِ همین بخش** باشد، نه حرفِ کلِ درس.',
+    other.length ? 'سرفصل‌های بخشِ دیگرِ درس (این‌ها را این‌جا باز نکن؛ ریلزِ دیگر می‌گوید): ' + other.join('، ') : '',
+    'این ریلز باید **به‌تنهایی کامل** باشد — بیننده شاید فقط همین یکی را ببیند؛ «در ریلزِ قبل گفتیم» یا «بخشِ دوم» ننویس.'];
+  if (opt.otherIdea) L.push('ریلزِ دیگرِ همین درس این را گفته: «' + String(opt.otherIdea).slice(0, 300) + '» — همان ایده، همان قلاب و همان مثال را تکرار نکن.');
+  return L.filter(function (x) { return x !== ''; }).join('\n');
+}
+
+/**
+ * آنچه صفحه پیش‌تر گفته (۹.۶۹): «وقتی می‌رسی به آئودی … چون هر دو معرفت‌شناسی هستن بعضی چیزا تکراری به نظر برسه … اون
+ * مفاهیم رو به طورِ دیگه و بدونِ تکرارِ اسم‌های قبلاً برده‌شده، از جنبه‌های دیگه … با حفظِ وفاداریِ کامل به اون درس». فقط
+ * ایده‌ها و نام‌های **مجموعه‌های دیگر** — تکرار درونِ همان مجموعه کارِ خودِ درس است.
+ */
+function igSeenBlock_(opt) {
+  var seen = (opt && opt.seen) || [];
+  if (!seen.length) return '';
+  var names = {}, ideas = [];
+  seen.forEach(function (x) {
+    if (x.idea) ideas.push('• ' + String(x.idea).slice(0, 140));
+    (x.names || []).forEach(function (n) { if (n) names[String(n).trim()] = 1; });
+  });
+  var nm = Object.keys(names).slice(0, 60);
+  return ['',
+    '══ آنچه این صفحه پیش‌تر، در مجموعهٔ دیگری از همین رشته، گفته ══',
+    ideas.slice(-40).join('\n'),
+    nm.length ? 'نام‌ها و مثال‌هایی که آن‌جا آمده: ' + nm.join('، ') : '',
+    'دنبال‌کنندهٔ این صفحه این‌ها را دیده. اگر مفهومِ این درس با یکی از آن‌ها هم‌پوشان است، **تکرارش نکن**: از زاویهٔ دیگر بگو، ' +
+      'جنبه‌ای که آن‌جا گفته نشد را بگو، یا کاربرد و پیامدِ تازه‌اش را — با **همان وفاداریِ کامل** به همین درس و بی ناقص گذاشتنِ آن. ' +
+      'نام‌ها و مثال‌های بالا را دوباره نیاور، مگر خودِ این درس جز همان چیزی نداشته باشد؛ آن‌وقت با مثالِ تازه‌ای از خودِ درس.'].filter(function (x) { return x !== ''; }).join('\n');
+}
+
+/* ── حافظهٔ ایده‌های منتشرشده (۹.۶۹) — یک فایل در پوشهٔ دفترِ اینستاگرام، نه Properties (سقفِ ۹ کیلوبایت) ── */
+function igSeenFile_() {
+  var root = outFolder_(), nm = CFG.IG_BOOK_FOLDER || 'اینستاگرام';
+  var it = root.getFoldersByName(nm), fo = it.hasNext() ? it.next() : root.createFolder(nm);
+  var f = fo.getFilesByName('_IG-IDEAS.json');
+  return f.hasNext() ? f.next() : fo.createFile(Utilities.newBlob('{"items":[]}', 'application/json', '_IG-IDEAS.json'));
+}
+function igSeenRead_() {
+  try { var d = JSON.parse(igSeenFile_().getBlob().getDataAsString()); return (d && Array.isArray(d.items)) ? d.items : []; }
+  catch (e) { return []; }
+}
+/** ثبتِ یک ریلزِ انجام‌شده — تکراری (همان uid) جایگزین می‌شود، نه افزوده. */
+function igSeenAdd_(plan, uid) {
+  try {
+    if (!plan || !plan.plan) return false;
+    var items = igSeenRead_().filter(function (x) { return x && x.uid !== uid; });
+    items.push({ uid: uid, series: String(plan.series || ''), idea: String(plan.plan.idea || '').slice(0, 200),
+                 cover: String(plan.plan.coverTitle || '').slice(0, 80), names: (plan.plan.names || []).slice(0, 8), at: nowStr_() });
+    if (items.length > 400) items = items.slice(-400);
+    igSeenFile_().setContent(JSON.stringify({ items: items }, null, 1));
+    return true;
+  } catch (e) { return false; }
+}
+/** ایده‌های **مجموعه‌های دیگر** برای این مجموعه. */
+function igSeenFor_(seriesName) {
+  return igSeenRead_().filter(function (x) { return x && x.series && x.series !== String(seriesName || ''); });
+}
+
+/**
+ * یک بار: ریلزهای انجام‌شدهٔ پیش از ۹.۶۹ در حافظه — مصباحِ ۱ تا ۱۷ پیش از نخستین ریلزِ آئودی. از `_ig.json`ِ هر پوشه؛
+ * با بودجه، و با مکان‌نما تا اجرای کشته‌شده از سر نرود.
+ */
+function igSeenSeed_(st, deadline) {
+  if (st.seenSeeded) return 0;
+  var order = igOrderDec_((st.order && st.order.s) || []), done = igDoneMap_(st), have = {}, n = 0;
+  igSeenRead_().forEach(function (x) { if (x && x.uid) have[x.uid] = 1; });
+  for (var s = 0; s < order.length; s++) {
+    var eps = order[s].eps || [];
+    for (var i = 0; i < eps.length; i++) {
+      var uid = String(eps[i].ep);
+      if (!done[uid] || have[uid]) continue;
+      if (Date.now() > deadline - 20000) return n;
+      try {
+        var fo0 = ytFolderOf_(ENRICH_SHOW_SPECIAL, eps[i].ep, order[s].name);
+        var pl = fo0 ? igPlanRead_(igFolder_(fo0, 1)) : null;
+        if (pl && igSeenAdd_(pl, uid)) n++;
+        have[uid] = 1;
+      } catch (e) {}
+    }
+  }
+  st.seenSeeded = nowStr_();
+  return n;
 }
 
 /** بازهٔ واژه: درس ۵۰–۲۱۰ (هدف ۸۰–۱۵۰)، مرور ۲۰۰–۴۰۰؛ `maxWords` وقتی صدای قبلی از سه دقیقه گذشت. */
@@ -383,7 +540,8 @@ function igPlanTrim_(r, opt) {
   return { idea: String(r.idea || '').trim().slice(0, 200), hook: lines[0].text.slice(0, 140), lines: lines, scenes: scenes, emph: emph,
            coverTitle: String(r.coverTitle || '').trim().slice(0, 60), caption: String(r.caption || '').trim().slice(0, 1200),
            story: String(r.story || '').trim().slice(0, 140), tags: tags, words: words,
-           ytDesc: String(r.ytDesc || '').trim().slice(0, 1500), kicker: String(r.kicker || '').trim().slice(0, 60) };
+           ytDesc: String(r.ytDesc || '').trim().slice(0, 1500), kicker: String(r.kicker || '').trim().slice(0, 60),
+           names: (r.names || []).map(function (x) { return String(x || '').trim().slice(0, 40); }).filter(Boolean).slice(0, 8) };
 }
 
 /**
@@ -426,7 +584,8 @@ function igJudge_(p, lesson, opt) {
 /** برچسبِ درس برای کپشن و عنوان: «درسِ ۵» یا «مرورِ بزرگِ درس‌های ۱ تا ۱۵». */
 function igLessonLabel_(plan) {
   if (plan.recap) return plan.range ? String(plan.range) : 'مرورِ بزرگ';
-  return plan.lesson ? 'درسِ ' + faDigitsOut_(String(plan.lesson)) : '';
+  var pl = igPartLabel_(plan);
+  return plan.lesson ? 'درسِ ' + faDigitsOut_(String(plan.lesson)) + (pl ? '، بخشِ ' + pl : '') : '';
 }
 
 /** برچسب‌ها: پایه + مدل، بی تکرار، تا `max`. */
@@ -445,7 +604,7 @@ function igCaption_(plan, ytUrl, seriesName, lesson) {
   var mk = null;
   try { mk = ytMarkSpec_(); } catch (e) { mk = null; }
   var chan = (mk && mk.name) || 'رد پای حقیقت';
-  var lab = igLessonLabel_({ recap: plan.recap, range: plan.range, lesson: lesson });
+  var lab = igLessonLabel_({ recap: plan.recap, range: plan.range, lesson: lesson, part: plan.part, parts: plan.parts });
   var s = String(plan.caption || '').trim() + '\n\n' +
           'نسخهٔ کامل در یوتیوب، کانالِ «' + chan + '»' + ((mk && mk.handle) ? ' (' + mk.handle + ')' : '') + ':\n' + ytUrl + '\n' +
           'مجموعهٔ «' + seriesName + '»' + (lab ? ' — ' + lab : '') + '\n\n' +
@@ -492,7 +651,16 @@ function igStepPlan_(it, fo) {
   } catch (eL) {}
   if (!lesson && !recap) lesson = Number(meta.lesson) || 0;
   var opt = { recap: recap, range: range ? 'مرورِ بزرگِ ' + range.replace(/^مرورِ\s*(بزرگِ\s*)?/, '') : '', maxWords: Number(it.maxWords) || 0,
-              minWords: Number(it.minWords) || 0 };
+              minWords: Number(it.minWords) || 0, part: recap ? 1 : (Number(it.part) || 1), parts: recap ? 1 : (Number(it.parts) || 1) };
+  /* ۹.۶۹: بخشِ دیگرِ همین درس، اگر نوشته شده — تا ایده و مثال دو بار نیاید. */
+  if (opt.parts > 1) {
+    for (var op = 1; op <= opt.parts; op++) {
+      if (op === opt.part) continue;
+      try { var oPl = igPlanRead_(igFolder_(epFo, op)); if (oPl && oPl.plan && oPl.plan.idea) opt.otherIdea = (opt.otherIdea ? opt.otherIdea + ' / ' : '') + oPl.plan.idea; } catch (eOp) {}
+    }
+  }
+  /* ۹.۶۹: آنچه صفحه در مجموعه‌های دیگر گفته — آئودی پس از مصباح. */
+  try { opt.seen = igSeenFor_(seriesName); } catch (eSn) { opt.seen = []; }
   var r = null;
   /* ۹.۵۶: درسِ ۱۳ِ مصباح سه بار با «برای مخاطبِ عام سنگین است» رد شد و هر بار از صفر و کور نوشته شد — درس‌های ۱۴ و ۱۵ِ
      آماده پشتش ایستادند و آن روز هیچ ریلزی نرفت. حالا علتِ ردِ قبلی به نویسنده گفته می‌شود. */
@@ -511,7 +679,7 @@ function igStepPlan_(it, fo) {
     jd = igJudge_(p, lessonTxt, opt);
     if (!jd.ok && jd.fix) {
       var p2 = igPlanTrim_({ idea: p.idea, script: jd.fix, scenes: p.scenes, coverTitle: p.coverTitle, caption: p.caption,
-                             story: p.story, tags: p.tags, emph: p.emph, ytDesc: p.ytDesc, kicker: p.kicker }, opt);
+                             story: p.story, tags: p.tags, emph: p.emph, ytDesc: p.ytDesc, kicker: p.kicker, names: p.names }, opt);
       if (p2.lines) {
         var jd2 = igJudge_(p2, lessonTxt, opt);
         if (jd2.ok) { p = p2; jd = { ok: true, why: 'بازنویسی شد: ' + jd.why }; }
@@ -540,10 +708,12 @@ function igStepPlan_(it, fo) {
   p.lines.push({ text: IG_CTA_LINE, scene: '', cta: true });
   p.recap = recap; p.range = opt.range;
   p.kicker = igKicker_(seriesName, p.kicker);
-  var plan = { v: Number(CFG.IG_PLAN_V) || 2, key: it.key, ep: it.ep, series: seriesName, seriesKey: String(meta.seriesKey || ''), lesson: lesson,
+  var plan = { v: Number(CFG.IG_PLAN_V) || 2, key: it.key, ep: it.ep, part: opt.part, parts: opt.parts,
+               series: seriesName, seriesKey: String(meta.seriesKey || ''), lesson: lesson,
                recap: recap, range: opt.range, title: String(ep.title || ''),
                yt: it.yt, at: nowStr_(), phase: 'voice', plan: p,
-               caption: igCaption_(p, it.yt, p.kicker || seriesName, lesson),
+               caption: igCaption_({ caption: p.caption, tags: p.tags, recap: recap, range: opt.range, part: opt.part, parts: opt.parts },
+                                   it.yt, p.kicker || seriesName, lesson),
                voice: (ep.__cast && ep.__cast.lead) || CFG.TTS_VOICE_SPECIAL || CFG.TTS_VOICE };
   igPlanWrite_(fo, plan);
   try {
@@ -922,6 +1092,9 @@ function igShortPub_(it, plan) {
   } catch (eP) {}
   var sm = igShortMeta_(plan, plUrl), title = sm.title, desc = sm.desc;
   var leaks = ytLeaks_(title + '\n' + desc);
+  /* ۹.۶۹: «یوتیوب هم دوتا» — شورتز در روز سقفِ خودش را دارد، جدا از سهمیهٔ واحد. */
+  var shDay = Math.max(0, Number(CFG.IG_SHORTS_PER_DAY) || 0);
+  if (shDay && (Number(ytQuota_().shorts) || 0) >= shDay) return { wait: 'سهمِ شورتزِ امروز (' + shDay + ') پر شد' };
   if (!igShortQuotaOk_()) return { wait: 'سهمیهٔ یوتیوب برای قسمت‌های کاملِ امروز کنار گذاشته شده' };
   if (!ytQuotaTake_(YT_COST.videosInsert, true)) return { wait: 'سهمیهٔ آپلودِ یوتیوب امروز تمام شد' };
   var blob = null;
@@ -976,7 +1149,7 @@ function igShortQuotaOk_() {
 function igShortEnqueue_(st, it) {
   st.shortQ = st.shortQ || [];
   if (st.shortQ.some(function (x) { return x.key === it.key; })) return;
-  st.shortQ.push({ key: it.key, ep: it.ep, folderId: it.folderId });
+  st.shortQ.push({ key: it.key, ep: it.ep, part: Number(it.part) || 1, folderId: it.folderId });
 }
 
 /**
@@ -987,7 +1160,7 @@ function igShortQueueRun_(st, deadline) {
   var q = st.shortQ || [], n = 0;
   while (q.length && Date.now() < deadline - 30000) {
     var h = q[0], fo = null, plan = null;
-    try { fo = igFolder_(DriveApp.getFolderById(h.folderId)); plan = igPlanRead_(fo); } catch (eF) {}
+    try { fo = igFolder_(DriveApp.getFolderById(h.folderId), h.part); plan = igPlanRead_(fo); } catch (eF) {}
     if (!plan) { q.shift(); continue; }
     if (plan.shortId) { q.shift(); continue; }
     var r = igShortPub_(h, plan);
@@ -1117,45 +1290,49 @@ function igTick() {
        ردیفِ صف هم‌زمان با «انجام‌شده» شدنِ ریلزش می‌آید؛ ردیفی که ریلزش از «انجام‌شده» بیرون رفته، پس‌گرفته شده است. */
     if ((st.shortQ || []).length) {
       var dm = igDoneMap_(st);
-      st.shortQ = st.shortQ.filter(function (x) { return x && dm[String(x.ep)]; });
+      st.shortQ = st.shortQ.filter(function (x) { return x && dm[igUid_(x)]; });
     }
     /* ══ بن‌بست (۹.۵۸) ══ درسِ ۱۳ِ مصباح پس از ۹.۵۶/۹.۵۷ هم نیامد: ۱۴ و ۱۵ِ آماده هر دو جای `IG_INFLIGHT` (۲) را گرفته
        بودند و «منتظرِ انتشارِ درسِ ۱۳» بودند، و ۱۳ چون جا نبود هرگز وارد نمی‌شد. هیچ درمانی روی داور به این‌جا نمی‌رسید.
        ریلزی که فقط منتظرِ درسِ پیشین است کار نمی‌کند، پس جا نمی‌گیرد؛ سقفِ کل سه برابر، تا صف بی‌حد نشود. */
+    /* ۹.۶۹: حافظهٔ ایده‌های مصباح پیش از نخستین ریلزِ آئودی — یک بار. */
+    if (!st.seenSeeded && st.order && deadline - Date.now() > 120000) { try { igSeenSeed_(st, Date.now() + 60000); } catch (eSs) {} }
     var capIn = Math.max(1, Number(CFG.IG_INFLIGHT) || 2);
     var activeIn = st.inflight.filter(function (x) { return !igWaitsEarlier_(st, x); }).length;
     if (activeIn < capIn && st.inflight.length < capIn * 3) {
       var nx = igNextEp_(ytPublished_(getHub_()), st);
       if (nx) {
-        var fo0 = ytFolderOf_(ENRICH_SHOW_SPECIAL, nx.ep, nx.series);
-        if (fo0) st.inflight.push({ key: 'ig:' + ENRICH_SHOW_SPECIAL + ':' + nx.ep, ep: nx.ep, series: nx.series,
-                                    folderId: fo0.getId(), yt: nx.url, phase: igResumePhase_(fo0), at: nowStr_(),
+        var fo0 = ytFolderOf_(ENRICH_SHOW_SPECIAL, nx.ep, nx.series), nUid = igUid_(nx);
+        if (fo0) st.inflight.push({ key: 'ig:' + ENRICH_SHOW_SPECIAL + ':' + nUid, ep: nx.ep, part: nx.part || 1, parts: nx.parts || 1,
+                                    sIdx: nx.sIdx || 0, series: nx.series,
+                                    folderId: fo0.getId(), yt: nx.url, phase: igResumePhase_(fo0, nx.part), at: nowStr_(),
                                     recap: nx.recap ? 1 : 0, lesson: nx.lesson || 0 });
-        else { st.fails = st.fails || {}; st.fails[String(nx.ep)] = 9; st.lastWhy = 'پوشهٔ قسمتِ ' + nx.ep + ' پیدا نشد'; }
+        else { st.fails = st.fails || {}; st.fails[nUid] = 9; st.lastWhy = 'پوشهٔ قسمتِ ' + nx.ep + ' پیدا نشد'; }
       }
     }
     var keep = [];
     for (var i = 0; i < st.inflight.length; i++) {
       var it = st.inflight[i], res = null;
       if (Date.now() > deadline) { keep.push(it); continue; }
+      var u = igUid_(it);
       st.firstAt = st.firstAt || {};
-      if (!st.firstAt[String(it.ep)]) st.firstAt[String(it.ep)] = Date.now();
-      it.ageH = (Date.now() - Number(st.firstAt[String(it.ep)])) / 3600000;
-      it.tryN = Number((st.fails || {})[String(it.ep)]) || 0;
-      it.prevWhy = (st.failWhy || {})[String(it.ep)] || '';
-      it.noLesson = (st.noLessonImg || {})[String(it.ep)] ? 1 : 0;
+      if (!st.firstAt[u]) st.firstAt[u] = Date.now();
+      it.ageH = (Date.now() - Number(st.firstAt[u])) / 3600000;
+      it.tryN = Number((st.fails || {})[u]) || 0;
+      it.prevWhy = (st.failWhy || {})[u] || '';
+      it.noLesson = (st.noLessonImg || {})[u] ? 1 : 0;
       try { res = igStep_(it, st, deadline); } catch (e) { res = { wait: String(e.message || e).slice(0, 140) }; }
       it.why = res.wait || res.fail || '';
       if (it.sincePhase !== it.phase) { it.sincePhase = it.phase; it.since = Date.now(); }
-      if (res.done) { st.done = (st.done ? st.done + ',' : '') + it.ep; st.lastAt = nowStr_(); if (st.firstAt) delete st.firstAt[String(it.ep)]; continue; }
+      if (res.done) { st.done = (st.done ? st.done + ',' : '') + u; st.lastAt = nowStr_(); if (st.firstAt) delete st.firstAt[u]; continue; }
       if (res.fail) {
         st.fails = st.fails || {};
-        st.fails[String(it.ep)] = (Number(st.fails[String(it.ep)]) || 0) + 1;
+        st.fails[u] = (Number(st.fails[u]) || 0) + 1;
         st.lastWhy = it.key + ': ' + res.fail;
-        st.failWhy = st.failWhy || {}; st.failWhy[String(it.ep)] = String(res.fail).slice(0, 120);
+        st.failWhy = st.failWhy || {}; st.failWhy[u] = String(res.fail).slice(0, 120);
         /* سقفِ تلاش ⇒ کنار تا `IG_RETRY_H`، بعد همان درس دوباره (۹.۳۰) — رها کردن یعنی جاافتادن. */
-        if (st.fails[String(it.ep)] >= Math.max(1, Number(CFG.IG_TRY_MAX) || 3)) {
-          st.failAt = st.failAt || {}; st.failAt[String(it.ep)] = Date.now();
+        if (st.fails[u] >= Math.max(1, Number(CFG.IG_TRY_MAX) || 3)) {
+          st.failAt = st.failAt || {}; st.failAt[u] = Date.now();
           continue;
         }
         /* از نو با مدلِ تازه — جز شکستِ انتشار (۹.۵۱): ویدئوی ساخته‌شده دوباره ساخته نمی‌شد، فقط انتشار دوباره. */
@@ -1167,6 +1344,7 @@ function igTick() {
     if ((st.shortQ || []).length) { try { igShortQueueRun_(st, deadline); } catch (eSq) { st.shortWhy = String(eSq.message || eSq).slice(0, 120); } }
     if (deadline - Date.now() > 40000) { try { igShortThumbRetro_(st, deadline); } catch (eTr) { st.thumbWhy = String(eTr.message || eTr).slice(0, 120); } }
     if (deadline - Date.now() > 60000) { try { igInsights_(st, deadline); } catch (eIn) { st.lastWhy = 'آمار: ' + String(eIn.message || eIn).slice(0, 120); } }
+    try { igStuckTell_(st); } catch (eSt) {}
     return null;
   } finally {
     st.armedAt = 0;
@@ -1225,9 +1403,9 @@ function igAcctUnfail_(st) {
 }
 
 /** درسی که دوباره به صف می‌آید از همان گامی ادامه می‌دهد که برنامه‌اش دارد (۹.۵۱) — ویدئوی آماده دوباره ساخته نمی‌شود. */
-function igResumePhase_(fo0) {
+function igResumePhase_(fo0, part) {
   try {
-    var pl = igPlanRead_(igFolder_(fo0));
+    var pl = igPlanRead_(igFolder_(fo0, part));
     if (pl && !pl.reelId && (Number(pl.v) || 1) >= (Number(CFG.IG_PLAN_MIN) || 3) &&
         ['voice', 'img', 'ask', 'got', 'ok', 'pub'].indexOf(String(pl.phase)) !== -1) return String(pl.phase);
   } catch (e) {}
@@ -1259,7 +1437,7 @@ function igImgReset_(plan) {
 
 /** یک گامِ یک ریلز. ⇒ {done} | {ok} | {wait} | {fail} */
 function igStep_(it, st, deadline) {
-  var fo = igFolder_(DriveApp.getFolderById(it.folderId));
+  var fo = igFolder_(DriveApp.getFolderById(it.folderId), it.part);
   var plan = it.phase === 'plan' ? null : igPlanRead_(fo);
   if (it.phase !== 'plan' && !plan) it.phase = 'plan';
   /* برنامه‌ای با پرامپتِ کهنه که هنوز منتشر نشده، از نو (۹.۲۵): «ارتباطِ معنایی اصلاً خوب نبود» برای ریلزی گفته شد
@@ -1275,7 +1453,7 @@ function igStep_(it, st, deadline) {
           dq2.reels = (dq2.reels || []).filter(function (x) { return x && x.key !== it.key; });
           if (dq2.reels.length !== nb2) ytRenderSave_(dq2); } catch (eQ2) {}
     igImgReset_(plan);
-    st.noLessonImg = st.noLessonImg || {}; st.noLessonImg[String(it.ep)] = 1; it.noLesson = 1;
+    st.noLessonImg = st.noLessonImg || {}; st.noLessonImg[igUid_(it)] = 1; it.noLesson = 1;
     igPlanWrite_(fo, plan);
     it.phase = plan.phase;
   }
@@ -1289,7 +1467,7 @@ function igStep_(it, st, deadline) {
     else if (plan.phase === 'ok') r = igStepOk_(it, plan, st);
     else if (plan.phase === 'pub') {
       /* انتشار به ترتیبِ درس (۹.۳۰): دو ریلز هم‌زمان ساخته می‌شوند، ولی درسِ ۵ پیش از درسِ ۴ منتشر نمی‌شود. */
-      var pend = igEarlierPending_(st, it.ep);
+      var pend = igEarlierPending_(st, it.ep, it.part);
       if (pend) return { wait: 'منتظرِ انتشارِ ' + pend + ' همین مجموعه' };
       r = igStepPub_(it, plan, st, deadline);
     }
@@ -1298,7 +1476,8 @@ function igStep_(it, st, deadline) {
          پشتِ آن می‌ایستد، وگرنه شورتزِ درسِ بعد پیش از درسِ قبل بالا می‌رفت. */
       r = (st.shortQ || []).length ? { wait: 'صف' } : igShortPub_(it, plan);
       if (r.wait) { plan.shortQueued = nowStr_(); igShortEnqueue_(st, it); r = { ok: true }; }
-      if (r.ok) { plan.phase = 'done'; plan.doneAt = nowStr_(); try { igLog_(it, plan); } catch (eL) {} }
+      if (r.ok) { plan.phase = 'done'; plan.doneAt = nowStr_(); try { igLog_(it, plan); } catch (eL) {}
+                  try { igSeenAdd_(plan, igUid_(it)); } catch (eSa) {} }
     }
     else if (plan.phase === 'done') return { done: true };
     else { plan.phase = 'voice'; continue; }
@@ -1334,7 +1513,7 @@ function igStatus_() {
               inflight: fl.map(function (x) { return { key: x.key, phase: x.phase, why: x.why || '' }; }),
               lastAt: st.lastAt || '', lastWhy: st.lastWhy || '', ranAt: st.ranAt || '', ins: st.ins || null,
               gaps: st.gaps || [], caught: st.caught || [], book: igBookUrl_(), held: igHeld_(st),
-              shortQ: (st.shortQ || []).map(function (x) { return x.ep; }), shortWhy: st.shortWhy || '',
+              shortQ: (st.shortQ || []).map(function (x) { return igUid_(x); }), shortWhy: st.shortWhy || '',
               order: igOrderDec_((st.order && st.order.s) || []).map(function (S) {
                 var dn = igDoneMap_(st), n = S.eps.filter(function (x) { return dn[String(x.ep)]; }).length;
                 return { series: S.name, done: n, total: S.eps.length };
@@ -1367,6 +1546,29 @@ function igHeld_(st) {
                why: String((st.failWhy || {})[e] || '').slice(0, 90) });
   });
   return out;
+}
+
+/**
+ * «ریلزها جایی بعداً گیر نکنه و بی‌خبر نمونم» (۹.۶۹). خطِ روزانه و یافته فقط در ایمیلِ ده صبح بودند؛ گیرِ ساعتِ یازده تا
+ * فردا ده صبح دیده نمی‌شد. حالا همان سه وضع — درسِ کنارگذاشته پس از سقفِ تلاش، گامی که بیش از `IG_STUCK_H` ساعت مانده،
+ * و ترتیبی که سرِ درسی بی ویدئوی عمومی ایستاده — همان لحظه به تلگرام، هر کدام **یک بار** (تا عوض شود). سکوتِ تلگرام یعنی
+ * چیزی گیر نیست، نه اینکه کسی نگاه نکرد.
+ */
+function igStuckTell_(st) {
+  var now = Date.now(), msgs = [];
+  igHeld_(st).forEach(function (h) { msgs.push('درسِ ' + h.ep + ' پس از ' + h.tries + ' تلاش کنار رفت (دوباره پس از ' + (Number(CFG.IG_RETRY_H) || 6) + ' ساعت) — ' + h.why); });
+  (st.inflight || []).forEach(function (x) {
+    if (x.phase === 'ok' || !x.since || x.sincePhase !== x.phase) return;
+    var h = (now - Number(x.since)) / 3600000;
+    if (h > (Number(CFG.IG_STUCK_H) || 30)) msgs.push(x.key + ' ' + Math.round(h) + ' ساعت در گامِ «' + x.phase + '»' + (x.why ? ' — ' + x.why : ''));
+  });
+  (st.gaps || []).forEach(function (g) { msgs.push('ترتیب: ' + g); });
+  var sig = msgs.join(' | ').slice(0, 900);
+  if (!msgs.length) { st.stuckSig = ''; return false; }
+  if (st.stuckSig === sig) return false;
+  st.stuckSig = sig;
+  try { tgSend_('📱 ریلزِ اینستاگرام گیر کرده:\n• ' + tgEsc_(msgs.join('\n• ')) + '\nخودش دوباره تلاش می‌کند؛ این پیام تا وضع عوض نشود تکرار نمی‌شود.'); } catch (e) { return false; }
+  return true;
 }
 
 /**

@@ -54,7 +54,36 @@ console.log('=== ۱) کدام درس بعدی است — مجموعه به مج�
   const fOld = { fails: { '2': CFG.IG_TRY_MAX }, failAt: { '2': Date.now() - 30 * 3600000 }, done: '1' };
   ok('۱.۶ سقفِ تلاش ⇒ مجموعه سرِ همان درس می‌ایستد (نه رد)، و پس از IG_RETRY_H همان درس دوباره',
      nx(fNow) === null && /سه بار نشد/.test(fNow.gaps[0]) && nx(fOld).ep === 2 && fOld.fails['2'] === 0, JSON.stringify(fNow.gaps));
-  ok('۱.۷ «از همه جا» هرگز', !JSON.stringify(nx({ done: '1,2,3,10,4,5,6' })).includes('x1') && nx({ done: '1,2,3,10,4,5,6' }) === null);
+  const allD = '1,2,3,10,4,4.2,5,5.2,6,6.2';
+  ok('۱.۷ «از همه جا» هرگز', !JSON.stringify(nx({ done: allD })).includes('x1') && nx({ done: allD }) === null);
+  /* ۹.۶۹: «وقتی وارد مجموعهٔ بعدی می‌شه … برای هر درس دوتا ریلز». */
+  const n1 = nx({ done: '1,2,3,10' }), n2 = nx({ done: '1,2,3,10,4' }), n3 = nx({ done: '1,2,3,10', inflight: [{ ep: 4, part: 1 }] });
+  ok('۱.۷-الف (۹.۶۹) مصباح یک بخش، آئودی دو بخش: ۴ (۱ از ۲) ⇐ ۴.۲ ⇐ ۵؛ بخشِ ۲ هم‌زمان با ۱ ساخته می‌شود',
+     nx({}).parts === 1 && n1.ep === 4 && n1.part === 1 && n1.parts === 2 && n2.ep === 4 && n2.part === 2 &&
+     nx({ done: '1,2,3,10,4,4.2' }).ep === 5 && n3.ep === 4 && n3.part === 2, JSON.stringify([n1, n2, n3]));
+  ok('۱.۷-ب uid: بخشِ ۱ همان شناسهٔ قدیمی (مصباح و هرچه ساخته شده دست نمی‌خورد)',
+     igUid_({ ep: 14 }) === '14' && igUid_({ ep: 14, part: 1 }) === '14' && igUid_({ ep: 14, part: 2 }) === '14.2' &&
+     igPartsFor_(0, false) === 1 && igPartsFor_(1, false) === 2 && igPartsFor_(1, true) === 1);
+  const stE = { done: '1,2,3,10,4', order: { s: [{ n: 'مصباح', e: '1:1,2:2,3:3,10r' }, { n: 'آئودی', e: '4:1,5:2,6:3' }] } };
+  ok('۱.۷-پ انتشار به ترتیبِ بخش: ۵ پیش از ۴.۲ منتشر نمی‌شود؛ ۴.۲ پس از ۴ آزاد است',
+     /درسِ 1 \(۲ از ۲\)/.test(igEarlierPending_(stE, 5, 1)) && igEarlierPending_(stE, 4, 2) === '' &&
+     /درسِ 1 \(۱ از ۲\)/.test(igEarlierPending_({ done: '1,2,3,10', order: stE.order }, 4, 2)), igEarlierPending_(stE, 5, 1));
+  const fakeEp = { title: 'ت', sections: [{ heading: 'الف', narration: 'x'.repeat(400) }, { heading: 'ب', narration: 'x'.repeat(300) },
+                                          { heading: 'پ', narration: 'x'.repeat(350) }, { heading: 'ت', narration: 'x'.repeat(380) }] };
+  const s1 = igPartSecs_(fakeEp, 1, 2), s2 = igPartSecs_(fakeEp, 2, 2);
+  ok('۱.۷-ت دو بخش کلِ سرفصل‌ها را بی هم‌پوشانی می‌پوشانند؛ مرز سرِ سرفصل',
+     s1.concat(s2).join() === '0,1,2,3' && s1.length >= 1 && s2.length >= 1 && igPartSecs_({ sections: [{ narration: 'a' }] }, 2, 2).length >= 0,
+     JSON.stringify([s1, s2]));
+  const pr = igPrompt_(fakeEp, 'آئودی', 1, { part: 2, parts: 2, otherIdea: 'ایدهٔ بخشِ نخست',
+                                            seen: [{ series: 'مصباح', idea: 'باورِ صادقِ موجه کافی نیست', names: ['گتیه'] }] });
+  ok('۱.۷-ث پرامپتِ بخشِ ۲: فقط متنِ بخشِ خودش، سرفصل‌های بخشِ دیگر، ایدهٔ بخشِ نخست، و آنچه صفحه در مصباح گفته (با نام‌ها)',
+     /ریلزِ ۲ از ۲/.test(pr) && pr.indexOf('## پ') !== -1 && pr.indexOf('## الف') === -1 && /«الف»/.test(pr) &&
+     /ایدهٔ بخشِ نخست/.test(pr) && /باورِ صادقِ موجه کافی نیست/.test(pr) && /گتیه/.test(pr) && /زاویهٔ دیگر/.test(pr));
+  const pr1 = igPrompt_(fakeEp, 'مصباح', 1, {});
+  ok('۱.۷-ج پرامپتِ یک‌بخشی همان قبلی است (کلِ درس، بی بلوکِ بخش و حافظه)',
+     pr1.indexOf('## الف') !== -1 && pr1.indexOf('## ت') !== -1 && !/ریلزِ ۱ از/.test(pr1) && !/پیش‌تر، در مجموعهٔ دیگری/.test(pr1));
+  ok('۱.۷-چ برچسبِ درس و پوشهٔ بخشِ ۲ جداست',
+     igLessonLabel_({ lesson: 5, part: 2, parts: 2 }) === 'درسِ ۵، بخشِ ۲ از ۲' && igLessonLabel_({ lesson: 5 }) === 'درسِ ۵');
   /* ترتیبِ مجموعه‌ها از نخستین قسمتشان؛ فهرست فشرده در حالت (سقفِ ۹ کیلوبایتِ Properties). */
   const st2 = {};
   const pub2 = { 'special:4': Object.assign(P('b1'), { series: 'آئودی' }), 'special:1': Object.assign(P('a1'), { series: 'مصباح' }),
@@ -442,6 +471,7 @@ console.log('=== ۴) تأیید و انتشار ===');
 console.log('=== ۴-ب) شورتزِ یوتیوب: بی پلی‌لیست، دو پیوند، اول unlisted (۹.۲۶) ===');
 {
   const keep = { yt: global.YouTube, q: global.ytQuotaTake_, pl: global.ytPlFor_, stub: global.__STUB, leaks: global.ytLeaks_ };
+  const shDayWas = CFG.IG_SHORTS_PER_DAY; CFG.IG_SHORTS_PER_DAY = 0;   // سقفِ روزانه جدا در ۴-ب.۱۳ سنجیده می‌شود
   const ins = [], upd = [], plAdds = [];
   global.YouTube = { Videos: { insert: (res, part, blob) => { ins.push({ res, blob }); return { id: 'SH1' }; },
                                update: (res, part) => { upd.push(res); return res; } },
@@ -505,6 +535,14 @@ console.log('=== ۴-ب) شورتزِ یوتیوب: بی پلی‌لیست، دو
      did === 1 && f0.shortThumb === true && th.some(x => x.id === 'OLD1') && !th.some(x => x.id === 'OK2') && /_ig\.json/.test(q), JSON.stringify(th));
   ok('۴-ب.۱۱ پس از یک دورِ کامل خودش خاموش می‌شود', !!st9.thumbRetro && igShortThumbRetro_(st9, Date.now() + 60000) === 0);
   ok('۴-ب.۱۲ igTick جبران را صدا می‌زند', /igShortThumbRetro_\(st, deadline\)/.test(String(igTick)));
+  /* ۹.۶۹: «یوتیوب هم دوتا». */
+  CFG.IG_SHORTS_PER_DAY = 2;
+  const qd = ytQuota_(); qd.shorts = 2; ytQuotaSave_(qd);
+  const sp9 = JSON.parse(JSON.stringify(sp)); delete sp9.shortId;
+  const r9 = igShortPub_(it, sp9);
+  ok('۴-ب.۱۳ (۹.۶۹) دو شورتزِ امروز رفته ⇒ سومی صبر می‌کند (به صف)، نه شکست', !!r9.wait && /شورتزِ امروز/.test(r9.wait), JSON.stringify(r9));
+  const qd2 = ytQuota_(); qd2.shorts = 0; ytQuotaSave_(qd2);
+  CFG.IG_SHORTS_PER_DAY = shDayWas;
   delete global.YouTube.Thumbnails;
   Object.assign(global, { YouTube: keep.yt, ytQuotaTake_: keep.q, ytPlFor_: keep.pl, __STUB: keep.stub });
 }
@@ -857,6 +895,33 @@ console.log('=== ۱۱) تب‌های کهنهٔ اینستاگرام در هاب
   ok('۱۱.۶ igTick صدایش می‌زند', /igHubRetire_\(st\)/.test(String(igTick)));
   { const src = String(igTick), iR = src.indexOf('igHubRetire_(st)'), iS = src.indexOf('igStep_(');
     ok('۱۱.۷ پیش از گام‌ها و بی شرطِ وقتِ مانده (۹.۳۹)', iR > 0 && iS > 0 && iR < iS && !/deadline[^;\n]*igHubRetire_/.test(src)); }
+}
+
+console.log('=== ۱۵) گیر ⇒ همان لحظه تلگرام، یک بار؛ و حافظهٔ ایده‌ها (۹.۶۹) ===');
+{
+  const n0 = sent.length;
+  const stS = { inflight: [{ key: 'ig:special:4.2', ep: 4, part: 2, phase: 'got', since: Date.now() - 40 * 3600000, sincePhase: 'got', why: 'رانر' }] };
+  const a1 = igStuckTell_(stS), a2 = igStuckTell_(stS);
+  ok('۱۵.۱ گامی بیش از IG_STUCK_H ساعت ⇒ پیامِ تلگرام با کلید و گام؛ بارِ دوم تکرار نمی‌شود', a1 === true && a2 === false &&
+     sent.length === n0 + 1 && /4\.2/.test(sent[n0]) && /got/.test(sent[n0]), sent[n0]);
+  stS.inflight = [];
+  igStuckTell_(stS);
+  stS.inflight = [{ key: 'ig:special:5', ep: 5, phase: 'img', since: Date.now() - 40 * 3600000, sincePhase: 'img' }];
+  ok('۱۵.۲ وضع که پاک شد و گیرِ تازه آمد ⇒ دوباره خبر', igStuckTell_(stS) === true && sent.length === n0 + 2);
+  const stH = { fails: { '6.2': CFG.IG_TRY_MAX }, failWhy: { '6.2': 'داور' }, firstAt: {} };
+  ok('۱۵.۳ بخشی که پس از سقفِ تلاش کنار رفت هم خبر می‌شود', igStuckTell_(stH) === true && /6\.2|درسِ 6/.test(sent[sent.length - 1]));
+  ok('۱۵.۴ igTick صدایش می‌زند', /igStuckTell_\(st\)/.test(String(igTick)));
+  const rootF = global.__ROOT_FOLDER;
+  const pl1 = { series: 'مصباح', plan: { idea: 'باورِ صادقِ موجه کافی نیست', coverTitle: 'ک', names: ['گتیه'] } };
+  igSeenAdd_(pl1, '14'); igSeenAdd_(pl1, '14');
+  igSeenAdd_({ series: 'آئودی', plan: { idea: 'ایدهٔ آئودی', names: [] } }, '22');
+  const forA = igSeenFor_('آئودی');
+  ok('۱۵.۵ حافظه: همان uid جایگزین می‌شود نه افزوده؛ برای آئودی فقط ایده‌های مجموعه‌های دیگر',
+     igSeenRead_().filter(x => x.uid === '14').length === 1 && !forA.some(x => x.series === 'آئودی') &&
+     forA.some(x => x.series === 'مصباح' && x.names[0] === 'گتیه'),
+     JSON.stringify(igSeenRead_()));
+  ok('۱۵.۶ هر ریلزِ انجام‌شده ثبت می‌شود (همان‌جا که «done» می‌شود)، و یک‌بار مصباحِ پیشین', /igSeenAdd_\(plan, igUid_\(it\)\)/.test(String(igStep_)) &&
+     /igSeenSeed_\(st,/.test(String(igTick)));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');

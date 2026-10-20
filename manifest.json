@@ -1,13 +1,12 @@
 {
- "version": "9.68",
+ "version": "9.69",
  "codeFile": "engine.gs",
- "sha256": "5d4f0950d5867337bc57bfa7c9decd4cb449b204c0029cf70d4fa8bf7bbb1231",
- "releasedAt": "2026-10-20T15:00:00+04:00",
- "summary": "صدا: از ۱۴ اکتبر آزمایشگاه گامِ پل را از نو می‌سنجید و با مرجع = مبدأ هر گامِ بیش از ۳ نیم‌پرده را کنار می‌گذاشت — رضوی/Alnilam ۱۶۰ هرتز به‌جای ۱۰۷، گلدوز ۱۳۱ به‌جای ۱۵۸. پل حالا گامِ دقیق می‌فرستد، خروجیِ دور از هدف فرستاده نمی‌شود، و دو نمونهٔ تازهٔ درسِ ۷۴ با Charon ساخته می‌شود.",
+ "sha256": "7f0ec7b753952f40a23ae476e0bf1c3088b31d823cb171c07827bec134fce73d",
+ "releasedAt": "2026-10-20T16:00:00+04:00",
+ "summary": "ریلز: از مجموعهٔ دوم (آئودی) هر درس دو ریلز و دو شورتز، هر کدام نیمهٔ خودش از سرفصل‌ها و به ترتیب؛ حافظهٔ ایده‌ها و نام‌هایی که صفحه در مجموعه‌های دیگر گفته تا آئودی از زاویهٔ دیگر بگوید؛ شورتز ۲ در روز؛ گیرِ ریلز همان لحظه به تلگرام.",
  "fixes": [
-  "tools/voicelab.py: --rvc-pitch-exact",
-  "tools/voicebridge.py: --rvc-pitch-exact، pitchGateErr",
-  "src/00_Config.gs: دو بذرِ «گامِ دقیق»"
+  "src/38_Instagram.gs: igUid_, igPartsFor_, igPartSecs_, igPartBlock_, igSeenBlock_, igSeen*، igStuckTell_، igNextEp_/igEarlierPending_ بخش‌دار، سقفِ شورتزِ روزانه",
+  "src/00_Config.gs: IG_PARTS، IG_PARTS_FROM، IG_SHORTS_PER_DAY"
  ],
  "sourceReportIds": [],
  "answers": {}
