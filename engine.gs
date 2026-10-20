@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.75
+ *  موتور محتوا و پادکست — نسخهٔ 9.76
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2187,7 +2187,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.75',
+  CODE_VERSION: '9.76',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3374,6 +3374,7 @@ var PK = {
   IG_BOOK: 'IG_BOOK_ID',          // ۹.۳۰: شناسهٔ دفترِ اینستاگرام (شیتِ جدا از هاب)
   IG_SHORTQ: 'IG_SHORTS_QUEUE',   // ۹.۳۲: صفِ شورتزهای منتظرِ سهمیه — کلیدِ جدا، چون IG_STATE سقفِ ۹ کیلوبایت دارد
   VBR_DAY_ASK: 'VBR_DAY_ASK_DAY',  // ۹.۴۲: روزی که قسمتِ امروز به پل رفت (vbrDayAskDue_)
+  TRIG_VER: 'TRIGGERS_ENSURED_FOR',  // ۹.۷۶: نسخه‌ای که تریگرهایش وارسی شد — نصبِ دستی هم تریگرِ تازه می‌سازد
   MR_STATE: 'MUSIC_REVIEW_STATE',  // ۹.۷۵: {offset, day, dayN, first, hotUntil, answeredAt, lastSentAt, nagAt, nm[], polledAt}
   IG_STATE: 'IG_REELS_STATE',      // ۹.۲۱: {done, inflight[], fails{}, stats{published, day, dayN}, armedAt, ranAt, lastWhy}
   GH_KICK: 'GH_KICK_STATE',        // {<wf>: {at, okAt, code, n, nDay, day, fail, why, fp}, exp}
@@ -15486,6 +15487,28 @@ function trigNames_() {
   }
   if (!cnt.onOpen) out.missing.push('onOpen');   // بی این، منو در شیت نیست
   return out;
+}
+
+/** یک بار برای هر نسخهٔ در حالِ اجرا (۹.۷۶): تکراری‌ها کنار، گم‌شده‌ها ساخته. ⇒ true اگر همین حالا کار کرد. */
+function trigEnsureForVersion_() {
+  var p = props_(), v = String(CFG.CODE_VERSION);
+  if (p.getProperty(PK.TRIG_VER) === v) return false;
+  trigDedupe_();
+  ensureScheduledTriggers_();
+  p.setProperty(PK.TRIG_VER, v);
+  return true;
+}
+
+/** هر تابع یک تریگر — بقیه پاک (۹.۷۶). وضعیت «selfUpdateRetry ×4» نشان داد تکراری‌ها خودشان هرگز نمی‌روند. */
+function trigDedupe_() {
+  var ts = [], seen = {}, n = 0;
+  try { ts = ScriptApp.getProjectTriggers(); } catch (e) { return 0; }
+  for (var i = 0; i < ts.length; i++) {
+    var fn = ts[i].getHandlerFunction();
+    if (seen[fn]) { try { ScriptApp.deleteTrigger(ts[i]); n++; } catch (eD) {} }
+    else seen[fn] = 1;
+  }
+  return n;
 }
 
 function ensureScheduledTriggers_() {
@@ -37542,6 +37565,10 @@ function installCodeRollback() {
  * وسطِ صداگذاری یا پشتیبان کاری نمی‌کند و تریگرِ «دو ساعت بعد» هم نمی‌سازد: ساعتِ بعد خودش دوباره می‌پرسد.
  */
 function selfUpdateHourly_() {
+  /* ══ تریگرهای نسخهٔ تازه، حتی وقتی کد دستی جای‌گذاری شد (۹.۷۶) ══
+     «دستی نصب کردم» — ولی تریگرِ تازهٔ ۹.۷۵ (`tgPollTick`) فقط در `afterCodeSwap` (نصبِ خودکار) یا همگام‌سازیِ دوساعته ساخته
+     می‌شد؛ پس کارت‌های موسیقی تا دو ساعت نمی‌رفتند. حالا یک بار برای هر نسخه، در همین گذرِ ساعتی، و تکراری‌ها هم کنار. */
+  try { trigEnsureForVersion_(); } catch (eTv) {}
   if (CFG.AUTOUPDATE_ENABLED === false || CFG.AUTOUPDATE_HOURLY === false) return { ok: false, reason: 'off' };
   var p = props_(), now = new Date().getTime();
   var last = Number(p.getProperty(PK.AUTOUPDATE_HOURLY_AT) || 0);
@@ -82869,6 +82896,11 @@ function mrSendOne_(b, r) {
       res = tgApi_('sendAudio', { chat_id: tgChat_(), audio: f.getBlob(), caption: cap, parse_mode: 'HTML',
                                   title: String(b.name || '').replace(/\.wav$/i, '').slice(0, 60), reply_markup: kb });
     } catch (eA) { res = null; }
+    /* `sendAudio` رسماً MP3/M4A است؛ WAVی که نپذیرد، به‌صورتِ فایل همان‌جا پخش می‌شود — پیش از افتادن به پیوند. */
+    if (!res || !res.result) {
+      try { res = tgApi_('sendDocument', { chat_id: tgChat_(), document: f.getBlob(), caption: cap, parse_mode: 'HTML', reply_markup: kb }); }
+      catch (eD) { res = null; }
+    }
   }
   if (!res || !res.result) {
     res = tgApi_('sendMessage', { chat_id: tgChat_(), text: cap + '\n\n' + musicUrl_(b.id), parse_mode: 'HTML',
@@ -82974,9 +83006,11 @@ function mrOnButton_(hub, st, data, chatId, msgId, isText) {
   }
   else if (op === 'vx' || op === 'rx') {
     var ask = op === 'vx' ? 'وایبِ این قطعه را بنویسید' : 'علتِ رد را بنویسید (قطعه رد می‌شود)';
-    tgApi_('sendMessage', { chat_id: chatId, text: '✍️ ' + ask + ' — «' + String(b.name || r.name || '').replace(/\.wav$/i, '') +
-                            '»\nدر پاسخ به همین پیام بنویسید.\n#m:' + id + ':' + op,
-                            reply_markup: JSON.stringify({ force_reply: true, selective: true }) });
+    var askTxt = '✍️ ' + ask + ' — «' + String(b.name || r.name || '').replace(/\.wav$/i, '') +
+                 '»\nدر پاسخ (Reply) به همین پیام بنویسید.\n#m:' + id + ':' + op;
+    /* force_reply در کانال پذیرفته نیست — همان پیام بی آن، و پاسخ (Reply) همان کار را می‌کند. */
+    try { tgApi_('sendMessage', { chat_id: chatId, text: askTxt, reply_markup: JSON.stringify({ force_reply: true, selective: true }) }); }
+    catch (eFr) { tgApi_('sendMessage', { chat_id: chatId, text: askTxt }); }
     st.hotUntil = Date.now() + (Number(CFG.MR_HOT_MIN) || 10) * 60000;
     return { text: 'منتظرِ نوشتهٔ شما' };
   }
@@ -83096,7 +83130,7 @@ function tgPollRun_() {
     do {
       var wait = hot() ? Math.min(20, Math.max(0, Math.floor((maxRun - (Date.now() - t0)) / 1000) - 5)) : 0;
       var res = null, tCall = Date.now();
-      try { res = tgApi_('getUpdates', { offset: Number(st.offset) || 0, timeout: wait, allowed_updates: ['callback_query', 'message'] }); }
+      try { res = tgApi_('getUpdates', { offset: Number(st.offset) || 0, timeout: wait, allowed_updates: ['callback_query', 'message', 'channel_post'] }); }
       catch (eU) { st.pollWhy = String(eU.message || eU).slice(0, 120); break; }
       st.pollWhy = '';
       var ups = (res && res.result) || [];
@@ -83114,8 +83148,10 @@ function tgPollRun_() {
             else ans = mrOnButton_(getHub(), st, cq.data, m.chat.id, m.message_id, !m.audio && !m.document);
             try { tgApi_('answerCallbackQuery', { callback_query_id: cq.id, text: ans.text || '' }); } catch (eA) {}
             out.got++;
-          } else if (u.message && mrChatOk_(u.message.chat)) {
-            if (mrOnText_(getHub(), st, u.message)) out.got++;
+          } else {
+            /* چتِ موتور ممکن است کانال باشد: آنجا نوشتهٔ او `channel_post` است، نه `message`. */
+            var um = u.message || u.channel_post;
+            if (um && mrChatOk_(um.chat) && mrOnText_(getHub(), st, um)) out.got++;
           }
         } catch (eH) { st.lastWhy = String(eH.message || eH).slice(0, 120); }
       }

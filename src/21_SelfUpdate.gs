@@ -1819,6 +1819,10 @@ function installCodeRollback() {
  * وسطِ صداگذاری یا پشتیبان کاری نمی‌کند و تریگرِ «دو ساعت بعد» هم نمی‌سازد: ساعتِ بعد خودش دوباره می‌پرسد.
  */
 function selfUpdateHourly_() {
+  /* ══ تریگرهای نسخهٔ تازه، حتی وقتی کد دستی جای‌گذاری شد (۹.۷۶) ══
+     «دستی نصب کردم» — ولی تریگرِ تازهٔ ۹.۷۵ (`tgPollTick`) فقط در `afterCodeSwap` (نصبِ خودکار) یا همگام‌سازیِ دوساعته ساخته
+     می‌شد؛ پس کارت‌های موسیقی تا دو ساعت نمی‌رفتند. حالا یک بار برای هر نسخه، در همین گذرِ ساعتی، و تکراری‌ها هم کنار. */
+  try { trigEnsureForVersion_(); } catch (eTv) {}
   if (CFG.AUTOUPDATE_ENABLED === false || CFG.AUTOUPDATE_HOURLY === false) return { ok: false, reason: 'off' };
   var p = props_(), now = new Date().getTime();
   var last = Number(p.getProperty(PK.AUTOUPDATE_HOURLY_AT) || 0);

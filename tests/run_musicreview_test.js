@@ -151,4 +151,44 @@ console.log('=== ۵) یادآوری، منو، تریگر، وضعیت ===');
   ok('۵.۵ موسیقیِ پخش‌شده در متنِ تلگرام: پیوندِ فایل و جایگاه', /<a href="https:\/\/drive\.google\.com\/file\/d\//.test(ml) && /\(شروع\)/.test(ml) && /B \(میانه\)/.test(ml), ml);
 }
 
+console.log('=== ۵-ب) تلگرامِ واقعی: WAVِ ردشده از sendAudio، و چتِ کانال ===');
+{
+  const keep = global.__STUB;
+  let audioCalls = 0;
+  global.__STUB = (url, body) => {
+    if (/\/sendAudio$/.test(url)) { audioCalls++; return { code: 400, json: { ok: false, description: 'Bad Request: wrong file type' } }; }
+    return keep(url, body);
+  };
+  tg.length = 0;
+  const midD = mrSendOne_({ id: fD.getId(), name: 'D.wav', sec: 30, used: 3, heard: 'آهنگ' }, null);
+  global.__STUB = keep;
+  ok('۵-ب.۱ sendAudio رد کرد ⇒ همان فایل با sendDocument و همان دکمه‌ها، نه پیوندِ خالی', audioCalls === 1 && !!midD &&
+     calls('sendDocument').length === 1 && /inline_keyboard/.test(calls('sendDocument')[0].b.reply_markup) && calls('sendMessage').length === 0);
+  tg.length = 0;
+  ups.push({ update_id: ++mid, channel_post: { message_id: 10, chat: { id: 777 }, text: '/music' } });
+  tgPollTick();
+  ok('۵-ب.۲ نوشته در کانال (channel_post) هم شنیده می‌شود', calls('sendMessage').some(x => /بانکِ موسیقی/.test(x.b.text)) &&
+     JSON.stringify(calls('getUpdates')[0].b.allowed_updates).indexOf('channel_post') !== -1);
+}
+
+console.log('=== ۶) نصبِ دستی: تریگرِ تازه همان ساعت ساخته می‌شود، تکراری‌ها کنار (۹.۷۶) ===');
+{
+  /* حالتِ واقعیِ ۲۰ اکتبر: کد دستی جای‌گذاری شد، tgPollTick نبود، selfUpdateRetry چهار بار. */
+  global.__TRIGGERS.length = 0;
+  delete global.__PROPS[PK.SCHED_OFF];
+  wantedTriggers_().filter(w => w.fn !== 'tgPollTick').forEach(w => ScriptApp.newTrigger(w.fn).timeBased().create());
+  for (let i = 0; i < 4; i++) ScriptApp.newTrigger('selfUpdateRetry').timeBased().after(1).create();
+  delete global.__PROPS[PK.TRIG_VER];
+  const kRead = global.readCodeManifest_;
+  global.readCodeManifest_ = () => ({ info: { version: CFG.CODE_VERSION } });
+  delete global.__PROPS[PK.AUTOUPDATE_HOURLY_AT];
+  try { selfUpdateHourly_(); } finally { global.readCodeManifest_ = kRead; }
+  const names = global.__TRIGGERS.map(x => x.getHandlerFunction());
+  ok('۶.۱ گذرِ ساعتیِ بعد از نصبِ دستی tgPollTick را می‌سازد', names.indexOf('tgPollTick') !== -1, names.join(','));
+  ok('۶.۲ و تکراری‌ها را کنار می‌گذارد (selfUpdateRetry ×4 ⇒ ۱)', names.filter(n => n === 'selfUpdateRetry').length === 1 &&
+     new Set(names).size === names.length, names.join(','));
+  const before = global.__TRIGGERS.length;
+  ok('۶.۳ یک بار برای هر نسخه — گذرِ بعدی دست نمی‌زند', trigEnsureForVersion_() === false && global.__TRIGGERS.length === before);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ بازبینیِ موسیقی گذشت.');

@@ -1,10 +1,12 @@
 {
- "version": "9.75",
+ "version": "9.76",
  "codeFile": "engine.gs",
- "sha256": "1c5223a6b59b5bf13e6b1ed6e8ad1b41ade8db787d3fc6036f5c05be7c1e9824",
- "releasedAt": "2026-10-20T16:40:56Z",
- "summary": "بازبینیِ موسیقی در تلگرام: کارت با ستاره، وایب، جایگاه، تأیید و رد با توضیح؛ داوریِ صاحبِ برنامه بر انتخاب مقدم؛ «موسیقی نیست» ⇒ یافتهٔ ریشه؛ پیوندِ موسیقیِ پخش‌شده",
+ "sha256": "12a79cf961ea88028c7c042d4a25a3357b4fc68f25514c82d284553774f43911",
+ "releasedAt": "2026-10-20T17:02:27Z",
+ "summary": "تریگرِ نسخهٔ تازه پس از نصبِ دستی هم ساخته می‌شود (و تکراری‌ها کنار)؛ کارتِ موسیقی با sendDocument اگر sendAudio نپذیرد؛ چتِ کانال",
  "fixes": [
+  "trigEnsureForVersion_ در سرِ selfUpdateHourly_: یک بار برای هر نسخه trigDedupe_ و ensureScheduledTriggers_ — tgPollTick پس از نصبِ دستیِ ۹.۷۵ ساخته نشده بود",
+  "mrSendOne_: sendAudio ⇒ sendDocument ⇒ پیوند؛ getUpdates با channel_post؛ force_reply ⇒ پیامِ ساده در کانال",
   "بخشِ ۳۹ (src/39_MusicReview.gs): tgPollTick با getUpdates (تریگرِ ۵ دقیقه‌ای، long-poll پس از هر کلیک)، کارت‌های روزانه (امشب ۲۵، بعد ۱۰)، تب‌های «بازبینیِ موسیقی» و «بازخوردِ موسیقی»",
   "musicBank_/musicPick_: ردشده هرگز؛ تأییدشده بی سدِ شنیدنِ مدل و جلوتر؛ ستاره، وایب و جایگاهِ او",
   "mrRootCause_: دومین «موسیقی نیست» برای «آهنگ»ِ مدل ⇒ یافتهٔ کد music-not-music و تلگرام؛ mrNag_ (۲۴ ساعت بی‌جواب) و mrRejectStreak_ (۸ از ۱۰ رد)",

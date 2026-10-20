@@ -308,6 +308,28 @@ function trigNames_() {
   return out;
 }
 
+/** یک بار برای هر نسخهٔ در حالِ اجرا (۹.۷۶): تکراری‌ها کنار، گم‌شده‌ها ساخته. ⇒ true اگر همین حالا کار کرد. */
+function trigEnsureForVersion_() {
+  var p = props_(), v = String(CFG.CODE_VERSION);
+  if (p.getProperty(PK.TRIG_VER) === v) return false;
+  trigDedupe_();
+  ensureScheduledTriggers_();
+  p.setProperty(PK.TRIG_VER, v);
+  return true;
+}
+
+/** هر تابع یک تریگر — بقیه پاک (۹.۷۶). وضعیت «selfUpdateRetry ×4» نشان داد تکراری‌ها خودشان هرگز نمی‌روند. */
+function trigDedupe_() {
+  var ts = [], seen = {}, n = 0;
+  try { ts = ScriptApp.getProjectTriggers(); } catch (e) { return 0; }
+  for (var i = 0; i < ts.length; i++) {
+    var fn = ts[i].getHandlerFunction();
+    if (seen[fn]) { try { ScriptApp.deleteTrigger(ts[i]); n++; } catch (eD) {} }
+    else seen[fn] = 1;
+  }
+  return n;
+}
+
 function ensureScheduledTriggers_() {
   // اگر خودتان «حذف زمان‌بندی» را زده‌اید، خودکار برنمی‌گردد. «نصب زمان‌بندی»
   // این نشانه را پاک می‌کند. بی این، یک کلیکِ ساده همهٔ چیزی را که عمداً خاموش

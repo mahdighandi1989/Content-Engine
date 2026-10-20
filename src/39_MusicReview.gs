@@ -145,6 +145,11 @@ function mrSendOne_(b, r) {
       res = tgApi_('sendAudio', { chat_id: tgChat_(), audio: f.getBlob(), caption: cap, parse_mode: 'HTML',
                                   title: String(b.name || '').replace(/\.wav$/i, '').slice(0, 60), reply_markup: kb });
     } catch (eA) { res = null; }
+    /* `sendAudio` رسماً MP3/M4A است؛ WAVی که نپذیرد، به‌صورتِ فایل همان‌جا پخش می‌شود — پیش از افتادن به پیوند. */
+    if (!res || !res.result) {
+      try { res = tgApi_('sendDocument', { chat_id: tgChat_(), document: f.getBlob(), caption: cap, parse_mode: 'HTML', reply_markup: kb }); }
+      catch (eD) { res = null; }
+    }
   }
   if (!res || !res.result) {
     res = tgApi_('sendMessage', { chat_id: tgChat_(), text: cap + '\n\n' + musicUrl_(b.id), parse_mode: 'HTML',
@@ -250,9 +255,11 @@ function mrOnButton_(hub, st, data, chatId, msgId, isText) {
   }
   else if (op === 'vx' || op === 'rx') {
     var ask = op === 'vx' ? 'وایبِ این قطعه را بنویسید' : 'علتِ رد را بنویسید (قطعه رد می‌شود)';
-    tgApi_('sendMessage', { chat_id: chatId, text: '✍️ ' + ask + ' — «' + String(b.name || r.name || '').replace(/\.wav$/i, '') +
-                            '»\nدر پاسخ به همین پیام بنویسید.\n#m:' + id + ':' + op,
-                            reply_markup: JSON.stringify({ force_reply: true, selective: true }) });
+    var askTxt = '✍️ ' + ask + ' — «' + String(b.name || r.name || '').replace(/\.wav$/i, '') +
+                 '»\nدر پاسخ (Reply) به همین پیام بنویسید.\n#m:' + id + ':' + op;
+    /* force_reply در کانال پذیرفته نیست — همان پیام بی آن، و پاسخ (Reply) همان کار را می‌کند. */
+    try { tgApi_('sendMessage', { chat_id: chatId, text: askTxt, reply_markup: JSON.stringify({ force_reply: true, selective: true }) }); }
+    catch (eFr) { tgApi_('sendMessage', { chat_id: chatId, text: askTxt }); }
     st.hotUntil = Date.now() + (Number(CFG.MR_HOT_MIN) || 10) * 60000;
     return { text: 'منتظرِ نوشتهٔ شما' };
   }
@@ -372,7 +379,7 @@ function tgPollRun_() {
     do {
       var wait = hot() ? Math.min(20, Math.max(0, Math.floor((maxRun - (Date.now() - t0)) / 1000) - 5)) : 0;
       var res = null, tCall = Date.now();
-      try { res = tgApi_('getUpdates', { offset: Number(st.offset) || 0, timeout: wait, allowed_updates: ['callback_query', 'message'] }); }
+      try { res = tgApi_('getUpdates', { offset: Number(st.offset) || 0, timeout: wait, allowed_updates: ['callback_query', 'message', 'channel_post'] }); }
       catch (eU) { st.pollWhy = String(eU.message || eU).slice(0, 120); break; }
       st.pollWhy = '';
       var ups = (res && res.result) || [];
@@ -390,8 +397,10 @@ function tgPollRun_() {
             else ans = mrOnButton_(getHub(), st, cq.data, m.chat.id, m.message_id, !m.audio && !m.document);
             try { tgApi_('answerCallbackQuery', { callback_query_id: cq.id, text: ans.text || '' }); } catch (eA) {}
             out.got++;
-          } else if (u.message && mrChatOk_(u.message.chat)) {
-            if (mrOnText_(getHub(), st, u.message)) out.got++;
+          } else {
+            /* چتِ موتور ممکن است کانال باشد: آنجا نوشتهٔ او `channel_post` است، نه `message`. */
+            var um = u.message || u.channel_post;
+            if (um && mrChatOk_(um.chat) && mrOnText_(getHub(), st, um)) out.got++;
           }
         } catch (eH) { st.lastWhy = String(eH.message || eH).slice(0, 120); }
       }
