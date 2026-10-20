@@ -1145,6 +1145,26 @@ def asWav_(path):
         return None
 
 
+PITCH_GATE = 2.0     # نیم‌پرده فاصلهٔ خروجی از هدف که دیگر «همان گوینده» نیست
+
+
+def pitchGateErr(stOut, pitchAuto, vg=None):
+    """خروجی به زیروبمِ هدف رسید؟ ⇒ '' یا علت. فقط یک گروهِ صدا (قسمتِ چندصدایی میانهٔ مشترک ندارد)."""
+    import math
+    try:
+        if not stOut or not pitchAuto or (vg and len(vg.get("groups") or []) > 1):
+            return ""
+        t, o = float(pitchAuto.get("targetHz") or 0), float(stOut.get("medianHz") or 0)
+        if t <= 0 or o <= 0:
+            return ""
+        d = 12.0 * math.log(o / t, 2)
+        if abs(d) <= PITCH_GATE:
+            return ""
+        return "زیروبمِ خروجی %.0f هرتز، هدف %.0f (%+.1f نیم‌پرده؛ گامِ خواسته %s)" % (o, t, d, pitchAuto.get("pitch"))
+    except Exception:
+        return ""
+
+
 def pitchResolve(tokens, src, ref, targetHz=None):
     """گام‌های جاروبِ آزمایشگاه — از هرتزِ همین مبدأ، نه از حافظه (۱۴ اکتبر).
 
@@ -1434,6 +1454,8 @@ def runOne(it, mp):
             "--src-static",
             "--rvc-model", "vb/model.pth",
             "--rvc-pitch", pitch,
+            # ۲۰ اکتبر: گامِ پل از گفتارِ تنها حساب شده؛ آزمایشگاه آن را از نو نسنجد و کنار نگذارد.
+            "--rvc-pitch-exact",
             "--rvc-index-rate", str(pr.get("indexRate", "1.0")),
             "--rvc-protect", str(pr.get("protect", "0.33")),
             # ══ عددِ شباهت کارِ آزمایشگاه است، نه کارِ تولید ══
@@ -1707,6 +1729,11 @@ def runOne(it, mp):
     stOut = f0Stats(best)
     if stOut:
         rec["f0Out"] = stOut
+        # ══ سدِ گام (۲۰ اکتبر) ══ صدایی که گامش به هدف نرسیده، آن گوینده نیست؛ به شنونده نمی‌رسد.
+        gErr = pitchGateErr(stOut, pitchAuto, vg)
+        if gErr:
+            say("::error title=گامِ خروجی به هدف نرسید::%s — ردیف بسته نمی‌شود." % gErr)
+            return 1
         if stOut["medianHz"] < 75 or stOut["lowPct"] >= 40:
             rec["f0Warn"] = ("زیروبمِ خروجی %.0f هرتز، %d٪ زیرِ ۷۰ — محدودهٔ "
                              "خِرخِر" % (stOut["medianHz"], stOut["lowPct"]))

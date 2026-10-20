@@ -350,5 +350,23 @@ print(json.dumps(r))`);
   try { fs.rmSync(d12, { recursive: true, force: true }); } catch (e) {}
 }
 
+console.log('\n=== ۱۳) گامِ پل بازسنجی و کنار گذاشته نمی‌شود، و خروجیِ دور از هدف به شنونده نمی‌رسد (۹.۶۸) ===');
+{
+  /* رضوی با مبدأ Alnilam ‎−۷ خواست و ۱۶۰ هرتز درآمد (هدف ۱۰۷)؛ گلدوز +۴ خواست و ۱۳۱ شد (هدف ۱۵۸). */
+  const g = py(`print(json.dumps({
+    'alnilam': v.pitchGateErr({'medianHz':160.0},{'targetHz':106.9,'pitch':-7}),
+    'goldooz': v.pitchGateErr({'medianHz':131.1},{'targetHz':158.0,'pitch':4}),
+    'ok': v.pitchGateErr({'medianHz':108.1},{'targetHz':106.9,'pitch':-4}),
+    'multi': v.pitchGateErr({'medianHz':160.0},{'targetHz':106.9,'pitch':-7},{'groups':[1,2]}),
+    'none': v.pitchGateErr(None,{'targetHz':106.9})}))`);
+  ok('۱۳.۱ دو نمونهٔ واقعیِ ۱۹ اکتبر رد می‌شوند؛ نمونهٔ درست نه؛ قسمتِ چندصدایی و بی‌سنجش دست نمی‌خورد',
+     /160/.test(g.alnilam) && /131/.test(g.goldooz) && g.ok === '' && g.multi === '' && g.none === '', JSON.stringify(g));
+  const vb13 = fs.readFileSync('tools/voicebridge.py', 'utf8'), vl13 = fs.readFileSync('tools/voicelab.py', 'utf8');
+  ok('۱۳.۲ پل `--rvc-pitch-exact` می‌فرستد و آزمایشگاه با آن `pitchResolve` را دور می‌زند؛ سد پیش از ثبت',
+     /"--rvc-pitch", pitch,[\s\S]{0,200}"--rvc-pitch-exact",/.test(vb13) && /add_argument\("--rvc-pitch-exact", action="store_true"/.test(vl13) &&
+     /if OPT\.get\("rvc_pitch_exact"\):[\s\S]{0,900}else:\s*\n\s*steps_, pchk_ = pitchResolve\(/.test(vl13) &&
+     /OPT\["rvc_pitch_exact"\] = bool\(a\.rvc_pitch_exact\)/.test(vl13) && /gErr = pitchGateErr\(stOut, pitchAuto, vg\)[\s\S]{0,200}return 1/.test(vb13));
+}
+
 try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ رنگِ ضبط‌های خودِ گوینده گذشت.');
