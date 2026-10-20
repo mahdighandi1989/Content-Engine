@@ -1044,6 +1044,13 @@ function musicBank_(hub) {
       if (ap) out[out.length - 1] = ap; else out.pop();
     }
   }
+  /* سلیقه از ستاره‌ها (۹.۷۸) روی همهٔ قطعه‌ها، داوری‌نشده‌ها هم. */
+  try {
+    if (typeof mrTasteOf_ === 'function') {
+      var taste = mrTasteOf_(rv);
+      if (taste.n) for (var tI = 0; tI < out.length; tI++) out[tI].like = mrLike_(taste, out[tI]);
+    }
+  } catch (eTs) {}
   return out;
 }
 
@@ -1130,6 +1137,8 @@ function musicPick_(bank, slot, moodWords, wantedId) {
     if (slot === 'میانه' && heardSays_(b.heard, 'آهنگ')) s += 6;
     /* داوریِ او (۹.۷۵): تأییدشده بر هر هم‌خوانیِ حال‌وهوا مقدم، و ستاره میانِ تأییدشده‌ها. */
     if (b.rev) { if (b.rev.ok) s += 10; s += (Number(b.rev.stars) || 0) * 1.5; }
+    /* و سلیقه‌ای که از ستاره‌های قطعه‌های دیگر فهمیده شد (۹.۷۸) — شبیهِ آنچه دوست دارد جلوتر، شبیهِ آنچه ندارد عقب‌تر. */
+    s += (Number(b.like) || 0) * 0.8;
     return s;
   };
   cands.sort(function (a, b) {
@@ -2434,7 +2443,9 @@ function musicPlanModel_(bank, ctx) {
     return String(b.kind || '') !== 'افکت';     // افکت‌ها فهرستِ خودشان را دارند
   }).slice(0, 60).map(function (b) {
     return '• ' + b.id + ' | «' + b.name + '» | حال‌وهوا: ' + (b.mood || '—') +
-           ' | مناسب: ' + (b.slots || '—') + ' | مدت: ' + b.sec + 'ث | بارِ استفاده: ' + b.used;
+           ' | مناسب: ' + (b.slots || '—') + ' | مدت: ' + b.sec + 'ث | بارِ استفاده: ' + b.used +
+           (b.rev && (b.rev.ok || b.rev.stars) ? ' | داوریِ صاحبِ برنامه: ' + (b.rev.ok ? 'تأیید' : '') + (b.rev.stars ? ' ' + b.rev.stars + '/5' : '') : '') +
+           (b.like ? ' | شباهت به سلیقه‌اش: ' + (b.like > 0 ? '+' : '') + (Math.round(b.like * 10) / 10) : '');
   }).join('\n');
 
   /* مرزهای مجاز — حالا با وایبِ دو طرف.
@@ -2588,6 +2599,7 @@ function musicPlanModel_(bank, ctx) {
     (brdList || '[این قسمت مرزِ مناسبی ندارد]'),
     '',
     '--- بانکِ موسیقی ---',
+    '«داوریِ صاحبِ برنامه» و «شباهت به سلیقه‌اش» از ستاره‌های خودِ او می‌آید؛ میانِ دو قطعهٔ مناسب، آنکه به سلیقه‌اش نزدیک‌تر است.',
     list
   ].concat(sfxBlock).join('\n');
 
@@ -3226,6 +3238,14 @@ function musicSeekTerms_(slot) {
       var r = geminiText_(
         'این‌ها حال‌وهواهایی است که یک پادکستِ فارسی برای موسیقیِ خودش خواسته:\n' +
         moods.map(function (m) { return '• ' + m; }).join('\n') +
+        (function () {
+          try {
+            if (typeof mrTasteOf_ !== 'function') return '';
+            var tw = mrTasteWords_(mrTasteOf_(mrMap_(getHub_())));
+            return (tw.like.length ? '\n\nسلیقهٔ صاحبِ برنامه از ستاره‌هایش — دوست دارد: ' + tw.like.join('، ') : '') +
+                   (tw.dislike.length ? '\nدوست ندارد (از این‌ها دوری کن): ' + tw.dislike.join('، ') : '');
+          } catch (e) { return ''; }
+        })() +
         '\n\nجایگاهِ موردِ نظر: ' + slot +
         ' (شروع = موسیقیِ آغازِ برنامه، پایان = موسیقیِ پایان، میانه = قطعهٔ کوتاهِ بینِ دو بخش)' +
         '\n\nسه تا پنج واژهٔ انگلیسیِ جست‌وجو بده که در آرشیوِ موسیقیِ آزاد،' +

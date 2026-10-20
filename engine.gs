@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.77
+ *  موتور محتوا و پادکست — نسخهٔ 9.78
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2187,7 +2187,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.77',
+  CODE_VERSION: '9.78',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -40790,6 +40790,13 @@ function musicBank_(hub) {
       if (ap) out[out.length - 1] = ap; else out.pop();
     }
   }
+  /* سلیقه از ستاره‌ها (۹.۷۸) روی همهٔ قطعه‌ها، داوری‌نشده‌ها هم. */
+  try {
+    if (typeof mrTasteOf_ === 'function') {
+      var taste = mrTasteOf_(rv);
+      if (taste.n) for (var tI = 0; tI < out.length; tI++) out[tI].like = mrLike_(taste, out[tI]);
+    }
+  } catch (eTs) {}
   return out;
 }
 
@@ -40876,6 +40883,8 @@ function musicPick_(bank, slot, moodWords, wantedId) {
     if (slot === 'میانه' && heardSays_(b.heard, 'آهنگ')) s += 6;
     /* داوریِ او (۹.۷۵): تأییدشده بر هر هم‌خوانیِ حال‌وهوا مقدم، و ستاره میانِ تأییدشده‌ها. */
     if (b.rev) { if (b.rev.ok) s += 10; s += (Number(b.rev.stars) || 0) * 1.5; }
+    /* و سلیقه‌ای که از ستاره‌های قطعه‌های دیگر فهمیده شد (۹.۷۸) — شبیهِ آنچه دوست دارد جلوتر، شبیهِ آنچه ندارد عقب‌تر. */
+    s += (Number(b.like) || 0) * 0.8;
     return s;
   };
   cands.sort(function (a, b) {
@@ -42180,7 +42189,9 @@ function musicPlanModel_(bank, ctx) {
     return String(b.kind || '') !== 'افکت';     // افکت‌ها فهرستِ خودشان را دارند
   }).slice(0, 60).map(function (b) {
     return '• ' + b.id + ' | «' + b.name + '» | حال‌وهوا: ' + (b.mood || '—') +
-           ' | مناسب: ' + (b.slots || '—') + ' | مدت: ' + b.sec + 'ث | بارِ استفاده: ' + b.used;
+           ' | مناسب: ' + (b.slots || '—') + ' | مدت: ' + b.sec + 'ث | بارِ استفاده: ' + b.used +
+           (b.rev && (b.rev.ok || b.rev.stars) ? ' | داوریِ صاحبِ برنامه: ' + (b.rev.ok ? 'تأیید' : '') + (b.rev.stars ? ' ' + b.rev.stars + '/5' : '') : '') +
+           (b.like ? ' | شباهت به سلیقه‌اش: ' + (b.like > 0 ? '+' : '') + (Math.round(b.like * 10) / 10) : '');
   }).join('\n');
 
   /* مرزهای مجاز — حالا با وایبِ دو طرف.
@@ -42334,6 +42345,7 @@ function musicPlanModel_(bank, ctx) {
     (brdList || '[این قسمت مرزِ مناسبی ندارد]'),
     '',
     '--- بانکِ موسیقی ---',
+    '«داوریِ صاحبِ برنامه» و «شباهت به سلیقه‌اش» از ستاره‌های خودِ او می‌آید؛ میانِ دو قطعهٔ مناسب، آنکه به سلیقه‌اش نزدیک‌تر است.',
     list
   ].concat(sfxBlock).join('\n');
 
@@ -42972,6 +42984,14 @@ function musicSeekTerms_(slot) {
       var r = geminiText_(
         'این‌ها حال‌وهواهایی است که یک پادکستِ فارسی برای موسیقیِ خودش خواسته:\n' +
         moods.map(function (m) { return '• ' + m; }).join('\n') +
+        (function () {
+          try {
+            if (typeof mrTasteOf_ !== 'function') return '';
+            var tw = mrTasteWords_(mrTasteOf_(mrMap_(getHub_())));
+            return (tw.like.length ? '\n\nسلیقهٔ صاحبِ برنامه از ستاره‌هایش — دوست دارد: ' + tw.like.join('، ') : '') +
+                   (tw.dislike.length ? '\nدوست ندارد (از این‌ها دوری کن): ' + tw.dislike.join('، ') : '');
+          } catch (e) { return ''; }
+        })() +
         '\n\nجایگاهِ موردِ نظر: ' + slot +
         ' (شروع = موسیقیِ آغازِ برنامه، پایان = موسیقیِ پایان، میانه = قطعهٔ کوتاهِ بینِ دو بخش)' +
         '\n\nسه تا پنج واژهٔ انگلیسیِ جست‌وجو بده که در آرشیوِ موسیقیِ آزاد،' +
@@ -82814,7 +82834,8 @@ function mrMap_(hub) {
                   verdict: String(v[i][MRC.VERD - 1] || '').trim(), stars: Number(v[i][MRC.STAR - 1]) || 0,
                   vibe: String(v[i][MRC.VIBE - 1] || ''), slots: String(v[i][MRC.SLOTS - 1] || ''),
                   why: String(v[i][MRC.WHY - 1] || ''), whyK: String(v[i][MRC.WHYK - 1] || ''),
-                  msg: String(v[i][MRC.MSG - 1] || ''), at: String(v[i][MRC.AT - 1] || '') };
+                  msg: String(v[i][MRC.MSG - 1] || ''), at: String(v[i][MRC.AT - 1] || ''),
+                  heard: String(v[i][MRC.HEARD - 1] || '') };
     }
   } catch (e) {}
   return out;
@@ -82828,6 +82849,58 @@ function mrApply_(b, r) {
   if (r.vibe) b.mood = r.vibe + (b.mood ? '، ' + b.mood : '');
   if (r.slots) b.slots = r.slots;
   return b;
+}
+
+/* ───── سلیقه از ستاره‌ها (۹.۷۸) ─────
+ * «وقتی ستاره تعیین می‌کنم … باید تأثیر داشته باشن که بفهمی بعداً چه چیزایی رو دوست دارم یا ندارم، حتی اگر موسیقی باشن.»
+ * ستاره فقط امتیازِ همان قطعه نبود و نباید باشد: از وایب‌هایی که زده و از شنیدنِ مدل (ساز، سبک، حال) یک نیم‌رخ ساخته
+ * می‌شود — هر واژه با وزنِ (ستاره − ۳)، تأیید +۱، رد −۲ — و همان نیم‌رخ قطعه‌های **داوری‌نشده** را هم جلو یا عقب می‌برد،
+ * به مدلِ انتخاب گفته می‌شود، و جست‌وجوی قطعهٔ تازه را جهت می‌دهد. */
+var MR_TASTE_STOP = ['آهنگ', 'موسیقی', 'قطعه', 'با', 'و', 'در', 'از', 'به', 'که', 'یک', 'است', 'این', 'برای', 'بی', 'کمی', 'خیلی'];
+
+function mrTokens_(txt) {
+  var seen = {}, out = [];
+  String(txt || '').split(/[\s،,؛;:\-—–|()«»\.\/]+/).forEach(function (w) {
+    w = w.trim();
+    if (w.length < 2 || MR_TASTE_STOP.indexOf(w) !== -1 || /^[\d۰-۹]+$/.test(w) || seen[w]) return;
+    seen[w] = 1; out.push(w);
+  });
+  return out;
+}
+
+function mrTasteOf_(map) {
+  var t = {}, n = 0;
+  Object.keys(map || {}).forEach(function (k) {
+    var r = map[k], w = (r.stars ? r.stars - 3 : 0) + (r.verdict === 'تأیید' ? 1 : 0) + (r.verdict === 'رد' ? -2 : 0);
+    if (!w) return;
+    n++;
+    mrTokens_(r.vibe + ' ' + r.heard).forEach(function (x) { t[x] = (t[x] || 0) + w; });
+  });
+  return { w: t, n: n };
+}
+
+/** چقدر این قطعه به آنچه او دوست دارد می‌ماند — میانگینِ وزنِ واژه‌های مشترک، در بازهٔ ‎−۵ تا ‎+۵. */
+function mrLike_(taste, b) {
+  if (!taste || !taste.n) return 0;
+  var toks = mrTokens_((b.mood || '') + ' ' + (b.heard || '')), sum = 0, hit = 0;
+  toks.forEach(function (x) { if (taste.w[x]) { sum += taste.w[x]; hit++; } });
+  if (!hit) return 0;
+  return Math.max(-5, Math.min(5, sum / Math.sqrt(hit)));
+}
+
+/** برای خواندنِ آدم و مدل: بیشترین مثبت‌ها و منفی‌ها. */
+function mrTasteWords_(taste, k) {
+  var e = Object.keys((taste && taste.w) || {}).map(function (x) { return [x, taste.w[x]]; });
+  k = k || 6;
+  return { like: e.filter(function (x) { return x[1] > 0; }).sort(function (a, b) { return b[1] - a[1]; }).slice(0, k).map(function (x) { return x[0]; }),
+           dislike: e.filter(function (x) { return x[1] < 0; }).sort(function (a, b) { return a[1] - b[1]; }).slice(0, k).map(function (x) { return x[0]; }) };
+}
+
+function mrTasteLine_(taste) {
+  var tw = mrTasteWords_(taste);
+  if (!tw.like.length && !tw.dislike.length) return '';
+  return (tw.like.length ? 'دوست دارد: ' + tw.like.join('، ') : '') + (tw.like.length && tw.dislike.length ? ' · ' : '') +
+         (tw.dislike.length ? 'دوست ندارد: ' + tw.dislike.join('، ') : '');
 }
 
 function mrSet_(hub, id, patch) {
@@ -82858,22 +82931,23 @@ function mrKeyboard_(id, r) {
   var cb = function (op, a) { return 'm|' + id + '|' + op + (a == null ? '' : '|' + a); };
   var rows = [];
   var st = [];
-  for (var s = 1; s <= 5; s++) st.push({ text: (r.stars === s ? '●' : '') + '⭐' + faDigitsOut_(String(s)), callback_data: cb('s', s) });
+  /* ۹.۷۸: «به اندازهٔ همون ستاره‌ای که می‌زنم تا اونجا روشن باشه» — ستاره‌های زده‌شده پر، بقیه خالی. */
+  for (var s = 1; s <= 5; s++) st.push({ text: (s <= (r.stars || 0) ? '⭐' : '☆') + faDigitsOut_(String(s)), callback_data: cb('s', s) });
   rows.push(st);
   var vb = mrVibes_(), have = String(r.vibe || '').split(/[،,]\s*/);
   for (var i = 0; i < vb.length; i += 4) {
     rows.push(vb.slice(i, i + 4).map(function (t, j) {
-      return { text: (have.indexOf(t) !== -1 ? '✓ ' : '') + t, callback_data: cb('v', i + j) };
+      return { text: (have.indexOf(t) !== -1 ? '✅ ' : '') + t, callback_data: cb('v', i + j) };
     }));
   }
   rows.push([{ text: '✍️ وایبِ دیگر', callback_data: cb('vx') }]);
   rows.push(MR_SLOTS.map(function (x) {
-    return { text: (String(r.slots || '').indexOf(x.t) !== -1 ? '✓ ' : '') + x.ic + ' ' + x.t, callback_data: cb('o', x.k) };
+    return { text: (String(r.slots || '').indexOf(x.t) !== -1 ? '✅ ' : '') + x.ic + ' ' + x.t, callback_data: cb('o', x.k) };
   }));
   if (r.verdict === 'رد') {
     rows.push([{ text: '↩️ برگرداندن (معلق)', callback_data: cb('u') }]);
   } else {
-    rows.push([{ text: (r.verdict === 'تأیید' ? '✓ ' : '') + '✅ تأیید', callback_data: cb('a') },
+    rows.push([{ text: r.verdict === 'تأیید' ? '✅ تأیید شد' : '✅ تأیید', callback_data: cb('a') },
                { text: '⏳ بعداً', callback_data: cb('u') }]);
     rows.push(MR_WHY.map(function (w) { return { text: '❌ ' + w.t, callback_data: cb('r', w.k) }; }));
     rows.push([{ text: '✍️ رد با توضیح', callback_data: cb('rx') }]);
@@ -83113,7 +83187,8 @@ function mrMenu_(hub, chatId) {
   var n = mrSummary_(hub, true), d = function (x) { return faDigitsOut_(String(x)); };
   tgApi_('sendMessage', { chat_id: chatId,
     text: '🎵 بانکِ موسیقی\n✅ تأییدشده: ' + d(n.ok) + '\n❌ ردشده: ' + d(n.no) + '\n⏳ فرستاده و بی‌جواب: ' + d(n.wait) +
-          '\n📭 هنوز فرستاده نشده: ' + (n.unsent == null ? '؟' : d(n.unsent)),
+          '\n📭 هنوز فرستاده نشده: ' + (n.unsent == null ? '؟' : d(n.unsent)) +
+          (function () { var l = ''; try { l = mrTasteLine_(mrTasteOf_(mrMap_(hub))); } catch (e) {} return l ? '\n\n🧭 سلیقه‌ای که از ستاره‌ها و داوری‌هایتان فهمیده‌ام — ' + l : ''; })(),
     reply_markup: JSON.stringify({ inline_keyboard: [[{ text: '۵ تای بعدی را بفرست', callback_data: 'mm|more' }]] }) });
 }
 
@@ -83127,6 +83202,8 @@ function tgPollTick() {
   if (!mrOn_()) return null;
   /* شاهدِ اجرا (۸.۱۱) — هر تریگرِ زمان‌بندی‌شده؛ کشته‌شدنش در «اجرای ناتمام» دیده می‌شود. */
   runEnter_('tgPollTick');
+  /* نصبِ دستی (۹.۷۸): تا گذرِ ساعتی صبر نکن — تریگرِ پنج‌دقیقه‌ایِ کهنه همین‌جا یک‌دقیقه‌ای می‌شود. یک خواندنِ ویژگی وقتی کاری نیست. */
+  try { if (typeof trigEnsureForVersion_ === 'function') trigEnsureForVersion_(); } catch (eTv) {}
   try { return tgPollRun_(); } finally { runExit_('tgPollTick'); }
 }
 
@@ -83148,6 +83225,7 @@ function mrLease_(take) {
 function mrAckText_(data) {
   var p = String(data || '').split('|');
   if (p[0] === 'mm') return 'تا چند دقیقهٔ دیگر';
+  if (p[2] === 's') { var n = Math.max(1, Math.min(5, Number(p[3]) || 1)); return new Array(n + 1).join('⭐') + ' ثبت شد'; }
   return ({ s: '⭐ ستاره ثبت شد', v: 'وایب ثبت شد', o: 'جایگاه ثبت شد', a: '✅ تأیید شد', u: 'معلق ماند',
             r: '❌ رد شد — دیگر پخش نمی‌شود', vx: 'منتظرِ نوشتهٔ شما', rx: 'منتظرِ نوشتهٔ شما' })[p[2]] || '';
 }

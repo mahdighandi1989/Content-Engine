@@ -240,4 +240,44 @@ console.log('=== ۷) «دکمه‌ها رو می‌زنم هیچ تأثیری ن
      polls.length + ' / ' + global.__PROPS[PK.TRIG_POLL]);
 }
 
+console.log('=== ۸) «دیر و نامشخص و نامفهوم» و «ستاره‌ها باید بفهمی چی دوست دارم» (۹.۷۸) ===');
+{
+  const kb = mrKeyboard_('X', { stars: 3 }).inline_keyboard[0].map(x => x.text);
+  ok('۸.۱ ستاره‌ها تا همان‌جا که زده روشن، بقیه خالی', /^⭐/.test(kb[0]) && /^⭐/.test(kb[2]) && /^☆/.test(kb[3]) && /^☆/.test(kb[4]), kb.join(' '));
+  ok('۸.۲ جوابِ همان لحظهٔ دکمهٔ ستاره خودِ ستاره‌ها را می‌گوید', mrAckText_('m|X|s|4') === '⭐⭐⭐⭐ ثبت شد', mrAckText_('m|X|s|4'));
+
+  const fE = mk('E.wav'), fF = mk('F.wav'), fG = mk('G.wav'), fH = mk('H.wav');
+  const base = mus.getLastRow();
+  mus.getRange(base + 1, 1, 4, MUSIC_HEADERS.length).setValues([row(fE, 'E.wav', 0, 'آهنگ — پیانو ملایم', 'میانه'),
+    row(fF, 'F.wav', 0, 'آهنگ — گیتار الکتریک تند', 'میانه'), row(fG, 'G.wav', 0, 'آهنگ — پیانو', 'میانه'), row(fH, 'H.wav', 0, 'آهنگ — گیتار الکتریک', 'میانه')]);
+  mrSet_(hub, fE.getId(), { name: 'E.wav', stars: 5, heard: 'آهنگ — پیانو ملایم', vibe: 'آرام' });
+  mrSet_(hub, fF.getId(), { name: 'F.wav', stars: 1, heard: 'آهنگ — گیتار الکتریک تند' });
+  const bank = musicBank_(hub), G = bank.filter(b => b.id === fG.getId())[0], H = bank.filter(b => b.id === fH.getId())[0];
+  ok('۸.۳ ستاره‌ها به قطعه‌های داوری‌نشده هم می‌رسند: شبیهِ پنج‌ستاره بالا، شبیهِ یک‌ستاره پایین', G.like > 0 && H.like < 0, G.like + ' / ' + H.like);
+  const pick = musicPick_([H, G], 'میانه', '', null);
+  ok('۸.۴ و انتخاب را جابه‌جا می‌کند (هر دو بی‌داوری و هم‌بار)', pick && pick.id === fG.getId(), pick && pick.name);
+
+  tg.length = 0;
+  ups.push({ update_id: ++mid, message: { message_id: 19, chat: { id: 777 }, text: '/music' } });
+  tgPollTick();
+  const menu = calls('sendMessage').filter(x => /بانکِ موسیقی/.test(x.b.text))[0];
+  ok('۸.۵ «/music» سلیقه‌ای را که فهمیده نشان می‌دهد', menu && /دوست دارد: [^\n]*پیانو/.test(menu.b.text) && /دوست ندارد: [^\n]*گیتار/.test(menu.b.text), menu && menu.b.text.slice(-160));
+
+  let asked = '';
+  const kG = global.geminiText_, kW = global.musicWantedMoods_;
+  global.geminiText_ = (p) => { asked = p; return { terms: 'calm piano' }; };
+  global.musicWantedMoods_ = () => ['آرام'];
+  try { musicSeekTerms_('میانه'); } finally { global.geminiText_ = kG; global.musicWantedMoods_ = kW; }
+  ok('۸.۶ جست‌وجوی قطعهٔ تازه هم سلیقه را می‌داند', /دوست دارد: [^\n]*پیانو/.test(asked) && /دوست ندارد[^\n]*گیتار/.test(asked));
+
+  /* نصبِ دستی: تریگرِ پنج‌دقیقه‌ای همان اجرای بعدی‌اش یک‌دقیقه‌ای می‌شود — بی انتظار برای گذرِ ساعتی. */
+  global.__TRIGGERS.length = 0;
+  ScriptApp.newTrigger('tgPollTick').timeBased().everyMinutes(5).create();
+  const old = global.__TRIGGERS[0];
+  delete global.__PROPS[PK.TRIG_VER]; delete global.__PROPS[PK.TRIG_POLL];
+  tgPollTick();
+  const polls = global.__TRIGGERS.filter(t => t.getHandlerFunction() === 'tgPollTick');
+  ok('۸.۷ نخستین اجرای تریگرِ کهنه پس از نصبِ دستی ⇒ تریگرِ یک‌دقیقه‌ای', polls.length === 1 && polls[0] !== old && global.__PROPS[PK.TRIG_POLL] === '1');
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ بازبینیِ موسیقی گذشت.');
