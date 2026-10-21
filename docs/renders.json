@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-21 19:22",
+ "updatedAt": "2026-10-21 19:23",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -5695,34 +5695,34 @@
    "at": "2026-10-21 19:11"
   },
   "1GWMZagwYfCtbe9AQDu4ff6QKXAXzCa1P": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-k3YsxG/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 2,
-   "at": "2026-10-21 19:21"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-Em0zSN/mp-s8cEY2/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 3,
+   "at": "2026-10-21 19:23"
   },
   "1uG4xrG92NprMGGtcl7r0Bo8trg6jv5C1": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-neZaMI/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 2,
-   "at": "2026-10-21 19:21"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-Em0zSN/mp-avM5uO/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 3,
+   "at": "2026-10-21 19:23"
   },
   "1MxK1jwCBTHWCz7gVYPClPm2t9f_SnCjs": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-Xk59v5/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 2,
-   "at": "2026-10-21 19:21"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-Em0zSN/mp-l6TMtV/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 3,
+   "at": "2026-10-21 19:23"
   },
   "1ftrghxY39aBY582Sv04Qpg_zhYeSHst0": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-pVxe1j/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 2,
-   "at": "2026-10-21 19:21"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-Em0zSN/mp-N5zf5G/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 3,
+   "at": "2026-10-21 19:23"
   },
   "1Gh-4qpa9uvp3OxPyz8XLR7gUjXZjq6Ht": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-D6zxAV/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 2,
-   "at": "2026-10-21 19:21"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-Em0zSN/mp-CMFvUh/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 3,
+   "at": "2026-10-21 19:23"
   },
   "1PPeLIIGtSO_ql5Jq9KOnRm-LbuD14hUn": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-0puE1I/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 2,
-   "at": "2026-10-21 19:21"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-Em0zSN/mp-IigknK/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 3,
+   "at": "2026-10-21 19:23"
   },
   "18HqdTIoaloN5u6TWd8goKZlvj7L9cpP7": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-18HqdTIoaloN5u6TWd8goKZlvj7L9cpP7.mp3",
@@ -5850,14 +5850,14 @@
    "at": "2026-10-21 19:22"
   },
   "1F28OUK6pAG6472mkRJPt8FkIFyif9nwQ": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-yK1fVQ/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 1,
-   "at": "2026-10-21 19:22"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-Em0zSN/mp-cl7Gha/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 2,
+   "at": "2026-10-21 19:23"
   },
   "1KrbQ1gCVeghCzq3lN0YACkLnvrYuc4bg": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-343ESM/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 1,
-   "at": "2026-10-21 19:22"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-Em0zSN/mp-CQN9VN/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 2,
+   "at": "2026-10-21 19:23"
   },
   "1Wze3Z3E3wMljqfQ2rUGVUJqKqsK50YG8": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1Wze3Z3E3wMljqfQ2rUGVUJqKqsK50YG8.mp3",
