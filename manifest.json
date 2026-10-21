@@ -1,13 +1,18 @@
 {
-  "version": "9.95",
+  "version": "9.96",
   "codeFile": "engine.gs",
-  "sha256": "31eec5346bf9333eee5fe5d451e8b8ae5095c6a74648d71174485079f67bdc81",
-  "releasedAt": "2026-10-21T07:52:35Z",
-  "summary": "تأییدِ با چشم بر سنجهٔ رانر مقدم است؛ special:76 تأیید شد",
+  "sha256": "d37801d25857bd7ce678fd70fa8e1e84f23f4af75486e38af00551b4a2a31007",
+  "releasedAt": "2026-10-21T08:17:49Z",
+  "summary": "صفِ داوریِ محتوا دیگر قسمت‌های قدیمی را هر شب دوباره داوری نمی‌کند — فهرستِ «داوری‌شده» با خودِ پوشه هرس می‌شود",
   "fixes": [
-    "ytUploadOne_: کلیدِ yt-approve.json به‌خاطرِ ردِ سنجهٔ صحنه از نو ساخته نمی‌شود",
-    "docs/yt-approve.json: special:76 پس از دیدنِ ۷۴ قاب"
+    "auditPending_/auditMarkDone_: فهرستِ ۸۰تاییِ داوری‌شده از پوشهٔ ~۹۰عکسی کوچک‌تر بود؛ حالا donePending_ آن را به فایل‌های موجود هرس می‌کند (DONE_IDS_MAX=240 فقط نگهبانِ اندازه)",
+    "bridgePending_/bridgeMarkDone_: همان درمان برای عکس‌های ارجاع (سقفِ قدیم ۶۰)",
+    "run_audit_test: ۹۵ عکس و ۷۰ عکسِ ارجاع — بی درمان ۱۵ عکس به صف برمی‌گشت"
   ],
-  "sourceReportIds": [],
-  "answers": []
+  "sourceReportIds": [
+    "ENG-20260902-1007#audit-queue-stuck"
+  ],
+  "answers": [
+    "audit-queue-stuck"
+  ]
 }

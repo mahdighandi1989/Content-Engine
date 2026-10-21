@@ -676,35 +676,80 @@ function auditQueueStatus_(hub) {
   return out;
 }
 
-function auditPending_() {
-  var out = [], done = {};
+/* ══ فهرستِ «داوری‌شده» که از خودِ پوشه کوچک‌تر بود (۹.۹۶) ══
+ *
+ * `auditMarkDone_` فقط ۸۰ شناسهٔ آخر را نگه می‌داشت، و پوشه ۴۵ روز عکس نگه
+ * می‌دارد — دو برنامه، روزی دو عکس، یعنی ~۹۰. پس قدیمی‌ترین‌ها هر شب از فهرست
+ * می‌افتادند و دوباره «داوری‌نشده» می‌شدند: ۲۱ اکتبر داوریِ شبانه قسمت‌های ۳۵ و ۳۶ِ
+ * شهریور را **دوباره** داوری کرد، صف ماه‌ها روی ۹ ماند، و `audit-queue-stuck`
+ * می‌گفت «داوری نوبت نمی‌گیرد» در حالی که هر شب نوبتش را صرفِ تکرار می‌کرد.
+ *
+ * درمان سقفِ بزرگ‌تر نیست — آن فقط مرز را جابه‌جا می‌کند. فهرست حالا فقط شناسهٔ
+ * فایل‌هایی را نگه می‌دارد که هنوز در پوشه‌اند (هر بار که صف خوانده می‌شود هرس
+ * می‌شود)، پس طولش با خودِ پوشه می‌رود، نه با یک عددِ ثابت. سقفِ `DONE_IDS_MAX`
+ * فقط نگهبانِ اندازهٔ یک ویژگی (۹ کیلوبایت) است. همین برای `_BRIDGE-` (بخشِ ۳۱).
+ */
+function doneIdsRead_(key) {
+  var set = Object.create(null);
   try {
-    var rawD = props_().getProperty(PK.AUDIT_DONE) || '';
-    var arr = rawD ? rawD.split('|') : [];
-    for (var d = 0; d < arr.length; d++) if (arr[d]) done[arr[d]] = 1;
-  } catch (e0) {}
+    var raw = props_().getProperty(key) || '';
+    var arr = raw ? raw.split('|') : [];
+    for (var d = 0; d < arr.length; d++) if (arr[d]) set[arr[d]] = 1;
+  } catch (e) {}
+  return set;
+}
+
+/** فهرست را به شناسه‌های هنوز موجود کوتاه می‌کند؛ فقط اگر چیزی افتاد می‌نویسد. */
+function doneIdsKeep_(key, done, live) {
+  try {
+    var keep = [], dropped = 0;
+    for (var id in done) { if (live[id]) keep.push(id); else dropped++; }
+    if (dropped) props_().setProperty(key, keep.join('|'));
+  } catch (e) {}
+}
+
+function doneIdsAdd_(key, id) {
+  try {
+    var raw = props_().getProperty(key) || '';
+    var arr = raw ? raw.split('|') : [];
+    if (arr.indexOf(String(id)) === -1) arr.push(String(id));
+    var cap = Number(CFG.DONE_IDS_MAX) || 240;
+    if (arr.length > cap) arr = arr.slice(arr.length - cap);
+    props_().setProperty(key, arr.join('|'));
+  } catch (e) {}
+}
+
+/** عکس‌های `prefix`ِ پوشهٔ سنجه که در فهرستِ `key` نیستند — قدیمی‌ها اول. */
+function donePending_(key, prefix, onErr) {
+  var out = [], done = doneIdsRead_(key), live = Object.create(null), listed = false;
   try {
     var it = auditFolder_().getFiles();
     while (it.hasNext()) {
       var f = it.next();
-      if (String(f.getName()).indexOf('_AUDIT-') !== 0) continue;
-      if (done[String(f.getId())]) continue;
+      if (String(f.getName()).indexOf(prefix) !== 0) continue;
+      var id = String(f.getId());
+      live[id] = 1;
+      if (done[id]) continue;
       out.push(f);
     }
-  } catch (e) { logLine_('خواندنِ پوشهٔ عکس‌های محتوا ناموفق: ' + e.message); }
+    listed = true;
+  } catch (e) { if (onErr) onErr(e); }
+  // فقط وقتی کلِ پوشه خوانده شد هرس کن — پویشِ نیمه‌کاره نباید فهرست را پاک کند.
+  // و پوشهٔ خالی‌خوانده (خطای گذرا) هم نه: یعنی داوریِ دوبارهٔ همه.
+  if (listed && Object.keys(live).length) doneIdsKeep_(key, done, live);
   // قدیمی‌ها اول: اگر سقفِ هر دور اجازه ندهد، عقب‌مانده‌ها جا نمانند.
   out.sort(function (a, b) { return a.getName() < b.getName() ? -1 : 1; });
   return out;
 }
 
+function auditPending_() {
+  return donePending_(PK.AUDIT_DONE, '_AUDIT-', function (e) {
+    logLine_('خواندنِ پوشهٔ عکس‌های محتوا ناموفق: ' + e.message);
+  });
+}
+
 function auditMarkDone_(file) {
-  try {
-    var raw = props_().getProperty(PK.AUDIT_DONE) || '';
-    var arr = raw ? raw.split('|') : [];
-    arr.push(String(file.getId()));
-    if (arr.length > 80) arr = arr.slice(arr.length - 80);
-    props_().setProperty(PK.AUDIT_DONE, arr.join('|'));
-  } catch (e) {}
+  doneIdsAdd_(PK.AUDIT_DONE, file.getId());
 }
 
 /**

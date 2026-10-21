@@ -1295,33 +1295,11 @@ function bridgeSnap_(epNum, seriesName, links, ep) {
 
 /** عکس‌هایی که هنوز داوری نشده‌اند — قدیمی‌ها اول. */
 function bridgePending_() {
-  var out = [], done = Object.create(null);
-  try {
-    var raw = props_().getProperty(PK.BRIDGE_DONE) || '';
-    var arr = raw ? raw.split('|') : [];
-    for (var d = 0; d < arr.length; d++) if (arr[d]) done[arr[d]] = 1;
-  } catch (e0) {}
-  try {
-    var it = auditFolder_().getFiles();
-    while (it.hasNext()) {
-      var f = it.next();
-      if (String(f.getName()).indexOf('_BRIDGE-') !== 0) continue;
-      if (done[String(f.getId())]) continue;
-      out.push(f);
-    }
-  } catch (e) {}
-  out.sort(function (a, b) { return a.getName() < b.getName() ? -1 : 1; });
-  return out;
+  return donePending_(PK.BRIDGE_DONE, '_BRIDGE-');
 }
 
 function bridgeMarkDone_(file) {
-  try {
-    var raw = props_().getProperty(PK.BRIDGE_DONE) || '';
-    var arr = raw ? raw.split('|') : [];
-    arr.push(String(file.getId()));
-    if (arr.length > 60) arr = arr.slice(arr.length - 60);
-    props_().setProperty(PK.BRIDGE_DONE, arr.join('|'));
-  } catch (e) {}
+  doneIdsAdd_(PK.BRIDGE_DONE, file.getId());
 }
 
 /** مجموعه‌هایی که سخت‌گیریِ خودکار گرفته‌اند. */

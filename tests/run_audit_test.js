@@ -441,4 +441,41 @@ console.log('\n=== صفِ داوری که رشد می‌کند، باید خود
   ok('و پیش از مرورِ بزرگ', iAudit < iRecap);
 }
 
+console.log('\n=== فهرستِ «داوری‌شده» کوچک‌تر از خودِ پوشه نیست (۹.۹۶) ===');
+{
+  /* ══ شاهد: `_STATUS.json` ۲۱ اکتبر ۱۰:۱۸ ══
+   * `contentAudit.items` = قسمت‌های ۳۵ و ۳۶ِ «از همه جا» (شهریور) که همان شب
+   * «دوباره» داوری شدند، و `auditQueue` چهار روز روی ۹. پوشه ~۹۰ عکس داشت و
+   * فهرست ۸۰ شناسه: قدیمی‌ترین‌ها هر شب از فهرست می‌افتادند و برمی‌گشتند. */
+  const fo = auditFolder_();
+  auditPending_().forEach(auditMarkDone_);
+  const N = 95, made = [];
+  for (let i = 0; i < N; i++) {
+    const nm = '_AUDIT-zz-' + ('000' + i).slice(-3) + '.json';
+    made.push(fo.createFile(Utilities.newBlob('{}', 'application/json', nm)));
+  }
+  made.forEach(auditMarkDone_);
+  const back = auditPending_().filter(f => String(f.getName()).indexOf('_AUDIT-zz-') === 0);
+  ok('۹۵ عکسِ داوری‌شده هیچ‌کدام دوباره به صف برنمی‌گردند', back.length === 0,
+     back.length + ' برگشت: ' + back.slice(0, 3).map(f => f.getName()).join('، '));
+
+  /* و فهرست با پوشه کوچک می‌شود، نه با عددِ ثابت: فایلِ هرس‌شده شناسه‌اش را هم می‌بَرد. */
+  made.slice(0, 50).forEach(f => f.setTrashed(true));
+  auditPending_();
+  const kept = (global.__PROPS[PK.AUDIT_DONE] || '').split('|').filter(Boolean);
+  const gone = made.slice(0, 50).filter(f => kept.indexOf(String(f.getId())) !== -1).length;
+  ok('شناسهٔ عکسِ پاک‌شده از فهرست می‌رود', gone === 0, gone + ' مانده؛ طولِ فهرست ' + kept.length);
+  ok('و شناسهٔ عکسِ هنوز موجود می‌ماند',
+     made.slice(50).every(f => kept.indexOf(String(f.getId())) !== -1));
+  made.slice(50).forEach(f => f.setTrashed(true));
+
+  /* همین برای ارجاع‌ها (بخشِ ۳۱) — دوقلویی که یک بار درست شود، یک بار درست شده. */
+  const br = [];
+  for (let i = 0; i < 70; i++) br.push(fo.createFile(Utilities.newBlob('{}', 'application/json', '_BRIDGE-z' + i + '.json')));
+  br.forEach(bridgeMarkDone_);
+  ok('۷۰ عکسِ ارجاعِ داوری‌شده هم برنمی‌گردند (سقفِ قدیم ۶۰ بود)',
+     bridgePending_().filter(f => String(f.getName()).indexOf('_BRIDGE-z') === 0).length === 0);
+  br.forEach(f => f.setTrashed(true));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
