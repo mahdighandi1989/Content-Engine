@@ -430,8 +430,10 @@ function installSource_(text, wantVersion, label) {
 
 /**
  * گامِ روزانهٔ نصبِ خودکار — پیش از پشتیبانِ شبانه.
- * force=true از منو می‌آید و «مشغول بودن» را هم نادیده نمی‌گیرد، فقط سقفِ
- * روزانه ندارد (این گام اصلاً سقفِ روزانه ندارد؛ ارزان است).
+ * force=true از منو می‌آید. ۹.۹۰: «مشغول بودن» دیگر جلوی دکمه را نمی‌گیرد — «می‌خوام دستی نصب کنم، این میاد» (موتور وسطِ کار
+ * است؛ دو ساعت دیگر). وقتی قسمتی در جریان است تقریباً همیشه «مشغول» است، پس دکمهٔ دستی عملاً هیچ‌وقت کار نمی‌کرد. اجرای در جریان
+ * با کدِ خودش تمام می‌شود و ادامه‌اش با کدِ تازه، از همان مرحله (`SPEAK_PHASES_` نامِ ناشناخته را جلو می‌برد، ۶.۲۲)؛
+ * `afterCodeSwap` تریگرِ ادامه را پاک نمی‌کند. نصبِ خودکار همان احتیاطِ قبل را دارد.
  */
 function selfUpdateStep(force) {
   if (CFG.AUTOUPDATE_ENABLED === false) return { ok: false, reason: 'disabled' };
@@ -474,8 +476,10 @@ function selfUpdateStep(force) {
     try { noteCodeRows_(info, 'نصب خودکار رد شد: ' + errs.join(' | ')); } catch (eN) {}
     return { ok: false, reason: 'invalid', errors: errs };
   }
-  if (engineBusyForSwap_()) {
-    // وسطِ صداگذاری یا پشتیبان، کد عوض نمی‌شود؛ دو ساعت دیگر دوباره.
+  var busyNow = engineBusyForSwap_();
+  if (busyNow && force) logLine_('نصبِ دستیِ کدِ ' + info.version + ' با اینکه موتور وسطِ کار است — به خواستِ صاحبِ برنامه؛ ادامهٔ کار با کدِ تازه.');
+  if (busyNow && !force) {
+    // وسطِ صداگذاری یا پشتیبان، کد خودکار عوض نمی‌شود؛ دو ساعت دیگر دوباره.
     try {
       var ts = ScriptApp.getProjectTriggers();
       for (var i = 0; i < ts.length; i++) {

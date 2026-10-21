@@ -1,11 +1,11 @@
 {
-  "version": "9.89",
+  "version": "9.90",
   "codeFile": "engine.gs",
-  "sha256": "60dd6a3c4f3ca719ee8912bcab431e67c1266ece9553f45ab32983e4d19b5ee6",
-  "releasedAt": "2026-10-21T05:09:09Z",
-  "summary": "نشانیِ صفحهٔ بازه با نسخهٔ موتور — نسخهٔ کهنهٔ مرورگر دیگر نمی‌آید",
+  "sha256": "3644f93076182b3de916b8fbeb706c35b11f58f166e2f62634901bf935fe2f40",
+  "releasedAt": "2026-10-21T05:28:28Z",
+  "summary": "دکمهٔ نصبِ دستی دیگر پشتِ «موتور وسطِ کار است» نمی‌ایستد",
   "fixes": [
-    "mrRangeUrl_: پارامترِ v=CODE_VERSION"
+    "selfUpdateStep(force): سدِ engineBusyForSwap_ فقط برای نصبِ خودکار"
   ],
   "sourceReportIds": [],
   "answers": []

@@ -958,6 +958,26 @@ console.log('\n=== ۱۹. اعرابِ کم و آوانگاری ===');
 }
 
 // ═════ ۲۰. کلیدِ اینستاگرام از درِ منو، با آزمونِ بی‌انتشار (۹.۱۹) ═════
+console.log('=== ۹.۹۰) دکمهٔ دستی وقتی موتور «مشغول» است ===');
+{
+  const names = ['readCodeManifest_', 'findCodePkg_', 'validateCodePkg_', 'engineBusyForSwap_', 'installSource_', 'saveCodeCopy_', 'engBlocked_'];
+  const keep = {}; names.forEach(n => keep[n] = global[n]);
+  let installed = 0;
+  global.readCodeManifest_ = () => ({ info: { version: '999.1', fileName: 'x.gs' }, file: null });
+  global.findCodePkg_ = () => ({ text: 'x' });
+  global.validateCodePkg_ = () => [];
+  global.engineBusyForSwap_ = () => true;
+  global.installSource_ = () => { installed++; return { ok: true }; };
+  global.saveCodeCopy_ = () => null;
+  global.engBlocked_ = () => ({});
+  try {
+    const a = selfUpdateStep(false);
+    ok('۹۹۰.۱ نصبِ خودکار وقتی قسمتی در جریان است صبر می‌کند', a.reason === 'busy' && installed === 0, JSON.stringify(a));
+    const b = selfUpdateStep(true);
+    ok('۹۹۰.۲ دکمهٔ دستی همان لحظه نصب می‌کند («می‌خوام دستی نصب کنم، این میاد»)', b.ok === true && installed === 1, JSON.stringify(b));
+  } finally { names.forEach(n => global[n] = keep[n]); }
+}
+
 console.log('\n=== ۲۰. کلیدِ اینستاگرام ===');
 {
   /* «چون تعداد متغیرها زیاد شده دیگه دستی نمیتونم اضافه کنم» — همان درِ منوِ توکنِ گیت‌هاب، برای متا. */
