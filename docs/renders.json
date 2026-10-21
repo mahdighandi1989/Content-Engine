@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-21 07:54",
+ "updatedAt": "2026-10-21 08:39",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -4898,18 +4898,18 @@
   "ig:special:19": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-19.mp4",
    "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-19-cover.jpg",
-   "sig": "df00c110e856",
-   "seconds": 170.1,
-   "bytes": 33844169,
+   "sig": "cfe22d0290a0",
+   "seconds": 152.7,
+   "bytes": 30344535,
    "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-19-short.mp4",
-   "shortSeconds": 166.4,
+   "shortSeconds": 149.1,
    "align": "faster-whisper",
-   "phrases": 102,
+   "phrases": 88,
    "trans": 8,
    "imgs": 9,
    "segs": 9,
-   "subs": 97,
-   "at": "2026-10-20 15:04"
+   "subs": 84,
+   "at": "2026-10-21 08:39"
   },
   "ig:special:20": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-20.mp4",
@@ -5283,6 +5283,11 @@
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1f-0sNjGF0yV92nvl3puhu2CoUQalmVLk.mp3",
    "bytes": 728860,
    "at": "2026-10-21 07:53"
+  },
+  "1Fwpnbw-svmYT9wYU2GwyHjQzmcXCgA7S": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1Fwpnbw-svmYT9wYU2GwyHjQzmcXCgA7S.mp3",
+   "bytes": 915897,
+   "at": "2026-10-21 08:39"
   }
  }
 }
