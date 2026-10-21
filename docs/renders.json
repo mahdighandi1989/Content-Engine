@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-21 12:25",
+ "updatedAt": "2026-10-21 13:27",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -4547,6 +4547,156 @@
     "fade": 36
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-77-cover.jpg"
+  },
+  "variety:79": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-79.mp4",
+   "bytes": 38835469,
+   "parts": 1,
+   "at": "2026-10-21 13:27",
+   "mode": "media",
+   "media": {
+    "clips": 8,
+    "photos": 11,
+    "found": 4,
+    "notFound": 0,
+    "failed": 0,
+    "why": [
+     "صحنهٔ 15: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)"
+    ],
+    "layouts": {
+     "fill": 7,
+     "right": 4,
+     "center": 3,
+     "left": 1,
+     "scroll": 4
+    },
+    "teaserTiles": 5,
+    "teaserSec": 43.2,
+    "teaser": 4,
+    "filled": 5,
+    "filledSec": 41,
+    "tailCut": 6,
+    "cardOwn": 5,
+    "cards": 5,
+    "cropped": 10,
+    "mainPart": 1,
+    "moments": {
+     "asked": 4,
+     "placed": 4,
+     "made": 4,
+     "why": [],
+     "replaced": 4,
+     "sec": 127,
+     "whole": 3,
+     "fallback": 1
+    },
+    "fit": {
+     "mb": 37,
+     "was": 83.3,
+     "how": "بازکدگذاری"
+    }
+   },
+   "inserts": [
+    {
+     "at": 56.3,
+     "d": 24.4,
+     "cut": 27.8
+    },
+    {
+     "at": 109.6,
+     "d": 20,
+     "cut": 29.4
+    },
+    {
+     "at": 201,
+     "d": 32.3,
+     "cut": 60
+    },
+    {
+     "at": 312.6,
+     "d": 51.3,
+     "cut": 31.7
+    }
+   ],
+   "scenes": 23,
+   "want": 23,
+   "snapped": 15,
+   "seconds": 518,
+   "qa": {
+    "n": 23,
+    "matched": 22,
+    "miss": [],
+    "blank": [
+     7
+    ],
+    "ok": false,
+    "why": "1 قابِ خالی (صحنهٔ 7)",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 9,
+       "t": 110.4,
+       "own": 0.8,
+       "nb": 0.2,
+       "ok": true,
+       "heard": "و این جمله یک شوخی میف."
+      },
+      {
+       "n": 15,
+       "t": 275.4,
+       "own": 0.55,
+       "nb": 0.14,
+       "ok": true,
+       "heard": "یک مساهبه ساختگی خیابانی  زند و یه میکروفون میپورسه  یعنی من منتق پوشت این قذیر و درک نمی کنم  چرا پیسرا میخان بای دو"
+      },
+      {
+       "n": 17,
+       "t": 349,
+       "own": 0.57,
+       "nb": 0.17,
+       "ok": true,
+       "heard": "برس بیگ اکس از فضای مجازی که خاطره با مزی کاربری بنام مایونز رو از دوران سربازی نشوم میده.  بلا یکس هم تیتر زدند"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    },
+    "freeze": []
+   },
+   "ov": {
+    "asked": 10,
+    "placed": 4,
+    "busy": 5,
+    "failed": 1,
+    "kinds": {
+     "points": 4
+    },
+    "forced": 2
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 23,
+    "used": 23,
+    "why": []
+   },
+   "xf": {
+    "circleopen": 3,
+    "dissolve": 7,
+    "zoomin": 2,
+    "slideright": 3,
+    "radial": 2,
+    "smoothright": 1,
+    "fade": 1,
+    "wiperight": 1
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-79-cover.jpg",
+   "notes": [
+    "برشِ کلیپ از آغاز: صحنهٔ 15: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)",
+    "اندازه: 83.3 ⇒ 37 مگابایت"
+   ]
   }
  },
  "art": {
