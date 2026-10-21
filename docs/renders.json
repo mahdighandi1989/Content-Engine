@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-21 19:23",
+ "updatedAt": "2026-10-21 20:24",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -5850,14 +5850,14 @@
    "at": "2026-10-21 19:22"
   },
   "1F28OUK6pAG6472mkRJPt8FkIFyif9nwQ": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-Em0zSN/mp-cl7Gha/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 2,
-   "at": "2026-10-21 19:23"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-RwLifF/mp-JfafLo/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 3,
+   "at": "2026-10-21 20:24"
   },
   "1KrbQ1gCVeghCzq3lN0YACkLnvrYuc4bg": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-Em0zSN/mp-CQN9VN/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 2,
-   "at": "2026-10-21 19:23"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-RwLifF/mp-F90OxB/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 3,
+   "at": "2026-10-21 20:24"
   },
   "1Wze3Z3E3wMljqfQ2rUGVUJqKqsK50YG8": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1Wze3Z3E3wMljqfQ2rUGVUJqKqsK50YG8.mp3",
@@ -5883,6 +5883,11 @@
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1hsFSKECcx1wILQVJk7Z8Yg3uegbSJUc0.mp3",
    "bytes": 686196,
    "at": "2026-10-21 19:22"
+  },
+  "1tRHmxkA_elwU18O9jMI0F3asjA2ORJ-I": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1tRHmxkA-elwU18O9jMI0F3asjA2ORJ-I.mp3",
+   "bytes": 1117271,
+   "at": "2026-10-21 20:24"
   }
  }
 }
