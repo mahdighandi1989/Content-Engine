@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.94
+ *  موتور محتوا و پادکست — نسخهٔ 9.95
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2223,7 +2223,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.94',
+  CODE_VERSION: '9.95',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -59725,6 +59725,9 @@ function ytUploadOne_(item, hub, pub) {
   var qaN = Number(item.qaN) || (/^qa-/.test(String(item.replace || '')) ? 1 : 0);
   var qaAgain = String(item.replace || '') !== 'qa-' + String(CFG.CODE_VERSION || '') &&
                 qaN < Math.max(1, Number(CFG.YT_QA_REBUILD_MAX) || 3);
+  /* ۹.۹۴: چشم بر سنجه مقدم است — کلیدی که پس از دیدنِ قاب‌ها در `docs/yt-approve.json` نشسته، به‌خاطرِ همین سنجه از نو ساخته
+     نمی‌شود. special:76 «۶۵ از ۷۴ صحنه» خورد و قاب‌هایش (هر ۲۲ ثانیه) سالم بودند: نُه قابِ «جابه‌جا» وسطِ گذار یا حرکتِ دوربین بودند. */
+  if (qaAgain && ytApprovedSafe_()[String(item.key || (item.show + ':' + item.ep))]) qaAgain = false;
   if ((mdQ === 'media' || mdQ === 'scenes') && rmeQ.qa && rmeQ.qa.ok !== true && qaAgain) {
     var asideQ = 0;
     try { asideQ = ytReplaceAside_(folder); } catch (eAq) { asideQ = 0; }

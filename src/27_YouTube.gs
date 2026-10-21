@@ -10053,6 +10053,9 @@ function ytUploadOne_(item, hub, pub) {
   var qaN = Number(item.qaN) || (/^qa-/.test(String(item.replace || '')) ? 1 : 0);
   var qaAgain = String(item.replace || '') !== 'qa-' + String(CFG.CODE_VERSION || '') &&
                 qaN < Math.max(1, Number(CFG.YT_QA_REBUILD_MAX) || 3);
+  /* ۹.۹۴: چشم بر سنجه مقدم است — کلیدی که پس از دیدنِ قاب‌ها در `docs/yt-approve.json` نشسته، به‌خاطرِ همین سنجه از نو ساخته
+     نمی‌شود. special:76 «۶۵ از ۷۴ صحنه» خورد و قاب‌هایش (هر ۲۲ ثانیه) سالم بودند: نُه قابِ «جابه‌جا» وسطِ گذار یا حرکتِ دوربین بودند. */
+  if (qaAgain && ytApprovedSafe_()[String(item.key || (item.show + ':' + item.ep))]) qaAgain = false;
   if ((mdQ === 'media' || mdQ === 'scenes') && rmeQ.qa && rmeQ.qa.ok !== true && qaAgain) {
     var asideQ = 0;
     try { asideQ = ytReplaceAside_(folder); } catch (eAq) { asideQ = 0; }

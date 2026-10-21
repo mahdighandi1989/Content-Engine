@@ -1,13 +1,12 @@
 {
-  "version": "9.94",
+  "version": "9.95",
   "codeFile": "engine.gs",
-  "sha256": "f72c1556530c127a0de1eea24323abaf02a01f9bd0dfc192423f9756408f33fd",
-  "releasedAt": "2026-10-21T07:43:37Z",
-  "summary": "لحظهٔ ساکن کنار می‌رود؛ ویدئوی ردشده در هر نسخه یک بار از نو",
+  "sha256": "31eec5346bf9333eee5fe5d451e8b8ae5095c6a74648d71174485079f67bdc81",
+  "releasedAt": "2026-10-21T07:52:35Z",
+  "summary": "تأییدِ با چشم بر سنجهٔ رانر مقدم است؛ special:76 تأیید شد",
   "fixes": [
-    "render spliceMoments: لحظه‌ای که تصویرش ساکن است پیش از لای‌گذاری کنار می‌رود (variety:78)",
-    "mediakit.freezes: یخ‌زدگیِ تا پایانِ فایل",
-    "ytUploadOne_: بازسازیِ پس از ردِ سنجش یک بار برای هر نسخه، تا YT_QA_REBUILD_MAX"
+    "ytUploadOne_: کلیدِ yt-approve.json به‌خاطرِ ردِ سنجهٔ صحنه از نو ساخته نمی‌شود",
+    "docs/yt-approve.json: special:76 پس از دیدنِ ۷۴ قاب"
   ],
   "sourceReportIds": [],
   "answers": []

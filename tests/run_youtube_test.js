@@ -368,11 +368,15 @@ console.log('=== ۱۰) حافظهٔ انتشار از تب می‌آید، نه 
      /key: 'yt-scene-qa'/.test(src27b));
   /* ۹.۹۴: یک بار برای هر نسخه، با سقف — همان عبارتِ منبع اجرا می‌شود. */
   const qa0 = src27b.indexOf('var qaN = '), qa1 = src27b.indexOf('if ((mdQ', qa0);
-  const qaF = new Function('item', 'CFG', src27b.slice(qa0, qa1) + ' return qaAgain;');
+  const qaFn = new Function('item', 'CFG', 'ytApprovedSafe_', src27b.slice(qa0, qa1) + ' return qaAgain;');
+  const qaF = (it, c, appr) => qaFn(it, c, () => appr || {});
   const C = { CODE_VERSION: '9.94', YT_QA_REBUILD_MAX: 3 };
   ok('۱۰.۱۱ (۹.۹۴) ردشده با برچسبِ نسخهٔ قبل ⇒ این نسخه یک بار دیگر می‌سازد (درمانِ تازه به ویدئو می‌رسد)', qaF({ replace: 'qa-9.86' }, C) === true);
   ok('۱۰.۱۲ همان نسخه دوباره نه، و پس از سقف هرگز (چرخِ بی‌پایان نیست)',
      qaF({ replace: 'qa-9.94', qaN: 1 }, C) === false && qaF({ replace: 'qa-9.90', qaN: 3 }, C) === false && qaF({ replace: '' }, C) === true);
+  ok('۱۰.۱۳ کلیدی که پس از دیدنِ قاب‌ها تأیید شده، به‌خاطرِ سنجه از نو ساخته نمی‌شود (چشم بر سنجه مقدم)',
+     qaF({ key: 'special:76', replace: 'size-9.86' }, C, { 'special:76': true }) === false &&
+     qaF({ key: 'special:77', replace: 'size-9.86' }, C, { 'special:76': true }) === true);
 }
 
 console.log('=== ۱۱) دیده‌شدن: خطِ روزانه، همیشه ===');
