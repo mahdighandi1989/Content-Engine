@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-21 20:24",
+ "updatedAt": "2026-10-21 23:13",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -4550,10 +4550,10 @@
   },
   "variety:79": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-79.mp4",
-   "bytes": 39302158,
+   "bytes": 39281309,
    "parts": 1,
-   "at": "2026-10-21 18:50",
-   "replace": "qa-9.98",
+   "at": "2026-10-21 23:13",
+   "replace": "qa-9.99",
    "mode": "media",
    "media": {
     "clips": 8,
@@ -4589,11 +4589,11 @@
      "replaced": 4,
      "sec": 142,
      "whole": 3,
-     "fallback": 1
+     "fallback": 2
     },
     "fit": {
      "mb": 37.5,
-     "was": 85.7,
+     "was": 85.9,
      "how": "بازکدگذاری"
     }
    },
@@ -4696,7 +4696,7 @@
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-79-cover.jpg",
    "notes": [
     "برشِ کلیپ از آغاز: صحنهٔ 15: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)",
-    "اندازه: 85.7 ⇒ 37.5 مگابایت"
+    "اندازه: 85.9 ⇒ 37.5 مگابایت"
    ]
   },
   "special:78": {
