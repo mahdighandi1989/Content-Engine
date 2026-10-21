@@ -1071,4 +1071,23 @@ console.log('=== ۱۹) «شورتز و سایر چیزام نیومده» — ذ
   ok('۱۹.۵ نویسنده و داورِ مرور هر دو از igRecapText_', /igRecapText_\(ep/.test(String(igPromptRecap_)) && /recap \? igRecapText_\(ep/.test(String(igStepPlan_)));
 }
 
+console.log('=== ۲۰) «متن بلند است» ⇒ کوتاه‌کردن، نه از نو (۹.۹۹) ===');
+{
+  const sent = (n) => 'این جملهٔ شمارهٔ ' + n + ' است که یک گام از مسیرِ مرور را می‌گوید و ادامه می‌دهد.';
+  const longS = Array.from({ length: 30 }, (_, i) => sent(i)).join(' ');   // ~۴۵۰ واژه
+  const shortS = Array.from({ length: 22 }, (_, i) => sent(i)).join(' ');  // ~۳۳۰ واژه
+  const opt = { recap: true, maxWords: 366 };
+  const raw = Object.assign({}, RAW, { script: longS });
+  const p0 = igPlanTrim_(raw, opt);
+  ok('۲۰.۱ همان شکلِ ۲۱ِ مصباح: سقفِ صدا ۳۶۶ و متنِ بلندتر رد است', !p0.lines && /متن بلند است/.test(p0.why), p0.why);
+  let asked = ''; const kG = global.geminiText_;
+  global.geminiText_ = (pr) => { asked = pr; return { script: shortS }; };
+  let p1; try { p1 = igShorten_(raw, opt, p0); } finally { global.geminiText_ = kG; }
+  ok('۲۰.۲ کوتاه‌شده از همان سد گذشت و عددِ سقف به مدل گفته شد', !!(p1 && p1.lines) && p1.shortened === 1 && p1.words <= 366 && asked.indexOf(longS) !== -1 && /حداکثر \d+ واژه/.test(asked), p1 && p1.why);
+  global.geminiText_ = () => ({ script: longS });
+  let p2; try { p2 = igShorten_(raw, opt, p0); } finally { global.geminiText_ = kG; }
+  ok('۲۰.۳ کوتاه‌نشده هنوز رد است — سقف شل نشد', !p2.lines && /پس از کوتاه‌کردن/.test(p2.why));
+  ok('۲۰.۴ گامِ نوشتن واقعاً به کوتاه‌کردن وصل است', /متن بلند است\/\.test\(String\(p\.why \|\| ''\)\)\) p = igShorten_\(r, opt, p\)/.test(String(igStepPlan_)));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');

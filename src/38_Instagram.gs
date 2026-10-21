@@ -517,6 +517,29 @@ function igPromptRecap_(ep, seriesName, opt, W) {
   ].join('\n');
 }
 
+/**
+ * ══ «متن بلند است» دیگر از نو نوشتن نیست، کوتاه کردن است (۹.۹۹) ══
+ * مرورِ بزرگِ ۲۱ِ مصباح سه بار با «متن بلند است (۳۸۵ واژه)» رد شد و ۶ ساعت ایستاد — و ۲۲ پشتش. سقفِ واژه از صدای نسخهٔ
+ * قبلی آمده بود (`maxWords`)، و مدل واژهٔ فارسی نمی‌شمارد: هر بار از صفر می‌نوشت و باز کمی بیشتر. نوشتنِ دوباره همگرا نمی‌شود؛
+ * ویرایشِ همان متن با عددِ روشن می‌شود. یک فراخوانِ کوتاه‌کردن، و همان سدِ `igPlanTrim_` روی نتیجه — سقف عوض نمی‌شود.
+ */
+var IG_SHORT_SCHEMA = { type: 'object', properties: { script: { type: 'string' } }, required: ['script'] };
+function igShorten_(r, opt, p0) {
+  var W = igWords_(opt);
+  var want = Math.max(W.min, Math.round(Math.min(W.hi, W.max) * 0.9));
+  var s = null;
+  try {
+    s = geminiText_(['این متنِ گفتاریِ فارسی ' + String(p0.why || '').replace(/^متن بلند است\s*/, '') + ' است و باید **حداکثر ' + want +
+                     ' واژه** شود. کوتاهش کن: جمله‌های فرعی و تکرار را بردار، ترتیب و همهٔ گام‌های اصلی و جملهٔ اول و پایانی بماند؛',
+                     'چیزِ تازه‌ای نیفزا، لحن همان بماند. فقط script را برگردان.', '', String((r && r.script) || '')].join('\n'),
+                    IG_SHORT_SCHEMA, 8192);
+  } catch (e) { return { why: p0.why + '؛ کوتاه‌کردن جواب نداد: ' + String(e.message || e).slice(0, 60) }; }
+  var p = igPlanTrim_(Object.assign({}, r, { script: String((s && s.script) || '') }), opt);
+  if (!p.lines) return { why: p0.why + '؛ پس از کوتاه‌کردن: ' + p.why };
+  p.shortened = 1;
+  return p;
+}
+
 /** متنِ پیوسته ⇒ جمله‌ها (مرزِ جمله «.!؟?…»)؛ جملهٔ خیلی کوتاه به بعدی می‌چسبد. */
 function igSplit_(t) {
   var out = [], cur = '';
@@ -730,6 +753,7 @@ function igStepPlan_(it, fo) {
   try { r = geminiText_(prompt, IG_REEL_SCHEMA, 8192); }
   catch (e) { return { wait: 'مدلِ متن: ' + String(e.message || e).slice(0, 120) }; }
   var p = igPlanTrim_(r, opt);
+  if (!p.lines && /متن بلند است/.test(String(p.why || ''))) p = igShorten_(r, opt, p);
   if (!p.lines) return { fail: 'متنِ ریلز پذیرفته نشد: ' + p.why };
   /* داوریِ پیوستگی: یک بازنویسی، و دوباره داوری. ضعیف منتشر نمی‌شود — شکست یعنی تلاشِ دوباره با مدلِ تازه. */
   var lessonTxt = recap ? igRecapText_(ep, Math.max(Number(CFG.IG_SRC_CHARS) || 9000, 14000)) : igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000);
