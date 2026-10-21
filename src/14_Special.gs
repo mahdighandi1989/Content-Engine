@@ -2787,7 +2787,7 @@ function renderSpecialAudioStep_() {
 
     /* نوشتنِ وضعیت **آخرین** کار است (۹.۷۱)، نه پیش از بدهیِ جزوه و یوتیوب و `SP_LAST`: نوشتنی که
        ۲۰ اکتبر ۳۵۳ ثانیه شد و اجرا را کُشت، هر چه پس از خودش بود را می‌بُرد — و وقتِ ساختِ جزوه را هم می‌خورد. */
-    try { writeStatus_(hub, 'درس‌نامه ' + epNum + ' کامل شد'); } catch (eS) {}
+    try { statusAfterRun_(hub, 'درس‌نامه ' + epNum + ' کامل شد'); } catch (eS) {}
     return { ok: true, episode: epNum, duration: dur, telegram: st.tg, done: true };
   } catch (err) {
     logLine_('خطای صداگذاری درس‌نامه: ' + err.message);

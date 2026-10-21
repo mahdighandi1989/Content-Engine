@@ -529,6 +529,23 @@ function wsEnd_(save) {
   return out;
 }
 
+/**
+ * نوشتنِ وضعیت در پایانِ اجرای تولید — فقط اگر وقتش هست (۹.۹۸).
+ * ۲۱ اکتبر: `produceEpisodeContinue` سرِ «وضعیت: handout» (۲۳۲ث) و `produceSpecialContinue` سرِ «وضعیت: pulse» (۳۵۳ث)
+ * کشته شدند — کارِ قسمت تمام بود و فقط نوشتنِ وضعیت (~۱۴۶ثانیه، `PK.STATUS_COST`) از سقفِ شش دقیقه گذشت؛ هر بار «اجرای
+ * ناتمام» در سلامت. وقتی وقت نیست، اجرای بعدیِ همگام‌سازی یا وارسیِ سلامت همان را می‌نویسد.
+ */
+function statusAfterRun_(hub, note) {
+  var cost = 150;
+  try { cost = Math.max(60, Number((JSON.parse(props_().getProperty(PK.STATUS_COST) || '{}') || {}).totalSec) || 150); } catch (e) {}
+  var used = RUN_T0_ ? (new Date().getTime() - RUN_T0_) / 1000 : 0;
+  if (used + cost + 30 > 355) {
+    logLine_('نوشتنِ وضعیت به اجرای بعد سپرده شد (' + Math.round(used) + 'ث گذشته، نوشتن ~' + Math.round(cost) + 'ث).');
+    return null;
+  }
+  return writeStatus_(hub, note);
+}
+
 function writeStatus_(hub, note) {
   hub = hub || getHub_();
   var models = {};

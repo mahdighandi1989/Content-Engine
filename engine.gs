@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.97
+ *  موتور محتوا و پادکست — نسخهٔ 9.98
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1353,6 +1353,7 @@ var CFG = {
   YT_QA_REBUILD_MAX: 3,         // ۹.۹۴: ویدئویی که سنجشِ رانر ردش کرد، حداکثر این‌قدر از نو (یک بار در هر نسخه)
   YT_CHUNKED: true,             // ۹.۹۳: ویدئوی بالای ۴۵ مگ تکه‌تکه (نشستِ ازسرگیری‌پذیر)، نه ساختِ دوباره با بیتِ کمتر
   YT_CHUNK_MB: 16,              // اندازهٔ هر تکه (مضربِ ۰٫۲۵)
+  YT_CHUNK_MIN_MB: 8,           // ۹.۹۸: بالاتر از این، همیشه تکه‌ای — درجِ یک‌جا مهلتِ اجرا را نمی‌پاید
   YT_CHUNK_NEED_MS: 60000,      // تکهٔ تازه فقط اگر این‌قدر از مهلتِ اجرا مانده
   /* کاورِ نقاشی که با عمومی‌شدن گم شد (۸.۵۴): هر دورِ یوتیوب تا این‌قدر ویدئو را
      برمی‌گرداند، و دفترش این‌قدر کلید نگه می‌دارد. */
@@ -2224,7 +2225,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.97',
+  CODE_VERSION: '9.98',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3578,8 +3579,10 @@ function driveShareOpen_(x) {
  */
 var RUN_CUR_ = '';
 
+var RUN_T0_ = 0;
 function runEnter_(fn) {
   RUN_CUR_ = String(fn);
+  RUN_T0_ = new Date().getTime();
   try {
     var m = JSON.parse(props_().getProperty(PK.RUN_AT) || '{}');
     m[String(fn)] = { at: nowStr_(), ts: new Date().getTime() };
@@ -14735,7 +14738,7 @@ function renderAudioStep_() {
     catch (eYq) { logLine_('صفِ یوتیوب ثبت نشد: ' + eYq.message); }
     /* نوشتنِ وضعیت **آخرین** کار است (۹.۷۱): ۲۰ اکتبر همین اجرا وسطِ آن کشته شد و هر چه پس از آن بود —
        بدهیِ یوتیوب — فقط با پیمایشِ پشتیبان به صف رسید. بدهی پیش از کارِ سنگین، همان قاعدهٔ جزوه. */
-    try { writeStatus_(hub, 'قسمت ' + epNum + ' کامل شد'); } catch (eS) {}
+    try { statusAfterRun_(hub, 'قسمت ' + epNum + ' کامل شد'); } catch (eS) {}
     return { ok: true, episode: epNum, title: ep.title, duration: dur, telegram: st.tg };
   } catch (err) {
     logLine_('خطای صداگذاری: ' + err.message);
@@ -18218,6 +18221,23 @@ function wsEnd_(save) {
     }
   } catch (e) {}
   return out;
+}
+
+/**
+ * نوشتنِ وضعیت در پایانِ اجرای تولید — فقط اگر وقتش هست (۹.۹۸).
+ * ۲۱ اکتبر: `produceEpisodeContinue` سرِ «وضعیت: handout» (۲۳۲ث) و `produceSpecialContinue` سرِ «وضعیت: pulse» (۳۵۳ث)
+ * کشته شدند — کارِ قسمت تمام بود و فقط نوشتنِ وضعیت (~۱۴۶ثانیه، `PK.STATUS_COST`) از سقفِ شش دقیقه گذشت؛ هر بار «اجرای
+ * ناتمام» در سلامت. وقتی وقت نیست، اجرای بعدیِ همگام‌سازی یا وارسیِ سلامت همان را می‌نویسد.
+ */
+function statusAfterRun_(hub, note) {
+  var cost = 150;
+  try { cost = Math.max(60, Number((JSON.parse(props_().getProperty(PK.STATUS_COST) || '{}') || {}).totalSec) || 150); } catch (e) {}
+  var used = RUN_T0_ ? (new Date().getTime() - RUN_T0_) / 1000 : 0;
+  if (used + cost + 30 > 355) {
+    logLine_('نوشتنِ وضعیت به اجرای بعد سپرده شد (' + Math.round(used) + 'ث گذشته، نوشتن ~' + Math.round(cost) + 'ث).');
+    return null;
+  }
+  return writeStatus_(hub, note);
 }
 
 function writeStatus_(hub, note) {
@@ -28803,7 +28823,7 @@ function renderSpecialAudioStep_() {
 
     /* نوشتنِ وضعیت **آخرین** کار است (۹.۷۱)، نه پیش از بدهیِ جزوه و یوتیوب و `SP_LAST`: نوشتنی که
        ۲۰ اکتبر ۳۵۳ ثانیه شد و اجرا را کُشت، هر چه پس از خودش بود را می‌بُرد — و وقتِ ساختِ جزوه را هم می‌خورد. */
-    try { writeStatus_(hub, 'درس‌نامه ' + epNum + ' کامل شد'); } catch (eS) {}
+    try { statusAfterRun_(hub, 'درس‌نامه ' + epNum + ' کامل شد'); } catch (eS) {}
     return { ok: true, episode: epNum, duration: dur, telegram: st.tg, done: true };
   } catch (err) {
     logLine_('خطای صداگذاری درس‌نامه: ' + err.message);
@@ -59732,7 +59752,10 @@ function ytUploadOne_(item, hub, pub) {
   try { size = video.getSize(); } catch (eS) {}
   /* ۹.۹۳: ویدئوی بزرگ تکه‌تکه بالا می‌رود (`ytChunkUpload_`)، نه با ساختِ دوباره در کیفیتِ کمتر. ویدئوی ۳۸ دقیقه‌ایِ special:77
      ۶۹ مگابایت بود؛ سقفِ ۴۵ یعنی بیتِ نصف — و بارِ دوم هم بزرگ می‌ماند و برای همیشه در صف. */
-  var chunked = CFG.YT_CHUNKED !== false && size > 45 * 1024 * 1024;
+  /* ۹.۹۸: «انتشار در یوتیوب» دو شبِ پیاپی اجرای شبانه را کُشت. درجِ یک‌جا (۴۰ مگ و بیشتر) یک فراخوانِ بی‌مهلت است — اگر
+     دیر شود، Apps Script بی هیچ خطایی سرِ شش دقیقه می‌کُشد. راهِ تکه‌ای مهلتِ اجرا را می‌پاید و دورِ بعد ادامه می‌دهد؛ پس از
+     `YT_CHUNK_MIN_MB` همه از همان راه می‌روند. */
+  var chunked = CFG.YT_CHUNKED !== false && size > Math.max(1, Number(CFG.YT_CHUNK_MIN_MB) || 8) * 1024 * 1024;
   if (size > 45 * 1024 * 1024 && !chunked) {
     /* ۹.۳۷: یک بار از نو، با سقفِ بیتِ تازهٔ رانر — همان درِ «پیش از انتشار از نو» (۸.۶۵): ویدئوی بزرگ به «پیشین» می‌رود
        (نه سطل) و `replace` رانر را وادار به ساختِ دوباره می‌کند. بارِ دوم ⇒ علت با عدد، بی ساختِ سوم. */

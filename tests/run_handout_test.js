@@ -2348,13 +2348,22 @@ console.log('=== ۲۸) نوشتنِ وضعیتِ میانِ روز پیمایش�
 
   /* ترتیب: نوشتنِ وضعیت آخرین کار است، پس کشته‌شدنش بدهیِ یوتیوب/جزوه را نمی‌بَرد. */
   const p3 = fs.readFileSync('src/03_Producer.gs', 'utf8');
-  const a3 = p3.indexOf("ytDueAdd_(ENRICH_SHOW_VARIETY"), b3 = p3.indexOf("writeStatus_(hub, 'قسمت '");
+  const a3 = p3.indexOf("ytDueAdd_(ENRICH_SHOW_VARIETY"), b3 = p3.indexOf("statusAfterRun_(hub, 'قسمت '");
   ok('۲۸.۷ «از همه جا»: بدهیِ یوتیوب پیش از نوشتنِ وضعیت', a3 > 0 && b3 > a3);
   const p14 = fs.readFileSync('src/14_Special.gs', 'utf8');
   const a14 = p14.indexOf('ytDueAdd_(ENRICH_SHOW_SPECIAL'), h14 = p14.indexOf('handoutDueAdd_(meta.seriesKey, epNum)'),
-        s14 = p14.indexOf('PK.SP_LAST, JSON.stringify'), b14 = p14.indexOf("writeStatus_(hub, 'درس‌نامه '");
+        s14 = p14.indexOf('PK.SP_LAST, JSON.stringify'), b14 = p14.indexOf("statusAfterRun_(hub, 'درس‌نامه '");
   ok('۲۸.۸ درس‌نامه: SP_LAST، بدهیِ جزوه و یوتیوب پیش از نوشتنِ وضعیت',
      a14 > 0 && h14 > 0 && s14 > 0 && b14 > a14 && b14 > h14 && b14 > s14);
+  /* ۹.۹۸: نوشتنِ وضعیت در پایانِ تولید فقط اگر وقتش هست — ۲۱ اکتبر دو اجرای ادامه سرِ همین نوشتن کشته شدند. */
+  const wsWas = global.writeStatus_, t0Was = RUN_T0_; let wrote = 0;
+  global.writeStatus_ = () => { wrote++; return {}; };
+  global.__PROPS[PK.STATUS_COST] = JSON.stringify({ totalSec: 146 });
+  RUN_T0_ = Date.now() - 230 * 1000; statusAfterRun_(null, 'x');
+  const skipped = wrote === 0;
+  RUN_T0_ = Date.now() - 40 * 1000; statusAfterRun_(null, 'x');
+  ok('۲۸.۹ (۹.۹۸) ۲۳۰ ثانیه گذشته و نوشتن ~۱۴۶ ⇒ سپرده به اجرای بعد؛ ۴۰ ثانیه ⇒ نوشته می‌شود', skipped && wrote === 1, wrote);
+  global.writeStatus_ = wsWas; RUN_T0_ = t0Was;
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');

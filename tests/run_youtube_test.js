@@ -10130,7 +10130,7 @@ console.log('=== ۹۹۳) ویدئوی بزرگ تکه‌تکه بالا می‌�
   ok('۹۹۳.۵ وقت نیست ⇒ در انتظار، نشست نگه داشته شد، هیچ تکه‌ای نیمه‌کاره فرستاده نشد', r3.waiting === true && !r3.vid && ranges.length === 0 &&
      (ytChunkState_('special:78') || {}).url === 'https://up.example/sess1');
   const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
-  ok('۹۹۳.۶ ویدئوی بالای ۴۵ مگ دیگر از نو با بیتِ کمتر ساخته نمی‌شود؛ همین راه را می‌رود', /var chunked = CFG\.YT_CHUNKED !== false && size > 45 \* 1024 \* 1024;/.test(src27) &&
+  ok('۹۹۳.۶ ویدئوی بالای ۴۵ مگ دیگر از نو با بیتِ کمتر ساخته نمی‌شود؛ همین راه را می‌رود', /var chunked = CFG\.YT_CHUNKED !== false && size > Math\.max\(1, Number\(CFG\.YT_CHUNK_MIN_MB\) \|\| 8\) \* 1024 \* 1024;/.test(src27) &&
      /if \(size > 45 \* 1024 \* 1024 && !chunked\)/.test(src27) && /ytChunkUpload_\(upKey, video,/.test(src27));
   global.__STUB = keep; global._ytRunDeadline = 0; global.__PROPS['YT_CHUNK_UP'] = '{}';
 }

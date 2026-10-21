@@ -10026,7 +10026,7 @@ function renderAudioStep_() {
     catch (eYq) { logLine_('صفِ یوتیوب ثبت نشد: ' + eYq.message); }
     /* نوشتنِ وضعیت **آخرین** کار است (۹.۷۱): ۲۰ اکتبر همین اجرا وسطِ آن کشته شد و هر چه پس از آن بود —
        بدهیِ یوتیوب — فقط با پیمایشِ پشتیبان به صف رسید. بدهی پیش از کارِ سنگین، همان قاعدهٔ جزوه. */
-    try { writeStatus_(hub, 'قسمت ' + epNum + ' کامل شد'); } catch (eS) {}
+    try { statusAfterRun_(hub, 'قسمت ' + epNum + ' کامل شد'); } catch (eS) {}
     return { ok: true, episode: epNum, title: ep.title, duration: dur, telegram: st.tg };
   } catch (err) {
     logLine_('خطای صداگذاری: ' + err.message);
