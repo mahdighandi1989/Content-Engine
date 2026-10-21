@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.86
+ *  موتور محتوا و پادکست — نسخهٔ 9.87
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1446,6 +1446,8 @@ var CFG = {
   IG_STORY: true,                // استوریِ کاورِ همان ریلز
   IG_TAB: 'انتشار در اینستاگرام',
   IG_TRY_MAX: 3,                 // پس از این شمار شکست، آن درس کنار می‌رود (در _STATUS دیده می‌شود)
+  IG_VOICE_NEED_SEC: 170,       // ۹.۸۷: گامِ صدا فقط با این‌قدر وقتِ باقی‌مانده آغاز می‌شود (وگرنه اجرای تازه تا یک دقیقه)
+  IG_QUICK_PER_H: 6,            // ۹.۸۷: سقفِ اجرای تازهٔ یک‌دقیقه‌ای در هر ساعت
   IG_TICK_SEC: 240,              // بودجهٔ هر اجرای جدا
   IG_INFLIGHT: 2,                // ریلزهای هم‌زمان در جریان
   IG_IDLE_H: 6,                  // روشن و بی اجرا بیش از این ⇒ مسئلهٔ روز
@@ -2210,7 +2212,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.86',
+  CODE_VERSION: '9.87',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -81842,8 +81844,16 @@ function igStepVoice_(it, fo, plan, deadline) {
   var lines = plan.plan.lines, body = [], cta = null;
   for (var i = 0; i < lines.length; i++) { if (lines[i].cta) cta = lines[i]; else body.push(lines[i]); }
   var plain = body.map(function (x) { return x.text; }).join(' ');
+  /* اعراب جدا و ذخیره (۹.۸۷): یک فراخوانِ مدل روی کلِ متنِ مرور، پیش از گفتارساز؛ در یک اجرا با هم از سقف می‌گذشتند. */
   var vow = '';
-  if (CFG.IG_VOWELIZE !== false) { try { vow = vowelizeText_(plain) || ''; } catch (eV) { vow = ''; } }
+  if (CFG.IG_VOWELIZE !== false) {
+    if (plan.vowFor === plain) vow = String(plan.vowText || '');
+    else {
+      try { vow = vowelizeText_(plain) || ''; } catch (eV) { vow = ''; }
+      plan.vowText = vow; plan.vowFor = plain;
+      return { ok: true };   // برنامه نوشته می‌شود؛ گفتارساز در دورِ بعدِ همین حلقه، با سدِ وقت
+    }
+  }
   plan.vowelized = !!vow;
   var b1 = null, b2 = null;
   try { b1 = ttsChunk_(applyPron_(vow || plain), String(CFG.IG_VOICE_STYLE || ''), plan.voice, true); }
@@ -82420,7 +82430,24 @@ function igTick() {
         else { st.fails = st.fails || {}; st.fails[nUid] = 9; st.lastWhy = 'پوشهٔ قسمتِ ' + nx.ep + ' پیدا نشد'; }
       }
     }
-    var keep = [];
+    /* ══ اجرای کشته‌شده شاهد دارد (۹.۸۷) ══ «ریلز ۱۹ … بازم جایی گیر کرده»: گامِ صدای مرورِ سه‌دقیقه‌ای (اعراب + گفتارساز)
+       از سقفِ شش‌دقیقه‌ایِ Apps Script گذشت و اجرا وسطِ گام کشته شد — `finally` نمی‌دود، پس نه وضع ذخیره شد، نه برنامه، نه
+       فایلِ صدا؛ درِ ساعتی همان را دوباره راه انداخت و همان‌جا مُرد. شش ساعت، هیچ پیامی. حالا پیش از هر گام «کجا هستم»
+       ذخیره می‌شود؛ اجرای بعد اگر آن را ببیند یعنی قبلی کشته شده — شمرده و گفته می‌شود، و سومی شکست است (و خبر می‌شود). */
+    if (st.stepAt && st.stepAt.u) {
+      var ku = st.stepAt.u;
+      st.killed = st.killed || {}; st.killed[ku] = (Number(st.killed[ku]) || 0) + 1;
+      st.lastWhy = 'اجرای پیشین وسطِ گامِ «' + st.stepAt.phase + '» ِ ' + ku + ' کشته شد (سقفِ شش دقیقه) — بارِ ' + st.killed[ku];
+      if (st.killed[ku] >= 3) {
+        st.fails = st.fails || {}; st.fails[ku] = (Number(st.fails[ku]) || 0) + 1;
+        st.failWhy = st.failWhy || {}; st.failWhy[ku] = 'سه اجرا پیاپی وسطِ گامِ «' + st.stepAt.phase + '» کشته شد (سقفِ شش‌دقیقه‌ایِ Apps Script)';
+        st.killed[ku] = 0;
+      }
+      st.stepAt = null;
+    }
+    /* گامِ صدا سنگین‌ترین است و وقتِ تازه می‌خواهد — اول نوبت می‌گیرد. */
+    st.inflight.sort(function (a, b) { return (a.phase === 'voice' ? 0 : 1) - (b.phase === 'voice' ? 0 : 1); });
+    var keep = [], again = false;
     for (var i = 0; i < st.inflight.length; i++) {
       var it = st.inflight[i], res = null;
       if (Date.now() > deadline) { keep.push(it); continue; }
@@ -82431,7 +82458,11 @@ function igTick() {
       it.tryN = Number((st.fails || {})[u]) || 0;
       it.prevWhy = (st.failWhy || {})[u] || '';
       it.noLesson = (st.noLessonImg || {})[u] ? 1 : 0;
+      st.stepAt = { u: u, phase: it.phase, at: nowStr_() }; igStateSave_(st);
       try { res = igStep_(it, st, deadline); } catch (e) { res = { wait: String(e.message || e).slice(0, 140) }; }
+      st.stepAt = null;
+      if (st.killed && st.killed[u] && (res.done || res.ok || (res.wait && !res.again))) delete st.killed[u];
+      if (res.again) again = true;
       it.why = res.wait || res.fail || '';
       if (it.sincePhase !== it.phase) { it.sincePhase = it.phase; it.since = Date.now(); }
       if (res.done) { st.done = (st.done ? st.done + ',' : '') + u; st.lastAt = nowStr_(); if (st.firstAt) delete st.firstAt[u]; continue; }
@@ -82455,6 +82486,16 @@ function igTick() {
     if (deadline - Date.now() > 40000) { try { igShortThumbRetro_(st, deadline); } catch (eTr) { st.thumbWhy = String(eTr.message || eTr).slice(0, 120); } }
     if (deadline - Date.now() > 60000) { try { igInsights_(st, deadline); } catch (eIn) { st.lastWhy = 'آمار: ' + String(eIn.message || eIn).slice(0, 120); } }
     try { igStuckTell_(st); } catch (eSt) {}
+    /* گامی که برای وقتِ کم ایستاد، یک دقیقهٔ دیگر در اجرای تازه — نه یک ساعتِ دیگر پشتِ درِ ساعتی (۹.۸۷). سقف در ساعت، تا
+       گامی که هیچ‌وقت در یک اجرا جا نمی‌شود چرخهٔ دقیقه‌ای نسازد. */
+    if (again) {
+      var hr = String(nowStr_()).slice(0, 13);
+      if (st.quickH !== hr) { st.quickH = hr; st.quickN = 0; }
+      if ((Number(st.quickN) || 0) < (Number(CFG.IG_QUICK_PER_H) || 6)) {
+        st.quickN = (Number(st.quickN) || 0) + 1;
+        try { clearRetryTriggers_('igTick'); ScriptApp.newTrigger('igTick').timeBased().after(60000).create(); st.quickAt = nowStr_(); } catch (eQk) {}
+      }
+    }
     return null;
   } finally {
     st.armedAt = 0;
@@ -82613,7 +82654,12 @@ function igStep_(it, st, deadline) {
   var r;
   for (var guard = 0; guard < 8 && Date.now() < deadline; guard++) {
     if (it.phase === 'plan') { r = igStepPlan_(it, fo); if (!r.ok) return r; plan = r.plan; it.phase = plan.phase; continue; }
-    if (plan.phase === 'voice') r = igStepVoice_(it, fo, plan, deadline);
+    if (plan.phase === 'voice') {
+      /* ۹.۸۷: صدای مرور (اعراب + گفتارساز) چند دقیقه است؛ آغازش با وقتِ کم یعنی کشته شدن وسطِ کار. */
+      var needV = Math.max(30, Number(CFG.IG_VOICE_NEED_SEC) || 170) * 1000;
+      if (deadline - Date.now() < needV) return { wait: 'وقتِ این اجرا برای ساختِ صدا کم بود — اجرای تازه تا یک دقیقهٔ دیگر', again: true };
+      r = igStepVoice_(it, fo, plan, deadline);
+    }
     else if (plan.phase === 'img') r = igStepImages_(it, fo, plan, deadline);
     else if (plan.phase === 'ask') r = igStepAsk_(it, fo, plan);
     else if (plan.phase === 'got') r = igStepGot_(it, fo, plan);

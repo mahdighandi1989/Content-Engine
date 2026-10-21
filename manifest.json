@@ -1,13 +1,14 @@
 {
-  "version": "9.86",
+  "version": "9.87",
   "codeFile": "engine.gs",
-  "sha256": "235a6f6a7048b14849435c7c5bae5e4b94351dbda8fa3b5bb6cd93458dcaf25d",
-  "releasedAt": "2026-10-20T21:51:14Z",
-  "summary": "صفحهٔ «✂️ بازه با پخش‌کننده» پخش نمی‌کرد: درایو صوت را به سایتِ دیگر نمی‌دهد؛ پیش‌نمایشِ MP3 از ریلیزِ گیت‌هاب",
+  "sha256": "1d6b6560fb08100a0eb7ffabec96ca3d0ebf143ab86294d5c5a279e492db9976",
+  "releasedAt": "2026-10-21T02:36:16Z",
+  "summary": "ریلزِ ۱۹ شش ساعت در گامِ صدا: اجرا وسطِ گام کشته می‌شد و ردی نمی‌گذاشت",
   "fixes": [
-    "mrPrevWant_/mrPrevSync_/mrPrevBackfill_: هر کارت (و کارت‌های پیشین) ⇒ musicPrev در صفِ رانر",
-    "render.js musicPrevTodo/buildMusicPrev: MP3ِ ۱۶۰k روی ریلیز، نشانی در docs/renders.json",
-    "range.html: پخش از نقشهٔ پیش‌نمایش، «در حال ساخت» با سرزدنِ دقیقه‌ای"
+    "igTick: st.stepAt پیش از هر گام؛ کشته‌شدن شمرده، سومی شکست با علت",
+    "igStep_: گامِ صدا فقط با IG_VOICE_NEED_SEC وقت؛ ریلزِ صدا اول نوبت",
+    "igStepVoice_: اعراب گامِ جدا و ذخیره در برنامه",
+    "اجرای تازه یک دقیقه بعد برای گامی که برای وقت ایستاد (سقف IG_QUICK_PER_H)"
   ],
   "sourceReportIds": [],
   "answers": []

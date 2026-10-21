@@ -243,7 +243,13 @@ let fo, plan;
   const keepTts = global.ttsChunk_, keepVow = global.vowelizeText_;
   global.vowelizeText_ = (t) => 'اعراب‌دار:' + t;
   global.ttsChunk_ = (t, st, v, cue) => { calls.push({ t, st, cue }); return Utilities.base64Encode(new Array(sr * 2 * (calls.length === 1 ? 6 : 1)).fill(0)); };
-  try { ok('۳.۴ صدا ساخته شد', igStepVoice_(it, fo, plan, Date.now() + 60000).ok); } finally { global.ttsChunk_ = keepTts; global.vowelizeText_ = keepVow; }
+  /* ۹.۸۷: اعراب گامِ جداست و در برنامه می‌ماند — بارِ اول هیچ گفتارسازی، بارِ دوم صدا با همان اعراب، بی اعرابِ دوباره. */
+  let vowN = 0; global.vowelizeText_ = (t) => { vowN++; return 'اعراب‌دار:' + t; };
+  try {
+    const v1 = igStepVoice_(it, fo, plan, Date.now() + 60000);
+    ok('۳.۴-الف بارِ اول فقط اعراب، ذخیره در برنامه، گام هنوز «voice»', v1.ok && calls.length === 0 && plan.phase === 'voice' && /^اعراب‌دار:/.test(plan.vowText) && vowN === 1);
+    ok('۳.۴ صدا ساخته شد (با همان اعراب، بی فراخوانِ دوباره)', igStepVoice_(it, fo, plan, Date.now() + 60000).ok && vowN === 1);
+  } finally { global.ttsChunk_ = keepTts; global.vowelizeText_ = keepVow; }
   const nb = plan.plan.lines.length - 1;
   ok('۳.۵ دو فراخوان: کلِ بدنه یک‌جا (با اعراب و لحنِ قصه‌گو) و جملهٔ دعوت جدا — نه هر جمله جدا', calls.length === 2 &&
      /^اعراب‌دار:/.test(calls[0].t) && calls[0].st === CFG.IG_VOICE_STYLE && calls[0].cue === true && calls[1].t.indexOf('یوتیوب') !== -1 &&
@@ -747,7 +753,7 @@ console.log('=== ۹) مرورِ بزرگ، سقفِ سه دقیقه، کپشنِ
   global.vowelizeText_ = (x) => x;
   let nCall = 0;
   global.ttsChunk_ = () => Utilities.base64Encode(new Array(sr * 2 * (++nCall === 1 ? 200 : 2)).fill(0));
-  const rv = igStepVoice_(itR, foR, rr.plan, Date.now() + 60000);
+  const rv = (igStepVoice_(itR, foR, rr.plan, Date.now() + 60000), igStepVoice_(itR, foR, rr.plan, Date.now() + 60000));
   global.ttsChunk_ = keepT; global.vowelizeText_ = keepV;
   ok('۹.۳ صدا بیش از ' + CFG.IG_MAX_SEC + ' ثانیه ⇒ شکست با «از نو»، و سقفِ واژهٔ تازه به همان نسبت', !!rv.fail && itR.maxWords > 0 &&
      itR.maxWords < rr.plan.plan.words && igWords_({ recap: true, maxWords: itR.maxWords }).max === itR.maxWords, rv.fail + ' / ' + itR.maxWords);
@@ -757,10 +763,10 @@ console.log('=== ۹) مرورِ بزرگ، سقفِ سه دقیقه، کپشنِ
     global.vowelizeText_ = (x) => x;
     global.ttsChunk_ = () => Utilities.base64Encode(new Array(sr * 2 * (++nCall === 1 ? 90 : 1)).fill(0));
     const itF = Object.assign({}, itR, { tryN: 0, maxWords: 0 }), pF = JSON.parse(JSON.stringify(rr.plan)); pF.phase = 'voice';
-    const rF = igStepVoice_(itF, foR, pF, Date.now() + 60000);
+    const rF = (igStepVoice_(itF, foR, pF, Date.now() + 60000), igStepVoice_(itF, foR, pF, Date.now() + 60000));
     nCall = 0;
     const itG = Object.assign({}, itR, { tryN: 2, maxWords: 0 }), pG = JSON.parse(JSON.stringify(rr.plan)); pG.phase = 'voice';
-    const rG = igStepVoice_(itG, foR, pG, Date.now() + 60000);
+    const rG = (igStepVoice_(itG, foR, pG, Date.now() + 60000), igStepVoice_(itG, foR, pG, Date.now() + 60000));
     global.ttsChunk_ = keepT; global.vowelizeText_ = keepV;
     const wF = igWords_({ recap: true, minWords: itF.minWords });
     ok('۹.۳-ب مرورِ کوتاه‌تر از ' + CFG.IG_RECAP_MIN_SEC + ' ثانیه ⇒ از نو با دست‌کم واژهٔ بیشتر؛ پس از دو تلاش پذیرفته (مرور گیر نمی‌کند)',
@@ -996,6 +1002,44 @@ console.log('=== ۱۷) «ریلزِ اینستاگرام گیر کرده: درس
   try { igJudge_({ idea: 'x', lines: [{ text: 'مروری بر حس.' }, { text: 'جملهٔ دوم.' }] }, 'درس', {}); } finally { global.geminiText_ = kG; }
   ok('۱۷.۳ ریلزِ درسِ عادی دست نمی‌خورد', /مروری بر حس/.test(asked.split('متنِ ریلز:')[1] || ''));
   ok('۱۷.۴ ۱۹ِ گیرکرده یک بار از شمارِ شکست آزاد می‌شود', /if \(st\.redo973 && !st\.unfail980\)/.test(String(igTick)) && /\['fails', 'failAt', 'firstAt', 'failWhy'\]/.test(String(igTick)));
+}
+
+console.log('=== ۱۸) «ریلز ۱۹ … بازم جایی گیر کرده» — اجرای کشته‌شده شاهد دارد، و صدا وقتِ تازه می‌گیرد (۹.۸۷) ===');
+{
+  const kP = global.ytPublished_, kF = global.ytFolderOf_, kStep = global.igStep_;
+  global.ytPublished_ = () => ({ 'special:5': { videoId: 'v5', url: 'https://youtu.be/v5', privacy: 'public', series: 'معرفت‌شناسی' } });
+  global.ytFolderOf_ = () => epFo;
+  try {
+    /* اجرای کشته‌شده: گام پرتاب نمی‌کند و برنمی‌گردد — `finally` هم نمی‌دود. شبیه‌سازیِ همان: وضعِ ذخیره‌شده پیش از گام. */
+    global.__PROPS[PK.IG_STATE] = '{}';
+    let saved = null;
+    global.igStep_ = (x) => { saved = global.__PROPS[PK.IG_STATE]; return { wait: 'x' }; };
+    igTick();
+    const mid = JSON.parse(saved || '{}');
+    ok('۱۸.۱ پیش از هر گام «کجا هستم» ذخیره می‌شود (شاهدی که با کشته شدن نمی‌میرد)', mid.stepAt && mid.stepAt.u === '5' && mid.stepAt.phase);
+    ok('۱۸.۲ و پس از گامِ عادی پاک می‌شود', !igState_().stepAt);
+    /* هر بار: تنها چیزی که از اجرای کشته‌شده می‌ماند همان عکسِ لحظهٔ گام است. */
+    for (let k = 1; k <= 3; k++) { global.__PROPS[PK.IG_STATE] = saved; igTick(); }
+    const s = JSON.parse(saved);
+    ok('۱۸.۳ کشته‌شدنِ پیاپی شمرده و گفته می‌شود، و سومی شکست با علتِ «سقفِ شش دقیقه» است',
+       Number((s.fails || {})['5']) >= 1 && /کشته شد/.test((s.failWhy || {})['5'] || '') && /سقفِ شش/.test(s.failWhy['5']), JSON.stringify([s.fails, s.failWhy, s.lastWhy]));
+    /* صدا با وقتِ کم آغاز نمی‌شود و اجرای تازه تا یک دقیقه */
+    global.igStep_ = kStep;
+    global.__PROPS[PK.IG_STATE] = '{}';
+    const foV = igFolder_(epFo);
+    igPlanWrite_(foV, Object.assign(JSON.parse(JSON.stringify(plan)), { v: CFG.IG_PLAN_V, phase: 'voice', imgOk: 0, imgs: [] }));
+    let vCalled = 0; const kV = global.igStepVoice_; global.igStepVoice_ = () => { vCalled++; return { ok: true }; };
+    const r1 = igStep_(Object.assign({}, it, { phase: 'voice' }), {}, Date.now() + 60000);
+    ok('۱۸.۴ کمتر از IG_VOICE_NEED_SEC وقت ⇒ گامِ صدا آغاز نمی‌شود و «دوباره» می‌خواهد', vCalled === 0 && r1.again === true && /وقت/.test(r1.wait), JSON.stringify(r1));
+    global.igStepVoice_ = kV;
+    global.igStep_ = () => ({ wait: 'وقت کم', again: true });
+    global.__TRIGGERS.length = 0;
+    igTick();
+    const trig = global.__TRIGGERS.filter(t => t.getHandlerFunction() === 'igTick');
+    ok('۱۸.۵ پس از «دوباره» اجرای تازهٔ igTick یک دقیقه بعد (نه ساعتِ بعد)', trig.length === 1 && igState_().quickN === 1, trig.length);
+    for (let k = 0; k < 10; k++) igTick();
+    ok('۱۸.۶ و سقف در ساعت دارد', igState_().quickN === CFG.IG_QUICK_PER_H);
+  } finally { global.ytPublished_ = kP; global.ytFolderOf_ = kF; global.igStep_ = kStep; }
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');
