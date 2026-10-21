@@ -193,7 +193,7 @@ console.log('=== ۲ب) و اگر خیلی کوتاه نوشت، کد یک بار
   const p14 = fsS.readFileSync('src/14_Special.gs', 'utf8');
   ok('۲ب.۱۱ در مسیرِ تولید، پیش از فشرده‌سازی صدا زده می‌شود',
      /xpd = specialExpand_\(ep, stream, specialMaxChars_\(\), epNum\)/.test(p14) &&
-     p14.indexOf('specialExpand_(ep, stream') < p14.indexOf('specialCondense_(ep, specialMaxChars_()'));
+     p14.indexOf('specialExpand_(ep, stream') < p14.indexOf('specialCondense_(ep, spCap'));
   // در *خطِ پرامپت* (نه در کامنتِ تاریخچه) دیگر اجازه‌ای نیست
   ok('۲ب.۱۲ پرامپت دیگر اجازهٔ کوتاه‌نویسی نمی‌دهد و کف را می‌گوید',
      !/L\.push\([^\n]*کوتاه‌تر ایرادی ندارد/.test(p14) && /L\.push\('• کفِ سخت: از /.test(p14));
@@ -3118,6 +3118,32 @@ console.log('\n=== ۴۱) قسمتی که اجرایش کشته شد، خودش �
      threw && tf.fn === 'produceSpecialContinue' && /too many triggers/.test(tf.msg) &&
      es.ok === false && /too many triggers/.test(es.line), es.line);
   delete P[PK.EP_TRIG_FAIL]; delete P[PK.SP_CONT_DUE];
+}
+
+console.log('\n=== ۴۲) «۴۲ دقیقه در برابرِ ۱۶» — هدفِ طول در حالتِ دو فایل هم در کد است (۹.۹۱) ===');
+{
+  /* قسمتِ ۷۹: سقف ۹٬۴۵۰، متن ۱۹٬۵۷۹. سدِ فشرده‌سازی فقط با «یک فایل» روشن
+     بود، پس در حالتِ دو فایل هیچ‌چیز جز جملهٔ پرامپت طول را نگه نمی‌داشت.
+     همان شرطِ واقعیِ منبع اجرا می‌شود، نه بازنویسیِ آن. */
+  const p14g = fs.readFileSync('src/14_Special.gs', 'utf8');
+  const a = p14g.indexOf('var oneFile = CFG.SPECIAL_ONE_FILE === true;');
+  const b = p14g.indexOf('{', p14g.indexOf('if (oneFile ||', a));
+  ok('۴۲.۰ سدِ طول در منبع پیدا شد', a > 0 && b > a);
+  const gate = new Function('CFG', 'ep', 'specialMaxChars_', 'specialNarration_',
+    p14g.slice(a, b + 1) + ' return true; } return false;');
+  const narr = function (e) { return 'ا'.repeat(e.n); };
+  const cfg2 = Object.assign({}, CFG, { SPECIAL_ONE_FILE: false });
+  ok('۴۲.۱ دو فایل، دو برابرِ سقف (قسمتِ ۷۹) ⇒ فشرده می‌شود',
+     gate(cfg2, { n: 19579 }, function () { return 9450; }, narr) === true);
+  ok('۴۲.۲ دو فایل، کمی بالاتر از سقف ⇒ دست نمی‌خورد (نوسانِ عادی)',
+     gate(cfg2, { n: 10500 }, function () { return 9450; }, narr) === false);
+  ok('۴۲.۳ یک فایل ⇒ مثلِ پیش همیشه به فشرده‌سازی می‌رسد',
+     gate(Object.assign({}, CFG, { SPECIAL_ONE_FILE: true }), { n: 100 },
+          function () { return 9450; }, narr) === true);
+  ok('۴۲.۴ نرمی در بازهٔ معقول است (۱ تا ۱٫۵)',
+     CFG.SPECIAL_OVER_SLACK >= 1 && CFG.SPECIAL_OVER_SLACK <= 1.5, CFG.SPECIAL_OVER_SLACK);
+  ok('۴۲.۵ سدی که فشرده‌سازی را صدا می‌زند همانی است که با آن سقف کار می‌کند',
+     /specialCondense_\(ep, spCap, epNum\)/.test(p14g) && /sp-over-target/.test(p14g));
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

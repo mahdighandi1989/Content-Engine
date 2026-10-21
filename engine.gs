@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.90
+ *  موتور محتوا و پادکست — نسخهٔ 9.91
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1976,6 +1976,7 @@ var CFG = {
      MIN_OUTPUT_RATIO آستانهٔ یافتهٔ sp-thin-episode است و کمی زیرِ آن،
      تا یافته فقط وقتی بزند که تلاشِ عمیق‌ترنویسی هم نتیجه نداده باشد. */
   SPECIAL_FLOOR_RATIO: 0.75,        // کمتر از این نسبتِ سقف → یک بار عمیق‌ترنویسی
+  SPECIAL_OVER_SLACK: 1.2,          // ۹.۹۱: بیش از این نسبتِ سقف → یک بار فشرده‌سازی، در هر دو حالت
   SPECIAL_MIN_OUTPUT_RATIO: 0.7,    // اگر متنِ خروجی کمتر از این نسبتِ هدف بود، ناقص است
   SPECIAL_STUCK_LIMIT: 2,           // بعد از این تعداد قسمتِ بی‌پیشرفت، به‌زور جلو می‌رویم
   SPECIAL_MAX_CHUNKS: 40,           // سقف قطعه در یک قسمت، حتی اگر متنشان کوتاه باشد
@@ -2215,7 +2216,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.90',
+  CODE_VERSION: '9.91',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -27304,19 +27305,37 @@ function produceSpecialEpisode(opt) {
       ep = xpd.ep;
     } catch (eXp) { logLine_('عمیق‌ترنویسیِ درس‌نامه رد شد: ' + eXp.message); }
 
-    // «یک فایل» باید در کد تضمین شود، نه در یک جملهٔ پرامپت که مدل ردش می‌کند.
-    if (CFG.SPECIAL_ONE_FILE === true) {
+    /* «یک فایل» باید در کد تضمین شود، نه در یک جملهٔ پرامپت که مدل ردش می‌کند.
+     * ══ و هدفِ طول هم، در حالتِ دو فایل (۹.۹۱) ══
+     * تا ۹.۹۰ این سد فقط با «یک فایل» روشن بود؛ ۶.۴۳ آن کلید را خاموش کرد و
+     * از آن روز تنها چیزی که طول را نگه می‌داشت جملهٔ «سقفِ سخت» در پرامپت بود.
+     * قسمتِ ۷۹: سقف ۹٬۴۵۰، متن ۱۹٬۵۷۹ نویسه، ۴۱:۴۸ دقیقه در برابرِ هدفِ ۱۶ —
+     * و ۷۶ و ۷۷ هم ۲۷ و ۳۸ دقیقه. «دو فایل ایرادی ندارد» یعنی مرزِ فایل شرط
+     * نیست، نه اینکه هدفِ طول هم شرط نیست. با `SPECIAL_OVER_SLACK` جا برای
+     * نوسانِ عادی می‌ماند؛ فقط بیش از آن فشرده می‌شود. */
+    var oneFile = CFG.SPECIAL_ONE_FILE === true;
+    var overSlack = oneFile ? 1 : Math.max(1, Number(CFG.SPECIAL_OVER_SLACK) || 1.2);
+    var spCap = specialMaxChars_();
+    if (oneFile || specialNarration_(ep).length > spCap * overSlack) {
       try {
-        var cnd = specialCondense_(ep, specialMaxChars_(), epNum);
+        var cnd = specialCondense_(ep, spCap, epNum);
         ep = cnd.ep;
-        if (cnd.over > 0) {
-          logSelfFinding_(hub, {
+        var overNow = specialNarration_(ep).length - Math.round(spCap * overSlack);
+        if (oneFile ? cnd.over > 0 : overNow > 0) {
+          logSelfFinding_(hub, oneFile ? {
             priority: 'متوسط', category: 'پرامپت درس‌نامه', key: 'sp-over-one-file',
             title: 'متن درس‌نامه حتی پس از فشرده‌سازی از سقفِ یک فایل بلندتر ماند',
             detail: 'قسمت ' + epNum + ': ' + cnd.over + ' نویسه بالاتر از سقفِ ' +
-                    specialMaxChars_() + '. قسمت در دو فایل فرستاده می‌شود.',
-            instruction: 'متن باید از ' + specialMaxChars_() + ' نویسه کوتاه‌تر باشد؛ ' +
+                    spCap + '. قسمت در دو فایل فرستاده می‌شود.',
+            instruction: 'متن باید از ' + spCap + ' نویسه کوتاه‌تر باشد؛ ' +
                          'قطعه‌های کمتری در هر قسمت پوشش بده تا جا شود.',
+            owner: 'موتور', episode: epNum
+          } : {
+            priority: 'متوسط', category: 'پرامپت درس‌نامه', key: 'sp-over-target',
+            title: 'متن درس‌نامه حتی پس از فشرده‌سازی از هدفِ طول بلندتر ماند',
+            detail: 'قسمت ' + epNum + ': ' + specialNarration_(ep).length + ' نویسه در برابرِ سقفِ ' +
+                    spCap + ' (' + (cnd.tried ? 'فشرده‌سازی نتیجه نداد' : 'فشرده‌سازی اجرا نشد') + ').',
+            instruction: 'متن باید حدود ' + spCap + ' نویسه باشد.',
             owner: 'موتور', episode: epNum
           });
         }
@@ -28140,7 +28159,7 @@ function specialCondense_(ep, capChars, epNum) {
   if (!(capChars > 0) || have <= capChars) return { ep: ep, over: 0, tried: false };
 
   var need = Math.round(capChars * 0.93);        // کمی زیرِ سقف، نه دقیقاً رویش
-  logLine_('درس‌نامه ' + epNum + ': متن ' + have + ' نویسه است و سقفِ یک فایل ' +
+  logLine_('درس‌نامه ' + epNum + ': متن ' + have + ' نویسه است و سقف ' +
            capChars + '؛ یک‌بار فشرده‌سازی خواسته شد.');
 
   var L = [

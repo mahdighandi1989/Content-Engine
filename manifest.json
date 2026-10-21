@@ -1,11 +1,11 @@
 {
-  "version": "9.90",
+  "version": "9.91",
   "codeFile": "engine.gs",
-  "sha256": "3644f93076182b3de916b8fbeb706c35b11f58f166e2f62634901bf935fe2f40",
-  "releasedAt": "2026-10-21T05:28:28Z",
-  "summary": "دکمهٔ نصبِ دستی دیگر پشتِ «موتور وسطِ کار است» نمی‌ایستد",
+  "sha256": "4d4fc3895f7a2841d6daf23325ff1b03a6e535498925278df3ec5acc316f4c8a",
+  "releasedAt": "2026-10-21T05:49:06Z",
+  "summary": "سقفِ طولِ درس‌نامه در حالتِ دو فایل هم در کد است",
   "fixes": [
-    "selfUpdateStep(force): سدِ engineBusyForSwap_ فقط برای نصبِ خودکار"
+    "specialCondense_ در حالتِ دو فایل هم وقتی متن از SPECIAL_OVER_SLACK برابرِ سقف بگذرد؛ یافتهٔ sp-over-target (قسمتِ ۷۹: ۱۹٬۵۷۹ نویسه در برابرِ ۹٬۴۵۰)"
   ],
   "sourceReportIds": [],
   "answers": []

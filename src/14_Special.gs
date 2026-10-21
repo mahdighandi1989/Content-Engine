@@ -1297,19 +1297,37 @@ function produceSpecialEpisode(opt) {
       ep = xpd.ep;
     } catch (eXp) { logLine_('عمیق‌ترنویسیِ درس‌نامه رد شد: ' + eXp.message); }
 
-    // «یک فایل» باید در کد تضمین شود، نه در یک جملهٔ پرامپت که مدل ردش می‌کند.
-    if (CFG.SPECIAL_ONE_FILE === true) {
+    /* «یک فایل» باید در کد تضمین شود، نه در یک جملهٔ پرامپت که مدل ردش می‌کند.
+     * ══ و هدفِ طول هم، در حالتِ دو فایل (۹.۹۱) ══
+     * تا ۹.۹۰ این سد فقط با «یک فایل» روشن بود؛ ۶.۴۳ آن کلید را خاموش کرد و
+     * از آن روز تنها چیزی که طول را نگه می‌داشت جملهٔ «سقفِ سخت» در پرامپت بود.
+     * قسمتِ ۷۹: سقف ۹٬۴۵۰، متن ۱۹٬۵۷۹ نویسه، ۴۱:۴۸ دقیقه در برابرِ هدفِ ۱۶ —
+     * و ۷۶ و ۷۷ هم ۲۷ و ۳۸ دقیقه. «دو فایل ایرادی ندارد» یعنی مرزِ فایل شرط
+     * نیست، نه اینکه هدفِ طول هم شرط نیست. با `SPECIAL_OVER_SLACK` جا برای
+     * نوسانِ عادی می‌ماند؛ فقط بیش از آن فشرده می‌شود. */
+    var oneFile = CFG.SPECIAL_ONE_FILE === true;
+    var overSlack = oneFile ? 1 : Math.max(1, Number(CFG.SPECIAL_OVER_SLACK) || 1.2);
+    var spCap = specialMaxChars_();
+    if (oneFile || specialNarration_(ep).length > spCap * overSlack) {
       try {
-        var cnd = specialCondense_(ep, specialMaxChars_(), epNum);
+        var cnd = specialCondense_(ep, spCap, epNum);
         ep = cnd.ep;
-        if (cnd.over > 0) {
-          logSelfFinding_(hub, {
+        var overNow = specialNarration_(ep).length - Math.round(spCap * overSlack);
+        if (oneFile ? cnd.over > 0 : overNow > 0) {
+          logSelfFinding_(hub, oneFile ? {
             priority: 'متوسط', category: 'پرامپت درس‌نامه', key: 'sp-over-one-file',
             title: 'متن درس‌نامه حتی پس از فشرده‌سازی از سقفِ یک فایل بلندتر ماند',
             detail: 'قسمت ' + epNum + ': ' + cnd.over + ' نویسه بالاتر از سقفِ ' +
-                    specialMaxChars_() + '. قسمت در دو فایل فرستاده می‌شود.',
-            instruction: 'متن باید از ' + specialMaxChars_() + ' نویسه کوتاه‌تر باشد؛ ' +
+                    spCap + '. قسمت در دو فایل فرستاده می‌شود.',
+            instruction: 'متن باید از ' + spCap + ' نویسه کوتاه‌تر باشد؛ ' +
                          'قطعه‌های کمتری در هر قسمت پوشش بده تا جا شود.',
+            owner: 'موتور', episode: epNum
+          } : {
+            priority: 'متوسط', category: 'پرامپت درس‌نامه', key: 'sp-over-target',
+            title: 'متن درس‌نامه حتی پس از فشرده‌سازی از هدفِ طول بلندتر ماند',
+            detail: 'قسمت ' + epNum + ': ' + specialNarration_(ep).length + ' نویسه در برابرِ سقفِ ' +
+                    spCap + ' (' + (cnd.tried ? 'فشرده‌سازی نتیجه نداد' : 'فشرده‌سازی اجرا نشد') + ').',
+            instruction: 'متن باید حدود ' + spCap + ' نویسه باشد.',
             owner: 'موتور', episode: epNum
           });
         }
@@ -2133,7 +2151,7 @@ function specialCondense_(ep, capChars, epNum) {
   if (!(capChars > 0) || have <= capChars) return { ep: ep, over: 0, tried: false };
 
   var need = Math.round(capChars * 0.93);        // کمی زیرِ سقف، نه دقیقاً رویش
-  logLine_('درس‌نامه ' + epNum + ': متن ' + have + ' نویسه است و سقفِ یک فایل ' +
+  logLine_('درس‌نامه ' + epNum + ': متن ' + have + ' نویسه است و سقف ' +
            capChars + '؛ یک‌بار فشرده‌سازی خواسته شد.');
 
   var L = [
