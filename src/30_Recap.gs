@@ -782,7 +782,8 @@ function recapWrite_(book, seriesName, scope, freshBlock) {
   catch (e) { logLine_('مرورِ بزرگ نوشته نشد: ' + e.message); return null; }
   if (!r || !(r.sections instanceof Array) || !r.sections.length) return null;
   var ep = {
-    title: String(r.title || ('مرورِ بزرگ — ' + seriesName)).slice(0, 120),
+    /* ۹.۸۸: «مرور» در خودِ عنوان، از کد — وارسیِ سلامت از روی همین می‌فهمد این قسمت هدفِ مدتِ درس را ندارد. */
+    title: (/مرور/.test(String(r.title || '')) ? String(r.title) : 'مرورِ بزرگ: ' + String(r.title || seriesName)).slice(0, 120),
     hook: String(r.hook || ''),
     sections: [],
     outro: String(r.outro || ''),

@@ -306,6 +306,23 @@ function igPartSecs_(ep, part, parts) {
 }
 
 /** متنِ درس برای مدل — سرفصل‌ها و روایت، بی قلاب و جمع‌بندیِ رادیویی. `only` = فقط این اندیس‌ها (بخشِ یک ریلز). */
+/**
+ * متنِ مرور برای نویسنده **و** داور (۹.۸۸) — هر بخش سهمِ برابر، نه «۱۴۰۰۰ نویسهٔ اول». مرورِ آئودی ۹ بخش و ۳۸ دقیقه بود؛ برشِ
+ * از سر یعنی نویسنده فقط چند درسِ اول را می‌دید و بقیه را از خودش پر می‌کرد، و داور (که ۱۲۰۰۰ می‌دید، کمتر از نویسنده) همان را
+ * «ادعای بیرون از درس» می‌زد — ایرادِ سختی که نرم‌شدنِ ۲۴ساعته هم برش نمی‌دارد. ریلزِ ۱۹ سه بار پشتش ایستاد.
+ */
+function igRecapText_(ep, cap) {
+  var secs = ((ep && ep.sections) || []).filter(function (x) { return x && (x.heading || x.narration); });
+  var full = igLessonText_(ep, 1e9);
+  if (full.length <= cap || !secs.length) return full.slice(0, cap);
+  var head = ep && ep.title ? 'عنوان: ' + ep.title + '\n' : '';
+  var each = Math.max(400, Math.floor((cap - head.length) / secs.length) - 40);
+  return (head + secs.map(function (x) {
+    var n = String(x.narration || '');
+    return (x.heading ? '## ' + x.heading + '\n' : '') + (n.length > each ? n.slice(0, each).replace(/\s+\S*$/, '') + ' …' : n);
+  }).join('\n')).slice(0, cap);
+}
+
 function igLessonText_(ep, cap, only) {
   var L = [], keep = null;
   if (only) { keep = {}; only.forEach(function (i) { keep[i] = 1; }); }
@@ -496,7 +513,7 @@ function igPromptRecap_(ep, seriesName, opt, W) {
     '• tags = ۸ تا ۱۵ برچسب، بی #. story = یک جملهٔ کوتاه. emph = ۴ تا ۸ واژهٔ کلیدیِ ۱ تا ۳ واژه‌ای که **عیناً** در script آمده‌اند.',
     '',
     'متنِ مرور:',
-    igLessonText_(ep, Math.max(Number(CFG.IG_SRC_CHARS) || 9000, 14000))
+    igRecapText_(ep, Math.max(Number(CFG.IG_SRC_CHARS) || 9000, 14000))
   ].join('\n');
 }
 
@@ -577,7 +594,8 @@ function igJudge_(p, lesson, opt) {
            opt.recap ? 'این ریلزِ مرورِ ' + (String(opt.range || '').replace(/^مرورِ\s*(بزرگِ\s*)?/, '') || 'درس‌های گذشتهٔ مجموعه') +
              ' است' + (head ? '؛ جملهٔ اعلامِ «' + head + '» پیش از متن می‌آید و جزوِ داوری نیست — «جملهٔ اول» یعنی نخستین جملهٔ متنِ زیر.' : '.') : '',
            '', 'متنِ ریلز:', judged.map(function (x) { return x.text; }).join(' '),
-           '', opt.recap ? 'متنِ مرور:' : 'درس:', String(lesson || '').slice(0, opt.recap ? 12000 : 6000)];
+           /* ۹.۸۸: داور همان متنی را می‌بیند که نویسنده دید — کمتر از آن یعنی «بیرون از درس» برای چیزی که در درس بود. */
+           '', opt.recap ? 'متنِ مرور:' : 'درس:', String(lesson || '').slice(0, opt.recap ? 16000 : 6000)];
   var r = null;
   try { r = geminiText_(L.join('\n'), IG_JUDGE_SCHEMA, 4096); } catch (e) { return { ok: false, why: 'داور جواب نداد: ' + String(e.message || e).slice(0, 80), fix: '' }; }
   if (!r) return { ok: false, why: 'داور جواب نداد', fix: '' };
@@ -714,7 +732,7 @@ function igStepPlan_(it, fo) {
   var p = igPlanTrim_(r, opt);
   if (!p.lines) return { fail: 'متنِ ریلز پذیرفته نشد: ' + p.why };
   /* داوریِ پیوستگی: یک بازنویسی، و دوباره داوری. ضعیف منتشر نمی‌شود — شکست یعنی تلاشِ دوباره با مدلِ تازه. */
-  var lessonTxt = igLessonText_(ep, recap ? 14000 : (Number(CFG.IG_SRC_CHARS) || 9000));
+  var lessonTxt = recap ? igRecapText_(ep, Math.max(Number(CFG.IG_SRC_CHARS) || 9000, 14000)) : igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000);
   var jd = { ok: true, why: '' };
   if (CFG.IG_JUDGE !== false) {
     jd = igJudge_(p, lessonTxt, opt);
@@ -1206,6 +1224,10 @@ function igShortQuotaOk_() {
      به اندازهٔ قسمت‌های کاملی است که **همین الان** در صفِ انتشارند (`ytDueList_`)، نه فقط «دو منهای آنچه امروز رفت». */
   var due = 0;
   try { due = ytDueList_().length; } catch (eD) { due = 0; }
+  /* ۹.۸۸: ذخیره برای **کلِ** صف یعنی وقتی صف از چهار گذشت (۲۱ اکتبر: شش، از جمله variety:71ِ بی‌صدا از ۱۳ اکتبر)، هیچ
+     شورتزی هرگز نمی‌رفت — ۶ × ۱۷۰۰ از سقفِ ۹۰۰۰ بیشتر است. صفِ عقب‌افتاده در یک روز خالی نمی‌شود؛ ذخیره برای قسمت‌های امروز
+     و یکی بیشتر کافی است، و شورتز هم روزی دست‌کم یک نوبت می‌گیرد. */
+  due = Math.min(due, Math.max(1, Number(CFG.IG_SHORT_KEEP_MAX) || 3));
   var keep = Math.max(due, Math.max(0, (Number(CFG.IG_SHORT_KEEP_UP) || 0) - full)) * (YT_COST.videosInsert + YT_COST.thumbSet + YT_COST.videosUpdate);
   var need = YT_COST.videosInsert + YT_COST.videosUpdate + YT_COST.thumbSet;
   return (Number(q.units) || 0) + need + keep <= cap;

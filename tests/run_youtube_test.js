@@ -10061,4 +10061,16 @@ console.log('\n=== ۱۰۷) ویدئوی ساده‌ای که پیش‌تر خو�
      JSON.stringify(rT).slice(0, 200));
 }
 
+console.log('=== ۹.۸۸) انتشار پیش از نگه‌داری در دورِ دوره‌ای ===');
+{
+  const tk = String(ytTick_);
+  const pub = tk.indexOf('ytRunDue_(Math.max(1, Number(CFG.YT_TICK_MAX)');
+  ok('۹۸۸.۱ انتشار پیش از وارسیِ کاور، برگرداندنِ کاور، جایگزینی و کنارگذاشتن — و بیش از یکی', pub !== -1 &&
+     ['ytThumbAudit_(', 'ytThumbRestore_(', 'ytReplaceTick_(', 'ytRetireTick_('].every(f => tk.indexOf(f) > pub) && CFG.YT_TICK_MAX >= 2);
+  ok('۹۸۸.۲ و پس از «تأییدشده» (۸.۵۰) و lvWaitPrune_', tk.indexOf('ytApprovedRedo_(') < pub && tk.indexOf('lvWaitPrune_()') < pub);
+  const h08 = require('fs').readFileSync('src/08_Health.gs', 'utf8'), r30 = require('fs').readFileSync('src/30_Recap.gs', 'utf8');
+  ok('۹۸۸.۳ مرورِ بزرگ با هدفِ مدتِ درس سنجیده نمی‌شود، و عنوانِ مرور همیشه «مرور» دارد (همان که وارسی می‌خوانَد)',
+     /spx\.lastRecap \? 0 : epTooLong_/.test(h08) && /out\.lastRecap = \/مرور\//.test(h08) && /'مرورِ بزرگ: ' \+/.test(r30));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

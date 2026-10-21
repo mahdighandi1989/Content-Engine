@@ -2122,7 +2122,7 @@ function healthCheck() {
     // به‌خاطرِ همان بلندی دو فایل شد — هیچ اعتراضی برنینگیزد.
     var tMin = CFG.SPECIAL_TARGET_MINUTES;
     try { tMin = specialTargetMin_(); } catch (eT) {}
-    var overS = epTooLong_(spx.lastDuration, tMin);
+    var overS = spx.lastRecap ? 0 : epTooLong_(spx.lastDuration, tMin);
     if (overS) {
       problems.push('درس‌نامه ' + spx.lastDuration + ' شد در برابرِ هدفِ ' +
                     tMin + ' دقیقه (' + overS + '٪ بلندتر).');
@@ -2961,6 +2961,9 @@ function specialStatus_(hub) {
       out.lastMore = String(last[XC.MORE - 1] || '');
       // ستونِ مدت در خودِ تب هست ولی تا امروز خوانده نمی‌شد
       out.lastDuration = String(last[XC.DUR - 1] || '');
+      /* ۹.۸۸: مرورِ بزرگ هدفِ درس را ندارد — «درس‌نامه ۳۷:۵۷ در برابرِ هدفِ ۱۶ (۱۳۶٪ بلندتر)» مرورِ ۹ بخشیِ آئودی بود، نه درسی
+         که از سقف گذشت. زنگی که برای کارِ درست بزند، همان زنگی است که یاد می‌گیرند نخوانندش. */
+      out.lastRecap = /مرور/.test(String(last[XC.TITLE - 1] || ''));
     }
   } catch (e2) {}
   // تعدادِ فایلِ صوتیِ آخرین درس‌نامه — در تب ستونی ندارد، پس از حافظه می‌آید

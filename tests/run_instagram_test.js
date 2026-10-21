@@ -1042,4 +1042,27 @@ console.log('=== ۱۸) «ریلز ۱۹ … بازم جایی گیر کرده» �
   } finally { global.ytPublished_ = kP; global.ytFolderOf_ = kF; global.igStep_ = kStep; }
 }
 
+console.log('=== ۱۹) «شورتز و سایر چیزام نیومده» — ذخیرهٔ سهمیه و متنِ مرور (۹.۸۸) ===');
+{
+  /* ۲۱ اکتبر: ۶ قسمت در صف، ۱۹۵۸ واحد خرج شده ⇒ هیچ شورتزی نمی‌رفت (۶ × ۱۷۰۰ > ۹۰۰۰). */
+  const qWas = global.__PROPS[PK.YT_QUOTA], dWas = global.__PROPS[PK.YT_DUE];
+  const today = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  global.__PROPS[PK.YT_QUOTA] = JSON.stringify({ day: today, units: 1958, uploads: 1, blocked: '' });
+  global.__PROPS[PK.YT_DUE] = JSON.stringify(['special:76', 'variety:71', 'special:77', 'variety:78', 'special:78', 'variety:79'].map(k => ({ key: k })));
+  ok('۱۹.۱ صفِ شش‌تایی دیگر همهٔ شورتزها را نمی‌بندد (ذخیره برای حداکثر سه قسمت)', igShortQuotaOk_() === true);
+  global.__PROPS[PK.YT_QUOTA] = JSON.stringify({ day: today, units: 4000, uploads: 2, blocked: '' });
+  ok('۱۹.۲ ولی وقتی سه قسمتِ کامل دیگر جا نمی‌شود، شورتز نمی‌رود (قسمتِ امروز اول)', igShortQuotaOk_() === false);
+  global.__PROPS[PK.YT_QUOTA] = qWas; global.__PROPS[PK.YT_DUE] = dWas;
+  /* مرورِ ۹ بخشیِ بلند: هر بخش در متن، و داور همان را می‌بیند. */
+  const secs = []; for (let i = 0; i < 9; i++) secs.push({ heading: 'بخشِ ' + (i + 1), narration: ('واژه' + i + ' ').repeat(900) + 'پایانِ‌بخش' + i });
+  const ep = { title: 'مرورِ بزرگ', sections: secs };
+  const rt = igRecapText_(ep, 14000);
+  ok('۱۹.۳ متنِ مرور از هر ۹ بخش سهم دارد (نه فقط بخش‌های اول) و از سقف نمی‌گذرد', rt.length <= 14000 && secs.every((x, i) => rt.indexOf('## بخشِ ' + (i + 1)) !== -1) && rt.indexOf('واژه8') !== -1, rt.length);
+  let asked = ''; const kG = global.geminiText_;
+  global.geminiText_ = (pr) => { asked = pr; return { oneIdea: 'بله', flows: 'بله', answersHook: 'بله', faithful: 'بله', popular: 'بله', thirst: 'بله', weak: '', fix: '' }; };
+  try { igJudge_({ idea: 'x', lines: [{ text: 'مروری بر درس‌ها.' }, { text: 'جمله.' }, { text: 'جملهٔ دیگر.' }] }, rt, { recap: true, range: 'مرورِ بزرگِ درس‌های ۱ تا ۵۰' }); } finally { global.geminiText_ = kG; }
+  ok('۱۹.۴ داور همهٔ متنی را می‌بیند که نویسنده دید (تا بخشِ آخر)', asked.indexOf('واژه8') !== -1 && asked.indexOf('## بخشِ 9') !== -1);
+  ok('۱۹.۵ نویسنده و داورِ مرور هر دو از igRecapText_', /igRecapText_\(ep/.test(String(igPromptRecap_)) && /recap \? igRecapText_\(ep/.test(String(igStepPlan_)));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');

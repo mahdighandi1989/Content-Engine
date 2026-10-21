@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.87
+ *  موتور محتوا و پادکست — نسخهٔ 9.88
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1105,6 +1105,9 @@ var CFG = {
      راهِ `_YT-RENDER.json` خواسته می‌شود. همان تقسیمِ کاری که برای موسیقی
      جواب داد: «تو نشانی بده، موتور می‌آورد» — این‌بار برعکس. */
   YT_ENABLED: true,
+  YT_TICK_MAX: 2,               // ۹.۸۸: آپلودِ هر دورِ دوره‌ای (پیش‌تر یکی و آخرِ صف)
+  YT_TICK_PUB_MS: 150000,       // ۹.۸۸: سهمِ انتشار از بودجهٔ دور — پیش از نگه‌داری
+  IG_SHORT_KEEP_MAX: 3,         // ۹.۸۸: ذخیرهٔ سهمیه برای حداکثر این‌قدر قسمتِ کامل، نه کلِ صفِ عقب‌افتاده
   YT_TAB: 'انتشار در یوتیوب',
   // اول unlisted، بعد وارسیِ نشتیِ خصوصی، و تازه بعدش عمومی. فاصله‌اش چند
   // ثانیه است، ولی معنایش این است که یک لینکِ درایو هرگز عمومی نمی‌شود.
@@ -2212,7 +2215,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.87',
+  CODE_VERSION: '9.88',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -19801,7 +19804,7 @@ function healthCheck() {
     // به‌خاطرِ همان بلندی دو فایل شد — هیچ اعتراضی برنینگیزد.
     var tMin = CFG.SPECIAL_TARGET_MINUTES;
     try { tMin = specialTargetMin_(); } catch (eT) {}
-    var overS = epTooLong_(spx.lastDuration, tMin);
+    var overS = spx.lastRecap ? 0 : epTooLong_(spx.lastDuration, tMin);
     if (overS) {
       problems.push('درس‌نامه ' + spx.lastDuration + ' شد در برابرِ هدفِ ' +
                     tMin + ' دقیقه (' + overS + '٪ بلندتر).');
@@ -20640,6 +20643,9 @@ function specialStatus_(hub) {
       out.lastMore = String(last[XC.MORE - 1] || '');
       // ستونِ مدت در خودِ تب هست ولی تا امروز خوانده نمی‌شد
       out.lastDuration = String(last[XC.DUR - 1] || '');
+      /* ۹.۸۸: مرورِ بزرگ هدفِ درس را ندارد — «درس‌نامه ۳۷:۵۷ در برابرِ هدفِ ۱۶ (۱۳۶٪ بلندتر)» مرورِ ۹ بخشیِ آئودی بود، نه درسی
+         که از سقف گذشت. زنگی که برای کارِ درست بزند، همان زنگی است که یاد می‌گیرند نخوانندش. */
+      out.lastRecap = /مرور/.test(String(last[XC.TITLE - 1] || ''));
     }
   } catch (e2) {}
   // تعدادِ فایلِ صوتیِ آخرین درس‌نامه — در تب ستونی ندارد، پس از حافظه می‌آید
@@ -61069,6 +61075,19 @@ function ytTick_(budgetMs) {
     try { ytApprovedRedo_(Math.min(60000, left() - 45000)); }
     catch (eAp) { out.why += (out.why ? ' · ' : '') + 'تأییدشده: ' + String(eAp.message).slice(0, 60); }
   }
+  /* ══ انتشار پیش از نگه‌داری (۹.۸۸) ══ «شورتز و سایر چیزام نیومده»: انتشار **آخرین** کارِ این دور بود — پشتِ تأییدشده،
+     وارسیِ کاورِ عمومی، برگرداندنِ کاور، جایگزینی و کنارگذاشتن — و فقط با ۲۵ ثانیهٔ باقی و فقط **یکی**. سیاههٔ ۲۱ اکتبر:
+     «۱ ویدئو برداشته شد، ۰ منتشر شد»؛ شش قسمت در صف و شورتزها پشتِ همان صف (ذخیرهٔ سهمیه برای قسمت‌های کامل). همان درسِ
+     کارِ شبانه (۵.۶۸): مهم‌ترین کار اول، نگه‌داری پشتِ آن. (تأییدشده پیش از این می‌ماند — ارزان است و صاحبِ برنامه خواسته، ۸.۵۰.) */
+  try { lvWaitPrune_(); } catch (eLw0) {}          // ارزان و پیش‌نیازِ انتشار (۹۵.۴)
+  var pubDone = false;
+  if (left() > 25000) {
+    try {
+      var r0 = ytRunDue_(Math.max(1, Number(CFG.YT_TICK_MAX) || 2), Math.max(20000, Math.min(left() - 30000, Number(CFG.YT_TICK_PUB_MS) || 150000)));
+      out.published = r0.done; out.waiting = r0.waiting; pubDone = true;
+    } catch (e0) { out.why += (out.why ? ' · ' : '') + 'انتشار: ' + String(e0.message).slice(0, 60); }
+  }
+
   /* کاورِ نقاشی که با عمومی‌شدن پاک شده بود، برمی‌گردد (۸.۵۴). بی نامزد هیچ
      خواندنی ندارد جز نقشهٔ رندرها که همین اجرا از قبل گرفته. */
   /* آنچه بیننده می‌بیند، پیش از برگرداندن: کاورِ عمومیِ عوض‌شده همین دور برمی‌گردد (۸.۵۵). */
@@ -61090,7 +61109,7 @@ function ytTick_(budgetMs) {
     catch (eRt) { out.why += (out.why ? ' · ' : '') + 'کنارگذاشتن: ' + String(eRt.message).slice(0, 60); }
   }
   try { lvWaitPrune_(); } catch (eLw) {}
-  if (left() > 25000) {
+  if (!pubDone && left() > 25000) {
     try {
       var r = ytRunDue_(1, Math.max(20000, left() - 15000));
       out.published = r.done; out.waiting = r.waiting;
@@ -66365,7 +66384,8 @@ function recapWrite_(book, seriesName, scope, freshBlock) {
   catch (e) { logLine_('مرورِ بزرگ نوشته نشد: ' + e.message); return null; }
   if (!r || !(r.sections instanceof Array) || !r.sections.length) return null;
   var ep = {
-    title: String(r.title || ('مرورِ بزرگ — ' + seriesName)).slice(0, 120),
+    /* ۹.۸۸: «مرور» در خودِ عنوان، از کد — وارسیِ سلامت از روی همین می‌فهمد این قسمت هدفِ مدتِ درس را ندارد. */
+    title: (/مرور/.test(String(r.title || '')) ? String(r.title) : 'مرورِ بزرگ: ' + String(r.title || seriesName)).slice(0, 120),
     hook: String(r.hook || ''),
     sections: [],
     outro: String(r.outro || ''),
@@ -81354,6 +81374,23 @@ function igPartSecs_(ep, part, parts) {
 }
 
 /** متنِ درس برای مدل — سرفصل‌ها و روایت، بی قلاب و جمع‌بندیِ رادیویی. `only` = فقط این اندیس‌ها (بخشِ یک ریلز). */
+/**
+ * متنِ مرور برای نویسنده **و** داور (۹.۸۸) — هر بخش سهمِ برابر، نه «۱۴۰۰۰ نویسهٔ اول». مرورِ آئودی ۹ بخش و ۳۸ دقیقه بود؛ برشِ
+ * از سر یعنی نویسنده فقط چند درسِ اول را می‌دید و بقیه را از خودش پر می‌کرد، و داور (که ۱۲۰۰۰ می‌دید، کمتر از نویسنده) همان را
+ * «ادعای بیرون از درس» می‌زد — ایرادِ سختی که نرم‌شدنِ ۲۴ساعته هم برش نمی‌دارد. ریلزِ ۱۹ سه بار پشتش ایستاد.
+ */
+function igRecapText_(ep, cap) {
+  var secs = ((ep && ep.sections) || []).filter(function (x) { return x && (x.heading || x.narration); });
+  var full = igLessonText_(ep, 1e9);
+  if (full.length <= cap || !secs.length) return full.slice(0, cap);
+  var head = ep && ep.title ? 'عنوان: ' + ep.title + '\n' : '';
+  var each = Math.max(400, Math.floor((cap - head.length) / secs.length) - 40);
+  return (head + secs.map(function (x) {
+    var n = String(x.narration || '');
+    return (x.heading ? '## ' + x.heading + '\n' : '') + (n.length > each ? n.slice(0, each).replace(/\s+\S*$/, '') + ' …' : n);
+  }).join('\n')).slice(0, cap);
+}
+
 function igLessonText_(ep, cap, only) {
   var L = [], keep = null;
   if (only) { keep = {}; only.forEach(function (i) { keep[i] = 1; }); }
@@ -81544,7 +81581,7 @@ function igPromptRecap_(ep, seriesName, opt, W) {
     '• tags = ۸ تا ۱۵ برچسب، بی #. story = یک جملهٔ کوتاه. emph = ۴ تا ۸ واژهٔ کلیدیِ ۱ تا ۳ واژه‌ای که **عیناً** در script آمده‌اند.',
     '',
     'متنِ مرور:',
-    igLessonText_(ep, Math.max(Number(CFG.IG_SRC_CHARS) || 9000, 14000))
+    igRecapText_(ep, Math.max(Number(CFG.IG_SRC_CHARS) || 9000, 14000))
   ].join('\n');
 }
 
@@ -81625,7 +81662,8 @@ function igJudge_(p, lesson, opt) {
            opt.recap ? 'این ریلزِ مرورِ ' + (String(opt.range || '').replace(/^مرورِ\s*(بزرگِ\s*)?/, '') || 'درس‌های گذشتهٔ مجموعه') +
              ' است' + (head ? '؛ جملهٔ اعلامِ «' + head + '» پیش از متن می‌آید و جزوِ داوری نیست — «جملهٔ اول» یعنی نخستین جملهٔ متنِ زیر.' : '.') : '',
            '', 'متنِ ریلز:', judged.map(function (x) { return x.text; }).join(' '),
-           '', opt.recap ? 'متنِ مرور:' : 'درس:', String(lesson || '').slice(0, opt.recap ? 12000 : 6000)];
+           /* ۹.۸۸: داور همان متنی را می‌بیند که نویسنده دید — کمتر از آن یعنی «بیرون از درس» برای چیزی که در درس بود. */
+           '', opt.recap ? 'متنِ مرور:' : 'درس:', String(lesson || '').slice(0, opt.recap ? 16000 : 6000)];
   var r = null;
   try { r = geminiText_(L.join('\n'), IG_JUDGE_SCHEMA, 4096); } catch (e) { return { ok: false, why: 'داور جواب نداد: ' + String(e.message || e).slice(0, 80), fix: '' }; }
   if (!r) return { ok: false, why: 'داور جواب نداد', fix: '' };
@@ -81762,7 +81800,7 @@ function igStepPlan_(it, fo) {
   var p = igPlanTrim_(r, opt);
   if (!p.lines) return { fail: 'متنِ ریلز پذیرفته نشد: ' + p.why };
   /* داوریِ پیوستگی: یک بازنویسی، و دوباره داوری. ضعیف منتشر نمی‌شود — شکست یعنی تلاشِ دوباره با مدلِ تازه. */
-  var lessonTxt = igLessonText_(ep, recap ? 14000 : (Number(CFG.IG_SRC_CHARS) || 9000));
+  var lessonTxt = recap ? igRecapText_(ep, Math.max(Number(CFG.IG_SRC_CHARS) || 9000, 14000)) : igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000);
   var jd = { ok: true, why: '' };
   if (CFG.IG_JUDGE !== false) {
     jd = igJudge_(p, lessonTxt, opt);
@@ -82254,6 +82292,10 @@ function igShortQuotaOk_() {
      به اندازهٔ قسمت‌های کاملی است که **همین الان** در صفِ انتشارند (`ytDueList_`)، نه فقط «دو منهای آنچه امروز رفت». */
   var due = 0;
   try { due = ytDueList_().length; } catch (eD) { due = 0; }
+  /* ۹.۸۸: ذخیره برای **کلِ** صف یعنی وقتی صف از چهار گذشت (۲۱ اکتبر: شش، از جمله variety:71ِ بی‌صدا از ۱۳ اکتبر)، هیچ
+     شورتزی هرگز نمی‌رفت — ۶ × ۱۷۰۰ از سقفِ ۹۰۰۰ بیشتر است. صفِ عقب‌افتاده در یک روز خالی نمی‌شود؛ ذخیره برای قسمت‌های امروز
+     و یکی بیشتر کافی است، و شورتز هم روزی دست‌کم یک نوبت می‌گیرد. */
+  due = Math.min(due, Math.max(1, Number(CFG.IG_SHORT_KEEP_MAX) || 3));
   var keep = Math.max(due, Math.max(0, (Number(CFG.IG_SHORT_KEEP_UP) || 0) - full)) * (YT_COST.videosInsert + YT_COST.thumbSet + YT_COST.videosUpdate);
   var need = YT_COST.videosInsert + YT_COST.videosUpdate + YT_COST.thumbSet;
   return (Number(q.units) || 0) + need + keep <= cap;

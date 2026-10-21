@@ -11433,6 +11433,19 @@ function ytTick_(budgetMs) {
     try { ytApprovedRedo_(Math.min(60000, left() - 45000)); }
     catch (eAp) { out.why += (out.why ? ' · ' : '') + 'تأییدشده: ' + String(eAp.message).slice(0, 60); }
   }
+  /* ══ انتشار پیش از نگه‌داری (۹.۸۸) ══ «شورتز و سایر چیزام نیومده»: انتشار **آخرین** کارِ این دور بود — پشتِ تأییدشده،
+     وارسیِ کاورِ عمومی، برگرداندنِ کاور، جایگزینی و کنارگذاشتن — و فقط با ۲۵ ثانیهٔ باقی و فقط **یکی**. سیاههٔ ۲۱ اکتبر:
+     «۱ ویدئو برداشته شد، ۰ منتشر شد»؛ شش قسمت در صف و شورتزها پشتِ همان صف (ذخیرهٔ سهمیه برای قسمت‌های کامل). همان درسِ
+     کارِ شبانه (۵.۶۸): مهم‌ترین کار اول، نگه‌داری پشتِ آن. (تأییدشده پیش از این می‌ماند — ارزان است و صاحبِ برنامه خواسته، ۸.۵۰.) */
+  try { lvWaitPrune_(); } catch (eLw0) {}          // ارزان و پیش‌نیازِ انتشار (۹۵.۴)
+  var pubDone = false;
+  if (left() > 25000) {
+    try {
+      var r0 = ytRunDue_(Math.max(1, Number(CFG.YT_TICK_MAX) || 2), Math.max(20000, Math.min(left() - 30000, Number(CFG.YT_TICK_PUB_MS) || 150000)));
+      out.published = r0.done; out.waiting = r0.waiting; pubDone = true;
+    } catch (e0) { out.why += (out.why ? ' · ' : '') + 'انتشار: ' + String(e0.message).slice(0, 60); }
+  }
+
   /* کاورِ نقاشی که با عمومی‌شدن پاک شده بود، برمی‌گردد (۸.۵۴). بی نامزد هیچ
      خواندنی ندارد جز نقشهٔ رندرها که همین اجرا از قبل گرفته. */
   /* آنچه بیننده می‌بیند، پیش از برگرداندن: کاورِ عمومیِ عوض‌شده همین دور برمی‌گردد (۸.۵۵). */
@@ -11454,7 +11467,7 @@ function ytTick_(budgetMs) {
     catch (eRt) { out.why += (out.why ? ' · ' : '') + 'کنارگذاشتن: ' + String(eRt.message).slice(0, 60); }
   }
   try { lvWaitPrune_(); } catch (eLw) {}
-  if (left() > 25000) {
+  if (!pubDone && left() > 25000) {
     try {
       var r = ytRunDue_(1, Math.max(20000, left() - 15000));
       out.published = r.done; out.waiting = r.waiting;
