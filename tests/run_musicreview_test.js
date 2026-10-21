@@ -46,6 +46,9 @@ global.__STUB = (url, body) => {
 };
 const calls = (m) => tg.filter(x => x.m === m);
 
+/* بخش‌های ۱ تا ۱۶ مسیرِ «هنوز نسخهٔ پخش‌شدنی نیست ⇒ فایل» را می‌سنجند؛ انتظار برای آن نسخه (۹.۹۲) را §۱۷ جدا می‌سنجد. */
+CFG.MR_PREV_WAIT_MIN = 0;
+
 console.log('=== ۱) کارت‌های امروز ===');
 {
   CFG.MR_PER_RUN = 3;
@@ -672,6 +675,84 @@ console.log('=== ۱۶) نشانیِ صفحه با نسخه (۹.۸۹) ===');
   const u = mrRangeUrl_({ id: 'X1', name: 'a.wav', sec: 10 }, {}, false) || '';
   ok('۱۶.۱ نشانیِ صفحهٔ بازه نسخهٔ موتور را دارد (نسخهٔ کهنهٔ مرورگر دور زده می‌شود)', !!u && u.indexOf('v=' + encodeURIComponent(CFG.CODE_VERSION)) !== -1, u);
   ok('۱۶.۲ و صفحه هیچ پخشی از درایو ندارد', !/uc\?export=download|drive\.usercontent/.test(fs.readFileSync('docs/webapp/range.html', 'utf8')));
+}
+
+console.log('=== ۱۷) کارت در خودِ تلگرام پخش می‌شود (۹.۹۲) ===');
+{
+  /* «تو خودِ تلگرام پلی نمی‌شه و باید دانلود کنم» — WAV فایل می‌رفت. حالا MP3ِ ریلیز با sendAudio، و کارتِ فایلیِ قبلی در جا. */
+  const mp3 = [0x49, 0x44, 0x33, 4, 0].concat(new Array(3000).fill(7));
+  const mkW = (n) => global.__ROOT_FOLDER.createFile(Utilities.newBlob(new Array(400).fill(1), 'audio/wav', n));
+  const fP = mkW('P.wav'), fQ = mkW('Q.wav'), fOld = mkW('Old.wav');
+  let rmap = { musicPrev: {} };
+  rmap.musicPrev[fP.getId()] = { url: 'https://github.com/x/releases/download/renders/mprev-P.mp3' };
+  const old = global.__STUB, got = [];
+  global.__STUB = (url, body, opt) => {
+    if (/renders\.json/.test(url)) return { code: 200, text: JSON.stringify(rmap) };
+    if (/mprev-P\.mp3/.test(url)) return { code: 200, bytes: mp3, mime: 'audio/mpeg' };
+    if (/mprev-Old\.mp3/.test(url)) return { code: 200, bytes: mp3, mime: 'audio/mpeg' };
+    if (/mprev-Bad\.mp3/.test(url)) return { code: 200, bytes: new Array(3000).fill(1), mime: 'audio/mpeg' };
+    const m = /api\.telegram\.org\/bot[^/]+\/(\w+)/.exec(url);
+    if (m) got.push({ m: m[1], b: body });
+    return old(url, body, opt);
+  };
+  global.MR_PREV_CACHE_ = null;
+  const tg0 = tg.length;
+  const midP = mrSendOne_({ id: fP.getId(), name: 'P.wav', sec: 30 }, null);
+  const sentP = tg.slice(tg0);
+  ok('۱۷.۱ WAV با نسخهٔ آماده ⇒ sendAudio با همان دکمه‌ها، نه فایل', !!midP && sentP.length === 1 && sentP[0].m === 'sendAudio' &&
+     /inline_keyboard/.test(sentP[0].b.reply_markup) && mrSendOne_.kind === 'audio', sentP.map(x => x.m).join(','));
+  ok('۱۷.۲ آنچه رفت MP3 است (بایت، نه نام)', sentP[0].b.audio && sentP[0].b.audio.getContentType() === 'audio/mpeg' &&
+     /\.mp3$/.test(sentP[0].b.audio.getName()));
+  rmap.musicPrev[fQ.getId()] = { url: 'https://github.com/x/releases/download/renders/mprev-Bad.mp3' };
+  global.MR_PREV_CACHE_ = null;
+  const tg1 = tg.length;
+  mrSendOne_({ id: fQ.getId(), name: 'Q.wav', sec: 30 }, null);
+  ok('۱۷.۳ چیزی که MP3 نیست فرستاده نمی‌شود ⇒ همان فایل (مثلِ پیش)', tg.slice(tg1).map(x => x.m).join() === 'sendDocument' && mrSendOne_.kind === 'doc');
+
+  /* صف: کارتِ WAVِ بی‌نسخه منتظر می‌ماند و نسخه‌اش از پیش خواسته می‌شود؛ پس از سقفِ انتظار، فایل می‌رود. */
+  delete rmap.musicPrev[fQ.getId()];
+  global.MR_PREV_CACHE_ = null;
+  CFG.MR_PREV_WAIT_MIN = 45;
+  const st = mrState_(); st.more = 3; st.dayN = 0; st.pw = {}; mrSave_(st);
+  const realQ = global.mrQueue_;
+  global.mrQueue_ = () => [{ id: fQ.getId(), name: 'Q.wav', sec: 30 }, { id: fP.getId(), name: 'P.wav', sec: 30 }];
+  const tg2 = tg.length;
+  const st2 = mrState_();
+  const r1 = mrSendDue_(hub, st2, 30000);
+  const s1 = tg.slice(tg2).map(x => x.m);
+  ok('۱۷.۴ بی‌نسخه منتظر می‌ماند، باآماده می‌رود (صوتی)', r1.sent === 1 && s1.join() === 'sendAudio' && !!st2.pw[fQ.getId()], s1.join() + ' ' + JSON.stringify(st2.pw));
+  ok('۱۷.۵ و نسخهٔ پخش‌شدنیِ کارتِ منتظر از پیش خواسته شد', JSON.parse(global.__PROPS['MUSIC_PREV_WANT'] || '[]').indexOf(fQ.getId()) !== -1);
+  st2.pw[fQ.getId()] = Date.now() - 46 * 60000;
+  const tg3 = tg.length;
+  const r2 = mrSendDue_(hub, st2, 30000);
+  ok('۱۷.۶ رانرِ خوابیده کارت را برای همیشه نگه نمی‌دارد: پس از سقفِ انتظار، فایل می‌رود', tg.slice(tg3).some(x => x.m === 'sendDocument') && r2.sent >= 1 && st2.audLeft === 1);
+  global.mrQueue_ = realQ;
+
+  /* کارتِ فایلیِ پیشین، بی‌داوری ⇒ editMessageMedia در جا؛ همان پیام. */
+  const mus = hub.getSheetByName(CFG.MUSIC_TAB || 'موسیقی');
+  const rr = MUSIC_HEADERS.map(() => ''); rr[MC.ID - 1] = fOld.getId(); rr[MC.NAME - 1] = 'Old.wav'; rr[MC.SEC - 1] = 30; rr[MC.KIND - 1] = 'موسیقی';
+  mus.appendRow(rr);
+  mrSet_(hub, fOld.getId(), { name: 'Old.wav', sent: nowStr_(), msg: '555' });
+  rmap.musicPrev[fOld.getId()] = { url: 'https://github.com/x/releases/download/renders/mprev-Old.mp3' };
+  global.MR_PREV_CACHE_ = null;
+  const st3 = mrState_(); st3.audAt = 0; st3.audLeft = 1;
+  const tg4 = tg.length;
+  const n = mrAudUpgrade_(hub, st3, 30000);
+  const ed = tg.slice(tg4).filter(x => x.m === 'editMessageMedia');
+  const md = ed.length ? JSON.parse(ed[0].b.media) : {};
+  ok('۱۷.۷ کارتِ فایلیِ قبلی در جا صوتی شد: همان شناسهٔ پیام، با دکمه‌ها', n >= 1 && ed.some(x => x.b.message_id === '555') &&
+     md.type === 'audio' && md.media === 'attach://a' && !!ed[0].b.a && /inline_keyboard/.test(ed[0].b.reply_markup), JSON.stringify(md).slice(0, 80));
+  ok('۱۷.۸ و شناسهٔ پیام در تب عوض نشد (داوری و برش به همان بسته‌اند)', mrMap_(hub)[fOld.getId()].msg === '555');
+  const st4 = mrState_(); st4.audAt = 0; st4.audLeft = 1;
+  const tg5 = tg.length;
+  mrAudUpgrade_(hub, st4, 30000);
+  ok('۱۷.۹ دوباره بارگذاری نمی‌شود', !tg.slice(tg5).some(x => x.m === 'editMessageMedia' && x.b.message_id === '555'));
+  const st5 = mrState_(); st5.audAt = Date.now(); st5.audLeft = 1;
+  const tg6 = tg.length;
+  mrAudUpgrade_(hub, st5, 30000);
+  ok('۱۷.۱۰ و زودتر از یک ربع هاب و تلگرام را لمس نمی‌کند', tg.length === tg6);
+  global.__STUB = old;
+  CFG.MR_PREV_WAIT_MIN = 0;
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ بازبینیِ موسیقی گذشت.');

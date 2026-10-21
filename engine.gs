@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.91
+ *  موتور محتوا و پادکست — نسخهٔ 9.92
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1755,6 +1755,9 @@ var CFG = {
   MR_FIRST_BATCH: 25,           // روزِ اول (امشب)
   MR_PER_DAY: 10,
   MR_PER_RUN: 4,                // هر اجرای tgPollTick حداکثر این‌قدر کارت
+  MR_PREV_AHEAD: 20,            // ۹.۹۲: نسخهٔ پخش‌شدنیِ این‌قدر کارتِ بعدیِ صف از پیش خواسته می‌شود
+  MR_PREV_WAIT_MIN: 45,         // کارتِ WAV تا این‌قدر منتظرِ نسخهٔ پخش‌شدنی می‌ماند، بعد فایل می‌رود
+  MR_AUD_PER_RUN: 3,            // کارت‌های فایلیِ قبلی که هر ربع در جا صوتی می‌شوند
   /* ۹.۸۳: صفحهٔ پخش‌کننده برای انتخابِ بازه — از خودِ این ریپو (docs/webapp/range.html)، با نوعِ HTML. */
   MR_RANGE_PAGE: 'https://raw.githack.com/mahdighandi1989/Content-Engine/main/docs/webapp/range.html',
   MR_POLL_MIN: 1,               // تریگرِ خواندنِ دکمه‌ها، دقیقه — ۹.۷۷: یک، نه پنج؛ کلیکی که پنج دقیقه جواب نگیرد «کار نمی‌کند»
@@ -2216,7 +2219,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.91',
+  CODE_VERSION: '9.92',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -83375,6 +83378,19 @@ function mrSendOne_(b, r) {
   /* ۹.۷۹: «چند بار ۵ تای بعدی رو زدم و ده دقیقه گذشته» — هر کارتِ WAV دو بار بارگذاری می‌شد: یک بار به sendAudio که
      WAV را نمی‌پذیرد، و دوباره به sendDocument. فایلِ ده‌مگابایتی دو بار یعنی سهمِ ۴۰ ثانیه‌ایِ هر اجرا برای یکی‌دو کارت. */
   var isWav = f && /\.wav$/i.test(String(f.getName() || b.name || ''));
+  mrSendOne_.kind = '';
+  /* ۹.۹۲: «تو خودِ تلگرام پلی نمی‌شه و باید دانلود کنم» — WAV به‌صورتِ فایل می‌رفت و تلگرام فایل را پخش نمی‌کند. همان MP3ای که
+     رانر برای صفحهٔ بازه می‌سازد (۹.۸۶) با sendAudio می‌رود؛ دکمه‌ها و شناسه همان قطعهٔ بانک‌اند، پس برش و داوری دست نمی‌خورد. */
+  if (isWav) {
+    var pb = null; try { pb = mrPrevBlob_(b); } catch (ePb) { pb = null; }
+    if (pb) {
+      try {
+        res = tgApi_('sendAudio', { chat_id: tgChat_(), audio: pb, caption: cap, parse_mode: 'HTML', performer: 'بانکِ موسیقی',
+                                    title: String(b.name || '').replace(/\.wav$/i, '').slice(0, 60), reply_markup: kb });
+      } catch (eAp) { res = null; }
+      if (res && res.result) mrSendOne_.kind = 'audio';
+    }
+  }
   if (f && f.getSize() <= maxB && !isWav) {
     try {
       res = tgApi_('sendAudio', { chat_id: tgChat_(), audio: f.getBlob(), caption: cap, parse_mode: 'HTML',
@@ -83386,6 +83402,7 @@ function mrSendOne_(b, r) {
     if (!res || !res.result) {
       try { res = tgApi_('sendDocument', { chat_id: tgChat_(), document: f.getBlob(), caption: cap, parse_mode: 'HTML', reply_markup: kb }); }
       catch (eD) { res = null; }
+      if (res && res.result && isWav) mrSendOne_.kind = 'doc';
     }
   }
   if (!res || !res.result) {
@@ -83436,16 +83453,39 @@ function mrSendDue_(hub, st, budgetMs) {
   var map = mrMap_(hub), q = mrQueue_(musicBank_(hub), map);
   if (!q.length) { st.left = 0; out.why = 'همهٔ قطعه‌ها فرستاده یا داوری شده‌اند'; return out; }
   var per = Math.max(1, Number(CFG.MR_PER_RUN) || 4);
+  /* ۹.۹۲: کارتِ WAV فقط وقتی می‌رود که نسخهٔ پخش‌شدنی‌اش آماده است — و برای اینکه منتظر نماند، نسخهٔ کارت‌های بعدیِ صف از
+     پیش خواسته می‌شود. انتظار سقف دارد (MR_PREV_WAIT_MIN): رانرِ خوابیده نباید کارت را برای همیشه نگه دارد. */
+  var pm = mrPrevMap_(), wav = function (x) { return /\.wav$/i.test(String(x.name || '')); };
+  var ahead = q.slice(0, Math.max(per, Number(CFG.MR_PREV_AHEAD) || 20))
+               .filter(function (x) { return wav(x) && !(pm[x.id] && pm[x.id].url); });
+  if (ahead.length) {
+    ahead.forEach(function (x) {
+      try { DriveApp.getFileById(x.id).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (eSh) {}
+    });
+    mrPrevWant_(ahead.map(function (x) { return x.id; }));
+  }
+  var pw = st.pw || {}, wm = Number(CFG.MR_PREV_WAIT_MIN), held = 0;
+  var waitMs = (isFinite(wm) && wm >= 0 ? wm : 45) * 60000;
   for (var i = 0; i < q.length && out.sent < per && ((st.dayN || 0) < cap || out.sent < more); i++) {
     if (Date.now() - t0 > budgetMs) break;
     var b = q[i], mid = '';
+    if (wav(b) && !(pm[b.id] && pm[b.id].url)) {
+      if (!pw[b.id]) pw[b.id] = Date.now();
+      if (Date.now() - pw[b.id] < waitMs) { held++; continue; }
+    }
     try { mid = mrSendOne_(b, null); } catch (e) { out.why = 'ارسال نشد: ' + String(e.message || e).slice(0, 80); break; }
+    if (mrSendOne_.kind === 'doc') st.audLeft = 1;
+    delete pw[b.id];
     if (!mid) continue;
     mrSet_(hub, b.id, { name: b.name, sent: nowStr_(), msg: mid, heard: String(b.heard || '').slice(0, 200) });
     mrLog_(hub, b.id, b.name, 'فرستاده شد', mid, '');
     out.sent++; st.dayN = (Number(st.dayN) || 0) + 1;
   }
   if (out.sent && (st.dayN || 0) >= cap) st.first = 1;
+  var keep = {}, nk = 0;
+  for (var pk in pw) if (Object.prototype.hasOwnProperty.call(pw, pk) && nk < 40) { keep[pk] = pw[pk]; nk++; }
+  st.pw = keep;
+  if (held && !out.sent) out.why = held + ' کارت منتظرِ نسخهٔ قابلِ پخش در تلگرام است';
   st.left = Math.max(0, q.length - out.sent);
   return out;
 }
@@ -83828,6 +83868,70 @@ function mrPrevBackfill_(hub) {
   }
   mrPrevWant_(ids);
   return ids.length;
+}
+
+/* ═══ کارتی که در خودِ تلگرام پخش می‌شود (۹.۹۲) ═══
+ * WAV با sendDocument یک فایلِ دانلودی است و تلگرام پخشش نمی‌کند. پیش‌نمایشِ MP3ِ کاملِ هر قطعه از ۹.۸۶ روی ریلیز هست؛
+ * همان با sendAudio می‌رود، و کارت‌هایی که پیش‌تر فایل رفته‌اند با editMessageMedia در جا صوتی می‌شوند — همان پیام، همان
+ * دکمه‌ها، پس شناسهٔ پیامی که داوری و برش به آن بسته است عوض نمی‌شود. */
+var MR_PREV_CACHE_ = null;
+function mrPrevMap_() {
+  if (MR_PREV_CACHE_) return MR_PREV_CACHE_;
+  try { MR_PREV_CACHE_ = (ytRenderDocFetch_() || {}).musicPrev || {}; } catch (e) { MR_PREV_CACHE_ = {}; }
+  return MR_PREV_CACHE_;
+}
+
+/** بایت‌ها، نه پسوند (قاعدهٔ `musicFetch_`): ID3 یا قابِ MP3. */
+function mrIsMp3_(by) {
+  if (!by || by.length < 1000) return false;
+  if (by[0] === 0x49 && by[1] === 0x44 && by[2] === 0x33) return true;
+  return (by[0] & 0xFF) === 0xFF && (by[1] & 0xE0) === 0xE0;
+}
+
+/** نسخهٔ MP3ِ قطعه از ریلیز ⇒ blob، یا null. */
+function mrPrevBlob_(b) {
+  var x = mrPrevMap_()[b && b.id];
+  if (!x || !x.url) return null;
+  var res = UrlFetchApp.fetch(x.url, { muteHttpExceptions: true, followRedirects: true });
+  if (res.getResponseCode() !== 200) return null;
+  var bl = res.getBlob();
+  if (!mrIsMp3_(bl.getBytes())) return null;
+  return bl.setName(String(b.name || 'music').replace(/\.wav$/i, '').slice(0, 60) + '.mp3').setContentType('audio/mpeg');
+}
+
+/** کارت‌های فایلیِ بی‌داوری ⇒ صوتی، در جا. تا وقتی چیزی مانده (st.audLeft)، هر ربع حداکثر MR_AUD_PER_RUN تا. */
+function mrAudUpgrade_(hub, st, budgetMs) {
+  if (st.audLeft === 0) return 0;
+  if (Date.now() - (Number(st.audAt) || 0) < 15 * 60000) return 0;
+  st.audAt = Date.now();
+  var t0 = Date.now(), P = props_(), done = {};
+  try { (JSON.parse(P.getProperty('MUSIC_AUD_DONE') || '[]') || []).forEach(function (id) { done[id] = 1; }); } catch (e0) {}
+  var pm = mrPrevMap_(), rows = mrRows_(hub), cand = [], wait = 0;
+  rows.forEach(function (x) {
+    if (!x.r || !x.r.msg || x.r.verdict || done[x.id] || !/\.wav$/i.test(x.name)) return;
+    if (pm[x.id] && pm[x.id].url) cand.push(x); else { wait++; mrPrevWant_([x.id]); }
+  });
+  var n = 0, per = Math.max(1, Number(CFG.MR_AUD_PER_RUN) || 3);
+  for (var i = 0; i < cand.length && n < per && Date.now() - t0 < budgetMs; i++) {
+    var b = mrBankItem_(hub, cand[i].id), r = cand[i].r, pb = null, res = null;
+    try { pb = mrPrevBlob_(b); } catch (eB) { pb = null; }
+    if (!pb) continue;
+    var ru = ''; try { ru = mrRangeUrl_(b, r, false); } catch (eRu) { ru = ''; }
+    var media = { type: 'audio', media: 'attach://a', caption: mrCaption_(b, r), parse_mode: 'HTML', performer: 'بانکِ موسیقی',
+                  title: String(b.name || '').replace(/\.wav$/i, '').slice(0, 60) };
+    try {
+      res = tgApi_('editMessageMedia', { chat_id: String(tgChat_()), message_id: String(r.msg), media: JSON.stringify(media), a: pb,
+                                         reply_markup: JSON.stringify(mrKeyboard_(b.id, r, b.kind, ru)) });
+    } catch (eE) { res = null; }
+    /* شکست هم «انجام» ثبت می‌شود: کارتی که تلگرام نمی‌پذیرد، هر ربع دوباره بارگذاری نمی‌شود. */
+    done[cand[i].id] = 1;
+    if (res && res.result) { n++; mrLog_(hub, b.id, b.name, 'کارت صوتی شد', r.msg, ''); }
+    else mrLog_(hub, b.id, b.name, 'کارت صوتی نشد', r.msg, '');
+  }
+  P.setProperty('MUSIC_AUD_DONE', JSON.stringify(Object.keys(done).slice(-400)));
+  var left = cand.filter(function (x) { return !done[x.id]; }).length + wait;
+  st.audLeft = left ? 1 : 0;
+  return n;
 }
 
 /* ═══ منوی ثابت، مرورِ بانک، و یادداشت روی هر کارت (۹.۸۲) ═══
@@ -84338,6 +84442,9 @@ function tgPollRun_() {
     if (!st.prev986) { try { mrPrevBackfill_(getHub()); } catch (ePb) { st.lastWhy = 'prev986: ' + String(ePb.message || ePb).slice(0, 100); } st.prev986 = 1; }
     try { mrPrevSync_(st); } catch (ePs) { st.lastWhy = 'prev: ' + String(ePs.message || ePs).slice(0, 100); }
     try { mrUpPoll_(getHub, st); } catch (eUp) { st.lastWhy = 'upload: ' + String(eUp.message || eUp).slice(0, 100); }
+    if (st.audLeft !== 0 && Date.now() - (Number(st.audAt) || 0) >= 15 * 60000 && Date.now() - t0 < maxRun - 40000) {
+      try { mrAudUpgrade_(getHub(), st, 30000); } catch (eAu) { st.lastWhy = 'aud: ' + String(eAu.message || eAu).slice(0, 100); }
+    }
     if (!st.why981) { try { mrRereadWhys_(getHub(), st); } catch (eRw) { st.lastWhy = 'why981: ' + String(eRw.message || eRw).slice(0, 100); } st.why981 = 1; }
     /* تریگر هر دقیقه است (۹.۷۷)؛ بازکردنِ هابِ ۲۹ مگابایتی هر دقیقه سهمیهٔ روزانهٔ اجرا را می‌خورد. پس فرستادن فقط
        وقتی سهمِ امروز پر نیست و ده دقیقه از تلاشِ قبلی گذشته — و سهمِ پر بی هیچ خواندنی دانسته می‌شود. */

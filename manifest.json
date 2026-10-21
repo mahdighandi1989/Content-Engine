@@ -1,11 +1,11 @@
 {
-  "version": "9.91",
+  "version": "9.92",
   "codeFile": "engine.gs",
-  "sha256": "4d4fc3895f7a2841d6daf23325ff1b03a6e535498925278df3ec5acc316f4c8a",
-  "releasedAt": "2026-10-21T05:49:06Z",
-  "summary": "سقفِ طولِ درس‌نامه در حالتِ دو فایل هم در کد است",
+  "sha256": "047cdcb3acb1ac018c2813c69b725a06a63a4b256b70bae83cfc8a7d6a6ae678",
+  "releasedAt": "2026-10-21T06:15:23Z",
+  "summary": "کارت‌های موسیقی در خودِ تلگرام پخش می‌شوند",
   "fixes": [
-    "specialCondense_ در حالتِ دو فایل هم وقتی متن از SPECIAL_OVER_SLACK برابرِ سقف بگذرد؛ یافتهٔ sp-over-target (قسمتِ ۷۹: ۱۹٬۵۷۹ نویسه در برابرِ ۹٬۴۵۰)"
+    "mrSendOne_: WAV با MP3ِ ریلیز و sendAudio؛ mrSendDue_: نسخهٔ کارت‌های بعدی از پیش و انتظارِ سقف‌دار؛ mrAudUpgrade_: کارت‌های فایلیِ قبلی با editMessageMedia در جا"
   ],
   "sourceReportIds": [],
   "answers": []
