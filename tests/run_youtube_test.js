@@ -9507,8 +9507,9 @@ console.log('\n=== ۹۴) آپلودی که ثبت نشد، تکراری با «�
         iLog = up.lastIndexOf('ytLog_(hub, { show: showName, ep: item.ep, series: seriesName, title: title,\n                videoId: vid'),
         iClr = up.indexOf('ytUpPendingClear_(upKey)');
   ok('۹۴.۲ در آپلود: نشانِ قبلی ⇒ همان ویدئو و بی insert؛ نشان درست پس از insert، پاک فقط پس از ثبتِ نهایی',
-     /if \(pend && pend\.vid\) \{\s*\n\s*vid = String\(pend\.vid\)/.test(up) && /if \(!vid\) try \{/.test(up) &&
-     /if \(!vid && !ytQuotaTake_\(YT_COST\.videosInsert/.test(up) &&
+     /if \(pend && pend\.vid\) \{\s*\n\s*vid = String\(pend\.vid\)/.test(up) && /if \(!vid && !chunked\) try \{/.test(up) &&
+     /* ۹.۹۳: ادامهٔ آپلودِ تکه‌ای سهمیهٔ تازه نمی‌گیرد — همان درج است. */
+     /if \(!vid && !\(chunkSt && chunkSt\.url\) && !ytQuotaTake_\(YT_COST\.videosInsert/.test(up) &&
      iIns > 0 && iSet > iIns && iLog > iSet && iClr > iLog, JSON.stringify({ iIns, iSet, iLog, iClr }));
 
   /* ۹۴.۳ — تکراری با «ماندنی»: فقط `dup` کنار می‌رود (پلی‌لیست + خصوصی)، ماندنی عمومی و — اگر در دفتر نبود — ثبت می‌شود. */
@@ -10071,6 +10072,56 @@ console.log('=== ۹.۸۸) انتشار پیش از نگه‌داری در دور
   const h08 = require('fs').readFileSync('src/08_Health.gs', 'utf8'), r30 = require('fs').readFileSync('src/30_Recap.gs', 'utf8');
   ok('۹۸۸.۳ مرورِ بزرگ با هدفِ مدتِ درس سنجیده نمی‌شود، و عنوانِ مرور همیشه «مرور» دارد (همان که وارسی می‌خوانَد)',
      /spx\.lastRecap \? 0 : epTooLong_/.test(h08) && /out\.lastRecap = \/مرور\//.test(h08) && /'مرورِ بزرگ: ' \+/.test(r30));
+}
+
+console.log('=== ۹۹۳) ویدئوی بزرگ تکه‌تکه بالا می‌رود (۹.۹۳) ===');
+{
+  /* special:77 ۶۹ مگابایت بود؛ سقفِ blob ۵۰. نشستِ ازسرگیری‌پذیر، تکه‌ها با Range از درایو، ادامه از آنچه یوتیوب می‌گوید رسید. */
+  const keep = global.__STUB, MB = 1048576, total = 40 * MB + 123;
+  const file = { getSize: () => total, getId: () => 'VIDF' };
+  CFG.YT_CHUNK_MB = 16;
+  let puts = [], ranges = [], ytHas = 0, inits = 0;
+  global.__STUB = (url, body, opt) => {
+    opt = opt || {};
+    if (/upload\/youtube\/v3\/videos\?uploadType=resumable/.test(url)) { inits++; return { code: 200, json: {}, headers: { Location: 'https://up.example/sess1' } }; }
+    if (/drive\/v3\/files\/VIDF\?alt=media/.test(url)) { ranges.push(opt.headers.Range); return { code: 206, bytes: [1, 2, 3], mime: 'video/mp4' }; }
+    if (/up\.example\/sess1/.test(url)) {
+      const cr = String(opt.headers['Content-Range']);
+      puts.push({ cr, follow: opt.followRedirects });
+      if (/^bytes \*\//.test(cr)) return { code: 308, json: {}, headers: ytHas ? { Range: 'bytes=0-' + (ytHas - 1) } : {} };
+      const m = /bytes (\d+)-(\d+)\/(\d+)/.exec(cr);
+      ytHas = Number(m[2]) + 1;
+      if (ytHas >= total) return { code: 201, json: { id: 'NEWVID' } };
+      return { code: 308, json: {}, headers: { Range: 'bytes=0-' + (ytHas - 1) } };
+    }
+    return keep(url, body, opt);
+  };
+  global._ytRunDeadline = Date.now() + 600000;
+  global.__PROPS['YT_CHUNK_UP'] = '{}';
+  const r1 = ytChunkUpload_('special:77', file, { snippet: { title: 't' }, status: {} });
+  ok('۹۹۳.۱ ۴۰ مگ در تکه‌های ۱۶ مگی: سه PUT، آخری شناسه می‌دهد', r1.vid === 'NEWVID' && puts.length === 3 && inits === 1 &&
+     puts[0].cr === 'bytes 0-16777215/' + total && puts[2].cr === 'bytes 33554432-' + (total - 1) + '/' + total, JSON.stringify(r1) + ' ' + puts.map(x => x.cr).join(' | '));
+  ok('۹۹۳.۲ هر تکه با Range از خودِ درایو، و ۳۰۸ دنبال نمی‌شود', ranges[0] === 'bytes=0-16777215' && ranges.length === 3 && puts.every(x => x.follow === false));
+  ok('۹۹۳.۳ پایان ⇒ نشست از حافظه پاک شد', !ytChunkState_('special:77'));
+
+  /* اجرای کشته‌شده: یوتیوب ۲۰ مگ دارد، حافظهٔ ما صفر می‌گوید ⇒ از ۲۰ مگ ادامه، نه از صفر و نه نشستِ تازه. */
+  puts = []; ranges = []; inits = 0; ytHas = 20 * MB;
+  ytChunkSave_('special:77', { url: 'https://up.example/sess1', fid: 'VIDF', size: total, sent: 0, t: Date.now() });
+  const r2 = ytChunkUpload_('special:77', file, {});
+  ok('۹۹۳.۴ ادامه از آنچه یوتیوب می‌گوید رسیده، بی نشستِ تازه (و بی سهمیهٔ تازه)', r2.vid === 'NEWVID' && inits === 0 &&
+     /^bytes \*\//.test(puts[0].cr) && ranges[0] === 'bytes=' + (20 * MB) + '-' + (20 * MB + 16 * MB - 1), ranges.join(','));
+
+  /* مهلتِ اجرا: تکهٔ تازه فقط اگر وقت هست؛ وگرنه «در انتظار» و نشست می‌ماند. */
+  puts = []; ranges = []; inits = 0; ytHas = 0;
+  global.__PROPS['YT_CHUNK_UP'] = '{}';
+  global._ytRunDeadline = Date.now() + 1000;
+  const r3 = ytChunkUpload_('special:78', file, {});
+  ok('۹۹۳.۵ وقت نیست ⇒ در انتظار، نشست نگه داشته شد، هیچ تکه‌ای نیمه‌کاره فرستاده نشد', r3.waiting === true && !r3.vid && ranges.length === 0 &&
+     (ytChunkState_('special:78') || {}).url === 'https://up.example/sess1');
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۹۹۳.۶ ویدئوی بالای ۴۵ مگ دیگر از نو با بیتِ کمتر ساخته نمی‌شود؛ همین راه را می‌رود', /var chunked = CFG\.YT_CHUNKED !== false && size > 45 \* 1024 \* 1024;/.test(src27) &&
+     /if \(size > 45 \* 1024 \* 1024 && !chunked\)/.test(src27) && /ytChunkUpload_\(upKey, video,/.test(src27));
+  global.__STUB = keep; global._ytRunDeadline = 0; global.__PROPS['YT_CHUNK_UP'] = '{}';
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

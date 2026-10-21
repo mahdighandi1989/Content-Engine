@@ -1,11 +1,11 @@
 {
-  "version": "9.92",
+  "version": "9.93",
   "codeFile": "engine.gs",
-  "sha256": "047cdcb3acb1ac018c2813c69b725a06a63a4b256b70bae83cfc8a7d6a6ae678",
-  "releasedAt": "2026-10-21T06:15:23Z",
-  "summary": "کارت‌های موسیقی در خودِ تلگرام پخش می‌شوند",
+  "sha256": "001351c49ef09742397ccc7bf0618649d199e178d828152214da16eb1e0126f1",
+  "releasedAt": "2026-10-21T06:47:35Z",
+  "summary": "ویدئوی بزرگ تکه‌تکه به یوتیوب می‌رود",
   "fixes": [
-    "mrSendOne_: WAV با MP3ِ ریلیز و sendAudio؛ mrSendDue_: نسخهٔ کارت‌های بعدی از پیش و انتظارِ سقف‌دار؛ mrAudUpgrade_: کارت‌های فایلیِ قبلی با editMessageMedia در جا"
+    "ytChunkUpload_: نشستِ ازسرگیری‌پذیرِ یوتیوب، تکه‌های ۱۶ مگی با Range از درایو، ادامه از بایتِ رسیده؛ special:77 (۶۹ مگ) و special:76 (۴۹٫۵ مگ) دیگر در صف نمی‌مانند"
   ],
   "sourceReportIds": [],
   "answers": []

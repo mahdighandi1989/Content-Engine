@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.92
+ *  موتور محتوا و پادکست — نسخهٔ 9.93
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1350,6 +1350,9 @@ var CFG = {
   YT_CHANNEL_EVERY_DAYS: 7,             // وارسیِ کامل، حتی وقتی چیزی عوض نشده
   YT_TODO_EVERY_DAYS: 7,                // یادآوریِ کارهای دستی — نه هر روز
   YT_THUMB: true,
+  YT_CHUNKED: true,             // ۹.۹۳: ویدئوی بالای ۴۵ مگ تکه‌تکه (نشستِ ازسرگیری‌پذیر)، نه ساختِ دوباره با بیتِ کمتر
+  YT_CHUNK_MB: 16,              // اندازهٔ هر تکه (مضربِ ۰٫۲۵)
+  YT_CHUNK_NEED_MS: 60000,      // تکهٔ تازه فقط اگر این‌قدر از مهلتِ اجرا مانده
   /* کاورِ نقاشی که با عمومی‌شدن گم شد (۸.۵۴): هر دورِ یوتیوب تا این‌قدر ویدئو را
      برمی‌گرداند، و دفترش این‌قدر کلید نگه می‌دارد. */
   YT_THUMB_FIX_MAX: 2,
@@ -2219,7 +2222,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.92',
+  CODE_VERSION: '9.93',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -59680,7 +59683,10 @@ function ytUploadOne_(item, hub, pub) {
 
   var size = 0;
   try { size = video.getSize(); } catch (eS) {}
-  if (size > 45 * 1024 * 1024) {
+  /* ۹.۹۳: ویدئوی بزرگ تکه‌تکه بالا می‌رود (`ytChunkUpload_`)، نه با ساختِ دوباره در کیفیتِ کمتر. ویدئوی ۳۸ دقیقه‌ایِ special:77
+     ۶۹ مگابایت بود؛ سقفِ ۴۵ یعنی بیتِ نصف — و بارِ دوم هم بزرگ می‌ماند و برای همیشه در صف. */
+  var chunked = CFG.YT_CHUNKED !== false && size > 45 * 1024 * 1024;
+  if (size > 45 * 1024 * 1024 && !chunked) {
     /* ۹.۳۷: یک بار از نو، با سقفِ بیتِ تازهٔ رانر — همان درِ «پیش از انتشار از نو» (۸.۶۵): ویدئوی بزرگ به «پیشین» می‌رود
        (نه سطل) و `replace` رانر را وادار به ساختِ دوباره می‌کند. بارِ دوم ⇒ علت با عدد، بی ساختِ سوم. */
     var mbS = Math.round(size / 1048576);
@@ -59750,12 +59756,13 @@ function ytUploadOne_(item, hub, pub) {
     vid = String(pend.vid);
     logLine_('یوتیوب ' + upKey + ': ادامهٔ آپلودِ ثبت‌نشدهٔ ' + pend.at + ' (' + vid + ') — دوباره آپلود نمی‌شود.');
   }
-  if (!vid && !ytQuotaTake_(YT_COST.videosInsert, true)) {
+  var chunkSt = chunked ? ytChunkState_(upKey) : null;
+  if (!vid && !(chunkSt && chunkSt.url) && !ytQuotaTake_(YT_COST.videosInsert, true)) {
     res.why = 'سهمیهٔ آپلودِ امروز تمام شد؛ فردا ادامه می‌یابد';
     res.quota = true;
     return res;
   }
-  if (!vid) try {
+  if (!vid && !chunked) try {
     var made = yt.Videos.insert({
       snippet: { title: title, description: desc, tags: tags,
                  categoryId: isSpecial ? (CFG.YT_CATEGORY_SPECIAL || '27')
@@ -59773,6 +59780,24 @@ function ytUploadOne_(item, hub, pub) {
                   result: 'نشد', note: res.why, descChars: desc.length,
                   tags: tags.length, chapters: chapters.length });
     return res;
+  }
+  if (!vid && chunked) {
+    var cu = ytChunkUpload_(upKey, video, {
+      snippet: { title: title, description: desc, tags: tags,
+                 categoryId: isSpecial ? (CFG.YT_CATEGORY_SPECIAL || '27')
+                                       : (CFG.YT_CATEGORY_VARIETY || '22'),
+                 defaultLanguage: CFG.YT_LANG || 'fa',
+                 defaultAudioLanguage: CFG.YT_LANG || 'fa' },
+      status: { privacyStatus: CFG.YT_PRIVACY_FIRST || 'unlisted', selfDeclaredMadeForKids: false } });
+    if (cu.vid) { vid = cu.vid; ytUpPendingSet_(upKey, vid); }
+    else if (cu.waiting) { res.waiting = true; res.why = cu.why; return res; }
+    else {
+      res.why = 'آپلودِ تکه‌ای نشد: ' + cu.why;
+      ytLog_(hub, { show: showName, ep: item.ep, series: seriesName, title: title,
+                    result: 'نشد', note: res.why, descChars: desc.length,
+                    tags: tags.length, chapters: chapters.length });
+      return res;
+    }
   }
   if (!vid) { res.why = 'یوتیوب شناسهٔ ویدئو برنگرداند'; return res; }
   res.videoId = vid;
@@ -62788,6 +62813,87 @@ function ytFolderOf_(show, ep, seriesName) {
  * • **عکسِ پروفایل (آواتار): ممکن نیست.** یوتیوب هیچ راهی در API برایش
  *   نگذاشته. این را باید صریح نوشت، وگرنه هر بار کسی دنبالش می‌گردد.
  */
+/* ═══ آپلودِ تکه‌ایِ ویدئو (۹.۹۳) ═══
+ * درجِ ساده (`insert` در سرویسِ پیشرفته) کلِ فایل را یک blob می‌خواهد و blobِ Apps Script سقفِ ۵۰ مگابایت دارد. درس‌های ۷۶ تا ۷۹ (۲۷ تا ۴۲ دقیقه)
+ * ویدئوی ۵۰ تا ۷۰ مگابایتی دادند و تا ۹.۹۲ یا با بیتِ کمتر از نو ساخته می‌شدند یا برای همیشه در صف می‌ماندند. این همان راهِ
+ * `vbrResumableUpload_` است، این بار رو به یوتیوب: نشستِ ازسرگیری‌پذیر، هر تکه با Range از خودِ درایو (هرگز کلِ فایل در
+ * حافظه نیست)، و نشانیِ نشست در Properties — اجرای بعدی از همان بایت ادامه می‌دهد، چون یوتیوب خودش می‌گوید چقدر رسیده.
+ * `followRedirects: false`: کدِ ۳۰۸ یعنی «ادامه بده»، نه تغییرِ مسیر. */
+function ytChunkState_(key) {
+  try { var m = JSON.parse(props_().getProperty('YT_CHUNK_UP') || '{}') || {}; return m[key] || null; } catch (e) { return null; }
+}
+function ytChunkSave_(key, st) {
+  try {
+    var P = props_(), m = {};
+    try { m = JSON.parse(P.getProperty('YT_CHUNK_UP') || '{}') || {}; } catch (e0) { m = {}; }
+    if (st) m[key] = st; else delete m[key];
+    P.setProperty('YT_CHUNK_UP', JSON.stringify(m));
+  } catch (e) {}
+}
+
+/** ⇒ {vid} پایان یافت · {waiting, why} تا اجرای بعد · {why} شکست. */
+function ytChunkUpload_(key, file, resource) {
+  var tok = ScriptApp.getOAuthToken(), total = file.getSize(), fid = file.getId();
+  var CH = Math.max(1, Math.round((Number(CFG.YT_CHUNK_MB) || 16) * 4)) * 262144;   // مضربِ ۲۵۶ کیلوبایت
+  var st = ytChunkState_(key);
+  var ageD = st ? (Date.now() - (Number(st.t) || 0)) / 86400000 : 99;
+  if (!st || st.fid !== fid || Number(st.size) !== total || ageD > 6) {
+    var init = UrlFetchApp.fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {
+      method: 'post', contentType: 'application/json; charset=UTF-8', payload: JSON.stringify(resource),
+      headers: { Authorization: 'Bearer ' + tok, 'X-Upload-Content-Type': 'video/mp4', 'X-Upload-Content-Length': String(total) },
+      muteHttpExceptions: true });
+    var c0 = init.getResponseCode();
+    if (c0 !== 200) return { why: 'آغازِ نشست: HTTP ' + c0 + ' ' + String(init.getContentText() || '').slice(0, 120) };
+    var hd = {}; try { hd = init.getAllHeaders(); } catch (eH) { try { hd = init.getHeaders(); } catch (eH2) { hd = {}; } }
+    var loc = hd.Location || hd.location || ''; if (loc instanceof Array) loc = loc[0];
+    if (!loc) return { why: 'یوتیوب نشانیِ نشست را نداد' };
+    st = { url: String(loc), fid: fid, size: total, sent: 0, t: Date.now() };
+    ytChunkSave_(key, st);
+  } else {
+    /* چقدر واقعاً رسیده؟ از خودِ یوتیوب، نه از حافظهٔ ما — اجرای کشته‌شده ممکن است تکه‌ای را فرستاده و ثبت نکرده باشد. */
+    var q = UrlFetchApp.fetch(st.url, { method: 'put', payload: '', headers: { Authorization: 'Bearer ' + tok, 'Content-Range': 'bytes */' + total },
+                                         muteHttpExceptions: true, followRedirects: false });
+    var cq = q.getResponseCode();
+    if (cq === 200 || cq === 201) {
+      var idq = ''; try { idq = String((JSON.parse(q.getContentText() || '{}') || {}).id || ''); } catch (eQ) {}
+      if (idq) { ytChunkSave_(key, null); return { vid: idq }; }
+    } else if (cq === 308) {
+      var hq = {}; try { hq = q.getAllHeaders(); } catch (eHq) { hq = {}; }
+      var rg = String(hq.Range || hq.range || '');
+      var mq = /bytes=0-(\d+)/.exec(rg);
+      st.sent = mq ? Number(mq[1]) + 1 : 0;
+    } else if (cq === 404 || cq === 410) {
+      ytChunkSave_(key, null);
+      return { waiting: true, why: 'نشستِ آپلود منقضی شد؛ دورِ بعد از نو' };
+    }
+  }
+  var deadline = (typeof _ytRunDeadline !== 'undefined' && _ytRunDeadline > 0) ? _ytRunDeadline : Date.now() + 150000;
+  var need = Math.max(20000, Number(CFG.YT_CHUNK_NEED_MS) || 60000);
+  while (st.sent < total) {
+    if (Date.now() + need > deadline) break;
+    var end = Math.min(total, st.sent + CH) - 1;
+    var got = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + fid + '?alt=media&supportsAllDrives=true', {
+      headers: { Authorization: 'Bearer ' + tok, Range: 'bytes=' + st.sent + '-' + end }, muteHttpExceptions: true });
+    var cg = got.getResponseCode();
+    if (cg !== 206 && cg !== 200) return { why: 'خواندنِ تکه از درایو: HTTP ' + cg };
+    var put = UrlFetchApp.fetch(st.url, { method: 'put', contentType: 'video/mp4', payload: got.getBlob(),
+                                          headers: { Authorization: 'Bearer ' + tok, 'Content-Range': 'bytes ' + st.sent + '-' + end + '/' + total },
+                                          muteHttpExceptions: true, followRedirects: false });
+    var c = put.getResponseCode();
+    if (c === 200 || c === 201) {
+      var id = ''; try { id = String((JSON.parse(put.getContentText() || '{}') || {}).id || ''); } catch (eJ) {}
+      ytChunkSave_(key, null);
+      return id ? { vid: id } : { why: 'یوتیوب شناسهٔ ویدئو برنگرداند' };
+    }
+    if (c !== 308) { ytChunkSave_(key, st); return { why: 'تکهٔ ' + Math.round(st.sent / 1048576) + ' مگ: HTTP ' + c + ' ' + String(put.getContentText() || '').slice(0, 100) }; }
+    var hp = {}; try { hp = put.getAllHeaders(); } catch (eHp) { hp = {}; }
+    var mp = /bytes=0-(\d+)/.exec(String(hp.Range || hp.range || ''));
+    st.sent = mp ? Number(mp[1]) + 1 : end + 1;
+    ytChunkSave_(key, st);
+  }
+  return { waiting: true, why: 'آپلودِ تکه‌ای: ' + Math.round(st.sent / 1048576) + ' از ' + Math.round(total / 1048576) + ' مگابایت — اجرای بعد ادامه می‌دهد' };
+}
+
 function ytHttp_(url, method, payload, mime) {
   var opt = { method: method || 'get', muteHttpExceptions: true,
               headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } };
