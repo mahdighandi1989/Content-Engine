@@ -1,18 +1,12 @@
 {
-  "version": "9.96",
+  "version": "9.97",
   "codeFile": "engine.gs",
-  "sha256": "d37801d25857bd7ce678fd70fa8e1e84f23f4af75486e38af00551b4a2a31007",
-  "releasedAt": "2026-10-21T08:17:49Z",
-  "summary": "صفِ داوریِ محتوا دیگر قسمت‌های قدیمی را هر شب دوباره داوری نمی‌کند — فهرستِ «داوری‌شده» با خودِ پوشه هرس می‌شود",
+  "sha256": "3b540847e9bcddf4e8bd8510f59de4ac2dc0dcf10ad6248aa5011d5032448af2",
+  "releasedAt": "2026-10-21T10:04:48Z",
+  "summary": "ذخیرهٔ سهمیه برای دو قسمتِ امروز — شورتزِ دوم دیگر بسته نمی‌ماند",
   "fixes": [
-    "auditPending_/auditMarkDone_: فهرستِ ۸۰تاییِ داوری‌شده از پوشهٔ ~۹۰عکسی کوچک‌تر بود؛ حالا donePending_ آن را به فایل‌های موجود هرس می‌کند (DONE_IDS_MAX=240 فقط نگهبانِ اندازه)",
-    "bridgePending_/bridgeMarkDone_: همان درمان برای عکس‌های ارجاع (سقفِ قدیم ۶۰)",
-    "run_audit_test: ۹۵ عکس و ۷۰ عکسِ ارجاع — بی درمان ۱۵ عکس به صف برمی‌گشت"
+    "IG_SHORT_KEEP_MAX ۳⇒۲: با ۳۸۱۵ واحد و ۷ قسمت در صف، شورتزِ دوم نمی‌رفت"
   ],
-  "sourceReportIds": [
-    "ENG-20260902-1007#audit-queue-stuck"
-  ],
-  "answers": [
-    "audit-queue-stuck"
-  ]
+  "sourceReportIds": [],
+  "answers": []
 }

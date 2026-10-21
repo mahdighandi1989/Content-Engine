@@ -834,7 +834,8 @@ console.log('=== ۱۰) «۶ تا بذار و جداش کن» — صفِ جدای
   const kDue = global.ytDueList_;
   global.ytDueList_ = () => [{ key: 'special:75' }];
   setQ(6000, 2, 0); const a5 = igShortQuotaOk_();
-  setQ(3000, 1, 0); global.ytDueList_ = () => [{ key: 'special:75' }, { key: 'variety:76' }, { key: 'special:76' }]; const a6 = igShortQuotaOk_();
+  /* ۹.۹۷: ذخیره برای دو قسمت (`IG_SHORT_KEEP_MAX`)، پس مرز ۳۹۰۰ واحد است، نه ۲۲۰۰. */
+  setQ(4000, 1, 0); global.ytDueList_ = () => [{ key: 'special:75' }, { key: 'variety:76' }, { key: 'special:76' }]; const a6 = igShortQuotaOk_();
   global.ytDueList_ = () => []; setQ(6000, 2, 0); const a7 = igShortQuotaOk_();
   global.ytDueList_ = kDue;
   ok('۱۰.۱-ب قسمتِ کاملِ در صف جای خودش را دارد، حتی وقتی «دو کاملِ امروز» رفته (۹.۵۴)؛ صفِ خالی ⇒ همان قاعدهٔ پیشین',
@@ -1052,6 +1053,11 @@ console.log('=== ۱۹) «شورتز و سایر چیزام نیومده» — ذ
   ok('۱۹.۱ صفِ شش‌تایی دیگر همهٔ شورتزها را نمی‌بندد (ذخیره برای حداکثر سه قسمت)', igShortQuotaOk_() === true);
   global.__PROPS[PK.YT_QUOTA] = JSON.stringify({ day: today, units: 4000, uploads: 2, blocked: '' });
   ok('۱۹.۲ ولی وقتی سه قسمتِ کامل دیگر جا نمی‌شود، شورتز نمی‌رود (قسمتِ امروز اول)', igShortQuotaOk_() === false);
+  /* ۹.۹۷: «شورت تا الان فقط یه دونه اومده» — ۲۱ اکتبر ۱۳:۲۶: ۳۸۱۵ واحد، ۲ آپلود، ۱ شورتز، ۷ در صف؛ ذخیرهٔ سه‌تایی (۳۸۱۵ + ۱۷۰۰ +
+     ۵۱۰۰) از ۹۰۰۰ می‌گذشت و شورتزِ دوم نمی‌رفت. ذخیره همان دو قسمتِ امروز است. */
+  global.__PROPS[PK.YT_DUE] = JSON.stringify(['special:76', 'variety:71', 'special:77', 'variety:78', 'special:78', 'variety:79', 'special:79'].map(k => ({ key: k })));
+  global.__PROPS[PK.YT_QUOTA] = JSON.stringify({ day: today, units: 3815, uploads: 2, shorts: 1, blocked: '' });
+  ok('۱۹.۲-ب وضعِ واقعیِ ۱۳:۲۶: شورتزِ دوم می‌رود و جای دو قسمتِ امروز می‌ماند', igShortQuotaOk_() === true && CFG.IG_SHORT_KEEP_MAX === 2);
   global.__PROPS[PK.YT_QUOTA] = qWas; global.__PROPS[PK.YT_DUE] = dWas;
   /* مرورِ ۹ بخشیِ بلند: هر بخش در متن، و داور همان را می‌بیند. */
   const secs = []; for (let i = 0; i < 9; i++) secs.push({ heading: 'بخشِ ' + (i + 1), narration: ('واژه' + i + ' ').repeat(900) + 'پایانِ‌بخش' + i });
