@@ -666,4 +666,12 @@ console.log('=== ۱۵) پیش‌نمایشِ صفحهٔ بازه از ریلیز
   global.__STUB = old;
 }
 
+console.log('=== ۱۶) نشانیِ صفحه با نسخه (۹.۸۹) ===');
+{
+  global.__PROPS['TG_BOT_USERNAME'] = 'mybot';
+  const u = mrRangeUrl_({ id: 'X1', name: 'a.wav', sec: 10 }, {}, false) || '';
+  ok('۱۶.۱ نشانیِ صفحهٔ بازه نسخهٔ موتور را دارد (نسخهٔ کهنهٔ مرورگر دور زده می‌شود)', !!u && u.indexOf('v=' + encodeURIComponent(CFG.CODE_VERSION)) !== -1, u);
+  ok('۱۶.۲ و صفحه هیچ پخشی از درایو ندارد', !/uc\?export=download|drive\.usercontent/.test(fs.readFileSync('docs/webapp/range.html', 'utf8')));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ بازبینیِ موسیقی گذشت.');

@@ -584,6 +584,9 @@ function mrRangeUrl_(b, r, share) {
   var rg = mrRangeParse_((r || {}).range);
   var q = { id: b.id, n: String(b.name || '').replace(/\.wav$/i, '').slice(0, 60), d: Math.round(Number(b.sec) || 0), bot: bot, k: mrRangeKey_(b.id) };
   if (rg) { q.s = rg.from; q.e = rg.to; }
+  /* ۹.۸۹: نسخه در نشانی — «این هنوزم همینه»: مرورگر نسخهٔ پیش از ۹.۸۶ِ همان نشانی را نشان داد (پخش از درایو). نشانیِ تازه با هر
+     نسخه، نسخهٔ کهنهٔ نگه‌داشته‌شده را دور می‌زند. */
+  q.v = String(CFG.CODE_VERSION || '');
   return page + '?' + Object.keys(q).map(function (k) { return k + '=' + encodeURIComponent(q[k]); }).join('&');
 }
 

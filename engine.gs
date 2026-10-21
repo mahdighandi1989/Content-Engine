@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.88
+ *  موتور محتوا و پادکست — نسخهٔ 9.89
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2215,7 +2215,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.88',
+  CODE_VERSION: '9.89',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -83720,6 +83720,9 @@ function mrRangeUrl_(b, r, share) {
   var rg = mrRangeParse_((r || {}).range);
   var q = { id: b.id, n: String(b.name || '').replace(/\.wav$/i, '').slice(0, 60), d: Math.round(Number(b.sec) || 0), bot: bot, k: mrRangeKey_(b.id) };
   if (rg) { q.s = rg.from; q.e = rg.to; }
+  /* ۹.۸۹: نسخه در نشانی — «این هنوزم همینه»: مرورگر نسخهٔ پیش از ۹.۸۶ِ همان نشانی را نشان داد (پخش از درایو). نشانیِ تازه با هر
+     نسخه، نسخهٔ کهنهٔ نگه‌داشته‌شده را دور می‌زند. */
+  q.v = String(CFG.CODE_VERSION || '');
   return page + '?' + Object.keys(q).map(function (k) { return k + '=' + encodeURIComponent(q[k]); }).join('&');
 }
 
