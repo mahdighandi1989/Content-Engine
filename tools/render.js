@@ -919,6 +919,16 @@ function spliceMoments(it, placed, mp, silent, wav, dest, dir, notes) {
     try {
       const v = path.join(dir, 'mo' + parts.length + '.mp4'), a = path.join(dir, 'mo' + parts.length + '.wav');
       const r = MKIT.moment(FF, g.file, v, a, c.from, c.len, g.info, enc, { layout: c.layout || 'center', box: g.box || null });
+      /* ۹.۹۴: «از همه جا» ۷۸ دو بار پشتِ‌هم با «تصویر ۱ جا یخ زد (۴۹۲–۵۱۹ث)» رد شد — هر دو بار همان لحظهٔ ۴۹۶: کلیپی که
+         تصویرش ساکن است (صدا با یک قابِ ثابت). ساختِ دوباره همان را دوباره می‌سازد؛ سدِ فایلِ نهایی (۹.۷۱) فقط بعد از همه‌چیز
+         می‌دید. پس خودِ تکهٔ لحظه همین‌جا سنجیده می‌شود: ساکن ⇒ این لحظه کنار، گفتارِ گوینده سرِ جایش، و علت گفته می‌شود. */
+      let fzM = [];
+      try { fzM = MKIT.freezes(FF, v, MKIT.MK.freezeMax); } catch (eFm) { fzM = []; }
+      if (fzM.length) {
+        st.still = (st.still || 0) + 1;
+        st.why.push(Math.round(m.at) + 's: تصویرِ کلیپ ساکن بود (' + fzM.map(x => x.d + 'ث').join('، ') + ') — لحظه کنار رفت');
+        continue;
+      }
       parts.push({ at: m.at, v: v, a: a, len: r.len, cut: Number(m.cut) || 0 });
       if (m.cut) st.replaced = (st.replaced || 0) + 1;                  // ۹.۱۴: جای بازگویی، نه کنارش
       st.made++;

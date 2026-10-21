@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.93
+ *  موتور محتوا و پادکست — نسخهٔ 9.94
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1350,6 +1350,7 @@ var CFG = {
   YT_CHANNEL_EVERY_DAYS: 7,             // وارسیِ کامل، حتی وقتی چیزی عوض نشده
   YT_TODO_EVERY_DAYS: 7,                // یادآوریِ کارهای دستی — نه هر روز
   YT_THUMB: true,
+  YT_QA_REBUILD_MAX: 3,         // ۹.۹۴: ویدئویی که سنجشِ رانر ردش کرد، حداکثر این‌قدر از نو (یک بار در هر نسخه)
   YT_CHUNKED: true,             // ۹.۹۳: ویدئوی بالای ۴۵ مگ تکه‌تکه (نشستِ ازسرگیری‌پذیر)، نه ساختِ دوباره با بیتِ کمتر
   YT_CHUNK_MB: 16,              // اندازهٔ هر تکه (مضربِ ۰٫۲۵)
   YT_CHUNK_NEED_MS: 60000,      // تکهٔ تازه فقط اگر این‌قدر از مهلتِ اجرا مانده
@@ -2222,7 +2223,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.93',
+  CODE_VERSION: '9.94',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -59717,13 +59718,20 @@ function ytUploadOne_(item, hub, pub) {
   var rmeQ = null;
   try { rmeQ = (ytRenderMapCached_() || {})[String(item.key || (item.show + ':' + item.ep))] || null; } catch (eRq) { rmeQ = null; }
   var mdQ = String((rmeQ && rmeQ.mode) || '');
-  if ((mdQ === 'media' || mdQ === 'scenes') && rmeQ.qa && rmeQ.qa.ok !== true && !/^qa-/.test(String(item.replace || ''))) {
+  /* ۹.۹۴: «یک بار از نو» یعنی یک بار **برای هر نسخه**، چنان‌که خودِ یادداشتِ بالا می‌گوید («رانرِ هر نسخه درمانِ خودش را دارد») —
+     ولی شرط هر برچسبِ `qa-` را می‌بست. «از همه جا» ۷۸ با `qa-9.86` دو بار به همان لحظهٔ ساکن خورد؛ درمانش (۹.۹۴، لحظهٔ ساکن کنار)
+     هرگز به آن نمی‌رسید و ویدئو Unlisted منتظرِ چشم می‌ماند. حالا نسخهٔ تازه یک بار دیگر می‌سازد، و سقفِ `YT_QA_REBUILD_MAX`
+     جلوی چرخیدنِ بی‌پایانِ ویدئویی را که هیچ نسخه‌ای درمانش نمی‌کند می‌گیرد. */
+  var qaN = Number(item.qaN) || (/^qa-/.test(String(item.replace || '')) ? 1 : 0);
+  var qaAgain = String(item.replace || '') !== 'qa-' + String(CFG.CODE_VERSION || '') &&
+                qaN < Math.max(1, Number(CFG.YT_QA_REBUILD_MAX) || 3);
+  if ((mdQ === 'media' || mdQ === 'scenes') && rmeQ.qa && rmeQ.qa.ok !== true && qaAgain) {
     var asideQ = 0;
     try { asideQ = ytReplaceAside_(folder); } catch (eAq) { asideQ = 0; }
     if (asideQ) {
       var qTag = 'qa-' + String(CFG.CODE_VERSION || '');
       var dlQ = ytDueList_();
-      for (var dqQ = 0; dqQ < dlQ.length; dqQ++) if (String(dlQ[dqQ].key) === String(item.key)) dlQ[dqQ].replace = qTag;
+      for (var dqQ = 0; dqQ < dlQ.length; dqQ++) if (String(dlQ[dqQ].key) === String(item.key)) { dlQ[dqQ].replace = qTag; dlQ[dqQ].qaN = qaN + 1; }
       ytDueSave_(dlQ);
       item.replace = qTag;
       logLine_('ویدئوی ' + item.key + ' از سنجشِ رانر رد شد (' + String(rmeQ.qa.why || '').slice(0, 80) + ')؛ یک بار از نو ساخته می‌شود.');

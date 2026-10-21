@@ -1,11 +1,13 @@
 {
-  "version": "9.93",
+  "version": "9.94",
   "codeFile": "engine.gs",
-  "sha256": "001351c49ef09742397ccc7bf0618649d199e178d828152214da16eb1e0126f1",
-  "releasedAt": "2026-10-21T06:47:35Z",
-  "summary": "ویدئوی بزرگ تکه‌تکه به یوتیوب می‌رود",
+  "sha256": "f72c1556530c127a0de1eea24323abaf02a01f9bd0dfc192423f9756408f33fd",
+  "releasedAt": "2026-10-21T07:43:37Z",
+  "summary": "لحظهٔ ساکن کنار می‌رود؛ ویدئوی ردشده در هر نسخه یک بار از نو",
   "fixes": [
-    "ytChunkUpload_: نشستِ ازسرگیری‌پذیرِ یوتیوب، تکه‌های ۱۶ مگی با Range از درایو، ادامه از بایتِ رسیده؛ special:77 (۶۹ مگ) و special:76 (۴۹٫۵ مگ) دیگر در صف نمی‌مانند"
+    "render spliceMoments: لحظه‌ای که تصویرش ساکن است پیش از لای‌گذاری کنار می‌رود (variety:78)",
+    "mediakit.freezes: یخ‌زدگیِ تا پایانِ فایل",
+    "ytUploadOne_: بازسازیِ پس از ردِ سنجش یک بار برای هر نسخه، تا YT_QA_REBUILD_MAX"
   ],
   "sourceReportIds": [],
   "answers": []

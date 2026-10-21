@@ -10046,13 +10046,20 @@ function ytUploadOne_(item, hub, pub) {
   var rmeQ = null;
   try { rmeQ = (ytRenderMapCached_() || {})[String(item.key || (item.show + ':' + item.ep))] || null; } catch (eRq) { rmeQ = null; }
   var mdQ = String((rmeQ && rmeQ.mode) || '');
-  if ((mdQ === 'media' || mdQ === 'scenes') && rmeQ.qa && rmeQ.qa.ok !== true && !/^qa-/.test(String(item.replace || ''))) {
+  /* ۹.۹۴: «یک بار از نو» یعنی یک بار **برای هر نسخه**، چنان‌که خودِ یادداشتِ بالا می‌گوید («رانرِ هر نسخه درمانِ خودش را دارد») —
+     ولی شرط هر برچسبِ `qa-` را می‌بست. «از همه جا» ۷۸ با `qa-9.86` دو بار به همان لحظهٔ ساکن خورد؛ درمانش (۹.۹۴، لحظهٔ ساکن کنار)
+     هرگز به آن نمی‌رسید و ویدئو Unlisted منتظرِ چشم می‌ماند. حالا نسخهٔ تازه یک بار دیگر می‌سازد، و سقفِ `YT_QA_REBUILD_MAX`
+     جلوی چرخیدنِ بی‌پایانِ ویدئویی را که هیچ نسخه‌ای درمانش نمی‌کند می‌گیرد. */
+  var qaN = Number(item.qaN) || (/^qa-/.test(String(item.replace || '')) ? 1 : 0);
+  var qaAgain = String(item.replace || '') !== 'qa-' + String(CFG.CODE_VERSION || '') &&
+                qaN < Math.max(1, Number(CFG.YT_QA_REBUILD_MAX) || 3);
+  if ((mdQ === 'media' || mdQ === 'scenes') && rmeQ.qa && rmeQ.qa.ok !== true && qaAgain) {
     var asideQ = 0;
     try { asideQ = ytReplaceAside_(folder); } catch (eAq) { asideQ = 0; }
     if (asideQ) {
       var qTag = 'qa-' + String(CFG.CODE_VERSION || '');
       var dlQ = ytDueList_();
-      for (var dqQ = 0; dqQ < dlQ.length; dqQ++) if (String(dlQ[dqQ].key) === String(item.key)) dlQ[dqQ].replace = qTag;
+      for (var dqQ = 0; dqQ < dlQ.length; dqQ++) if (String(dlQ[dqQ].key) === String(item.key)) { dlQ[dqQ].replace = qTag; dlQ[dqQ].qaN = qaN + 1; }
       ytDueSave_(dlQ);
       item.replace = qTag;
       logLine_('ویدئوی ' + item.key + ' از سنجشِ رانر رد شد (' + String(rmeQ.qa.why || '').slice(0, 80) + ')؛ یک بار از نو ساخته می‌شود.');

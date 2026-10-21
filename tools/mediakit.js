@@ -586,6 +586,16 @@ function freezes(ff, file, minSec) {
     if (out.length && a - out[out.length - 1].e < 0.1) out[out.length - 1].e = b;
     else out.push({ s: a, e: b });
   }
+  /* ۹.۹۴: یخ‌زدگی‌ای که تا پایانِ فایل می‌مانَد `freeze_end` ندارد — تکهٔ لحظه‌ای که از اول تا آخر ساکن است دقیقاً همین است.
+     پایانش همان مدتِ فایل است (`time=` آخرین خطِ پیشرفت). */
+  const starts = t.match(/freeze_start: ([\d.]+)/g) || [], ends = t.match(/freeze_end: ([\d.]+)/g) || [];
+  if (starts.length > ends.length) {
+    const a = Number(String(starts[starts.length - 1]).split(': ')[1]);
+    const tm = t.match(/time=(\d+):(\d+):([\d.]+)/g);
+    let b = a;
+    if (tm && tm.length) { const q = /time=(\d+):(\d+):([\d.]+)/.exec(tm[tm.length - 1]); b = Number(q[1]) * 3600 + Number(q[2]) * 60 + Number(q[3]); }
+    if (b - a >= (Number(minSec) || MK.freezeMax) && !(out.length && Math.abs(out[out.length - 1].s - a) < 0.1)) out.push({ s: a, e: b });
+  }
   return out.map(x => ({ s: Math.round(x.s * 10) / 10, e: Math.round(x.e * 10) / 10, d: Math.round((x.e - x.s) * 10) / 10 }));
 }
 

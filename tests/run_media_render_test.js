@@ -543,4 +543,30 @@ console.log('=== ۱۴) تصویرِ یخ‌زده در فایلِ نهایی (۹
      iFit > 0 && iFz > iFit && /qa\.ok = false;/.test(rs.slice(iFz, iFz + 600)));
 }
 
+console.log('=== ۱۵) لحظه‌ای که تصویرش ساکن است، کنار می‌رود (۹.۹۴) ===');
+{
+  const d15 = fs.mkdtempSync(path.join(os.tmpdir(), 'mrt15-')), P = n => path.join(d15, n);
+  /* «از همه جا» ۷۸ دو بار با «تصویر ۱ جا یخ زد (۴۹۲–۵۱۹ث)» رد شد — هر دو بار همان لحظه: کلیپی با صدا و یک قابِ ثابت.
+     ffmpegِ واقعی: یک کلیپِ ساکن و یک کلیپِ متحرک، هر دو با صدا؛ `splice` بدل می‌شود تا ببینیم کدام به لای‌گذاری رسید. */
+  ff(['-f', 'lavfi', '-i', 'color=c=gray:s=640x360:r=24:d=30', '-f', 'lavfi', '-i', 'sine=f=500:d=30',
+      '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', P('still.mp4')]);
+  ff(['-f', 'lavfi', '-i', 'testsrc2=s=640x360:r=24:d=30', '-f', 'lavfi', '-i', 'sine=f=700:d=30',
+      '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', P('moving.mp4')]);
+  const fz = MKIT.freezes(FF, P('still.mp4'), MKIT.MK.freezeMax);
+  ok('۱۵.۰ یخ‌زدگی‌ای که تا پایانِ فایل می‌مانَد هم دیده می‌شود (freeze_end ندارد)', fz.length === 1 && fz[0].d >= 25, JSON.stringify(fz));
+  const keepSplice = MKIT.splice; let got = null;
+  MKIT.splice = (ffx, silent, wav, parts, out) => { got = parts; fs.copyFileSync(silent, out); return { inserts: parts.map(x => ({ at: x.at, d: x.len })) }; };
+  const silent = P('sil.mp4');
+  ff(['-f', 'lavfi', '-i', 'testsrc2=s=640x360:r=24:d=4', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', silent]);
+  const dest = P('mo-dest.mp4'); fs.copyFileSync(silent, dest);
+  const mp = { got: { S: { file: P('still.mp4'), info: MKIT.probe(FF, P('still.mp4')) }, M: { file: P('moving.mp4'), info: MKIT.probe(FF, P('moving.mp4')) } },
+               moCut: [{ ok: true, m: { at: 20 }, url: 'S', from: 2, len: 25 }, { ok: true, m: { at: 60 }, url: 'M', from: 2, len: 25 }] };
+  const notes = [];
+  ff(['-f', 'lavfi', '-i', 'sine=f=300:d=40', '-ac', '1', '-c:a', 'pcm_s16le', P('narr.wav')]);
+  const res = R.spliceMoments({ moments: [{}, {}] }, [{}, {}], mp, silent, P('narr.wav'), dest, d15, notes);
+  MKIT.splice = keepSplice;
+  ok('۱۵.۱ کلیپِ ساکن به لای‌گذاری نرسید، کلیپِ متحرک رسید', got && got.length === 1 && got[0].at === 60, JSON.stringify((got || []).map(x => x.at)));
+  ok('۱۵.۲ و علت گفته شد (نه بی‌صدا)', res.stat.still === 1 && /ساکن/.test(notes.join(' ')), notes.join(' | '));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ ساختِ ویدئوی رسانه‌ای گذشت.');

@@ -362,10 +362,17 @@ console.log('=== ۱۰) حافظهٔ انتشار از تب می‌آید، نه 
      /if \(!\/\^size-\/\.test\(String\(item\.replace \|\| ''\)\)\) \{\s*var asideS = 0;\s*try \{ asideS = ytReplaceAside_\(folder\)/.test(src27b) &&
      /item\.replace = szTag;/.test(src27b) && /حتی پس از ساختِ دوباره با سقفِ بیت/.test(src27b));
   /* ۹.۴۳: ردِ سنجشِ رانر هم یک بار از نو — **پیش از** آپلود (سهمیه خرج نشود)، و بارِ دوم همان راهِ قبل. */
-  const iQ = src27b.indexOf("!/^qa-/.test(String(item.replace || ''))"), iUp = src27b.indexOf('// ── متنِ نهایی از همان نقشه ──');
+  const iQ = src27b.indexOf("rmeQ.qa.ok !== true && qaAgain"), iUp = src27b.indexOf('// ── متنِ نهایی از همان نقشه ──');
   ok('۱۰.۱۰ (۹.۴۳) ویدئوی ردشده از سنجشِ رانر: یک بار «پیشین» و `replace`ِ qa-، پیش از آپلود؛ بارِ دوم همان Unlisted و یافته',
      iQ > 0 && iUp > 0 && iQ < iUp && /item\.replace = qTag;/.test(src27b) && /var qTag = 'qa-' \+/.test(src27b) &&
      /key: 'yt-scene-qa'/.test(src27b));
+  /* ۹.۹۴: یک بار برای هر نسخه، با سقف — همان عبارتِ منبع اجرا می‌شود. */
+  const qa0 = src27b.indexOf('var qaN = '), qa1 = src27b.indexOf('if ((mdQ', qa0);
+  const qaF = new Function('item', 'CFG', src27b.slice(qa0, qa1) + ' return qaAgain;');
+  const C = { CODE_VERSION: '9.94', YT_QA_REBUILD_MAX: 3 };
+  ok('۱۰.۱۱ (۹.۹۴) ردشده با برچسبِ نسخهٔ قبل ⇒ این نسخه یک بار دیگر می‌سازد (درمانِ تازه به ویدئو می‌رسد)', qaF({ replace: 'qa-9.86' }, C) === true);
+  ok('۱۰.۱۲ همان نسخه دوباره نه، و پس از سقف هرگز (چرخِ بی‌پایان نیست)',
+     qaF({ replace: 'qa-9.94', qaN: 1 }, C) === false && qaF({ replace: 'qa-9.90', qaN: 3 }, C) === false && qaF({ replace: '' }, C) === true);
 }
 
 console.log('=== ۱۱) دیده‌شدن: خطِ روزانه، همیشه ===');
