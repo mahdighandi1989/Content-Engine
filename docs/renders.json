@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-21 15:01",
+ "updatedAt": "2026-10-21 19:12",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -4550,9 +4550,10 @@
   },
   "variety:79": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-79.mp4",
-   "bytes": 38835469,
+   "bytes": 39302158,
    "parts": 1,
-   "at": "2026-10-21 13:27",
+   "at": "2026-10-21 18:50",
+   "replace": "qa-9.98",
    "mode": "media",
    "media": {
     "clips": 8,
@@ -4586,30 +4587,30 @@
      "made": 4,
      "why": [],
      "replaced": 4,
-     "sec": 127,
+     "sec": 142,
      "whole": 3,
      "fallback": 1
     },
     "fit": {
-     "mb": 37,
-     "was": 83.3,
+     "mb": 37.5,
+     "was": 85.7,
      "how": "بازکدگذاری"
     }
    },
    "inserts": [
     {
      "at": 56.3,
-     "d": 24.4,
+     "d": 23.2,
      "cut": 27.8
     },
     {
      "at": 109.6,
-     "d": 20,
+     "d": 35.9,
      "cut": 29.4
     },
     {
      "at": 201,
-     "d": 32.3,
+     "d": 32.4,
      "cut": 60
     },
     {
@@ -4642,23 +4643,23 @@
        "own": 0.8,
        "nb": 0.2,
        "ok": true,
-       "heard": "و این جمله یک شوخی میف."
+       "heard": "و این جمله یک شوخی میفر"
       },
       {
        "n": 15,
        "t": 275.4,
-       "own": 0.55,
-       "nb": 0.14,
+       "own": 0.65,
+       "nb": 0.17,
        "ok": true,
-       "heard": "یک مساهبه ساختگی خیابانی  زند و یه میکروفون میپورسه  یعنی من منتق پوشت این قذیر و درک نمی کنم  چرا پیسرا میخان بای دو"
+       "heard": "یک مساهبه ساختگی خیابانی  زند و یه میکروفون می پرسه  یعنی من منتق پوشت این قذیر و درک نمی کنم  چرا پسرا می خان بای دو"
       },
       {
        "n": 17,
        "t": 349,
-       "own": 0.57,
-       "nb": 0.17,
+       "own": 0.55,
+       "nb": 0.18,
        "ok": true,
-       "heard": "برس بیگ اکس از فضای مجازی که خاطره با مزی کاربری بنام مایونز رو از دوران سربازی نشوم میده.  بلا یکس هم تیتر زدند"
+       "heard": "برس بیگ اکس از فضای مجازی که خاطره بامزی کاربری بنام مایونز رو از دوران سربازی نشوم میده.  بلا یکس هم تیتر زدند"
       }
      ],
      "why": "",
@@ -4695,8 +4696,82 @@
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-79-cover.jpg",
    "notes": [
     "برشِ کلیپ از آغاز: صحنهٔ 15: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)",
-    "اندازه: 83.3 ⇒ 37 مگابایت"
+    "اندازه: 85.7 ⇒ 37.5 مگابایت"
    ]
+  },
+  "special:78": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-78.mp4",
+   "bytes": 46743071,
+   "parts": 3,
+   "at": "2026-10-21 19:08",
+   "mode": "scenes",
+   "scenes": 74,
+   "want": 74,
+   "snapped": 60,
+   "seconds": 1460,
+   "qa": {
+    "n": 74,
+    "matched": 70,
+    "miss": [
+     2,
+     7,
+     39,
+     63
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 19,
+       "t": 354.5,
+       "own": 0.43,
+       "nb": 0.14,
+       "ok": true,
+       "heard": "ار نقد انسجامگرایی و ساختار توجیه باورها انسجامگراها میگن هماهنگی و ادم تناغوز باورها برای مواججه بود."
+      },
+      {
+       "n": 38,
+       "t": 686.5,
+       "own": 0.31,
+       "nb": 0.06,
+       "ok": true,
+       "heard": "به اینه های ایوانیه وصاقت گرایی در تحلیل مارفت.  در واسازی قتییات، نظریه اي الی، ومبانیه وصاقیه،"
+      },
+      {
+       "n": 56,
+       "t": 1064.8,
+       "own": 0.5,
+       "nb": 0.06,
+       "ok": true,
+       "heard": "این شنب زو رفقت می پرسه فرده بانک بازه  چون دو هفته پیش جوم اشوبه یه کشک باز بوده  میگی آره میدونم بازه"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 25,
+    "placed": 15,
+    "busy": 10,
+    "failed": 0,
+    "kinds": {
+     "headline": 6,
+     "points": 9
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 62,
+   "xf": {
+    "smoothright": 37,
+    "fade": 29
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-78-cover.jpg"
   }
  },
  "art": {
@@ -4904,18 +4979,18 @@
   "ig:special:22": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-22.mp4",
    "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-22-cover.jpg",
-   "sig": "e51c9b2b1a48",
-   "seconds": 56.7,
-   "bytes": 12027070,
+   "sig": "e0e0a9e2dd33",
+   "seconds": 61.7,
+   "bytes": 13608127,
    "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-22-short.mp4",
-   "shortSeconds": 52.6,
+   "shortSeconds": 58,
    "align": "faster-whisper",
-   "phrases": 28,
+   "phrases": 38,
    "trans": 4,
    "imgs": 5,
    "segs": 5,
-   "subs": 25,
-   "at": "2026-10-18 07:42"
+   "subs": 34,
+   "at": "2026-10-21 19:11"
   },
   "ig:special:11": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-11.mp4",
@@ -5578,6 +5653,156 @@
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1-8ca6-tsmn2uwhO3xcKrZVtD-x3gShhU.mp3",
    "bytes": 140797,
    "at": "2026-10-21 12:24"
+  },
+  "1zweM-2VPUBZzY3kJi3SDnl6bvMKkT7io": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1zweM-2VPUBZzY3kJi3SDnl6bvMKkT7io.mp3",
+   "bytes": 488533,
+   "at": "2026-10-21 19:11"
+  },
+  "1p7rMuhHpcwy8y97bw06BYeEkbAKCgwNa": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1p7rMuhHpcwy8y97bw06BYeEkbAKCgwNa.mp3",
+   "bytes": 644746,
+   "at": "2026-10-21 19:11"
+  },
+  "1PymelZUvp6YXrD15AJGySoybO-U_xG8B": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1PymelZUvp6YXrD15AJGySoybO-U-xG8B.mp3",
+   "bytes": 629072,
+   "at": "2026-10-21 19:11"
+  },
+  "1cCe3FOUKBQxku5XIRlLFwqaj6GXpo_8E": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1cCe3FOUKBQxku5XIRlLFwqaj6GXpo-8E.mp3",
+   "bytes": 1145252,
+   "at": "2026-10-21 19:11"
+  },
+  "1VwMkDLFknxKKiCLHNBMyya6AwAhVSH8J": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1VwMkDLFknxKKiCLHNBMyya6AwAhVSH8J.mp3",
+   "bytes": 644746,
+   "at": "2026-10-21 19:11"
+  },
+  "1q-zr6FtNuCZ03SrFJsJw3VnknVhxAzFi": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1q-zr6FtNuCZ03SrFJsJw3VnknVhxAzFi.mp3",
+   "bytes": 322118,
+   "at": "2026-10-21 19:11"
+  },
+  "1gRfbbU3UBiSUwSOk1Yx8iRFJVVM2HU0p": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1gRfbbU3UBiSUwSOk1Yx8iRFJVVM2HU0p.mp3",
+   "bytes": 1139505,
+   "at": "2026-10-21 19:11"
+  },
+  "1Got_XOxvemv_5wXbZMn8IEGTV3kXPojG": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1Got-XOxvemv-5wXbZMn8IEGTV3kXPojG.mp3",
+   "bytes": 1281088,
+   "at": "2026-10-21 19:11"
+  },
+  "1GWMZagwYfCtbe9AQDu4ff6QKXAXzCa1P": {
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-5zjV4W/mp-PR9yCY/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 1,
+   "at": "2026-10-21 19:11"
+  },
+  "1uG4xrG92NprMGGtcl7r0Bo8trg6jv5C1": {
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-5zjV4W/mp-arwWwq/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 1,
+   "at": "2026-10-21 19:11"
+  },
+  "1MxK1jwCBTHWCz7gVYPClPm2t9f_SnCjs": {
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-5zjV4W/mp-yrxxQE/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 1,
+   "at": "2026-10-21 19:11"
+  },
+  "1ftrghxY39aBY582Sv04Qpg_zhYeSHst0": {
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-5zjV4W/mp-SkvlaK/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 1,
+   "at": "2026-10-21 19:11"
+  },
+  "1Gh-4qpa9uvp3OxPyz8XLR7gUjXZjq6Ht": {
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-5zjV4W/mp-5a5NBT/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 1,
+   "at": "2026-10-21 19:11"
+  },
+  "1PPeLIIGtSO_ql5Jq9KOnRm-LbuD14hUn": {
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-5zjV4W/mp-49Y2bE/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 1,
+   "at": "2026-10-21 19:11"
+  },
+  "18HqdTIoaloN5u6TWd8goKZlvj7L9cpP7": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-18HqdTIoaloN5u6TWd8goKZlvj7L9cpP7.mp3",
+   "bytes": 945154,
+   "at": "2026-10-21 19:11"
+  },
+  "1asUqmrhJW_UzAZFeo-r_zRbkL0FzzKAh": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1asUqmrhJW-UzAZFeo-r-zRbkL0FzzKAh.mp3",
+   "bytes": 807750,
+   "at": "2026-10-21 19:11"
+  },
+  "1TDIRO6A0WNU4qhVpTPTIXUUEXhq4X9Q2": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1TDIRO6A0WNU4qhVpTPTIXUUEXhq4X9Q2.mp3",
+   "bytes": 1368337,
+   "at": "2026-10-21 19:12"
+  },
+  "1Sd-0OwBYZjUZaf5r56jX9dAYypwTKKFg": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1Sd-0OwBYZjUZaf5r56jX9dAYypwTKKFg.mp3",
+   "bytes": 181383,
+   "at": "2026-10-21 19:12"
+  },
+  "1e9AjWulXyKSGvPHR8K-dG9LKhwqj7Qqq": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1e9AjWulXyKSGvPHR8K-dG9LKhwqj7Qqq.mp3",
+   "bytes": 368943,
+   "at": "2026-10-21 19:12"
+  },
+  "1ofvLhdNcsscGnMjEZgsSjVt0x_A_UBud": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1ofvLhdNcsscGnMjEZgsSjVt0x-A-UBud.mp3",
+   "bytes": 293710,
+   "at": "2026-10-21 19:12"
+  },
+  "1Oc7AybI8NR2bKamnI5EIrjZHw-jCsB57": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1Oc7AybI8NR2bKamnI5EIrjZHw-jCsB57.mp3",
+   "bytes": 257661,
+   "at": "2026-10-21 19:12"
+  },
+  "1gXFoEejgFeyHMiaGQXEO3kQyuWFXV1nP": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1gXFoEejgFeyHMiaGQXEO3kQyuWFXV1nP.mp3",
+   "bytes": 829354,
+   "at": "2026-10-21 19:12"
+  },
+  "1HsYGMoW6cXmzK1YCJE0e6cuOu_9pTmh-": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1HsYGMoW6cXmzK1YCJE0e6cuOu-9pTmh.mp3",
+   "bytes": 228404,
+   "at": "2026-10-21 19:12"
+  },
+  "1EthEyuPRZ0VTnbgXXzEHLIJ3MtSmHF3A": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1EthEyuPRZ0VTnbgXXzEHLIJ3MtSmHF3A.mp3",
+   "bytes": 911767,
+   "at": "2026-10-21 19:12"
+  },
+  "1edsH6uelBeWvTykFTsWHdfSAv__iKtgQ": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1edsH6uelBeWvTykFTsWHdfSAv-iKtgQ.mp3",
+   "bytes": 1230974,
+   "at": "2026-10-21 19:12"
+  },
+  "17fXrcs2ebb5pxfXKwjh19TdKuJhCNZGG": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-17fXrcs2ebb5pxfXKwjh19TdKuJhCNZGG.mp3",
+   "bytes": 719107,
+   "at": "2026-10-21 19:12"
+  },
+  "1EqaK1MvPeEg1wEgcgspIr2qb8Hqa17LL": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1EqaK1MvPeEg1wEgcgspIr2qb8Hqa17LL.mp3",
+   "bytes": 1197538,
+   "at": "2026-10-21 19:12"
+  },
+  "1n2OhVjfX15rFbL4SjmSXF-ilynPOcLJq": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1n2OhVjfX15rFbL4SjmSXF-ilynPOcLJq.mp3",
+   "bytes": 1249816,
+   "at": "2026-10-21 19:12"
+  },
+  "1NFEsc0coKANSWT8nD_QVZA_vAUSZrr8P": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1NFEsc0coKANSWT8nD-QVZA-vAUSZrr8P.mp3",
+   "bytes": 138717,
+   "at": "2026-10-21 19:12"
+  },
+  "1D9B4by4PNp0uCK5bNHsyEDqv9s6y1hXI": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1D9B4by4PNp0uCK5bNHsyEDqv9s6y1hXI.mp3",
+   "bytes": 159036,
+   "at": "2026-10-21 19:12"
   }
  }
 }
