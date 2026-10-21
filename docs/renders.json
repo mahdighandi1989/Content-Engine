@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-21 19:12",
+ "updatedAt": "2026-10-21 19:22",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -5695,34 +5695,34 @@
    "at": "2026-10-21 19:11"
   },
   "1GWMZagwYfCtbe9AQDu4ff6QKXAXzCa1P": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-5zjV4W/mp-PR9yCY/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 1,
-   "at": "2026-10-21 19:11"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-k3YsxG/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 2,
+   "at": "2026-10-21 19:21"
   },
   "1uG4xrG92NprMGGtcl7r0Bo8trg6jv5C1": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-5zjV4W/mp-arwWwq/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 1,
-   "at": "2026-10-21 19:11"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-neZaMI/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 2,
+   "at": "2026-10-21 19:21"
   },
   "1MxK1jwCBTHWCz7gVYPClPm2t9f_SnCjs": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-5zjV4W/mp-yrxxQE/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 1,
-   "at": "2026-10-21 19:11"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-Xk59v5/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 2,
+   "at": "2026-10-21 19:21"
   },
   "1ftrghxY39aBY582Sv04Qpg_zhYeSHst0": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-5zjV4W/mp-SkvlaK/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 1,
-   "at": "2026-10-21 19:11"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-pVxe1j/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 2,
+   "at": "2026-10-21 19:21"
   },
   "1Gh-4qpa9uvp3OxPyz8XLR7gUjXZjq6Ht": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-5zjV4W/mp-5a5NBT/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 1,
-   "at": "2026-10-21 19:11"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-D6zxAV/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 2,
+   "at": "2026-10-21 19:21"
   },
   "1PPeLIIGtSO_ql5Jq9KOnRm-LbuD14hUn": {
-   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-5zjV4W/mp-49Y2bE/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
-   "tries": 1,
-   "at": "2026-10-21 19:11"
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-0puE1I/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 2,
+   "at": "2026-10-21 19:21"
   },
   "18HqdTIoaloN5u6TWd8goKZlvj7L9cpP7": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-18HqdTIoaloN5u6TWd8goKZlvj7L9cpP7.mp3",
@@ -5803,6 +5803,86 @@
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1D9B4by4PNp0uCK5bNHsyEDqv9s6y1hXI.mp3",
    "bytes": 159036,
    "at": "2026-10-21 19:12"
+  },
+  "1HHYUxdVTlH5rFUBQo4txBs_vHJOv6raN": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1HHYUxdVTlH5rFUBQo4txBs-vHJOv6raN.mp3",
+   "bytes": 137642,
+   "at": "2026-10-21 19:21"
+  },
+  "1eCdH77NuD0UMgIrcKOYnoDcuULaYu7Id": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1eCdH77NuD0UMgIrcKOYnoDcuULaYu7Id.mp3",
+   "bytes": 645469,
+   "at": "2026-10-21 19:21"
+  },
+  "1JME3PXoz5YvAPSAbBadM4nbRaEX9PFFH": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1JME3PXoz5YvAPSAbBadM4nbRaEX9PFFH.mp3",
+   "bytes": 734318,
+   "at": "2026-10-21 19:21"
+  },
+  "14THOKrZ52y0zkMB6wnHpA-Tv3NtO4aWZ": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-14THOKrZ52y0zkMB6wnHpA-Tv3NtO4aWZ.mp3",
+   "bytes": 116725,
+   "at": "2026-10-21 19:21"
+  },
+  "1NddvT_gEFNQaAMWSN_KZFLXjviD69ioI": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1NddvT-gEFNQaAMWSN-KZFLXjviD69ioI.mp3",
+   "bytes": 88000,
+   "at": "2026-10-21 19:21"
+  },
+  "1G3QHxR80d5AL7oHg8c4-ft-7uZcDQ2e4": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1G3QHxR80d5AL7oHg8c4-ft-7uZcDQ2e4.mp3",
+   "bytes": 114460,
+   "at": "2026-10-21 19:22"
+  },
+  "1uqiIfpjlmkSOQoPs3xfqJFRorURC4mKL": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1uqiIfpjlmkSOQoPs3xfqJFRorURC4mKL.mp3",
+   "bytes": 1330212,
+   "at": "2026-10-21 19:22"
+  },
+  "1KUyQnREjeX8fuxR9wzHZld-O4oCmw6VT": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1KUyQnREjeX8fuxR9wzHZld-O4oCmw6VT.mp3",
+   "bytes": 413942,
+   "at": "2026-10-21 19:22"
+  },
+  "1QqQohZyULjnkwH4XjRInICY6YUMDW7PB": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1QqQohZyULjnkwH4XjRInICY6YUMDW7PB.mp3",
+   "bytes": 1075294,
+   "at": "2026-10-21 19:22"
+  },
+  "1F28OUK6pAG6472mkRJPt8FkIFyif9nwQ": {
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-yK1fVQ/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 1,
+   "at": "2026-10-21 19:22"
+  },
+  "1KrbQ1gCVeghCzq3lN0YACkLnvrYuc4bg": {
+   "err": "Command failed: ffmpeg -hide_banner -loglevel error -y -i /tmp/yt-WLlZvL/mp-343ESM/in.bin -vn -map 0:a:0 -ac 2 -ar 44100 -c:a libmp3lame -b:",
+   "tries": 1,
+   "at": "2026-10-21 19:22"
+  },
+  "1Wze3Z3E3wMljqfQ2rUGVUJqKqsK50YG8": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1Wze3Z3E3wMljqfQ2rUGVUJqKqsK50YG8.mp3",
+   "bytes": 2583554,
+   "at": "2026-10-21 19:22"
+  },
+  "11tOCTOPVLPIwPeqmdeuoe6Tj2FX_tGvT": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-11tOCTOPVLPIwPeqmdeuoe6Tj2FX-tGvT.mp3",
+   "bytes": 618101,
+   "at": "2026-10-21 19:22"
+  },
+  "1mYjG4LImbANe2BaWmuRcyKwJC8HAJOlu": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1mYjG4LImbANe2BaWmuRcyKwJC8HAJOlu.mp3",
+   "bytes": 81202,
+   "at": "2026-10-21 19:22"
+  },
+  "18NvAi-X78KLWJ8IozUykfszYxP7MAi84": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-18NvAi-X78KLWJ8IozUykfszYxP7MAi84.mp3",
+   "bytes": 346582,
+   "at": "2026-10-21 19:22"
+  },
+  "1hsFSKECcx1wILQVJk7Z8Yg3uegbSJUc0": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1hsFSKECcx1wILQVJk7Z8Yg3uegbSJUc0.mp3",
+   "bytes": 686196,
+   "at": "2026-10-21 19:22"
   }
  }
 }
