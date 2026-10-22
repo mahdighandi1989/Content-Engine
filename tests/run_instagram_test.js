@@ -1107,7 +1107,7 @@ console.log('=== ۲۱) گفتارساز متنِ بلند را رد کرد ⇒ �
   ok('۲۱.۳ گفتارساز موفق: هر نیم یک تکهٔ PCM، ترتیب حفظ‌شده', one.length === 2);
   global.ttsChunk_ = () => Utilities.base64Encode(new Array(8).fill(0));
   let late = ''; try { igTtsPcm_(longT, { voice: 'v' }, Date.now() - 1); } catch (e) { late = e.message; } finally { global.ttsChunk_ = kTts; }
-  ok('۲۱.۴ بی‌وقت برای نیمهٔ دوم: خطای صریح، نه بیش از بودجهٔ اجرا', /نیمهٔ دوم/.test(late), late);
+  ok('۲۱.۴ بی‌وقت برای ادامهٔ صدا: خطای صریح، نه بیش از بودجهٔ اجرا', /ادامهٔ صدا/.test(late), late);
   global.ttsChunk_ = () => Utilities.base64Encode(new Array(8).fill(0));
   let shortOk; try { shortOk = igTtsPcm_('متنِ کوتاه و ساده.', { voice: 'v' }, Date.now() - 1); } finally { global.ttsChunk_ = kTts; }
   ok('۲۱.۵ متنِ کوتاه یک فراخوانی است، حتی اگر وقت گذشته باشد', shortOk.length === 1);
@@ -1123,6 +1123,20 @@ console.log('=== ۲۲) فهرستِ «اول… دوم… سوم…» پیش ا�
   const one = 'آیا می‌دانستید این است؟ اول این است که ' + body + ' ' + body;
   ok('۲۲.۲ یک «اول» طبیعی در ریلز رد نمی‌شود', !!igPlanTrim_(Object.assign({}, RAW, { script: one }), {}).lines);
   ok('۲۲.۳ مرور از این سد معاف است (مسیرِ مرور ترتیب دارد)', !!igPlanTrim_(Object.assign({}, RAW, { script: listy }), { recap: true, range: 'مرورِ بزرگِ درس‌های ۱ تا ۵' }).lines);
+}
+
+console.log('=== ۲۳) صدای ساخته‌شده در پلان می‌ماند؛ اجرای بعد از همان‌جا (۱۰.۳) ===');
+{
+  const longT = Array.from({ length: 16 }, (_, i) => 'این جملهٔ شمارهٔ ' + i + ' است که یک گام از مسیرِ مرور را می‌گوید و ادامه می‌دهد.').join(' ');
+  const kTts = global.ttsChunk_;
+  const plan = { voice: 'v' };
+  let n = 0; global.ttsChunk_ = () => { n++; return Utilities.base64Encode(new Array(8).fill(0)); };
+  try { igTtsPcm_(longT, plan, Date.now() + 600000, null); const first = n; igTtsPcm_(longT, plan, Date.now() + 600000, null); ok('۲۳.۱ اجرای دوم همان دو تکه را از پلان می‌خواند، بی فراخوانِ تازه', first === 2 && n === 2, n); }
+  finally { global.ttsChunk_ = kTts; }
+  const plan2 = { voice: 'v' };
+  global.ttsChunk_ = () => Utilities.base64Encode(new Array(8).fill(0));
+  let cut = ''; try { igTtsCached_(plan2, null, 'cta:5', 'پایان.', Date.now() - 1); igTtsCached_(plan2, null, 'cta:9', 'پایانِ دوم.', Date.now() - 1); } catch (e) { cut = e.message; } finally { global.ttsChunk_ = kTts; }
+  ok('۲۳.۲ بودجهٔ تمام‌شده: تکهٔ نخست ساخته می‌شود، تکهٔ بعد نه؛ تکهٔ ساخته‌شده در پلان می‌ماند', /ادامهٔ صدا/.test(cut) && !!plan2.tts['cta:5'], cut);
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');

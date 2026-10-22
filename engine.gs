@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 10.2
+ *  موتور محتوا و پادکست — نسخهٔ 10.3
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2225,7 +2225,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '10.2',
+  CODE_VERSION: '10.3',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -82101,29 +82101,34 @@ function igStepPlan_(it, fo) {
  * نویسه تخمین زده می‌شود؛ رانر زمانِ واقعیِ هر واژه را از خودِ صدا می‌گیرد (tools/reelalign.py).
  */
 /**
- * صدای بدنهٔ ریلز (۱۰.۲): متنِ بلند در دو نیم، هر نیم یک فراخوانِ کوتاه‌تر به گفتارساز. دو دلیل:
- * (۱) ریلزِ ۲۱ِ مصباح بارها با «The audio stream could not be completed» از یک فراخوانِ بلند رد شد؛
- * (۲) igTick با «Exceeded maximum execution time» مُرد (۲۱ اکتبر): فراخوانِ بلند با تلاش‌های مکرر از بودجهٔ اجرا گذشت.
- * بودجه بین دو نیم سنجیده می‌شود؛ اگر وقت نماند، خطا برمی‌گردد تا اجرای بعد از صفر-نه از نیمهٔ دوم ادامه دهد.
+ * یک تکهٔ صدا با حافظه (۱۰.۳): هر تکهٔ ساخته‌شده در `plan.tts` می‌ماند و اجرای بعد از همان‌جا ادامه می‌دهد.
+ * ۲۱ اکتبر: بدنهٔ بلند تمام بودجهٔ اجرا را می‌خورد و جملهٔ پایانی هرگز نوبت نمی‌گرفت؛ هر اجرا از نو می‌ساخت و
+ * همان‌جا می‌ماند. پیش از شروع هر تکه بودجه سنجیده می‌شود، جز برای نخستین تکهٔ این اجرا (تا پیشرفت تضمین باشد).
+ */
+function igTtsCached_(plan, fo, key, text, deadline) {
+  plan.tts = plan.tts || {};
+  if (plan.tts[key]) return plan.tts[key];
+  if (deadline && Object.keys(plan.tts).length && Date.now() > deadline - 90000) throw new Error('وقتِ این اجرا برای ادامهٔ صدا کم بود');
+  var r = ttsChunk_(applyPron_(text), String(CFG.IG_VOICE_STYLE || ''), plan.voice, true);
+  if (!r) throw new Error('گفتارساز صدایی نداد');
+  plan.tts[key] = r;
+  try { igPlanWrite_(fo, plan); } catch (eW) {}
+  return r;
+}
+
+/**
+ * صدای بدنهٔ ریلز (۱۰.۲): متنِ بلند در دو نیم، هر نیم یک فراخوانِ کوتاه‌تر (ریلزِ ۲۱ از یک فراخوانِ بلند رد می‌شد).
  * برمی‌گرداند: آرایهٔ base64 از تکه‌های PCM به ترتیب.
  */
-function igTtsPcm_(text, plan, deadline) {
-  var style = String(CFG.IG_VOICE_STYLE || '');
+function igTtsPcm_(text, plan, deadline, fo) {
   var words = String(text).split(/\s+/).length;
-  if (words < 150) {
-    var one = ttsChunk_(applyPron_(text), style, plan.voice, true);
-    if (!one) throw new Error('گفتارساز صدایی نداد');
-    return [one];
-  }
-  var sents = igSplit_(text), a = [], b = [], acc = 0, tot = String(text).length;
+  var len = String(text).length;
+  if (words < 150) return [igTtsCached_(plan, fo, 'b:' + len, text, deadline)];
+  var sents = igSplit_(text), a = [], b = [], acc = 0, tot = len;
   for (var i = 0; i < sents.length; i++) { if (acc < tot / 2) a.push(sents[i]); else b.push(sents[i]); acc += sents[i].length; }
   if (!a.length || !b.length) throw new Error('متن برای دونیم‌کردن کوتاه است');
-  return [a.join(' '), b.join(' ')].map(function (t, k) {
-    if (k > 0 && deadline && Date.now() > deadline - 90000) throw new Error('وقتِ این اجرا برای نیمهٔ دوم صدا کم بود');
-    var r = ttsChunk_(applyPron_(t), style, plan.voice, true);
-    if (!r) throw new Error('گفتارساز صدایی نداد');
-    return r;
-  });
+  var ta = a.join(' '), tb = b.join(' ');
+  return [igTtsCached_(plan, fo, 'a:' + ta.length, ta, deadline), igTtsCached_(plan, fo, 'b2:' + tb.length, tb, deadline)];
 }
 
 function igStepVoice_(it, fo, plan, deadline) {
@@ -82143,12 +82148,12 @@ function igStepVoice_(it, fo, plan, deadline) {
   }
   plan.vowelized = !!vow;
   var b1 = null, b2 = null;
-  try { b1 = igTtsPcm_(vow || plain, plan, deadline); }
+  try { b1 = igTtsPcm_(vow || plain, plan, deadline, fo); }
   catch (e) { return { wait: 'گفتارساز: ' + String(e.message || e).slice(0, 120) }; }
   if (!b1 || !b1.length) return { wait: 'گفتارساز صدایی نداد' };
   if (cta) {
-    if (Date.now() > deadline) return { wait: 'وقت تمام شد (صدای جملهٔ پایانی)' };
-    try { b2 = ttsChunk_(applyPron_(cta.text), String(CFG.IG_VOICE_STYLE || ''), plan.voice, true); } catch (e2) { b2 = null; }
+    try { b2 = igTtsCached_(plan, fo, 'cta:' + String(cta.text).length, cta.text, deadline); }
+    catch (e2) { return { wait: 'گفتارساز جملهٔ پایانی: ' + String(e2.message || e2).slice(0, 100) }; }
     if (!b2) return { wait: 'گفتارساز صدای جملهٔ پایانی را نداد' };
   }
   var bytes = [];
@@ -82177,6 +82182,7 @@ function igStepVoice_(it, fo, plan, deadline) {
   while (old.hasNext()) old.next().setTrashed(true);
   var f = fo.createFile(wav);
   plan.audioId = f.getId();
+  delete plan.tts;
   plan.times = times;
   plan.seconds = Math.round(bytes.length / (sr * 2) * 10) / 10;
   /* سقفِ سه دقیقه (۹.۳۰): شورتزِ یوتیوب تا ۱۸۰ ثانیه است. بلندتر ⇒ از نو با متنی که به همان نسبت کوتاه‌تر است. */
