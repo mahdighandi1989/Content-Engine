@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-22 22:51",
+ "updatedAt": "2026-10-22 23:25",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -4976,6 +4976,85 @@
     "برشِ کلیپ از آغاز: صحنهٔ 6: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)",
     "اندازه: 82.5 ⇒ 38.6 مگابایت"
    ]
+  },
+  "special:80": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-80.mp4",
+   "bytes": 51845525,
+   "parts": 3,
+   "at": "2026-10-22 23:25",
+   "mode": "scenes",
+   "scenes": 102,
+   "want": 102,
+   "snapped": 76,
+   "seconds": 1697,
+   "qa": {
+    "n": 102,
+    "matched": 96,
+    "miss": [
+     5,
+     10,
+     36,
+     65,
+     83,
+     101
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 26,
+       "t": 442.3,
+       "own": 0,
+       "nb": 0,
+       "ok": false,
+       "heard": "بمتن اودی"
+      },
+      {
+       "n": 52,
+       "t": 806.2,
+       "own": 0.54,
+       "nb": 0.15,
+       "ok": true,
+       "heard": "و ایدو فوم به معرفت علمی وحدت میبخشد  و قوانین سیارات، سقوت آزاد و پرتابهارا زی..."
+      },
+      {
+       "n": 77,
+       "t": 1197.7,
+       "own": 0.42,
+       "nb": 0.08,
+       "ok": true,
+       "heard": "میری میفوروشی، ترازم زنه 1.928 کلو و 8 کرم  ولی فوروشندم یه شد 1.3 کلو و 3 سد کرم"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 33,
+    "placed": 23,
+    "busy": 10,
+    "failed": 0,
+    "kinds": {
+     "points": 12,
+     "quote": 3,
+     "compare": 2,
+     "headline": 5,
+     "steps": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 80,
+   "xf": {
+    "smoothright": 51,
+    "fade": 40
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-80-cover.jpg"
   }
  },
  "art": {
