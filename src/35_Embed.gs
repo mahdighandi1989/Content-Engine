@@ -128,6 +128,33 @@ function embIndex_() {
            probeDim: embProbeDim_(), at: '', shards: [], counts: null };
   }
   if (!ix.shards || Object.prototype.toString.call(ix.shards) !== '[object Array]') ix.shards = [];
+  if (!ix.shards.length) { try { embIndexRecover_(ix); } catch (eR) {} }
+  return ix;
+}
+
+/**
+ * فهرستِ قطعه‌ها خالی شده، اما فایل‌های قطعه هنوز در پوشه‌اند (۱۰.۴).
+ * ۲۲ اکتبر: `_EMB-INDEX.json` شمارِ قطعه‌ها را صفر نشان داد، با ۴۵ هزار بردار در قطعه‌ها؛ جستجوی هوشمند
+ * «کشوی اثر انگشت» را ندید و هیچ یافته‌ای نداد. فهرست از روی فایل‌های `_EMB-P-NNNN.json` بازسازی و ذخیره می‌شود.
+ * شمارِ هر قطعه از طولِ فهرستِ شناسه‌های همان فایل می‌آید — نه از حدسی.
+ */
+function embIndexRecover_(ix) {
+  var folder = embFolder_(), it = folder.getFiles(), seqs = [];
+  while (it.hasNext()) {
+    var m = /^_EMB-P-(\d+)\.json$/.exec(String(it.next().getName() || ''));
+    if (m) seqs.push(Number(m[1]));
+  }
+  if (!seqs.length) return ix;
+  seqs.sort(function (a, b) { return a - b; });
+  var shards = [];
+  for (var i = 0; i < seqs.length; i++) {
+    var P = embGetJson_(embShardName_(seqs[i], 'p'));
+    if (!P || !P.id || !P.id.length) continue;
+    shards.push({ seq: seqs[i], rows: P.id.length, at: nowStr_() });
+  }
+  if (!shards.length) return ix;
+  ix.shards = shards;
+  try { embIndexSave_(ix); } catch (eS) {}
   return ix;
 }
 

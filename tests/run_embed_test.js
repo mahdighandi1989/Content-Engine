@@ -1024,4 +1024,16 @@ console.log('\n══ ۳۱) «۹۰ ثانیه کمه» — گام‌به‌گا�
   CFG.EMB_SHARD_ROWS = sv.r; CFG.EMB_CENTROID_MIN = sv.m; CFG.EMB_PROBE_SHARDS = sv.k; CFG.EMB_STEP_SHARDS = sv.st;
 }
 
+console.log('\n══ ۳۶) فهرستِ قطعه‌ها خالی، فایل‌های قطعه هست ⇒ فهرست از فایل‌ها بازسازی می‌شود (۱۰.۴)');
+{
+  embPutJson_(embShardName_(1, 'p'), { seq: 1, id: ['a', 'b', 'c'] });
+  embPutJson_(embShardName_(2, 'p'), { seq: 2, id: ['d', 'e'] });
+  embIndexSave_({ ver: EMB_VER, model: String(CFG.EMB_MODEL || ''), dim: embDim_(), probeDim: embProbeDim_(), at: '', shards: [], counts: null });
+  const got = embIndex_();
+  const rowsOf = (sq) => (got.shards.find(x => x.seq === sq) || {}).rows;
+  ok('۳۶.۱ فهرستِ خالی با قطعه‌های واقعی ⇒ شمارِ هر قطعه از فایلش', rowsOf(1) === 3 && rowsOf(2) === 2, JSON.stringify(got.shards));
+  const saved = embGetJson_(embIndexName_());
+  ok('۳۶.۲ بازسازی ذخیره شد؛ دورِ بعد فهرست پر است', !!saved && saved.shards.length === got.shards.length && saved.shards.length >= 2);
+}
+
 console.log('\nPASS=' + pass);
