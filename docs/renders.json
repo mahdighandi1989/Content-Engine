@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-22 22:00",
+ "updatedAt": "2026-10-22 22:51",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -5467,6 +5467,38 @@
    "segs": 5,
    "subs": 37,
    "at": "2026-10-22 19:37"
+  },
+  "ig:special:26": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-26.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-26-cover.jpg",
+   "sig": "b6dc259d6b3b",
+   "seconds": 63.8,
+   "bytes": 11470165,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-26-short.mp4",
+   "shortSeconds": 60.1,
+   "align": "faster-whisper",
+   "phrases": 36,
+   "trans": 4,
+   "imgs": 5,
+   "segs": 5,
+   "subs": 32,
+   "at": "2026-10-22 22:47"
+  },
+  "ig:special:25.2": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-25-2.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-25-2-cover.jpg",
+   "sig": "e852876a302a",
+   "seconds": 75.5,
+   "bytes": 17539872,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-25-2-short.mp4",
+   "shortSeconds": 71.8,
+   "align": "faster-whisper",
+   "phrases": 40,
+   "trans": 4,
+   "imgs": 5,
+   "segs": 5,
+   "subs": 36,
+   "at": "2026-10-22 22:51"
   }
  },
  "musicPrev": {
@@ -6204,6 +6236,11 @@
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1tRHmxkA-elwU18O9jMI0F3asjA2ORJ-I.mp3",
    "bytes": 1117271,
    "at": "2026-10-21 20:24"
+  },
+  "1jn-DZ7YvGbTO0hIaGkG9-a0o9DgPbuUV": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1jn-DZ7YvGbTO0hIaGkG9-a0o9DgPbuUV.mp3",
+   "bytes": 804869,
+   "at": "2026-10-22 22:51"
   }
  }
 }
