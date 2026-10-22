@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-22 19:37",
+ "updatedAt": "2026-10-22 22:00",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -4853,6 +4853,129 @@
     "fade": 47
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-79-cover.jpg"
+  },
+  "variety:80": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-80.mp4",
+   "bytes": 40523896,
+   "parts": 1,
+   "at": "2026-10-22 22:00",
+   "mode": "media",
+   "media": {
+    "clips": 5,
+    "photos": 1,
+    "found": 1,
+    "notFound": 0,
+    "failed": 0,
+    "why": [
+     "صحنهٔ 6: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)"
+    ],
+    "layouts": {
+     "right": 2,
+     "left": 2,
+     "scroll": 1,
+     "center": 1
+    },
+    "teaserTiles": 5,
+    "teaserSec": 54,
+    "teaser": 5,
+    "mainPart": 1,
+    "filled": 3,
+    "filledSec": 197,
+    "tailCut": 3,
+    "cropped": 2,
+    "moments": {
+     "asked": 2,
+     "placed": 1,
+     "made": 1,
+     "why": [],
+     "replaced": 1,
+     "sec": 35,
+     "whole": 1
+    },
+    "fit": {
+     "mb": 38.6,
+     "was": 82.5,
+     "how": "بازکدگذاری"
+    }
+   },
+   "inserts": [
+    {
+     "at": 183.2,
+     "d": 34.6,
+     "cut": 66.2
+    }
+   ],
+   "scenes": 11,
+   "want": 11,
+   "snapped": 6,
+   "seconds": 621,
+   "qa": {
+    "n": 11,
+    "matched": 11,
+    "miss": [],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 7,
+       "t": 173.7,
+       "own": 0.41,
+       "nb": 0.14,
+       "ok": true,
+       "heard": "از این برداد های اگه احمدی و خانوم مورا فجی  ازان مدیر اکس قبلی بیک زریمو برا ویم سراغ ویدیوی یک رئیس شرکت"
+      },
+      {
+       "n": 9,
+       "t": 467.3,
+       "own": 0.59,
+       "nb": 0.18,
+       "ok": true,
+       "heard": "فیل را حرکت میدهد  سالارهان جلویش رو میگیرد که فیل را به گوزر سر جایش  و میگوید  تو با این هیکل قاز قالنگت فیل به او گو."
+      },
+      {
+       "n": 10,
+       "t": 544.4,
+       "own": 0.73,
+       "nb": 0.18,
+       "ok": true,
+       "heard": "من احساس می کنم که بهبودی کامل پیدا کرده.  اما درست یک سانی بعد خانون بر می گردت سمت فضای خالی اوتاق و می گوید"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    },
+    "freeze": []
+   },
+   "ov": {
+    "asked": 0,
+    "placed": 0,
+    "busy": 0,
+    "failed": 0,
+    "kinds": {}
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 11,
+    "used": 11,
+    "why": []
+   },
+   "xf": {
+    "dissolve": 6,
+    "fade": 1,
+    "wiperight": 1,
+    "smoothright": 1
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-80-cover.jpg",
+   "notes": [
+    "لحظهٔ 56s: مکثی بیرون از موسیقی نزدیکش نبود",
+    "برشِ کلیپ از آغاز: صحنهٔ 6: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)",
+    "اندازه: 82.5 ⇒ 38.6 مگابایت"
+   ]
   }
  },
  "art": {
