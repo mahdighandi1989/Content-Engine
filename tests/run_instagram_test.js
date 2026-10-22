@@ -1090,4 +1090,21 @@ console.log('=== ۲۰) «متن بلند است» ⇒ کوتاه‌کردن، ن
   ok('۲۰.۴ گامِ نوشتن واقعاً به کوتاه‌کردن وصل است', /متن بلند است\/\.test\(String\(p\.why \|\| ''\)\)\) p = igShorten_\(r, opt, p\)/.test(String(igStepPlan_)));
 }
 
+console.log('=== ۲۱) گفتارساز متنِ بلند را رد کرد ⇒ دونیم، نه تکرارِ همان شکست (۹.۹۹) ===');
+{
+  const sent = (n) => 'این جملهٔ شمارهٔ ' + n + ' است که یک گام از مسیرِ مرور را می‌گوید و ادامه می‌دهد.';
+  const longT = Array.from({ length: 16 }, (_, i) => sent(i)).join(' ');
+  const kTts = global.ttsChunk_;
+  const calls = [];
+  global.ttsChunk_ = (t) => { calls.push(t); if (calls.length === 1) throw new Error('Gemini HTTP 400'); return Utilities.base64Encode(new Array(8).fill(0)); };
+  let parts; try { parts = igTtsPcm_(longT, { voice: 'v' }); } finally { global.ttsChunk_ = kTts; }
+  ok('۲۱.۱ بعد از شکستِ کامل، دو فراخوانِ جدا با متنِ کامل روی هم', calls.length === 3 && calls[1].length + calls[2].length >= longT.length - 2 && parts.length === 2, calls.length);
+  global.ttsChunk_ = () => { throw new Error('Gemini HTTP 400'); };
+  let threw = false; try { igTtsPcm_('متنِ کوتاه.', { voice: 'v' }); } catch (e) { threw = true; } finally { global.ttsChunk_ = kTts; }
+  ok('۲۱.۲ متنِ کوتاه پس از شکست همان خطا را می‌دهد (دوباره‌کاری نمی‌کند)', threw);
+  global.ttsChunk_ = (t) => Utilities.base64Encode(new Array(8).fill(0));
+  let one; try { one = igTtsPcm_(longT, { voice: 'v' }); } finally { global.ttsChunk_ = kTts; }
+  ok('۲۱.۳ اگر گفتارساز موفق بود، همان یک تکه می‌ماند (صدای سالم بی‌تغییر)', one.length === 1);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.99
+ *  موتور محتوا و پادکست — نسخهٔ 10.0
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2225,7 +2225,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.99',
+  CODE_VERSION: '10.0',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -82091,6 +82091,27 @@ function igStepPlan_(it, fo) {
  * خوانده می‌شد. جملهٔ دعوت جدا ساخته می‌شود تا نسخهٔ شورتز سرِ آغازش تمیز بریده شود. زمانِ جمله‌ها این‌جا با نسبتِ
  * نویسه تخمین زده می‌شود؛ رانر زمانِ واقعیِ هر واژه را از خودِ صدا می‌گیرد (tools/reelalign.py).
  */
+/**
+ * صدای بدنهٔ ریلز (۹.۹۹): گفتارساز متنِ بلند را گاهی با «The audio stream could not be completed» رد می‌کند — و همان متن
+ * هر بار رد می‌شد (ریلزِ ۲۱ِ مصباح). پس از یک شکستِ کامل، متن را در مرزِ جمله به دو نیم می‌کنیم و هر نیم را جدا می‌سازیم؛
+ * پیش از آن همان یک فراخوانِ قدیمی است، پس صدای موفق بی‌تغییر می‌ماند. برمی‌گرداند: آرایهٔ base64 از تکه‌های PCM به ترتیب.
+ */
+function igTtsPcm_(text, plan) {
+  var style = String(CFG.IG_VOICE_STYLE || '');
+  var first = null;
+  try { first = ttsChunk_(applyPron_(text), style, plan.voice, true); }
+  catch (e) { if (String(text).split(/\s+/).length < 60) throw e; }
+  if (first) return [first];
+  var sents = igSplit_(text), a = [], b = [], acc = 0, tot = String(text).length;
+  for (var i = 0; i < sents.length; i++) { if (acc < tot / 2) a.push(sents[i]); else b.push(sents[i]); acc += sents[i].length; }
+  if (!a.length || !b.length) throw new Error('متن برای دونیم‌کردن کوتاه است');
+  return [a.join(' '), b.join(' ')].map(function (t) {
+    var r = ttsChunk_(applyPron_(t), style, plan.voice, true);
+    if (!r) throw new Error('گفتارساز صدایی نداد');
+    return r;
+  });
+}
+
 function igStepVoice_(it, fo, plan, deadline) {
   var sr = Number(CFG.SAMPLE_RATE) || 24000, gap = Math.round(sr * 0.45) * 2, lead = Math.round(sr * 0.15) * 2;
   var lines = plan.plan.lines, body = [], cta = null;
@@ -82108,9 +82129,9 @@ function igStepVoice_(it, fo, plan, deadline) {
   }
   plan.vowelized = !!vow;
   var b1 = null, b2 = null;
-  try { b1 = ttsChunk_(applyPron_(vow || plain), String(CFG.IG_VOICE_STYLE || ''), plan.voice, true); }
+  try { b1 = igTtsPcm_(vow || plain, plan); }
   catch (e) { return { wait: 'گفتارساز: ' + String(e.message || e).slice(0, 120) }; }
-  if (!b1) return { wait: 'گفتارساز صدایی نداد' };
+  if (!b1 || !b1.length) return { wait: 'گفتارساز صدایی نداد' };
   if (cta) {
     if (Date.now() > deadline) return { wait: 'وقت تمام شد (صدای جملهٔ پایانی)' };
     try { b2 = ttsChunk_(applyPron_(cta.text), String(CFG.IG_VOICE_STYLE || ''), plan.voice, true); } catch (e2) { b2 = null; }
@@ -82118,7 +82139,8 @@ function igStepVoice_(it, fo, plan, deadline) {
   }
   var bytes = [];
   for (var z = 0; z < lead; z++) bytes.push(0);
-  var p1 = Utilities.base64Decode(alignB64_(b1));
+  var p1 = [];
+  for (var bj = 0; bj < b1.length; bj++) { var dj = Utilities.base64Decode(alignB64_(b1[bj])); for (var dk = 0; dk < dj.length; dk++) p1.push(dj[dk]); }
   var a0 = bytes.length / (sr * 2);
   for (var k = 0; k < p1.length; k++) bytes.push(p1[k]);
   var a1 = bytes.length / (sr * 2);
