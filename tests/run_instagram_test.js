@@ -246,9 +246,9 @@ let fo, plan;
   /* ۹.۸۷: اعراب گامِ جداست و در برنامه می‌ماند — بارِ اول هیچ گفتارسازی، بارِ دوم صدا با همان اعراب، بی اعرابِ دوباره. */
   let vowN = 0; global.vowelizeText_ = (t) => { vowN++; return 'اعراب‌دار:' + t; };
   try {
-    const v1 = igStepVoice_(it, fo, plan, Date.now() + 60000);
+    const v1 = igStepVoice_(it, fo, plan, Date.now() + 600000);
     ok('۳.۴-الف بارِ اول فقط اعراب، ذخیره در برنامه، گام هنوز «voice»', v1.ok && calls.length === 0 && plan.phase === 'voice' && /^اعراب‌دار:/.test(plan.vowText) && vowN === 1);
-    ok('۳.۴ صدا ساخته شد (با همان اعراب، بی فراخوانِ دوباره)', igStepVoice_(it, fo, plan, Date.now() + 60000).ok && vowN === 1);
+    ok('۳.۴ صدا ساخته شد (با همان اعراب، بی فراخوانِ دوباره)', igStepVoice_(it, fo, plan, Date.now() + 600000).ok && vowN === 1);
   } finally { global.ttsChunk_ = keepTts; global.vowelizeText_ = keepVow; }
   const nb = plan.plan.lines.length - 1;
   ok('۳.۵ دو فراخوان: کلِ بدنه یک‌جا (با اعراب و لحنِ قصه‌گو) و جملهٔ دعوت جدا — نه هر جمله جدا', calls.length === 2 &&
@@ -265,10 +265,10 @@ let fo, plan;
   global.lvSceneJudge_ = batch => { judged.push(batch.length); const o = {}; batch.forEach(b => { o[String(b.n)] = { s: 7, txt: judgeTxt, face: false, why: 'نمودار با برچسب' }; }); return o; };
   const kGO = global.lvGenOn_; global.lvGenOn_ = () => false;
   const planT = JSON.parse(JSON.stringify(plan));
-  igStepImages_(it, fo, planT, Date.now() + 60000);
+  igStepImages_(it, fo, planT, Date.now() + 600000);
   global.lvSceneJudge_ = () => { throw new Error('quota'); };
   const planQ = JSON.parse(JSON.stringify(plan));
-  igStepImages_(it, fo, planQ, Date.now() + 60000);
+  igStepImages_(it, fo, planQ, Date.now() + 600000);
   ok('۳.۷-الف تصویرِ درس با نوشته ⇒ هیچ‌کدام برداشته نمی‌شود (و علت ثبت)؛ داورِ غایب هم «نه» است — نشنیدن تأیید نیست',
      planT.imgs.length === 0 && /نوشته داشت/.test(planT.imgGate) && /نوشته داشت/.test(planT.imgHow + planT.imgGate) &&
      planQ.imgs.length === 0 && /داورِ تصویر/.test(planQ.imgGate) && judged[0] === 2, JSON.stringify([planT.imgHow, planT.imgGate, planQ.imgGate]));
@@ -276,14 +276,14 @@ let fo, plan;
   judgeTxt = false;
   global.lvSceneJudge_ = batch => { const o = {}; batch.forEach(b => { o[String(b.n)] = { s: 7, txt: false, face: false }; }); return o; };
   ok('۳.۷ تصویرها: نقاشی‌های خودِ درس، به ترتیبِ نام، بی کاور، رونوشت در پوشهٔ اینستاگرام',
-     igStepImages_(it, fo, plan, Date.now() + 60000).ok && plan.imgs.length === 2 && plan.imgHow === 'نقاشی‌های درس' &&
+     igStepImages_(it, fo, plan, Date.now() + 600000).ok && plan.imgs.length === 2 && plan.imgHow === 'نقاشی‌های درس' &&
      global.__FILES_BY_ID[plan.imgs[0].src].getName() === 'صحنه 01.png' && fo.getFilesByName('ریلز — تصویر 1').hasNext(),
      JSON.stringify(plan.imgs));
   /* ۹.۶۱: ۱۴ و ۱۵ِ مصباح با قاب‌های متنیِ درس منتشر شدند — تصویرشان پیش از سدِ ۹.۵۴ برداشته شده بود و هرگز از سد نگذشت. */
   ok('۳.۷-ب گذر از سد مُهر می‌خورد (`imgOk`)؛ ردشده بی‌تصویر جلو نمی‌رود — منتظر، نه ریلزِ خالی',
      plan.imgOk === IG_IMG_GATE_V && planT.imgOk === 0 && planT.phase === 'img' && planQ.phase === 'img', JSON.stringify([plan.imgOk, planT.phase]));
   const planN = JSON.parse(JSON.stringify(plan)); planN.phase = 'img';
-  const rN = igStepImages_(Object.assign({}, it, { noLesson: 1 }), fo, planN, Date.now() + 60000);
+  const rN = igStepImages_(Object.assign({}, it, { noLesson: 1 }), fo, planN, Date.now() + 600000);
   ok('۳.۷-پ درسی که تصویرش یک بار رد شد (`noLesson`) دیگر سراغِ «تصویرها»ی درس نمی‌رود', !!rN.wait && planN.imgs.length === 0 &&
      planN.phase === 'img', JSON.stringify(rN));
   const old = { phase: 'pub', imgs: [{ id: 'a', src: 'b' }], video: 'v', cover: 'c', short: 's', sig: 'x' };
@@ -399,10 +399,10 @@ console.log('=== ۳-ب) داورِ پیوستگی: بازنویسی یا رد (�
   global.igStepPlan_ = () => { replanned++; return { wait: 'آزمون' }; };
   igPlanWrite_(fo2, { v: 1, key: it.key, phase: 'ok', plan: { lines: [] } });
   const itA = Object.assign({}, it, { phase: 'ok' });
-  igStep_(itA, {}, Date.now() + 60000);
+  igStep_(itA, {}, Date.now() + 600000);
   igPlanWrite_(fo2, { v: 1, key: it.key, phase: 'done', reelId: 'M9', plan: { lines: [] } });
   const itB = Object.assign({}, it, { phase: 'done' });
-  const rB = igStep_(itB, {}, Date.now() + 60000);
+  const rB = igStep_(itB, {}, Date.now() + 600000);
   global.igStepPlan_ = keepStep.pl;
   ok('۳-ب.۴ برنامهٔ کهنهٔ منتشرنشده از نو ساخته می‌شود؛ منتشرشده دست نمی‌خورد', replanned === 1 && rB.done === true, 'replanned=' + replanned);
   igPlanWrite_(fo2, plan);
@@ -440,7 +440,7 @@ console.log('=== ۴) تأیید و انتشار ===');
   plan.phase = 'pub';
   const st2 = { stats: { published: 3 } };
   let r;
-  try { r = igStepPub_(it, plan, st2, Date.now() + 60000); } finally { global.igLog_ = kLog; }
+  try { r = igStepPub_(it, plan, st2, Date.now() + 600000); } finally { global.igLog_ = kLog; }
   const reel = calls.find(c => /\/media$/.test(c.url) && c.body.media_type === 'REELS');
   ok('۴.۴ ریلز با ویدئو، کاور، کپشن و اشتراک در فید ساخته و منتشر شد', r.ok && plan.reelId === 'M1' && plan.phase === 'yts' &&
      reel.body.video_url === plan.video && reel.body.cover_url === plan.cover && reel.body.caption === plan.caption &&
@@ -455,7 +455,7 @@ console.log('=== ۴) تأیید و انتشار ===');
   calls.length = 0;
   const full = { stats: { published: 9, day: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'), dayN: CFG.IG_PER_DAY } };
   const p2 = JSON.parse(JSON.stringify(plan)); p2.reelCid = ''; p2.reelId = ''; p2.phase = 'pub';
-  const r2 = igStepPub_(it, p2, full, Date.now() + 60000);
+  const r2 = igStepPub_(it, p2, full, Date.now() + 600000);
   ok('۴.۸ سهمِ روز پر ⇒ صبر، بی هیچ فراخوانِ Graph', r2.wait && calls.length === 0, r2.wait);
   /* استوری شکست بخورد: ریلز «نشد» نمی‌شود. */
   global.__STUB = (url, body) => {
@@ -466,11 +466,11 @@ console.log('=== ۴) تأیید و انتشار ===');
   };
   const p3 = JSON.parse(JSON.stringify(plan)); p3.reelCid = ''; p3.reelId = ''; p3.storyId = ''; p3.phase = 'pub';
   global.igLog_ = () => {};
-  try { r = igStepPub_(it, p3, { stats: { published: 5 } }, Date.now() + 60000); } finally { global.igLog_ = kLog; }
+  try { r = igStepPub_(it, p3, { stats: { published: 5 } }, Date.now() + 600000); } finally { global.igLog_ = kLog; }
   ok('۴.۹ شکستِ استوری ریلزِ منتشرشده را «نشد» نمی‌کند — علتش ثبت می‌شود', r.ok && p3.phase === 'yts' && p3.storyWhy === 'story bad', p3.storyWhy);
   global.__STUB = (url, body) => (/\/1784\/media$/.test(url) ? { code: 400, json: { error: { message: 'bad video' } } } : { code: 200, json: {} });
   const p4 = JSON.parse(JSON.stringify(plan)); p4.reelCid = ''; p4.reelId = ''; p4.phase = 'pub';
-  const r4 = igStepPub_(it, p4, { stats: { published: 5 } }, Date.now() + 60000);
+  const r4 = igStepPub_(it, p4, { stats: { published: 5 } }, Date.now() + 600000);
   ok('۴.۱۰ ظرفِ ریلز ساخته نشد ⇒ «نشد» با پیامِ خودِ Graph', r4.fail && /bad video/.test(r4.fail), r4.fail);
 }
 
@@ -535,11 +535,11 @@ console.log('=== ۴-ب) شورتزِ یوتیوب: بی پلی‌لیست، دو
   DriveApp.searchFiles = (qq) => { q = qq; let i = 0; return { hasNext: () => i < files.length, next: () => files[i++] }; };
   const st9 = {};
   let did;
-  try { did = igShortThumbRetro_(st9, Date.now() + 60000); } finally { DriveApp.searchFiles = kSearch; }
+  try { did = igShortThumbRetro_(st9, Date.now() + 600000); } finally { DriveApp.searchFiles = kSearch; }
   const f0 = JSON.parse(files[0].body);
   ok('۴-ب.۱۰ جبران: شورتزِ قدیمیِ بی کاور کاور می‌گیرد و در _ig.json ثبت می‌شود؛ بقیه دست نمی‌خورند',
      did === 1 && f0.shortThumb === true && th.some(x => x.id === 'OLD1') && !th.some(x => x.id === 'OK2') && /_ig\.json/.test(q), JSON.stringify(th));
-  ok('۴-ب.۱۱ پس از یک دورِ کامل خودش خاموش می‌شود', !!st9.thumbRetro && igShortThumbRetro_(st9, Date.now() + 60000) === 0);
+  ok('۴-ب.۱۱ پس از یک دورِ کامل خودش خاموش می‌شود', !!st9.thumbRetro && igShortThumbRetro_(st9, Date.now() + 600000) === 0);
   ok('۴-ب.۱۲ igTick جبران را صدا می‌زند', /igShortThumbRetro_\(st, deadline\)/.test(String(igTick)));
   /* ۹.۶۹: «یوتیوب هم دوتا». */
   CFG.IG_SHORTS_PER_DAY = 2;
@@ -561,7 +561,7 @@ console.log('=== ۴-ب) شورتزِ یوتیوب: بی پلی‌لیست، دو
   global.igLog_ = () => { logged++; };
   const fo3 = igFolder_(epFo);
   igPlanWrite_(fo3, Object.assign(JSON.parse(JSON.stringify(plan)), { v: 3, phase: 'yts', reelId: 'M1' }));
-  const rr = igStep_(Object.assign({}, it, { phase: 'yts' }), {}, Date.now() + 60000);
+  const rr = igStep_(Object.assign({}, it, { phase: 'yts' }), {}, Date.now() + 600000);
   Object.assign(global, { igShortPub_: keep.sp, igLog_: keep.lg });
   ok('۴-ب.۷ گامِ «yts» شورتز را می‌سازد، بعد «انجام» و ردیفِ تب', rr.done === true && called === 1 && logged === 1 &&
      igPlanRead_(fo3).phase === 'done' && /shorts\/Z/.test(igPlanRead_(fo3).shortUrl));
@@ -647,7 +647,7 @@ console.log('=== ۸) آمار، نظرها و پیام‌ها در شیت (۹.۲
   };
   sent.length = 0;
   const st = { media: { M1: 'ig:special:5' } };
-  const ins = igInsights_(st, Date.now() + 60000);
+  const ins = igInsights_(st, Date.now() + 600000);
   const book = igBook_();
   const tab = n => book.getSheetByName(n);
   const S = tab(CFG.IG_STATS_TAB), C = tab(CFG.IG_COMMENTS_TAB), P = tab(CFG.IG_MSGS_TAB);
@@ -676,24 +676,24 @@ console.log('=== ۸) آمار، نظرها و پیام‌ها در شیت (۹.۲
      /✉️ @sara \(instagram\.com\/sara\)/.test(sent[0]) && CFG.IG_INS_HOURS === 3, sent[0]);
   /* دورِ دوم: چیزی دوباره افزوده نمی‌شود؛ آمار جایش به‌روز می‌شود. */
   st.ins.ms = 0; sent.length = 0; msgOk = false;
-  const ins2 = igInsights_(st, Date.now() + 60000);
+  const ins2 = igInsights_(st, Date.now() + 600000);
   ok('۸.۷ دورِ دوم: ردیفِ آمار به‌روز نه افزوده، نظر و پیام دوباره ثبت نمی‌شوند، تلگرامِ خالی نمی‌رود',
      S.getLastRow() === 3 && C.getLastRow() === 3 && P.getLastRow() === 2 && sent.length === 0 && ins2.newComments === 0);
   ok('۸.۸ دسترسیِ پیام نیست ⇒ آمار و نظرها سرِ جا، و خط می‌گوید چرا', ins2.posts === 2 && /پیام‌ها: نشد — .*instagram_manage_messages/.test(igInsLine_(ins2)),
      igInsLine_(ins2));
-  ok('۸.۹ پیش از IG_INS_HOURS دوباره خوانده نمی‌شود', igInsights_(st, Date.now() + 60000) === null);
+  ok('۸.۹ پیش از IG_INS_HOURS دوباره خوانده نمی‌شود', igInsights_(st, Date.now() + 600000) === null);
   /* ۹.۲۴: خواندنی که افتاد (هاب «timed out») ساعتِ بعد دوباره، نه شش ساعتِ دیگر. */
   const keepPosts = global.igInsightsPosts_;
   global.igInsightsPosts_ = () => ({ posts: 0, comments: 0, newComments: [], why: 'Service Spreadsheets timed out' });
   st.ins.ms = 0;
-  const insF = igInsights_(st, Date.now() + 60000);
+  const insF = igInsights_(st, Date.now() + 600000);
   global.igInsightsPosts_ = keepPosts;
   const waitH = (Number(CFG.IG_INS_HOURS) * 3600000 - (Date.now() - insF.ms)) / 3600000;
   ok('۸.۹-ب شکستِ خواندنِ آمار ⇒ تلاشِ دوباره پس از یک ساعت، نه IG_INS_HOURS', waitH > 0.9 && waitH < 1.1, waitH.toFixed(2));
 
   comments = comments.concat([{ id: 'c3', text: 'سؤال دارم', username: 'reza', timestamp: '2026-10-16T12:00:00+0000' }]);
   st.ins.ms = 0;
-  igInsights_(st, Date.now() + 60000);
+  igInsights_(st, Date.now() + 600000);
   ok('۸.۱۰ فقط نظرِ تازه افزوده می‌شود', C.getLastRow() === 4 && C.getRange(4, 5, 1, 1).getValues()[0][0] === 'reza');
   const src = fs.readFileSync('src/38_Instagram.gs', 'utf8');
   ok('۸.۱۱ igTick پس از گام‌های انتشار، با وقتِ مانده، آمار را می‌خوانَد؛ انتشار نقشهٔ پست ⇒ قسمت را می‌نویسد',
@@ -753,7 +753,7 @@ console.log('=== ۹) مرورِ بزرگ، سقفِ سه دقیقه، کپشنِ
   global.vowelizeText_ = (x) => x;
   let nCall = 0;
   global.ttsChunk_ = () => Utilities.base64Encode(new Array(sr * 2 * (++nCall === 1 ? 200 : 2)).fill(0));
-  const rv = (igStepVoice_(itR, foR, rr.plan, Date.now() + 60000), igStepVoice_(itR, foR, rr.plan, Date.now() + 60000));
+  const rv = (igStepVoice_(itR, foR, rr.plan, Date.now() + 600000), igStepVoice_(itR, foR, rr.plan, Date.now() + 600000));
   global.ttsChunk_ = keepT; global.vowelizeText_ = keepV;
   ok('۹.۳ صدا بیش از ' + CFG.IG_MAX_SEC + ' ثانیه ⇒ شکست با «از نو»، و سقفِ واژهٔ تازه به همان نسبت', !!rv.fail && itR.maxWords > 0 &&
      itR.maxWords < rr.plan.plan.words && igWords_({ recap: true, maxWords: itR.maxWords }).max === itR.maxWords, rv.fail + ' / ' + itR.maxWords);
@@ -763,10 +763,10 @@ console.log('=== ۹) مرورِ بزرگ، سقفِ سه دقیقه، کپشنِ
     global.vowelizeText_ = (x) => x;
     global.ttsChunk_ = () => Utilities.base64Encode(new Array(sr * 2 * (++nCall === 1 ? 90 : 1)).fill(0));
     const itF = Object.assign({}, itR, { tryN: 0, maxWords: 0 }), pF = JSON.parse(JSON.stringify(rr.plan)); pF.phase = 'voice';
-    const rF = (igStepVoice_(itF, foR, pF, Date.now() + 60000), igStepVoice_(itF, foR, pF, Date.now() + 60000));
+    const rF = (igStepVoice_(itF, foR, pF, Date.now() + 600000), igStepVoice_(itF, foR, pF, Date.now() + 600000));
     nCall = 0;
     const itG = Object.assign({}, itR, { tryN: 2, maxWords: 0 }), pG = JSON.parse(JSON.stringify(rr.plan)); pG.phase = 'voice';
-    const rG = (igStepVoice_(itG, foR, pG, Date.now() + 60000), igStepVoice_(itG, foR, pG, Date.now() + 60000));
+    const rG = (igStepVoice_(itG, foR, pG, Date.now() + 600000), igStepVoice_(itG, foR, pG, Date.now() + 600000));
     global.ttsChunk_ = keepT; global.vowelizeText_ = keepV;
     const wF = igWords_({ recap: true, minWords: itF.minWords });
     ok('۹.۳-ب مرورِ کوتاه‌تر از ' + CFG.IG_RECAP_MIN_SEC + ' ثانیه ⇒ از نو با دست‌کم واژهٔ بیشتر؛ پس از دو تلاش پذیرفته (مرور گیر نمی‌کند)',
@@ -787,16 +787,16 @@ console.log('=== ۹) مرورِ بزرگ، سقفِ سه دقیقه، کپشنِ
   const keepPub = global.igStepPub_; let pubCalls = 0;
   global.igStepPub_ = () => { pubCalls++; return { wait: 'آزمون' }; };
   const stP = { done: '', order: { s: [{ n: 'مصباح', e: '1:1,2:2,3:3' }] } };
-  const rp = igStep_(itP, stP, Date.now() + 60000);
+  const rp = igStep_(itP, stP, Date.now() + 600000);
   stP.done = '1';
-  igStep_(itP, stP, Date.now() + 60000);
+  igStep_(itP, stP, Date.now() + 600000);
   global.igStepPub_ = keepPub;
   ok('۹.۵ گامِ انتشارِ درسِ ۲ پیش از درسِ ۱ ⇒ صبر با نامِ درسِ قبلی؛ پس از آن ⇒ انتشار', /منتظرِ انتشارِ درسِ 1/.test(rp.wait || '') && pubCalls === 1, JSON.stringify(rp));
   /* برنامهٔ نسخهٔ ۳ (تأییدشده) با IG_PLAN_V=۴ از نو ساخته نمی‌شود. */
   const keepPl = global.igStepPlan_; let rep = 0;
   global.igStepPlan_ = () => { rep++; return { wait: 'x' }; };
   igPlanWrite_(fP, { v: 3, key: 'ig:special:2', phase: 'ok', plan: { lines: [] } });
-  igStep_(Object.assign({}, itP, { phase: 'ok' }), { stats: { published: 5 } }, Date.now() + 60000);
+  igStep_(Object.assign({}, itP, { phase: 'ok' }), { stats: { published: 5 } }, Date.now() + 600000);
   global.igStepPlan_ = keepPl;
   ok('۹.۶ ریلزِ تأییدشده با نسخهٔ ۳ دوباره ساخته نمی‌شود (IG_PLAN_MIN)', rep === 0 && CFG.IG_PLAN_V > CFG.IG_PLAN_MIN);
   /* توضیحِ زندهٔ پلی‌لیست. */
@@ -851,16 +851,16 @@ console.log('=== ۱۰) «۶ تا بذار و جداش کن» — صفِ جدای
   global.igShortPub_ = (x, pl) => { tries.push(x.ep); if (!quotaOk) return { wait: 'سهمیه' }; pl.shortId = 'S' + x.ep; return { ok: true }; };
   global.igLog_ = () => {};
   const st = { shortQ: [] };
-  const rA = igStep_(A.it, st, Date.now() + 60000);
-  const rB = igStep_(B.it, st, Date.now() + 60000);
+  const rA = igStep_(A.it, st, Date.now() + 600000);
+  const rB = igStep_(B.it, st, Date.now() + 600000);
   ok('۱۰.۲ شورتزِ منتظرِ سهمیه ریلز را نگه نمی‌دارد: هر دو «انجام»، صف ۱۱ سپس ۱۲، و درسِ ۱۲ بی تلاشِ آپلود پشتِ صف',
      rA.done && rB.done && st.shortQ.map(x => x.ep).join(',') === '11,12' && tries.join(',') === '11' &&
      igPlanRead_(A.f).phase === 'done' && !!igPlanRead_(B.f).shortQueued, JSON.stringify({ q: st.shortQ, tries }));
   tries = [];
-  igShortQueueRun_(st, Date.now() + 60000);
+  igShortQueueRun_(st, Date.now() + 600000);
   ok('۱۰.۳ صف با سهمیهٔ بسته فقط سرش را می‌پرسد و می‌ایستد', tries.join(',') === '11' && st.shortQ.length === 2 && /سهمیه/.test(st.shortWhy));
   quotaOk = true; tries = [];
-  const n = igShortQueueRun_(st, Date.now() + 60000);
+  const n = igShortQueueRun_(st, Date.now() + 600000);
   ok('۱۰.۴ سهمیه که باز شد، به ترتیب: ۱۱ بعد ۱۲؛ شناسه در _ig.json هر درس، صف خالی', n === 2 && tries.join(',') === '11,12' &&
      st.shortQ.length === 0 && igPlanRead_(A.f).shortId === 'S11' && igPlanRead_(B.f).shortId === 'S12' && !st.shortWhy);
   Object.assign(global, { igShortPub_: keep.sp, igLog_: keep.lg });
@@ -1096,15 +1096,21 @@ console.log('=== ۲۱) گفتارساز متنِ بلند را رد کرد ⇒ �
   const longT = Array.from({ length: 16 }, (_, i) => sent(i)).join(' ');
   const kTts = global.ttsChunk_;
   const calls = [];
-  global.ttsChunk_ = (t) => { calls.push(t); if (calls.length === 1) throw new Error('Gemini HTTP 400'); return Utilities.base64Encode(new Array(8).fill(0)); };
+  global.ttsChunk_ = (t) => { calls.push(t); if (t.length > 1000) throw new Error('Gemini HTTP 400'); return Utilities.base64Encode(new Array(8).fill(0)); };
   let parts; try { parts = igTtsPcm_(longT, { voice: 'v' }); } finally { global.ttsChunk_ = kTts; }
-  ok('۲۱.۱ بعد از شکستِ کامل، دو فراخوانِ جدا با متنِ کامل روی هم', calls.length === 3 && calls[1].length + calls[2].length >= longT.length - 2 && parts.length === 2, calls.length);
+  ok('۲۱.۱ متنِ بلند از اول دو فراخوانِ جدا می‌گیرد، با متنِ کامل روی هم', calls.length === 2 && calls[0].length + calls[1].length >= longT.length - 2 && parts.length === 2, calls.length);
   global.ttsChunk_ = () => { throw new Error('Gemini HTTP 400'); };
   let threw = false; try { igTtsPcm_('متنِ کوتاه.', { voice: 'v' }); } catch (e) { threw = true; } finally { global.ttsChunk_ = kTts; }
   ok('۲۱.۲ متنِ کوتاه پس از شکست همان خطا را می‌دهد (دوباره‌کاری نمی‌کند)', threw);
   global.ttsChunk_ = (t) => Utilities.base64Encode(new Array(8).fill(0));
   let one; try { one = igTtsPcm_(longT, { voice: 'v' }); } finally { global.ttsChunk_ = kTts; }
-  ok('۲۱.۳ اگر گفتارساز موفق بود، همان یک تکه می‌ماند (صدای سالم بی‌تغییر)', one.length === 1);
+  ok('۲۱.۳ گفتارساز موفق: هر نیم یک تکهٔ PCM، ترتیب حفظ‌شده', one.length === 2);
+  global.ttsChunk_ = () => Utilities.base64Encode(new Array(8).fill(0));
+  let late = ''; try { igTtsPcm_(longT, { voice: 'v' }, Date.now() - 1); } catch (e) { late = e.message; } finally { global.ttsChunk_ = kTts; }
+  ok('۲۱.۴ بی‌وقت برای نیمهٔ دوم: خطای صریح، نه بیش از بودجهٔ اجرا', /نیمهٔ دوم/.test(late), late);
+  global.ttsChunk_ = () => Utilities.base64Encode(new Array(8).fill(0));
+  let shortOk; try { shortOk = igTtsPcm_('متنِ کوتاه و ساده.', { voice: 'v' }, Date.now() - 1); } finally { global.ttsChunk_ = kTts; }
+  ok('۲۱.۵ متنِ کوتاه یک فراخوانی است، حتی اگر وقت گذشته باشد', shortOk.length === 1);
 }
 
 console.log('=== ۲۲) فهرستِ «اول… دوم… سوم…» پیش از داور رد می‌شود (۹.۹۹) ===');

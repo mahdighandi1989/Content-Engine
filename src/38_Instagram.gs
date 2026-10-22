@@ -843,20 +843,25 @@ function igStepPlan_(it, fo) {
  * نویسه تخمین زده می‌شود؛ رانر زمانِ واقعیِ هر واژه را از خودِ صدا می‌گیرد (tools/reelalign.py).
  */
 /**
- * صدای بدنهٔ ریلز (۹.۹۹): گفتارساز متنِ بلند را گاهی با «The audio stream could not be completed» رد می‌کند — و همان متن
- * هر بار رد می‌شد (ریلزِ ۲۱ِ مصباح). پس از یک شکستِ کامل، متن را در مرزِ جمله به دو نیم می‌کنیم و هر نیم را جدا می‌سازیم؛
- * پیش از آن همان یک فراخوانِ قدیمی است، پس صدای موفق بی‌تغییر می‌ماند. برمی‌گرداند: آرایهٔ base64 از تکه‌های PCM به ترتیب.
+ * صدای بدنهٔ ریلز (۱۰.۲): متنِ بلند در دو نیم، هر نیم یک فراخوانِ کوتاه‌تر به گفتارساز. دو دلیل:
+ * (۱) ریلزِ ۲۱ِ مصباح بارها با «The audio stream could not be completed» از یک فراخوانِ بلند رد شد؛
+ * (۲) igTick با «Exceeded maximum execution time» مُرد (۲۱ اکتبر): فراخوانِ بلند با تلاش‌های مکرر از بودجهٔ اجرا گذشت.
+ * بودجه بین دو نیم سنجیده می‌شود؛ اگر وقت نماند، خطا برمی‌گردد تا اجرای بعد از صفر-نه از نیمهٔ دوم ادامه دهد.
+ * برمی‌گرداند: آرایهٔ base64 از تکه‌های PCM به ترتیب.
  */
-function igTtsPcm_(text, plan) {
+function igTtsPcm_(text, plan, deadline) {
   var style = String(CFG.IG_VOICE_STYLE || '');
-  var first = null;
-  try { first = ttsChunk_(applyPron_(text), style, plan.voice, true); }
-  catch (e) { if (String(text).split(/\s+/).length < 60) throw e; }
-  if (first) return [first];
+  var words = String(text).split(/\s+/).length;
+  if (words < 150) {
+    var one = ttsChunk_(applyPron_(text), style, plan.voice, true);
+    if (!one) throw new Error('گفتارساز صدایی نداد');
+    return [one];
+  }
   var sents = igSplit_(text), a = [], b = [], acc = 0, tot = String(text).length;
   for (var i = 0; i < sents.length; i++) { if (acc < tot / 2) a.push(sents[i]); else b.push(sents[i]); acc += sents[i].length; }
   if (!a.length || !b.length) throw new Error('متن برای دونیم‌کردن کوتاه است');
-  return [a.join(' '), b.join(' ')].map(function (t) {
+  return [a.join(' '), b.join(' ')].map(function (t, k) {
+    if (k > 0 && deadline && Date.now() > deadline - 90000) throw new Error('وقتِ این اجرا برای نیمهٔ دوم صدا کم بود');
     var r = ttsChunk_(applyPron_(t), style, plan.voice, true);
     if (!r) throw new Error('گفتارساز صدایی نداد');
     return r;
@@ -880,7 +885,7 @@ function igStepVoice_(it, fo, plan, deadline) {
   }
   plan.vowelized = !!vow;
   var b1 = null, b2 = null;
-  try { b1 = igTtsPcm_(vow || plain, plan); }
+  try { b1 = igTtsPcm_(vow || plain, plan, deadline); }
   catch (e) { return { wait: 'گفتارساز: ' + String(e.message || e).slice(0, 120) }; }
   if (!b1 || !b1.length) return { wait: 'گفتارساز صدایی نداد' };
   if (cta) {
