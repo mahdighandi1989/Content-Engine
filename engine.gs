@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 10.5
+ *  موتور محتوا و پادکست — نسخهٔ 10.6
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1425,6 +1425,7 @@ var CFG = {
   IG_LINES: [5, 8],              // شمارِ جمله‌های گفتنی (بی جملهٔ پایانیِ یوتیوب)
   IG_SEC: '45 تا 75',            // طولِ هدف، در پرامپت
   IG_SRC_CHARS: 9000,            // چه مقدار از متنِ درس به مدل
+  IG_LESSON_IMAGES: false,       // ۱۰.۶: نقاشی‌های پوشهٔ «تصویرها» به ریلز وصل نمی‌شوند (پیوند به جمله ندارند)
   IG_IMG_N: 5,                   // تصویرهای هر ریلز
   IG_TAGS_BASE: ['درسنامه', 'رد_پای_حقیقت', 'آیا_میدانستید', 'آموزش'],
   IG_APPROVE: 1,                 // «چند تای اول با تأییدِ شما» — `docs/ig-approve.json`. ۹.۳۰: ۳ ⇒ ۱ — ریلزِ اول را دید و گفت «خوب بود، منتشر کن … ایرادها را در درس‌های بعد اعمال کن»
@@ -2225,7 +2226,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '10.5',
+  CODE_VERSION: '10.6',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -81692,7 +81693,8 @@ function igPartBlock_(ep, opt) {
       (me === 1 ? 'نخستِ' : 'بعدیِ') + ' درس را (متنِ زیر). ایدهٔ این ریلز باید **مهم‌ترین حرفِ همین بخش** باشد، نه حرفِ کلِ درس.',
     other.length ? 'سرفصل‌های بخشِ دیگرِ درس (این‌ها را این‌جا باز نکن؛ ریلزِ دیگر می‌گوید): ' + other.join('، ') : '',
     'این ریلز باید **به‌تنهایی کامل** باشد — بیننده شاید فقط همین یکی را ببیند؛ «در ریلزِ قبل گفتیم» یا «بخشِ دوم» ننویس.'];
-  if (opt.otherIdea) L.push('ریلزِ دیگرِ همین درس این را گفته: «' + String(opt.otherIdea).slice(0, 300) + '» — همان ایده، همان قلاب و همان مثال را تکرار نکن.');
+  if (opt.otherIdea) L.push('ریلزِ دیگرِ همین درس این را گفته: «' + String(opt.otherIdea).slice(0, 300) + '».');
+  if (opt.otherText) L.push('متنِ ریلزِ دیگرِ همین درس (**تکرار نکن**: نه جمله، نه مثال، نه قلاب، و نه بازنویسیِ آن با کلمه‌های دیگر — این ریلز باید بخشِ دیگری از درس را بگوید که آن ریلز نگفته):\n«' + opt.otherText + '»');
   return L.filter(function (x) { return x !== ''; }).join('\n');
 }
 
@@ -82042,7 +82044,8 @@ function igStepPlan_(it, fo) {
   if (opt.parts > 1) {
     for (var op = 1; op <= opt.parts; op++) {
       if (op === opt.part) continue;
-      try { var oPl = igPlanRead_(igFolder_(epFo, op)); if (oPl && oPl.plan && oPl.plan.idea) opt.otherIdea = (opt.otherIdea ? opt.otherIdea + ' / ' : '') + oPl.plan.idea; } catch (eOp) {}
+      try { var oPl = igPlanRead_(igFolder_(epFo, op)); if (oPl && oPl.plan && oPl.plan.idea) opt.otherIdea = (opt.otherIdea ? opt.otherIdea + ' / ' : '') + oPl.plan.idea;
+            if (oPl && oPl.plan && oPl.plan.lines) opt.otherText = (opt.otherText ? opt.otherText + '\n' : '') + oPl.plan.lines.filter(function (x) { return !x.cta; }).map(function (x) { return x.text; }).join(' ').slice(0, 900); } catch (eOp) {}
     }
   }
   /* ۹.۶۹: آنچه صفحه در مجموعه‌های دیگر گفته — آئودی پس از مصباح. */
@@ -82287,7 +82290,7 @@ function igStepImages_(it, fo, plan, deadline) {
   /* ۱) نقاشی‌های خودِ درس، اگر هست — به ترتیبِ نام (صحنه ۰۱، ۰۲…)، پخش روی کلِ درس. ۹.۶۱: درسی که تصویرهایش یک بار
      رد شد (`it.noLesson`) دیگر سراغِ «تصویرها»ی درس نمی‌رود — همان قاب‌های نوشته‌دار دوباره به داور نمی‌روند. */
   plan.imgOk = 0;
-  if (!it.noLesson) try {
+  if (!it.noLesson && CFG.IG_LESSON_IMAGES === true) try {
     var epFo = DriveApp.getFolderById(it.folderId), lvf = epFo.getFoldersByName(CFG.LV_FOLDER || 'تصویرها');
     if (lvf.hasNext()) {
       var all = [], fi = lvf.next().getFiles();
@@ -82325,9 +82328,9 @@ function igStepImages_(it, fo, plan, deadline) {
     if (model && lvGenRoom_(model) >= want) {
       for (var j = 0; j < want; j++) {
         if (Date.now() > deadline) return { wait: 'وقت تمام شد (تصویرِ ' + (j + 1) + ')' };
-        var scs = plan.plan.scenes || [];
-        var ln = scs.length ? { scene: scs[Math.min(scs.length - 1, Math.floor(j * scs.length / want))] }
-                            : lines[Math.min(lines.length - 2, Math.floor(j * (lines.length - 1) / want))];
+        /* ۱۰.۶: تصویرِ هر نقطه از **همان جمله‌ای** که روی صدا می‌آید (صحنهٔ خودِ همان خط)، نه صحنه‌ای جدا از متن. */
+        var ln = lines[Math.min(lines.length - 2, Math.floor(j * (lines.length - 1) / want))] || {};
+        if (!ln.scene && plan.plan.scenes && plan.plan.scenes.length) ln = { scene: plan.plan.scenes[Math.min(plan.plan.scenes.length - 1, Math.floor(j * plan.plan.scenes.length / want))], text: ln.text };
         var pr = 'Vertical 9:16 painterly editorial illustration for an educational Persian video. ' +
                  'Absolutely no text, letters, numbers, captions, signs or logos. ' + LV_HOLY_EN + ' ' + String(ln.scene || ln.text);
         var g = null, tries = 0;

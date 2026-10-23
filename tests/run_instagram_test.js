@@ -17,6 +17,7 @@ global.__PROPS['GEMINI_API_KEY'] = 'TEST';
 
 let pass = 0;
 const ok = (n, c, info) => {
+CFG.IG_LESSON_IMAGES = true;   // ۱۰.۶: سدِ نقاشی‌های درس هنوز سنجیده می‌شود؛ پیش‌فرض خاموش است
   if (!c) { console.log('  ❌ ' + n + (info ? ' — ' + info : '')); throw new Error('FAILED: ' + n); }
   pass++; console.log('  ✅ ' + n + (info ? ' — ' + String(info).slice(0, 220) : ''));
 };
@@ -1147,6 +1148,15 @@ console.log('=== ۲۴) داور و نویسنده، برای بخشِ ۲ از ۲
   const wt = igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000, igPartSecs_(ep, 2, 2));
   ok('۲۴.۱ متنِ داور همان متنِ نویسنده است (بخشِ ۲)', jt === wt && jt.indexOf('## بخشِ2') !== -1 && jt.indexOf('## بخشِ0') === -1, jt.slice(0, 60));
   ok('۲۴.۲ ریلزِ تک‌بخشی: متنِ کلِ درس (بدون تغییر)', igJudgeText_(ep, {}) === igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000, null));
+}
+
+console.log('=== ۲۵) ریلز: تصویرِ پوشهٔ درس خاموش؛ تصویرِ هر نقطه با جملهٔ همان نقطه؛ بخشِ دومِ درس متنِ بخشِ اول را نمی‌بیند؟ (۱۰.۶) ===');
+{
+  ok('۲۵.۱ پیش‌فرض (فایل تنظیم): نقاشی‌های پوشهٔ درس به ریلز وصل نیستند', /IG_LESSON_IMAGES:\s*false/.test(require('fs').readFileSync('src/00_Config.gs', 'utf8')));
+  const src = String(igStepImages_);
+  ok('۲۵.۲ تصویرِ تازه از جملهٔ همان نقطه (نه صحنهٔ جدا از متن)', /۱۰\.۶[\s\S]*ln = lines\[/.test(src) && !/var scs = plan\.plan\.scenes/.test(src));
+  const pb = igPartBlock_({ sections: [{ heading: 'الف', narration: 'x' }, { heading: 'ب', narration: 'y' }] }, { parts: 2, part: 2, otherText: 'متنِ بخشِ اول' });
+  ok('۲۵.۳ بخشِ دوم متنِ بخشِ اول را دارد و باید تکرار نکند', /متنِ ریلزِ دیگرِ همین درس[\s\S]*متنِ بخشِ اول/.test(pb) && /تکرار نکن/.test(pb));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');
