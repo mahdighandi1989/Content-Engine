@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 10.4
+ *  موتور محتوا و پادکست — نسخهٔ 10.5
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2225,7 +2225,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '10.4',
+  CODE_VERSION: '10.5',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -81608,6 +81608,16 @@ function igRecapText_(ep, cap) {
   }).join('\n')).slice(0, cap);
 }
 
+/**
+ * متنی که نویسنده و داور **هر دو** می‌بینند (۱۰.۵): فقط بخشِ همین ریلز. ۲۲–۲۳ اکتبر: ریلز ۲۶٫۲ (درس ۵، بخش ۲ از ۲)
+ * شش ساعت رد شد با «ادعای بیرون از درس» و «جوابِ قلاب نمی‌آید» — داور متنِ **اولِ درس** (بخش ۱) را می‌دید، و نویسنده
+ * بخش ۲ را نوشته بود. هر دو باید از یک تابع بخوانند.
+ */
+function igJudgeText_(ep, opt) {
+  opt = opt || {};
+  return igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000, Number(opt.parts) > 1 ? igPartSecs_(ep, opt.part, opt.parts) : null);
+}
+
 function igLessonText_(ep, cap, only) {
   var L = [], keep = null;
   if (only) { keep = {}; only.forEach(function (i) { keep[i] = 1; }); }
@@ -81662,7 +81672,7 @@ function igPrompt_(ep, seriesName, lesson, opt) {
     igSeenBlock_(opt),
     '',
     'متنِ درس' + (Number(opt.parts) > 1 ? ' — **فقط بخشِ این ریلز** (بقیهٔ درس در ریلزِ دیگر است):' : ':'),
-    igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000, Number(opt.parts) > 1 ? igPartSecs_(ep, opt.part, opt.parts) : null)
+    igJudgeText_(ep, opt)
   ].join('\n');
 }
 
@@ -82050,7 +82060,7 @@ function igStepPlan_(it, fo) {
   if (!p.lines && /متن بلند است/.test(String(p.why || ''))) p = igShorten_(r, opt, p);
   if (!p.lines) return { fail: 'متنِ ریلز پذیرفته نشد: ' + p.why };
   /* داوریِ پیوستگی: یک بازنویسی، و دوباره داوری. ضعیف منتشر نمی‌شود — شکست یعنی تلاشِ دوباره با مدلِ تازه. */
-  var lessonTxt = recap ? igRecapText_(ep, Math.max(Number(CFG.IG_SRC_CHARS) || 9000, 14000)) : igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000);
+  var lessonTxt = recap ? igRecapText_(ep, Math.max(Number(CFG.IG_SRC_CHARS) || 9000, 14000)) : igJudgeText_(ep, opt);
   var jd = { ok: true, why: '' };
   if (CFG.IG_JUDGE !== false) {
     jd = igJudge_(p, lessonTxt, opt);

@@ -1139,4 +1139,14 @@ console.log('=== ۲۳) صدای ساخته‌شده در پلان می‌مان�
   ok('۲۳.۲ بودجهٔ تمام‌شده: تکهٔ نخست ساخته می‌شود، تکهٔ بعد نه؛ تکهٔ ساخته‌شده در پلان می‌ماند', /ادامهٔ صدا/.test(cut) && !!plan2.tts['cta:5'], cut);
 }
 
+console.log('=== ۲۴) داور و نویسنده، برای بخشِ ۲ از ۲، متنِ همان بخش را می‌بینند (۱۰.۵) ===');
+{
+  const secs = [0, 1, 2, 3].map(i => ({ heading: 'بخشِ' + i, narration: ('واژهٔ' + i + ' ').repeat(900) + 'پایانِ' + i }));
+  const ep = { title: 'درس', sections: secs };
+  const jt = igJudgeText_(ep, { part: 2, parts: 2 });
+  const wt = igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000, igPartSecs_(ep, 2, 2));
+  ok('۲۴.۱ متنِ داور همان متنِ نویسنده است (بخشِ ۲)', jt === wt && jt.indexOf('## بخشِ2') !== -1 && jt.indexOf('## بخشِ0') === -1, jt.slice(0, 60));
+  ok('۲۴.۲ ریلزِ تک‌بخشی: متنِ کلِ درس (بدون تغییر)', igJudgeText_(ep, {}) === igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000, null));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');
