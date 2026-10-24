@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-23 23:33",
+ "updatedAt": "2026-10-24 00:10",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -5055,6 +5055,82 @@
     "fade": 40
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-80-cover.jpg"
+  },
+  "special:81": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-81.mp4",
+   "bytes": 45690470,
+   "parts": 2,
+   "at": "2026-10-24 00:10",
+   "mode": "scenes",
+   "scenes": 41,
+   "want": 41,
+   "snapped": 32,
+   "seconds": 1201,
+   "qa": {
+    "n": 41,
+    "matched": 36,
+    "miss": [
+     14,
+     18,
+     29,
+     37,
+     41
+    ],
+    "blank": [],
+    "ok": false,
+    "why": "فقط 36 از 41 صحنه سرِ جای خودش دیده شد",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 11,
+       "t": 299.2,
+       "own": 0.43,
+       "nb": 0.07,
+       "ok": true,
+       "heard": "مکمل فصل راهای کسپ معرفت از مجموعی معرفت شناسی مجتبام سبا هست.  انجا دیدیم قوانیم."
+      },
+      {
+       "n": 21,
+       "t": 569.3,
+       "own": 0.29,
+       "nb": 0.07,
+       "ok": true,
+       "heard": "ازنای این حوکم مقرفت مجازیست که نو ادو و مشرا عودی مقرفت اجتماعی تحقق نیافت مینامت."
+      },
+      {
+       "n": 31,
+       "t": 863.5,
+       "own": 0.44,
+       "nb": 0.22,
+       "ok": true,
+       "heard": "دیدگاه دوفوم، دیدگاه نگرشی یا ابراز گراییست، کمیگویت قضاوت فرنید."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 16,
+    "placed": 8,
+    "busy": 8,
+    "failed": 0,
+    "kinds": {
+     "points": 4,
+     "quote": 1,
+     "headline": 3
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 32,
+   "xf": {
+    "smoothright": 20,
+    "fade": 16
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-81-cover.jpg"
   }
  },
  "art": {
