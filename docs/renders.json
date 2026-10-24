@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-24 09:19",
+ "updatedAt": "2026-10-24 09:49",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -5282,6 +5282,82 @@
    "notes": [
     "اندازه: 69.1 ⇒ 42 مگابایت"
    ]
+  },
+  "special:82": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-82.mp4",
+   "bytes": 45759125,
+   "parts": 3,
+   "at": "2026-10-24 09:49",
+   "mode": "scenes",
+   "scenes": 52,
+   "want": 52,
+   "snapped": 44,
+   "seconds": 1511,
+   "qa": {
+    "n": 52,
+    "matched": 48,
+    "miss": [
+     2,
+     15,
+     22,
+     25
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 14,
+       "t": 338.9,
+       "own": 0.65,
+       "nb": 0.1,
+       "ok": true,
+       "heard": "کل حرف ناشناختگرای یا همین ابرازگرای اینه که  وقتی میگی یه کاری بده در واقع داری قور میزنییی  یا هست بد..."
+      },
+      {
+       "n": 27,
+       "t": 665.6,
+       "own": 0.6,
+       "nb": 0.2,
+       "ok": true,
+       "heard": "فرز کن به یه بچه کچی کتب داره یه قاشوخ شربت استامینوفین میدی.  ولی به یه آدم بزورک سال دو تا قرص کامل میدی."
+      },
+      {
+       "n": 40,
+       "t": 1018,
+       "own": 0.5,
+       "nb": 0.21,
+       "ok": true,
+       "heard": "شهود گرایی اخلاقی  برسی امکان سفوم پیشینی  مرا به شهود گرایی اخلاقی میرساند  که با طبینهای قیاسی و"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 18,
+    "placed": 13,
+    "busy": 5,
+    "failed": 0,
+    "kinds": {
+     "points": 7,
+     "steps": 1,
+     "headline": 4,
+     "compare": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 45,
+   "xf": {
+    "smoothright": 26,
+    "fade": 20
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-82-cover.jpg"
   }
  },
  "art": {
