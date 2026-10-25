@@ -72,6 +72,7 @@ function resolveModels_(force) {
   }
 
   var chosen = { text: '', tts: '', at: new Date().getTime(), textAll: [], ttsAll: [] };
+  var allIds = [], veos = [];
   var bad = [];
   try { bad = modelBadList_(); } catch (eB) {}
   try {
@@ -81,6 +82,11 @@ function resolveModels_(force) {
       var mm = models[i];
       var id = String(mm.name || '').replace(/^models\//, '');
       var methods = mm.supportedGenerationMethods || mm.supported_generation_methods || [];
+      /* ۱۰.۸: همهٔ شناسه‌های زنده — نه فقط متن و صوت — تا هر مدلِ ثابتِ پیکربندی (کلیپ، تصویر، اعراب، اثرِ انگشت)
+         هر روز با همین یک فهرست سنجیده شود (`fixedModelsWatch_`). veo تا ۱۰.۷ هیچ‌جا سنجیده نمی‌شد و «بازنشسته شد»
+         را فقط ششمین درسِ بی‌کلیپ فهماند. */
+      if (/gemini|veo|imagen|embedding/i.test(id)) allIds.push(id);
+      if (/veo/i.test(id) && methods.indexOf('predictLongRunning') !== -1) veos.push(id);
       if (methods.indexOf('generateContent') === -1) continue;
       if (id.toLowerCase().indexOf('gemini') !== 0) continue;
 
@@ -147,6 +153,8 @@ function resolveModels_(force) {
 
     chosen.textAll = texts.slice(0, 6);
     chosen.ttsAll = ttss.slice(0, 6);
+    chosen.all = allIds;
+    chosen.veo = veos;
     chosen.text = texts[0] || CFG.FALLBACK_TEXT_MODEL;
     chosen.tts = ttss[0] || CFG.FALLBACK_TTS_MODEL;
     chosen.policy = CFG.MODEL_POLICY;
@@ -933,6 +941,57 @@ function modelVerdict_() {
 }
 
 /** گزارش خوانا از وضعیت مدل‌ها برای منوی «نمایش وضعیت» */
+/**
+ * آیا این شناسه در آخرین فهرستِ زندهٔ گوگل هست؟ (۱۰.۸) ⇒ true / false، یا null وقتی فهرستی نداریم —
+ * «نمی‌دانیم» هرگز «نیست» خوانده نمی‌شود (همان قاعدهٔ ۸.۳۹ِ سنجاق). فقط حافظه، بی فراخوانِ شبکه.
+ */
+function liveHas_(id) {
+  var s = String(id || '').trim();
+  if (!s) return null;
+  var c = null;
+  try { c = JSON.parse(props_().getProperty(PK.MODELS) || 'null'); } catch (e) { c = null; }
+  if (!c || c.fallback || !c.all || !c.all.length) return null;
+  return c.all.indexOf(s) !== -1;
+}
+
+/* هر مدلی که نامش در پیکربندی نوشته شده — و کاری که بی آن می‌ایستد. «auto» یعنی جانشینِ خودکار دارد. */
+var FIXED_MODELS = [
+  { key: 'TTS_MODEL_PIN', job: 'صدای قسمت‌ها (سنجاقِ گوشِ شما)', auto: 'هم‌خوان‌ترین مدلِ صوتیِ آزموده' },
+  { key: 'LV_GEN_MODEL_PIN', job: 'تصویرِ صحنه‌ها (سنجاق)', auto: 'ارزان‌ترین مدلِ تصویرِ زنده' },
+  { key: 'LV_CLIP_MODEL', job: 'کلیپِ آغازِ درس', auto: 'ارزان‌ترین مدلِ veoِ زنده' },
+  { key: 'SPEAK_XCHECK_MODEL', job: 'نظرِ دومِ اعراب', auto: 'مدلِ متنِ اصلی' },
+  { key: 'EMB_MODEL', job: 'اثرِ انگشتِ معنایی (جست‌وجو)', auto: '' },
+  { key: 'FALLBACK_TEXT_MODEL', job: 'متنِ پشتیبان (وقتی فهرست خوانده نشود)', auto: '' },
+  { key: 'FALLBACK_TTS_MODEL', job: 'صوتِ پشتیبان (وقتی فهرست خوانده نشود)', auto: '' }
+];
+
+/**
+ * ══ مدلی که بی‌صدا رفت (۱۰.۸) ══
+ * «نمی‌خوام بعداً بی‌صدا و بدونِ توجهِ من چیزی خاموش و خراب بشه و من نفهمم و تو هم متوجه نشی». مدل‌های متن و صوت هر هفته
+ * از فهرستِ زنده انتخاب می‌شدند؛ ولی هر مدلی که نامش در پیکربندی نوشته شده بود — کلیپ، سنجاقِ تصویر، نظرِ دومِ اعراب، اثرِ
+ * انگشت — هیچ‌وقت با آن فهرست سنجیده نمی‌شد. veo-3.1-lite در ۲۲ اکتبر رفت و شش درس بی‌کلیپ ماندند تا ناظر دید.
+ * حالا هر روز همه با همان فهرست سنجیده می‌شوند؛ رفته‌ای که جانشینِ خودکار ندارد «ایراد» است، و آن که دارد گفته می‌شود.
+ */
+function fixedModelsWatch_() {
+  var out = { ok: true, known: true, gone: [], checked: 0, line: '' };
+  for (var i = 0; i < FIXED_MODELS.length; i++) {
+    var f = FIXED_MODELS[i], id = String(CFG[f.key] || '').trim();
+    if (!id) continue;
+    var h = liveHas_(id);
+    if (h === null) { out.known = false; continue; }
+    out.checked++;
+    if (h === false) out.gone.push({ key: f.key, id: id, job: f.job, auto: f.auto });
+  }
+  if (!out.known && !out.checked) { out.line = 'مدل‌های ثابت: فهرستِ زندهٔ گوگل هنوز خوانده نشده — سنجیده نشد.'; return out; }
+  if (!out.gone.length) { out.line = 'مدل‌های ثابت: هر ' + out.checked + ' تا در فهرستِ زندهٔ گوگل هست.'; return out; }
+  var hard = out.gone.filter(function (g) { return !g.auto; });
+  out.ok = !hard.length;
+  out.line = 'مدلِ ثابتی که دیگر در فهرستِ گوگل نیست: ' + out.gone.map(function (g) {
+    return '«' + g.id + '» (' + g.job + ') — ' + (g.auto ? 'جانشینِ خودکار: ' + g.auto : 'جانشینِ خودکار ندارد، نسخهٔ کد لازم است');
+  }).join('؛ ') + '.';
+  return out;
+}
+
 function modelsReport_() {
   var m = resolveModels_(false);
   var age = Math.round((new Date().getTime() - (m.at || 0)) / 3600000);
@@ -996,6 +1055,12 @@ function modelStatus_() {
       out.ok = false;
       L.push('مدلِ متن هرگز انتخاب نشده؛ موتور روی پیش‌فرضِ کور می‌رود.');
     }
+    try {
+      var fw = fixedModelsWatch_();
+      out.fixed = fw;
+      if (fw.line) L.push(fw.line);
+      if (!fw.ok) out.ok = false;
+    } catch (eFw) {}
     out.line = L.join(' ');
   } catch (e) {}
   return out;

@@ -5323,6 +5323,9 @@ function speakXcheck_(plain, va, other, deadline) {
   if (!vb) {
     if (deadline && new Date().getTime() > deadline - 90000) return null;
     var mdl = String(CFG.SPEAK_XCHECK_MODEL || '');
+    /* ۱۰.۸: مدلِ نظرِ دوم اگر از فهرستِ زندهٔ گوگل رفته باشد، نظرِ دوم با مدلِ اصلی می‌ماند — نه اینکه بی‌صدا از کار بیفتد.
+       «نمی‌دانیم» (فهرست نخوانده) همان تنظیم را نگه می‌دارد. */
+    try { if (mdl && liveHas_(mdl) === false) mdl = ''; } catch (eLh) {}
     if (mdl && mdl === textModel_()) mdl = '';
     vb = vowelizeText_(plain, mdl ? { model: mdl } : null);
     src = mdl ? 'model:' + mdl : 'model';

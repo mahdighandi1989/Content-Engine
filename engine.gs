@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 10.8
+ *  موتور محتوا و پادکست — نسخهٔ 10.9
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -862,7 +862,12 @@ var CFG = {
      (۰٫۰۵ در ۷۲۰p)؛ fast ۰٫۱۲؛ کامل ۰٫۴۰. هشت ثانیه ⇒ ~۰٫۶۴ دلار برای هر درس.
      کلیپی که داور نپسندد یا نیاید، همان نقاشیِ ثابت جایش است؛ ویدئو منتظرش
      نمی‌مانَد (WAIT_MIN). */
-  LV_CLIP_ON: true,
+  /* ۱۰.۸ — خاموش به خواستِ او (۲۵ اکتبر): «باشه بعدش خاموش کن کلیپ رو ولی جوری باشه که مدلش همیشه به‌روزرسانی بشه و اگر
+     روزی گفتم روشن کن در جایی ثبت کرده باشه». روشن‌کردن = همین یک کلید `true`؛ مدل را `lvClipModel_` هر روز از فهرستِ
+     زنده می‌سنجد (این نام اگر رفته باشد، ارزان‌ترین veoِ زنده)، و خطِ «🎬» در ایمیلِ روزانه می‌گوید کدام آماده است.
+     ثبت در `docs/parked.md`. */
+  LV_CLIP_ON: false,
+  LV_CLIP_OFF_WHY: 'به خواستِ شما از ۲۵ اکتبر (veo-3.1-lite بازنشسته شد)',
   LV_CLIP_MODEL: 'veo-3.1-lite-generate-preview',
   LV_CLIP_SEC: 8,
   LV_CLIP_RES: '1080p',
@@ -2232,7 +2237,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '10.8',
+  CODE_VERSION: '10.9',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -10046,6 +10051,9 @@ function speakXcheck_(plain, va, other, deadline) {
   if (!vb) {
     if (deadline && new Date().getTime() > deadline - 90000) return null;
     var mdl = String(CFG.SPEAK_XCHECK_MODEL || '');
+    /* ۱۰.۸: مدلِ نظرِ دوم اگر از فهرستِ زندهٔ گوگل رفته باشد، نظرِ دوم با مدلِ اصلی می‌ماند — نه اینکه بی‌صدا از کار بیفتد.
+       «نمی‌دانیم» (فهرست نخوانده) همان تنظیم را نگه می‌دارد. */
+    try { if (mdl && liveHas_(mdl) === false) mdl = ''; } catch (eLh) {}
     if (mdl && mdl === textModel_()) mdl = '';
     vb = vowelizeText_(plain, mdl ? { model: mdl } : null);
     src = mdl ? 'model:' + mdl : 'model';
@@ -16238,6 +16246,7 @@ function resolveModels_(force) {
   }
 
   var chosen = { text: '', tts: '', at: new Date().getTime(), textAll: [], ttsAll: [] };
+  var allIds = [], veos = [];
   var bad = [];
   try { bad = modelBadList_(); } catch (eB) {}
   try {
@@ -16247,6 +16256,11 @@ function resolveModels_(force) {
       var mm = models[i];
       var id = String(mm.name || '').replace(/^models\//, '');
       var methods = mm.supportedGenerationMethods || mm.supported_generation_methods || [];
+      /* ۱۰.۸: همهٔ شناسه‌های زنده — نه فقط متن و صوت — تا هر مدلِ ثابتِ پیکربندی (کلیپ، تصویر، اعراب، اثرِ انگشت)
+         هر روز با همین یک فهرست سنجیده شود (`fixedModelsWatch_`). veo تا ۱۰.۷ هیچ‌جا سنجیده نمی‌شد و «بازنشسته شد»
+         را فقط ششمین درسِ بی‌کلیپ فهماند. */
+      if (/gemini|veo|imagen|embedding/i.test(id)) allIds.push(id);
+      if (/veo/i.test(id) && methods.indexOf('predictLongRunning') !== -1) veos.push(id);
       if (methods.indexOf('generateContent') === -1) continue;
       if (id.toLowerCase().indexOf('gemini') !== 0) continue;
 
@@ -16313,6 +16327,8 @@ function resolveModels_(force) {
 
     chosen.textAll = texts.slice(0, 6);
     chosen.ttsAll = ttss.slice(0, 6);
+    chosen.all = allIds;
+    chosen.veo = veos;
     chosen.text = texts[0] || CFG.FALLBACK_TEXT_MODEL;
     chosen.tts = ttss[0] || CFG.FALLBACK_TTS_MODEL;
     chosen.policy = CFG.MODEL_POLICY;
@@ -17099,6 +17115,57 @@ function modelVerdict_() {
 }
 
 /** گزارش خوانا از وضعیت مدل‌ها برای منوی «نمایش وضعیت» */
+/**
+ * آیا این شناسه در آخرین فهرستِ زندهٔ گوگل هست؟ (۱۰.۸) ⇒ true / false، یا null وقتی فهرستی نداریم —
+ * «نمی‌دانیم» هرگز «نیست» خوانده نمی‌شود (همان قاعدهٔ ۸.۳۹ِ سنجاق). فقط حافظه، بی فراخوانِ شبکه.
+ */
+function liveHas_(id) {
+  var s = String(id || '').trim();
+  if (!s) return null;
+  var c = null;
+  try { c = JSON.parse(props_().getProperty(PK.MODELS) || 'null'); } catch (e) { c = null; }
+  if (!c || c.fallback || !c.all || !c.all.length) return null;
+  return c.all.indexOf(s) !== -1;
+}
+
+/* هر مدلی که نامش در پیکربندی نوشته شده — و کاری که بی آن می‌ایستد. «auto» یعنی جانشینِ خودکار دارد. */
+var FIXED_MODELS = [
+  { key: 'TTS_MODEL_PIN', job: 'صدای قسمت‌ها (سنجاقِ گوشِ شما)', auto: 'هم‌خوان‌ترین مدلِ صوتیِ آزموده' },
+  { key: 'LV_GEN_MODEL_PIN', job: 'تصویرِ صحنه‌ها (سنجاق)', auto: 'ارزان‌ترین مدلِ تصویرِ زنده' },
+  { key: 'LV_CLIP_MODEL', job: 'کلیپِ آغازِ درس', auto: 'ارزان‌ترین مدلِ veoِ زنده' },
+  { key: 'SPEAK_XCHECK_MODEL', job: 'نظرِ دومِ اعراب', auto: 'مدلِ متنِ اصلی' },
+  { key: 'EMB_MODEL', job: 'اثرِ انگشتِ معنایی (جست‌وجو)', auto: '' },
+  { key: 'FALLBACK_TEXT_MODEL', job: 'متنِ پشتیبان (وقتی فهرست خوانده نشود)', auto: '' },
+  { key: 'FALLBACK_TTS_MODEL', job: 'صوتِ پشتیبان (وقتی فهرست خوانده نشود)', auto: '' }
+];
+
+/**
+ * ══ مدلی که بی‌صدا رفت (۱۰.۸) ══
+ * «نمی‌خوام بعداً بی‌صدا و بدونِ توجهِ من چیزی خاموش و خراب بشه و من نفهمم و تو هم متوجه نشی». مدل‌های متن و صوت هر هفته
+ * از فهرستِ زنده انتخاب می‌شدند؛ ولی هر مدلی که نامش در پیکربندی نوشته شده بود — کلیپ، سنجاقِ تصویر، نظرِ دومِ اعراب، اثرِ
+ * انگشت — هیچ‌وقت با آن فهرست سنجیده نمی‌شد. veo-3.1-lite در ۲۲ اکتبر رفت و شش درس بی‌کلیپ ماندند تا ناظر دید.
+ * حالا هر روز همه با همان فهرست سنجیده می‌شوند؛ رفته‌ای که جانشینِ خودکار ندارد «ایراد» است، و آن که دارد گفته می‌شود.
+ */
+function fixedModelsWatch_() {
+  var out = { ok: true, known: true, gone: [], checked: 0, line: '' };
+  for (var i = 0; i < FIXED_MODELS.length; i++) {
+    var f = FIXED_MODELS[i], id = String(CFG[f.key] || '').trim();
+    if (!id) continue;
+    var h = liveHas_(id);
+    if (h === null) { out.known = false; continue; }
+    out.checked++;
+    if (h === false) out.gone.push({ key: f.key, id: id, job: f.job, auto: f.auto });
+  }
+  if (!out.known && !out.checked) { out.line = 'مدل‌های ثابت: فهرستِ زندهٔ گوگل هنوز خوانده نشده — سنجیده نشد.'; return out; }
+  if (!out.gone.length) { out.line = 'مدل‌های ثابت: هر ' + out.checked + ' تا در فهرستِ زندهٔ گوگل هست.'; return out; }
+  var hard = out.gone.filter(function (g) { return !g.auto; });
+  out.ok = !hard.length;
+  out.line = 'مدلِ ثابتی که دیگر در فهرستِ گوگل نیست: ' + out.gone.map(function (g) {
+    return '«' + g.id + '» (' + g.job + ') — ' + (g.auto ? 'جانشینِ خودکار: ' + g.auto : 'جانشینِ خودکار ندارد، نسخهٔ کد لازم است');
+  }).join('؛ ') + '.';
+  return out;
+}
+
 function modelsReport_() {
   var m = resolveModels_(false);
   var age = Math.round((new Date().getTime() - (m.at || 0)) / 3600000);
@@ -17162,6 +17229,12 @@ function modelStatus_() {
       out.ok = false;
       L.push('مدلِ متن هرگز انتخاب نشده؛ موتور روی پیش‌فرضِ کور می‌رود.');
     }
+    try {
+      var fw = fixedModelsWatch_();
+      out.fixed = fw;
+      if (fw.line) L.push(fw.line);
+      if (!fw.ok) out.ok = false;
+    } catch (eFw) {}
     out.line = L.join(' ');
   } catch (e) {}
   return out;
@@ -53925,7 +53998,10 @@ function lvGenStatus_() {
 
 /** خطِ روزانهٔ کلیپِ آغاز. */
 function lvClipStatus_() {
-  var out = { on: lvClipOn_(), model: String(CFG.LV_CLIP_MODEL || ''), clips: 0, usd: 0, last: null,
+  var mrq = { id: String(CFG.LV_CLIP_MODEL || ''), why: '' };
+  try { mrq = lvClipModel_(); } catch (eMq) {}
+  var out = { on: lvClipOn_(), model: mrq.id, modelWhy: mrq.why, modelWant: String(CFG.LV_CLIP_MODEL || ''),
+              offWhy: CFG.LV_CLIP_ON === false ? String(CFG.LV_CLIP_OFF_WHY || 'خاموش در پیکربندی') : '', clips: 0, usd: 0, last: null,
               fails: 0, ok: true, line: '' };
   try {
     out.clips = Number(lvGenSpend_().clips) || 0;
@@ -53934,11 +54010,13 @@ function lvClipStatus_() {
     out.fails = Number(out.last && out.last.fails) || 0;
     out.ok = !(out.on && out.fails >= Math.max(1, Number(CFG.LV_CLIP_FAIL_FIND) || 2));
     if (!out.on) {
-      out.line = '🎬 کلیپِ آغازِ درس: خاموش.';
+      /* ۱۰.۸: خاموش‌بودن هم می‌گوید چرا و چه چیزی برای روشن‌کردن آماده است — تا «روشنش کن» در هر سشنی یک خط باشد. */
+      out.line = '🎬 کلیپِ آغازِ درس: خاموش' + (out.offWhy ? ' — ' + out.offWhy : '') + ' · مدلِ آماده برای روشن‌کردن: ' +
+        (out.model ? out.model + ' (' + out.modelWhy + ')' : 'هیچ — ' + out.modelWhy) + ' · روشن‌کردن: `LV_CLIP_ON: true`.';
       return out;
     }
     var L = out.last;
-    out.line = '🎬 کلیپِ آغازِ درس: روشن با ' + out.model + ' (~' + out.usd.toFixed(2) + ' دلار برای ' +
+    out.line = '🎬 کلیپِ آغازِ درس: روشن با ' + out.model + (out.model !== out.modelWant ? ' (' + out.modelWhy + ')' : '') + ' (~' + out.usd.toFixed(2) + ' دلار برای ' +
       faDigitsOut_(String(lvClipSec_())) + ' ثانیه، از همان سقفِ ماه) · این ماه ' +
       faDigitsOut_(String(out.clips)) + ' کلیپ' +
       (L ? ' · آخرین (' + String(L.key || '') + '): ' +
@@ -56564,6 +56642,25 @@ function lvClipOn_() {
   return CFG.LV_CLIP_ON !== false && !!String(CFG.LV_CLIP_MODEL || '').trim();
 }
 
+/**
+ * ══ مدلِ کلیپ، مثلِ بقیهٔ مدل‌ها، از فهرستِ زنده (۱۰.۸) ══
+ * تا ۱۰.۷ `LV_CLIP_MODEL` یک رشتهٔ ثابت بود و `veo` در `MODEL_BLOCK` — یعنی هیچ‌جا با فهرستِ گوگل سنجیده نمی‌شد. ۲۲ اکتبر
+ * veo-3.1-lite بازنشسته شد و شش درس «HTTP 404 … no longer available» خوردند. حالا: همان تنظیم اگر زنده است، وگرنه ارزان‌ترین
+ * veoِ زنده (با `LV_CLIP_PRICES`، و در قیمتِ برابر تازه‌ترین). فهرست همان `resolveModels_` است — هفتگی، و بی‌درنگ پس از «رفت».
+ * خاموش‌بودنِ کلیپ این را نمی‌ایستاند: روزی که او بگوید «روشن کن»، مدلِ آماده از قبل اینجاست.
+ */
+function lvClipModel_() {
+  var want = String(CFG.LV_CLIP_MODEL || '').trim();
+  var c = null;
+  try { c = JSON.parse(props_().getProperty(PK.MODELS) || 'null'); } catch (e) { c = null; }
+  if (!c || c.fallback || !c.all || !c.all.length) return { id: want, why: 'فهرستِ زنده هنوز خوانده نشده — همان تنظیم' };
+  if (want && c.all.indexOf(want) !== -1) return { id: want, why: 'همان تنظیم، زنده' };
+  var vv = function (id) { var m = String(id).match(/veo-(\d+)(?:[.\-](\d+))?/i); return m ? Number(m[1]) + Number(m[2] || 0) / 10 : 0; };
+  var veo = (c.veo || []).slice(0).sort(function (a, b) { return (lvClipPrice_(a) - lvClipPrice_(b)) || (vv(b) - vv(a)); });
+  if (veo.length) return { id: veo[0], why: 'جانشینِ «' + want + '» که دیگر در فهرستِ گوگل نیست', gone: want };
+  return { id: '', why: 'هیچ مدلِ veoیی در فهرستِ زندهٔ حساب نیست', gone: want };
+}
+
 /** دستورِ کلیپ: همان نقاشی، همان سبک، حرکتی که همان لحظه را بفهماند — و بی نوشته. */
 function lvClipPrompt_(sc, art, cast, prev) {
   return 'Animate this exact illustration into a short, calm opening shot. Keep the same art style, ' +
@@ -56783,7 +56880,9 @@ function lvClipStep_(d, imgFolder, left, key, tryMax) {
   var c = d.clip;
   if (!c || ['ok', 'fail', 'off'].indexOf(c.state) !== -1) return;
   if (!lvClipOn_()) { c.state = 'off'; c.why = 'کلیپِ آغاز خاموش است'; return; }
-  var model = String(CFG.LV_CLIP_MODEL).trim();
+  var mres = lvClipModel_();
+  var model = mres.id;
+  if (!model) { c.state = 'off'; c.why = mres.why; return; }
   /* کلیپ مالِ صحنه‌ای است که یک بار انتخاب و در `clip.n` ثبت شد (۸.۵۶). نقشه‌ای که پیش
      از ۸.۵۶ کلیپش را آغاز کرده `n` ندارد و همان صحنهٔ نخست می‌مانَد. */
   var sc = null;
@@ -56837,6 +56936,8 @@ function lvClipStep_(d, imgFolder, left, key, tryMax) {
     catch (eS) { st = { op: '', err: 'آغاز نشد: ' + String(eS.message).slice(0, 140) }; }
     if (!st.op) {
       c.why = st.err;
+      /* ۱۰.۸: «رفت» ⇒ همین حالا فهرستِ تازه، نه هفتهٔ بعد — تلاشِ بعدی با جانشین. */
+      if (/no longer available|not found|404/i.test(String(st.err || ''))) { try { resolveModels_(true); } catch (eRm) {} }
       if (c.tries >= (Number(CFG.LV_CLIP_TRY_MAX) || 2)) { c.state = 'fail'; lvClipNote_(key, c, model); }
       return;
     }

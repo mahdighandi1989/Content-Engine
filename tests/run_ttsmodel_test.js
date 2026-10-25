@@ -308,6 +308,48 @@ reset();
   ok('۹.۲ و کارِ شبانه درِ دوم است', night.indexOf('ttsAuditArm_()', k) > k);
 }
 
+/* ═══ ۱۰) «چرا veo مثلِ بقیهٔ مدل‌ها خودکار به‌روز نشد؟» (۱۰.۸) ═══ */
+{
+  reset();
+  const keepL = global.listModels_;
+  const live = (ids) => { global.listModels_ = () => ids.map((x) => ({ name: 'models/' + x.id, supportedGenerationMethods: x.m })); };
+  /* فهرستِ واقعیِ پس از ۲۲ اکتبر: lite رفته، fast و کامل مانده‌اند. */
+  live([{ id: 'gemini-2.5-flash', m: ['generateContent'] }, { id: PIN, m: ['generateContent'] }, { id: CFG.FALLBACK_TTS_MODEL, m: ['generateContent'] },
+        { id: 'veo-3.1-fast-generate-preview', m: ['predictLongRunning'] }, { id: 'veo-3.1-generate-preview', m: ['predictLongRunning'] },
+        { id: 'gemini-embedding-001', m: ['embedContent'] }, { id: 'gemini-3.1-flash-lite-image', m: ['generateContent'] }]);
+  const r = resolveModels_(true);
+  ok('۱۰.۱ فهرستِ زنده همهٔ مدل‌ها را نگه می‌دارد، veo هم — نه فقط متن و صوت', r.all.indexOf('veo-3.1-fast-generate-preview') !== -1 &&
+     r.veo.length === 2 && r.all.indexOf('gemini-embedding-001') !== -1, JSON.stringify({ all: r.all, veo: r.veo }));
+  const keepCM = CFG.LV_CLIP_MODEL;
+  CFG.LV_CLIP_MODEL = 'veo-3.1-lite-generate-preview';
+  const cm = lvClipModel_();
+  ok('۱۰.۲ مدلِ کلیپی که رفته ⇒ ارزان‌ترین veoِ زنده (fast، نه کامل)، با علت', cm.id === 'veo-3.1-fast-generate-preview' && /دیگر در فهرستِ گوگل نیست/.test(cm.why), JSON.stringify(cm));
+  CFG.LV_CLIP_MODEL = 'veo-3.1-generate-preview';
+  ok('۱۰.۳ مدلِ کلیپی که زنده است همان می‌ماند', lvClipModel_().id === 'veo-3.1-generate-preview');
+  CFG.LV_CLIP_MODEL = 'veo-3.1-lite-generate-preview';
+  const fw = fixedModelsWatch_();
+  ok('۱۰.۴ مدلِ ثابتِ رفته در خطِ روزانه گفته می‌شود — با جانشینش؛ چون جانشین دارد «ایراد» نیست',
+     fw.ok === true && fw.gone.some((g) => g.key === 'LV_CLIP_MODEL') && /veo-3\.1-lite-generate-preview/.test(fw.line) && /جانشینِ خودکار/.test(fw.line), fw.line);
+  const keepE = CFG.EMB_MODEL; CFG.EMB_MODEL = 'gemini-embedding-000';
+  const fw2 = fixedModelsWatch_();
+  const ms = modelStatus_();
+  ok('۱۰.۵ مدلی که جانشینِ خودکار ندارد (اثرِ انگشت) ⇒ ایراد در وارسیِ سلامت، نه یادداشت', fw2.ok === false && ms.ok === false && /جانشینِ خودکار ندارد/.test(ms.line), ms.line.slice(-200));
+  CFG.EMB_MODEL = keepE;
+  delete global.__PROPS[PK.MODELS];
+  ok('۱۰.۶ «نمی‌دانیم» (فهرست نخوانده) هرگز «رفته» خوانده نمی‌شود', liveHas_('veo-3.1-lite-generate-preview') === null && fixedModelsWatch_().ok === true);
+  resolveModels_(true);
+  const keepOn = CFG.LV_CLIP_ON; CFG.LV_CLIP_ON = false;
+  const cs = lvClipStatus_();
+  ok('۱۰.۷ کلیپِ خاموش هم می‌گوید چرا خاموش است و کدام مدل برای روشن‌کردن آماده است',
+     /خاموش/.test(cs.line) && /مدلِ آماده برای روشن‌کردن: veo-3\.1-fast-generate-preview/.test(cs.line) && /LV_CLIP_ON/.test(cs.line), cs.line);
+  CFG.LV_CLIP_ON = keepOn; CFG.LV_CLIP_MODEL = keepCM;
+  const pr = require('fs').readFileSync('src/03_Producer.gs', 'utf8');
+  ok('۱۰.۸ نظرِ دومِ اعراب با مدلِ رفته بی‌صدا از کار نمی‌افتد', /if \(mdl && liveHas_\(mdl\) === false\) mdl = '';/.test(pr));
+  ok('۱۰.۹ پیکربندی: کلیپ به خواستِ او خاموش، با علت ثبت‌شده', CFG.LV_CLIP_ON === false && /خواستِ شما/.test(String(CFG.LV_CLIP_OFF_WHY || '')));
+  global.listModels_ = keepL;
+  reset();
+}
+
 global.geminiFetch_ = realFetch;
 global.logSelfFinding_ = realFind;
 process.exit(summary('آزمونِ مدلِ صوتی (۸.۳۹)') ? 1 : 0);

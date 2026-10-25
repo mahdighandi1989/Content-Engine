@@ -4099,7 +4099,10 @@ function lvGenStatus_() {
 
 /** خطِ روزانهٔ کلیپِ آغاز. */
 function lvClipStatus_() {
-  var out = { on: lvClipOn_(), model: String(CFG.LV_CLIP_MODEL || ''), clips: 0, usd: 0, last: null,
+  var mrq = { id: String(CFG.LV_CLIP_MODEL || ''), why: '' };
+  try { mrq = lvClipModel_(); } catch (eMq) {}
+  var out = { on: lvClipOn_(), model: mrq.id, modelWhy: mrq.why, modelWant: String(CFG.LV_CLIP_MODEL || ''),
+              offWhy: CFG.LV_CLIP_ON === false ? String(CFG.LV_CLIP_OFF_WHY || 'خاموش در پیکربندی') : '', clips: 0, usd: 0, last: null,
               fails: 0, ok: true, line: '' };
   try {
     out.clips = Number(lvGenSpend_().clips) || 0;
@@ -4108,11 +4111,13 @@ function lvClipStatus_() {
     out.fails = Number(out.last && out.last.fails) || 0;
     out.ok = !(out.on && out.fails >= Math.max(1, Number(CFG.LV_CLIP_FAIL_FIND) || 2));
     if (!out.on) {
-      out.line = '🎬 کلیپِ آغازِ درس: خاموش.';
+      /* ۱۰.۸: خاموش‌بودن هم می‌گوید چرا و چه چیزی برای روشن‌کردن آماده است — تا «روشنش کن» در هر سشنی یک خط باشد. */
+      out.line = '🎬 کلیپِ آغازِ درس: خاموش' + (out.offWhy ? ' — ' + out.offWhy : '') + ' · مدلِ آماده برای روشن‌کردن: ' +
+        (out.model ? out.model + ' (' + out.modelWhy + ')' : 'هیچ — ' + out.modelWhy) + ' · روشن‌کردن: `LV_CLIP_ON: true`.';
       return out;
     }
     var L = out.last;
-    out.line = '🎬 کلیپِ آغازِ درس: روشن با ' + out.model + ' (~' + out.usd.toFixed(2) + ' دلار برای ' +
+    out.line = '🎬 کلیپِ آغازِ درس: روشن با ' + out.model + (out.model !== out.modelWant ? ' (' + out.modelWhy + ')' : '') + ' (~' + out.usd.toFixed(2) + ' دلار برای ' +
       faDigitsOut_(String(lvClipSec_())) + ' ثانیه، از همان سقفِ ماه) · این ماه ' +
       faDigitsOut_(String(out.clips)) + ' کلیپ' +
       (L ? ' · آخرین (' + String(L.key || '') + '): ' +
@@ -6738,6 +6743,25 @@ function lvClipOn_() {
   return CFG.LV_CLIP_ON !== false && !!String(CFG.LV_CLIP_MODEL || '').trim();
 }
 
+/**
+ * ══ مدلِ کلیپ، مثلِ بقیهٔ مدل‌ها، از فهرستِ زنده (۱۰.۸) ══
+ * تا ۱۰.۷ `LV_CLIP_MODEL` یک رشتهٔ ثابت بود و `veo` در `MODEL_BLOCK` — یعنی هیچ‌جا با فهرستِ گوگل سنجیده نمی‌شد. ۲۲ اکتبر
+ * veo-3.1-lite بازنشسته شد و شش درس «HTTP 404 … no longer available» خوردند. حالا: همان تنظیم اگر زنده است، وگرنه ارزان‌ترین
+ * veoِ زنده (با `LV_CLIP_PRICES`، و در قیمتِ برابر تازه‌ترین). فهرست همان `resolveModels_` است — هفتگی، و بی‌درنگ پس از «رفت».
+ * خاموش‌بودنِ کلیپ این را نمی‌ایستاند: روزی که او بگوید «روشن کن»، مدلِ آماده از قبل اینجاست.
+ */
+function lvClipModel_() {
+  var want = String(CFG.LV_CLIP_MODEL || '').trim();
+  var c = null;
+  try { c = JSON.parse(props_().getProperty(PK.MODELS) || 'null'); } catch (e) { c = null; }
+  if (!c || c.fallback || !c.all || !c.all.length) return { id: want, why: 'فهرستِ زنده هنوز خوانده نشده — همان تنظیم' };
+  if (want && c.all.indexOf(want) !== -1) return { id: want, why: 'همان تنظیم، زنده' };
+  var vv = function (id) { var m = String(id).match(/veo-(\d+)(?:[.\-](\d+))?/i); return m ? Number(m[1]) + Number(m[2] || 0) / 10 : 0; };
+  var veo = (c.veo || []).slice(0).sort(function (a, b) { return (lvClipPrice_(a) - lvClipPrice_(b)) || (vv(b) - vv(a)); });
+  if (veo.length) return { id: veo[0], why: 'جانشینِ «' + want + '» که دیگر در فهرستِ گوگل نیست', gone: want };
+  return { id: '', why: 'هیچ مدلِ veoیی در فهرستِ زندهٔ حساب نیست', gone: want };
+}
+
 /** دستورِ کلیپ: همان نقاشی، همان سبک، حرکتی که همان لحظه را بفهماند — و بی نوشته. */
 function lvClipPrompt_(sc, art, cast, prev) {
   return 'Animate this exact illustration into a short, calm opening shot. Keep the same art style, ' +
@@ -6957,7 +6981,9 @@ function lvClipStep_(d, imgFolder, left, key, tryMax) {
   var c = d.clip;
   if (!c || ['ok', 'fail', 'off'].indexOf(c.state) !== -1) return;
   if (!lvClipOn_()) { c.state = 'off'; c.why = 'کلیپِ آغاز خاموش است'; return; }
-  var model = String(CFG.LV_CLIP_MODEL).trim();
+  var mres = lvClipModel_();
+  var model = mres.id;
+  if (!model) { c.state = 'off'; c.why = mres.why; return; }
   /* کلیپ مالِ صحنه‌ای است که یک بار انتخاب و در `clip.n` ثبت شد (۸.۵۶). نقشه‌ای که پیش
      از ۸.۵۶ کلیپش را آغاز کرده `n` ندارد و همان صحنهٔ نخست می‌مانَد. */
   var sc = null;
@@ -7011,6 +7037,8 @@ function lvClipStep_(d, imgFolder, left, key, tryMax) {
     catch (eS) { st = { op: '', err: 'آغاز نشد: ' + String(eS.message).slice(0, 140) }; }
     if (!st.op) {
       c.why = st.err;
+      /* ۱۰.۸: «رفت» ⇒ همین حالا فهرستِ تازه، نه هفتهٔ بعد — تلاشِ بعدی با جانشین. */
+      if (/no longer available|not found|404/i.test(String(st.err || ''))) { try { resolveModels_(true); } catch (eRm) {} }
       if (c.tries >= (Number(CFG.LV_CLIP_TRY_MAX) || 2)) { c.state = 'fail'; lvClipNote_(key, c, model); }
       return;
     }
