@@ -1,23 +1,21 @@
 {
-  "version": "11.2",
+  "version": "11.3",
   "codeFile": "engine.gs",
-  "sha256": "bf28d7ef36e4b252d5d57d644395c598e8c9d6e860fda9438d746871726e8c12",
-  "releasedAt": "2026-10-25T11:31:38Z",
-  "summary": "قسمت‌های قدیمیِ «از همه جا» (زیرِ ۸۴) هرگز دوباره در یوتیوب بالا نمی‌روند؛ هیچ قسمتی که ویدئوی منتشرشده‌اش خصوصی است دوباره آپلود یا جایگزین نمی‌شود؛ تازه‌ها عادی",
+  "sha256": "f91f0b1da3a8b948518520479eca55607dd9e1e3fe6f8b5970463ad652f4c78e",
+  "releasedAt": "2026-10-25T11:50:41Z",
+  "summary": "ویدئوی درس‌نامه فقط به‌خاطرِ سنجهٔ «جای صحنه» Unlisted نمی‌مانَد؛ پنلِ دسته‌های «از همه جا» در تختهٔ مجموعه‌ها وصل به قفل؛ حذف‌شده‌های کپشن در تلگرام",
   "fixes": [
-    "YT_SHOW_MIN_EP + ytItemOff_: کفِ شمارهٔ قسمت در ytDueAdd_ و ytDueList_ (ردیفِ موجود کنار، بی بازگشت)",
-    "ytUploadOne_: ویدئوی قبلیِ خصوصی ⇒ هیچ آپلودِ تازه (جایگزینی، ساختِ دوبارهٔ qa، پیمایش)",
-    "ytReplaceTick_: پیش از آغازِ جایگزینی همان پرسش",
-    "ytShowsOffLine_: خطِ روزانهٔ «🔒 قسمت‌های قدیمی بیرون از انتشار»"
+    "ytQaSoft_: «فقط X از N صحنه سرِ جای خودش» به‌تنهایی با X/N ≥ YT_QA_MATCH_SOFT سد نیست (special:81)؛ ساختِ دوبارهٔ qa هم نه",
+    "catLockList_/catLockOn_/catLockSave_ + catPanelHtml_/uiCatLockSave: تیک‌های تخته همان قفلی است که pickCategory_ می‌خوانَد",
+    "tgCaptionLog_(…, removed): «✂️ حذف‌شده از نسخهٔ عمومی» زیرِ همان کپشن؛ ytDescRemoved_"
   ],
   "sourceReportIds": [],
   "answers": [
-    "R-20261025-20"
+    "R-20261025-21",
+    "R-20261025-22",
+    "R-20261025-23",
+    "R-20261025-24"
   ],
-  "promptImpact": [
-    "ناظر (_PROMPT-monitor-v111.md): قسمت‌های «از همه جا» زیرِ ۸۴ بیرون از انتشار؛ تازه‌ها عادی؛ Blocked در Studio"
-  ],
-  "promptImpactKinds": [
-    "monitor"
-  ]
+  "promptImpact": [],
+  "promptImpactKinds": []
 }

@@ -8179,7 +8179,7 @@ function ytPublicGate_(key, m) {
     if (md !== 'scenes' && md !== 'media') return { ok: true, why: '' };
     var qa = m.qa || null;
     if (!qa) return { ok: false, why: 'سنجشِ خودکارِ رانر برای این ویدئو ثبت نشده' };
-    if (qa.ok !== true) {
+    if (qa.ok !== true && !ytQaSoft_(qa)) {
       return { ok: false, why: 'سنجشِ خودکارِ ویدئو رد کرد: ' + String(qa.why || '').slice(0, 160) };
     }
     /* هر حالت شمارِ خودش را دارد (۸.۹۶): ویدئوی رسانه‌ایِ «از همه جا» راهِ تازه‌ای است و نخستین‌هایش
@@ -8194,6 +8194,22 @@ function ytPublicGate_(key, m) {
     }
     return { ok: true, why: '' };
   } catch (e) { return { ok: false, why: 'سدِ انتشار خوانده نشد: ' + e.message }; }
+}
+
+/**
+ * ردِ نرم (۱۱.۳) — «چرا بعضی ویدیوهای درس‌نامه هنوز Unlisted‌اند؟». special:81 (آئودی، درسِ ۵۷) با «فقط ۳۶ از ۴۱ صحنه سرِ جای
+ * خودش دیده شد» ماند، با **صفر** قابِ خالی، مدتِ برابر و همگامیِ سالمِ سه نقطه. همان سنجه‌ای است که ۹.۹۵ با چشم دید: قابِ
+ * وسطِ گذار یا حرکتِ دوربین را «جابه‌جا» می‌خوانَد. پس فقط وقتی **تنها** علتِ رد همین است و نسبت ≥ `YT_QA_MATCH_SOFT`،
+ * مشاوره است نه سد. قابِ خالی، تصویرِ یخ‌زده، اختلافِ مدت و ناهمگامی همچنان سدند.
+ */
+function ytQaSoft_(qa) {
+  if (!qa || qa.ok === true) return false;
+  var n = Number(qa.n) || 0, m = Number(qa.matched) || 0;
+  if (!n || (qa.blank && qa.blank.length) || Number(qa.durDiff) > 2) return false;
+  if (qa.sync && qa.sync.ok === false) return false;
+  var parts = String(qa.why || '').split(' · ').filter(Boolean);
+  if (!parts.length || !parts.every(function (p) { return /سرِ جای خودش دیده شد/.test(p); })) return false;
+  return m / n >= (Number(CFG.YT_QA_MATCH_SOFT) || 0.8);
 }
 
 var YT_APPROVED_ = null;
@@ -8371,6 +8387,14 @@ function ytDescArchive_(budgetMs) {
   }
   try { props_().setProperty(PK.YT_DESC_ARCH, JSON.stringify(st)); } catch (eS2) {}
   return out;
+}
+
+/** ۱۱.۳: سطرهایی از نقشه که در متنِ نهاییِ عمومی نیامدند (بلوکِ گویندگان، نشانی‌های درونی) — برای پیامِ تلگرامِ همان ویدئو. */
+function ytDescRemoved_(planDesc, finalDesc) {
+  var fin = {};
+  String(finalDesc || '').split('\n').forEach(function (l) { fin[l.trim()] = 1; });
+  return String(planDesc || '').split('\n').map(function (l) { return l.trim(); })
+    .filter(function (l) { return l && !fin[l] && !/^\d{1,2}:\d{2}/.test(l); }).slice(0, 40);
 }
 
 /** بلوکِ «گویندگانِ این قسمت:» و سطرهای «گویندهٔ …» زیرش، تا سطرِ خالیِ بعد (۱۱.۰). */
@@ -10301,7 +10325,7 @@ function ytUploadOne_(item, hub, pub) {
   /* ۹.۹۴: چشم بر سنجه مقدم است — کلیدی که پس از دیدنِ قاب‌ها در `docs/yt-approve.json` نشسته، به‌خاطرِ همین سنجه از نو ساخته
      نمی‌شود. special:76 «۶۵ از ۷۴ صحنه» خورد و قاب‌هایش (هر ۲۲ ثانیه) سالم بودند: نُه قابِ «جابه‌جا» وسطِ گذار یا حرکتِ دوربین بودند. */
   if (qaAgain && ytApprovedSafe_()[String(item.key || (item.show + ':' + item.ep))]) qaAgain = false;
-  if ((mdQ === 'media' || mdQ === 'scenes') && rmeQ.qa && rmeQ.qa.ok !== true && qaAgain) {
+  if ((mdQ === 'media' || mdQ === 'scenes') && rmeQ.qa && !ytQaSoft_(rmeQ.qa) && rmeQ.qa.ok !== true && qaAgain) {   // ۱۱.۳: ردِ نرم ساختِ دوباره نمی‌خواهد
     var asideQ = 0;
     try { asideQ = ytReplaceAside_(folder); } catch (eAq) { asideQ = 0; }
     if (asideQ) {
@@ -10501,7 +10525,7 @@ function ytUploadOne_(item, hub, pub) {
                 note: leaks.length ? 'نشتیِ خصوصی؛ در ' + privacy + ' ماند'
                     : (!gate.ok ? gate.why + '؛ در ' + privacy + ' ماند' : '') });
   ytUpPendingClear_(upKey);
-  try { tgCaptionLog_('یوتیوب — ویدئوی کامل', title, url, desc); } catch (eTc) {}   // ۱۱.۰
+  try { tgCaptionLog_('یوتیوب — ویدئوی کامل', title, url, desc, ytDescRemoved_(plan.description, desc)); } catch (eTc) {}   // ۱۱.۰/۱۱.۳
   logLine_('یوتیوب: «' + title + '» ' +
            (privacy === 'public' ? 'منتشر شد' : 'در ' + privacy + ' ماند') + ' — ' + url);
   res.ok = !leaks.length && gate.ok; res.url = url; res.privacy = privacy; res.title = title;

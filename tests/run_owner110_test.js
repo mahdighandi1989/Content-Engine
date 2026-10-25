@@ -300,4 +300,65 @@ ok('۲.۰ (۱۱.۱) پیش‌فرض: هیچ برنامه‌ای در یوتیو�
   resetProps([PK.YT_DESC_ARCH]);
 }
 
+
+/* ── ۹) ۱۱.۳: ردِ نرمِ سنجه، تیک‌های دسته، و حذف‌شده‌ها در تلگرام ── */
+{
+  const qa81 = { n: 41, matched: 36, miss: [14, 18, 29, 37, 41], blank: [], ok: false, why: 'فقط 36 از 41 صحنه سرِ جای خودش دیده شد', durDiff: 0, sync: { ok: true } };
+  ok('۹.۱ special:81 (۳۶/۴۱، صفر قابِ خالی، همگامی سالم) ⇒ ردِ نرم', ytQaSoft_(qa81) === true);
+  ok('۹.۲ قابِ خالی، یخ‌زدگی، اختلافِ مدت، ناهمگامی یا نسبتِ پایین ⇒ همچنان سد',
+     !ytQaSoft_(Object.assign({}, qa81, { blank: [3], why: qa81.why + ' · 1 قابِ خالی (صحنهٔ 3)' })) &&
+     !ytQaSoft_(Object.assign({}, qa81, { why: 'تصویر 1 جا یخ زد (483.7–511.2ث)' })) &&
+     !ytQaSoft_(Object.assign({}, qa81, { durDiff: 5 })) &&
+     !ytQaSoft_(Object.assign({}, qa81, { sync: { ok: false } })) &&
+     !ytQaSoft_(Object.assign({}, qa81, { matched: 20 })));
+  const sv = { ytApproved_: global.ytApproved_ };
+  global.ytApproved_ = () => ({});
+  global.__PROPS[PK.YT_SCENES_OK] = '99';
+  const g = ytPublicGate_('special:81', { mode: 'scenes', qa: qa81 });
+  ok('۹.۳ سدِ عمومی‌کردن همان را می‌پذیرد (درِ واقعیِ ytPublicGate_)', g.ok === true, JSON.stringify(g));
+  const g2 = ytPublicGate_('special:82', { mode: 'scenes', qa: Object.assign({}, qa81, { blank: [2], why: '1 قابِ خالی (صحنهٔ 2)' }) });
+  ok('۹.۴ قابِ خالی همچنان Unlisted نگه می‌دارد', g2.ok === false && /قابِ خالی/.test(g2.why));
+  Object.assign(global, sv);
+
+  // تیک‌ها روی روند اثر دارند
+  const idx = [
+    { name: 'طنز و سرگرمی', elig: 3721, fresh: 58, used: 74, left: 3921 },
+    { name: 'علمی و آموزشی', elig: 5106, fresh: 37, used: 27, left: 5295 },
+    { name: 'روانشناسی و رشد فردی', elig: 2048, fresh: 21, used: 0, left: 2050 },
+    { name: 'فرهنگی، تاریخی و ادبی', elig: 2561, fresh: 19, used: 0, left: 2577 }
+  ];
+  const saved = { readIndex_: global.readIndex_, tabStats_: global.tabStats_, fetchRows_: global.fetchRows_, buildCandidates_: global.buildCandidates_, getHub_: global.getHub_ };
+  global.readIndex_ = () => idx; global.getHub_ = () => ({});
+  global.tabStats_ = (hub, name) => { const rows = []; for (let i = 0; i < 20; i++) rows.push({ row: i + 2, kind: i % 2 ? 'ویدیو' : 'عکس', fresh: false, score: 70, refs: 0 }); return { sheet: { name }, rows }; };
+  global.buildCandidates_ = (rows) => rows;
+  global.fetchRows_ = (sh, name, rws) => rws.map((r) => ({ id: name + r, kind: 'ویدیو', score: 70 }));
+  delete global.__PROPS[PK.CAT_LOCK_UI];
+  ok('۹.۵ بی تیک ⇒ همان پیکربندی', pickCategory_({}).title === 'علمی و آموزشی');
+  const r1 = uiCatLockSave(true, ['روانشناسی و رشد فردی', 'علمی و آموزشی', 'دستهٔ ساختگی']);
+  ok('۹.۶ تیکِ «روانشناسی» در نوبتِ اول ⇒ قسمتِ بعد از روانشناسی', r1.ok && pickCategory_({}).title === 'روانشناسی و رشد فردی' && /ناشناخته کنار رفت/.test(r1.message), r1.message);
+  uiCatLockSave(true, ['فرهنگی، تاریخی و ادبی']);
+  const p3 = pickCategory_({});
+  ok('۹.۷ برداشتنِ تیکِ علمی ⇒ علمی دیگر انتخاب نمی‌شود، و نامزدهای دیگر هم فقط از تیک‌خورده‌ها', p3.title === 'فرهنگی، تاریخی و ادبی' && p3.others.length === 0, JSON.stringify(p3.others));
+  uiCatLockSave(false, ['علمی و آموزشی']);
+  ok('۹.۸ قفل خاموش از تخته ⇒ رتبه‌بندیِ عادی (طنز هم ممکن)', !catLockOn_() && /خاموش \(از تختهٔ مجموعه‌ها\)/.test(catLockLine_()));
+  uiCatLockSave(true, []);
+  ok('۹.۹ روشن ولی بی تیک ⇒ خاموش با یادداشت (نه «همه»)', !catLockOn_());
+  uiCatLockSave(true, ['علمی و آموزشی']);
+  const html = catPanelHtml_();
+  ok('۹.۱۰ پنل: تیک، ترتیب، واجد و استفاده‌شده و دکمه‌ای که به uiCatLockSave وصل است',
+     /catTick" checked/.test(html) && /class="catOrd"/.test(html) && /۵۱۰۶|5106/.test(html) && /catSave\(this\)/.test(html) &&
+     /uiCatLockSave/.test(uiBoardHtml.toString() + String(global.uiBoardHtml)) || /uiCatLockSave/.test(require('fs').readFileSync('src/15_Board.gs', 'utf8')));
+  Object.assign(global, saved);
+  delete global.__PROPS[PK.CAT_LOCK_UI];
+
+  // حذف‌شده‌ها زیرِ همان کپشن در تلگرام
+  tg.length = 0;
+  tgCaptionLog_('اینستاگرام — ریلز', 'درسِ ۵', 'https://instagram.com/reel/x', 'متن', ['پیوندِ مستقیم: https://youtu.be/v5']);
+  ok('۹.۱۱ «حذف‌شده از نسخهٔ عمومی» در همان پیام، زیرِ متن', tg.length === 1 && /حذف‌شده از نسخهٔ عمومی/.test(tg[0]) && tg[0].indexOf('متن') < tg[0].indexOf('حذف‌شده'));
+  const rmD = ytDescRemoved_('خلاصه\nگویندگانِ این قسمت:\nگویندهٔ Charon — ۰۰:۰۰\n\nپایان', 'خلاصه\n\nپایان');
+  ok('۹.۱۲ سطرهای برداشته از توضیحِ ویدئوی بلند شناخته می‌شوند', rmD.length === 2 && /گویندگان/.test(rmD[0]), JSON.stringify(rmD));
+  const srcI = require('fs').readFileSync('src/38_Instagram.gs', 'utf8'), srcY = require('fs').readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۹.۱۳ هر سه درِ انتشار حذف‌شده‌ها را می‌فرستند', /tgCaptionLog_\('اینستاگرام — ریلز'[^;]*rmI\)/.test(srcI) && /tgCaptionLog_\('یوتیوب — شورتز'[^;]*rmS\)/.test(srcI) && /ytDescRemoved_\(plan\.description, desc\)/.test(srcY));
+}
+
 summary('owner110');

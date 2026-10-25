@@ -582,6 +582,7 @@ function seriesBoardHtml_(d) {
   // جدا در منو. مدلِ داده همان تبِ «تقویمِ تولید» است و calGate_ دست نخورده؛
   // این فقط سطحِ نمایش است. پس اگر این پنل بشکند، تولید نمی‌شکند.
   H.push(calPanelHtml_());
+  H.push(catPanelHtml_());
   H.push(handoutPanelHtml_(d));
   H.push(recapPanelHtml_(d));
 
@@ -1122,6 +1123,15 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبتِ تقویم…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiCalSave(key,on,days,exc);}');
+  // ── دسته‌های «از همه جا» (۱۱.۳) ──
+  H.push('function catSave(b){var box=document.getElementById("catBox");' +
+         'var on=box.querySelector(".catOn").checked;var list=[];' +
+         'box.querySelectorAll(".catRow").forEach(function(r){var c=r.querySelector(".catTick");' +
+         'if(c&&c.checked)list.push({n:r.dataset.name,o:Number(r.querySelector(".catOrd").value)||99});});' +
+         'list.sort(function(a,b){return a.o-b.o;});' +
+         'busy();say("ثبتِ دسته‌ها…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiCatLockSave(on,list.map(function(x){return x.n;}));}');
   H.push('</script></body></html>');
   return H.join('\n');
 }
@@ -1605,6 +1615,49 @@ function handoutPanelHtml_(d) {
     '<div class="sub" id="hoMsg" style="margin-top:6px"></div></div>';
 }
 
+/**
+ * پنلِ «دسته‌های از همه جا» (۱۱.۳) — «همان منو باید دسته‌ها را با تیک نشان دهد، تعدادِ انجام‌شده و باقی‌مانده بیاید … هر تیک
+ * باید واقعاً روی روند اثر بگذارد و اثرش دیده شود». داده از داشبوردِ هاب (یک خواندن) و تیک‌ها از `catLockList_` — همان دری که
+ * `pickCategory_` از آن می‌خوانَد. «آخرین تصمیمِ موتور» را خودِ انتخابِ دسته می‌نویسد (`catLockNote_`)، پس اثرِ تیک دیده می‌شود.
+ */
+function catPanelHtml_() {
+  var idx = null;
+  try { idx = readIndex_(getHub_()); } catch (e) { idx = null; }
+  if (!idx) return '';
+  var lock = catLockList_(), on = catLockOn_(), last = null;
+  try { last = JSON.parse(props_().getProperty(PK.CAT_LOCK_LAST) || 'null'); } catch (eL) {}
+  var rows = idx.slice().sort(function (a, b) {
+    var ia = lock.indexOf(a.name), ib = lock.indexOf(b.name);
+    if ((ia === -1) !== (ib === -1)) return ia === -1 ? 1 : -1;
+    if (ia !== -1) return ia - ib;
+    return b.elig - a.elig;
+  });
+  var H = ['<div class="card" id="catBox"><div style="font-weight:700;margin-bottom:6px">🗂 دسته‌های «' + bEsc_(CFG.SHOW_NAME) + '»</div>' +
+           '<div class="sub" style="margin-bottom:8px">تیک = این دسته مجاز است؛ عددِ «ترتیب» = نوبت. موتور تا وقتی دستهٔ نوبتِ اول ' +
+           'محتوای کافی دارد فقط از همان می‌سازد و بعد سراغِ بعدی می‌رود؛ وقتی همهٔ دسته‌های تیک‌خورده تمام شوند، به چرخشِ عادیِ همهٔ ' +
+           'دسته‌ها برمی‌گردد و در ایمیلِ روزانه می‌گوید.</div>' +
+           '<label style="font-weight:700"><input type="checkbox" class="catOn"' + (on ? ' checked' : '') + '> قفلِ دسته روشن</label>' +
+           ' <span class="sub">' + (on ? 'روشن' : 'خاموش — چرخشِ عادی میانِ همه') + '</span>' +
+           '<table style="margin-top:8px;border-collapse:collapse;width:100%"><tr class="sub">' +
+           '<th>مجاز</th><th>ترتیب</th><th style="text-align:right">دسته</th><th>واجدِ شرایط (باقی)</th><th>استفاده‌شده</th><th>کل</th></tr>'];
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i], li = lock.indexOf(r.name);
+    var cur = last && last.cat === r.name;
+    H.push('<tr class="catRow" data-name="' + bEsc_(r.name) + '"' + (cur ? ' style="background:#ecfdf5"' : '') + '>' +
+           '<td style="text-align:center"><input type="checkbox" class="catTick"' + (li !== -1 ? ' checked' : '') + '></td>' +
+           '<td style="text-align:center"><input type="number" class="catOrd" min="1" style="width:48px" value="' +
+           (li !== -1 ? li + 1 : '') + '"></td>' +
+           '<td>' + bEsc_(r.name) + (cur ? ' <span class="sub">← آخرین قسمت از این‌جا بود</span>' : '') + '</td>' +
+           '<td style="text-align:center">' + faNum_(r.elig) + '</td><td style="text-align:center">' + faNum_(r.used || 0) +
+           '</td><td style="text-align:center">' + faNum_((r.used || 0) + (r.left || 0)) + '</td></tr>');
+  }
+  H.push('</table><div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+         '<button onclick="catSave(this)">ذخیرهٔ دسته‌ها</button>' +
+         '<span class="sub">آخرین تصمیمِ موتور: ' + bEsc_(last ? (last.at + ' — ' + (last.cat || 'بیرون از قفل') + (last.why ? ' · ' + last.why : '')) : 'هنوز قسمتی با قفل ساخته نشده') +
+         '</span></div></div>');
+  return H.join('');
+}
+
 function calPanelHtml_() {
   var d = null;
   try { d = calBoardData_(); } catch (e) { return ''; }
@@ -1868,6 +1921,16 @@ function uiHandoutAll() {
                         : ' (کارِ شبانه ادامه می‌دهد)') : '') +
       (b.wrapped ? ' · کاوشِ همهٔ مجموعه‌ها یک دور کامل شد' : '') + '.' };
   } catch (e) { return { ok: false, message: 'جزوه‌ها ساخته نشدند: ' + e.message }; }
+}
+
+/** دسته‌های «از همه جا» روی تخته (۱۱.۳): در همان کلیدی می‌نشیند که `pickCategory_` می‌خوانَد. */
+function uiCatLockSave(on, list) {
+  try {
+    var r = catLockSave_(!!on, list || []);
+    return { ok: true, message: 'دسته‌ها ذخیره شد — ' + (r.on ? 'قفل روشن: ' + r.list.join(' ← ') : 'قفل خاموش (چرخشِ عادی)') +
+                                (r.note ? ' (' + r.note + ')' : '') + (r.dropped.length ? ' · ناشناخته کنار رفت: ' + r.dropped.join('، ') : '') +
+                                '. از قسمتِ بعدی اعمال می‌شود.' };
+  } catch (e) { return { ok: false, message: 'ذخیرهٔ دسته‌ها انجام نشد: ' + e.message }; }
 }
 
 /** تقویمِ تولید روی تخته: روشن/خاموش، روزهای هفته و استثناهای هر برنامه را در همان تبی می‌نویسد که calGate_ می‌خوانَد. */

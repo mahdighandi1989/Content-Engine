@@ -193,10 +193,14 @@ function tgSend_(text) {
  * ۱۱.۰ — «متنِ کاملِ کپشن‌ها (یوتیوب و اینستاگرام) برای هر انتشار در تلگرام ارسال شود تا همیشه قابلِ مرور باشد.»
  * عین همان متنی که رفت، نه خلاصه؛ بلند ⇒ چند پیام. شکستِ تلگرام انتشار را «نشد» نمی‌کند — فقط false.
  */
-function tgCaptionLog_(kind, title, url, text) {
+function tgCaptionLog_(kind, title, url, text, removed) {
   if (CFG.TG_CAPTIONS === false || !tgEnabled_()) return false;
   var head = '📝 <b>کپشن — ' + tgEsc_(kind) + '</b>' + (title ? '\n' + tgEsc_(title) : '') + (url ? '\n' + tgEsc_(url) : '');
-  var parts = tgSplit_(head + '\n\n' + tgEsc_(String(text || '').trim() || '(خالی)'), 3800);
+  /* ۱۱.۳: «هر چیزی که به‌خاطرِ حرفه‌ای‌بودن از کپشن حذف می‌شود، دقیقاً ذیلِ همان محتوا در تلگرام ثبت شود» — در همان پیام،
+     زیرِ متنِ منتشرشده. */
+  var rm = (removed || []).filter(function (x) { return String(x || '').trim(); });
+  var tail = rm.length ? '\n\n✂️ <b>حذف‌شده از نسخهٔ عمومی:</b>\n' + rm.map(function (x) { return '• ' + tgEsc_(String(x)); }).join('\n') : '';
+  var parts = tgSplit_(head + '\n\n' + tgEsc_(String(text || '').trim() || '(خالی)') + tail, 3800);
   for (var i = 0; i < parts.length; i++) tgSend_(parts[i]);
   return true;
 }

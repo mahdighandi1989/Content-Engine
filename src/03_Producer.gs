@@ -6850,7 +6850,9 @@ function readIndex_(hub) {
       nV: Number(vals[i][IX.V]) || 0,
       nP: Number(vals[i][IX.P]) || 0,
       nA: Number(vals[i][IX.A]) || 0,
-      nD: Number(vals[i][IX.D]) || 0
+      nD: Number(vals[i][IX.D]) || 0,
+      used: Number(vals[i][IX.USED]) || 0,       // ۱۱.۳: برای پنلِ دسته‌های تخته
+      left: Number(vals[i][IX.LEFT]) || 0
     });
   }
   return rows.length ? rows : null;
@@ -6969,14 +6971,44 @@ function pickCategory_(hub) {
 
 /** ترتیبِ قفل (۱۱.۰): فقط دسته‌هایی از `CAT_LOCK` که در داشبورد هستند و دست‌کم ۵ ردیفِ واجد دارند. خاموش ⇒ []. */
 function catLockOrder_(idx) {
-  if (CFG.CAT_LOCK_ON === false) return [];
-  var want = CFG.CAT_LOCK || [], out = [];
+  if (!catLockOn_()) return [];
+  var want = catLockList_(), out = [];
   for (var w = 0; w < want.length; w++) {
     for (var i = 0; i < (idx || []).length; i++) {
       if (String(idx[i].name) === String(want[w]) && Number(idx[i].elig) >= 5) { out.push({ name: idx[i].name, s: 0 }); break; }
     }
   }
   return out;
+}
+
+/**
+ * فهرستِ زندهٔ قفل (۱۱.۳) — «هر تیک باید واقعاً روی روند اثر بگذارد». تیک‌های پنلِ «دسته‌های از همه جا» در تختهٔ مجموعه‌ها
+ * در `PK.CAT_LOCK_UI` می‌نشینند و این‌جا بر `CFG.CAT_LOCK` مقدم‌اند؛ هیچ تیکی ثبت نشده ⇒ همان پیکربندی. یک در برای خواندن،
+ * که هم `pickCategory_` و هم پنل و هم خطِ روزانه از آن می‌خوانند — دو نسخه یعنی پنلی که چیزی نشان می‌دهد و موتوری که
+ * کارِ دیگری می‌کند.
+ */
+function catLockUi_() {
+  try { var u = JSON.parse(props_().getProperty(PK.CAT_LOCK_UI) || 'null'); return (u && Array.isArray(u.list)) ? u : null; }
+  catch (e) { return null; }
+}
+function catLockList_() { var u = catLockUi_(); return u ? u.list.slice() : (CFG.CAT_LOCK || []).slice(); }
+function catLockOn_() { var u = catLockUi_(); return u && typeof u.on === 'boolean' ? u.on : CFG.CAT_LOCK_ON !== false; }
+
+/** ذخیرهٔ پنل (۱۱.۳): فقط نام‌های واقعیِ دسته، به همان ترتیبِ تیک‌خورده. ⇒ {on, list, dropped[]} */
+function catLockSave_(on, list) {
+  var valid = {};
+  for (var t = 0; t < TAXONOMY.length; t++) valid[TAXONOMY[t].title] = true;
+  valid[MISC_TITLE] = true;
+  var out = [], dropped = [];
+  (list || []).forEach(function (n) {
+    n = String(n || '').trim();
+    if (!n) return;
+    if (!valid[n]) { dropped.push(n); return; }
+    if (out.indexOf(n) === -1) out.push(n);
+  });
+  var rec = { on: !!on && out.length > 0, list: out, at: nowStr_() };
+  props_().setProperty(PK.CAT_LOCK_UI, JSON.stringify(rec));
+  return { on: rec.on, list: out, dropped: dropped, note: on && !out.length ? 'هیچ دسته‌ای تیک نخورد؛ قفل خاموش شد (چرخشِ عادی)' : '' };
 }
 
 /** تصمیمِ قفل برای خطِ روزانه (بی هاب). */
@@ -6986,10 +7018,10 @@ function catLockNote_(cat, why) {
 
 /** خطِ روزانهٔ قفل — همیشه، حتی وقتی همه‌چیز سرِ جایش است (سکوت با «قفل کار نکرد» یکی است). */
 function catLockLine_() {
-  if (CFG.CAT_LOCK_ON === false) return '📚 قفلِ دسته‌های علمی: خاموش (CAT_LOCK_ON) — چرخشِ عادی میانِ همهٔ دسته‌ها.';
+  if (!catLockOn_()) return '📚 قفلِ دسته‌های علمی: خاموش' + (catLockUi_() ? ' (از تختهٔ مجموعه‌ها)' : ' (CAT_LOCK_ON)') + ' — چرخشِ عادی میانِ همهٔ دسته‌ها.';
   var r = null;
   try { r = JSON.parse(props_().getProperty(PK.CAT_LOCK_LAST) || 'null'); } catch (e) { r = null; }
-  var head = '📚 قفلِ دسته‌های علمی: روشن (به ترتیب: ' + (CFG.CAT_LOCK || []).join(' ← ') + ')';
+  var head = '📚 قفلِ دسته‌های علمی: روشن (به ترتیب: ' + catLockList_().join(' ← ') + (catLockUi_() ? ' — از تختهٔ مجموعه‌ها' : '') + ')';
   if (!r) return head + ' — هنوز قسمتی با آن ساخته نشده.';
   return head + ' — آخرین قسمت (' + r.at + '): ' + (r.cat ? '«' + r.cat + '»' : 'بیرون از قفل') + (r.why ? ' · ' + r.why : '') + '.';
 }

@@ -1283,7 +1283,12 @@ function igStepPub_(it, plan, st, deadline) {
   }
   plan.phase = 'yts';
   try { tgSend_('✅ ریلزِ اینستاگرام منتشر شد: ' + (plan.permalink || plan.reelId) + '\n«' + tgEsc_(plan.plan.hook) + '»'); } catch (eT) {}
-  try { tgCaptionLog_('اینستاگرام — ریلز', igLessonLabel_(plan) + ' · ' + String(plan.series || ''), plan.permalink || '', igCapClean_(plan.caption)); } catch (eTc) {}
+  try {
+    var rmI = [];
+    if (plan.yt) rmI.push('پیوندِ مستقیمِ درسِ کامل (به‌جایش «' + (CFG.IG_LINK_WORD || 'لینک در بیو') + '»): ' + plan.yt);
+    (String((plan.plan || {}).caption || '').match(/https?:\/\/\S+/g) || []).forEach(function (u) { rmI.push('نشانیِ درونِ متنِ مدل: ' + u); });
+    tgCaptionLog_('اینستاگرام — ریلز', igLessonLabel_(plan) + ' · ' + String(plan.series || ''), plan.permalink || '', igCapClean_(plan.caption), rmI);
+  } catch (eTc) {}
   return { ok: true };
 }
 
@@ -1345,7 +1350,12 @@ function igShortPub_(it, plan) {
     } else plan.shortWhy = 'سهمیهٔ به‌روزرسانی — unlisted ماند';
   } catch (eV) { plan.shortWhy = 'عمومی نشد: ' + String(eV.message || eV).slice(0, 120); }
   try { tgSend_('▶️ شورتزِ یوتیوب: ' + plan.shortUrl + (plan.shortPublic ? '' : ' (هنوز unlisted — ' + tgEsc_(plan.shortWhy || '') + ')')); } catch (eT) {}
-  try { tgCaptionLog_('یوتیوب — شورتز', title, plan.shortUrl, desc); } catch (eTc) {}
+  try {
+    var rmS = [];
+    if (plan.yt && !igLinkLive_(plan.yt)) rmS.push('پیوندِ درسِ کامل (مرده یا خصوصی): ' + plan.yt);
+    if (plUrl && !igLinkLive_(plUrl)) rmS.push('پیوندِ پلی‌لیست (مرده یا خصوصی): ' + plUrl);
+    tgCaptionLog_('یوتیوب — شورتز', title, plan.shortUrl, desc, rmS);
+  } catch (eTc) {}
   return { ok: true };
 }
 

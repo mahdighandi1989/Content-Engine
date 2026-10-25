@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 11.2
+ *  موتور محتوا و پادکست — نسخهٔ 11.3
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1133,6 +1133,7 @@ var CFG = {
      خودِ ویدئو خوانده می‌شود (۱ واحد)؛ «private» ⇒ دست نمی‌خورد، و شناسه‌اش در PK.YT_OWNER_PRIVATE می‌ماند تا اگر روزی
      خواندن نشد هم دست نخورد. */
   YT_PRIVATE_HANDS_OFF: true,
+  YT_QA_MATCH_SOFT: 0.8,        // ۱۱.۳: «فقط X از N صحنه سرِ جای خودش» به‌تنهایی با X/N ≥ این، مشاوره است نه سد (special:81 = ۳۶/۴۱ با صفر قابِ خالی و همگامیِ سالم)
   YT_DESC_CAST: true,           // ۱۱.۱: ویدئوهای بلند «دقیقاً مثلِ قبل» — بلوکِ «گویندگانِ این قسمت» می‌ماند تا خودِ صاحبِ کانال کوتاه‌کردن را تأیید کند (false ⇒ برداشته می‌شود)
   YT_DESC_ARCHIVE: 1,           // ۱۱.۰: «اصلِ توضیحاتِ ویدیوهای بلندِ فعلی را در تلگرام ذخیره کنید» — یک بار برای هر شماره؛ بالا بردنش ⇒ دوباره
   TG_CAPTIONS: true,            // ۱۱.۰: متنِ کاملِ کپشنِ هر انتشار (ریلز، شورتز، ویدئوی کامل) در تلگرام
@@ -2266,7 +2267,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '11.2',
+  CODE_VERSION: '11.3',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3439,7 +3440,8 @@ var PK = {
   YT_OWNER_PRIVATE: 'YT_OWNER_PRIVATE', // ۱۱.۰: ویدئوهایی که خصوصی دیده شدند — موتور دست نمی‌زند
   YT_DESC_ARCH: 'YT_DESC_ARCH',    // ۱۱.۰: بایگانیِ توضیحاتِ ویدئوهای بلند در تلگرام {rev, done[], at}
   IG_PATTERN: 'IG_PATTERN',        // ۱۱.۰: الگوی ساعت/قالبِ ریلزها (igPattern_) — کلیدِ جدا از IG_STATE
-  CAT_LOCK_LAST: 'CAT_LOCK_LAST',  // ۱۱.۰: آخرین تصمیمِ قفلِ دسته {cat, why, at}
+  CAT_LOCK_LAST: 'CAT_LOCK_LAST',
+  CAT_LOCK_UI: 'CAT_LOCK_UI',      // ۱۱.۳: تیک‌های پنلِ «دسته‌های از همه جا» در تخته {on, list[], at} — بر CFG.CAT_LOCK مقدم  // ۱۱.۰: آخرین تصمیمِ قفلِ دسته {cat, why, at}
   YT_PL: 'YT_PLAYLIST_MAP',        // نگاشتِ کلیدِ مجموعه → شناسهٔ پلی‌لیست
   YT_STATS: 'YT_STATS_AT',
   YTA_AT: 'YTA_AT',               // ۹.۱۳: آخرین دورِ آمارِ رشد
@@ -3568,7 +3570,7 @@ var PK = {
  * نخوانَد سرخ می‌شود.
  */
 var BUILD_MENU_ = { total: 63, debt: 33 };   /* ⚙ BUILD-MENU */
-var BUILD_MENU_ITEMS_ = [["setApiKey","۱) ثبت کلید Gemini",0,"منو",1],["installTriggers","۲) نصب زمان‌بندی خودکار",1,"منو",1],["setGitHubToken","۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو",1,"منو",1],["setInstagramToken","۴) کلیدِ اینستاگرام (متا)",1,"منو",1],["runSyncNow","اجرای همگام‌سازی همین حالا",0,"منو",1],["runProduceVariety","فقط «از همه جا از همه رنگ»",1,"منو",1],["runProduceSpecial","فقط «درس‌نامه» (تخصصی)",1,"منو",1],["runProduceBoth","هر دو، پشت سر هم",1,"منو",1],["runProduceVarietyEnriched","🌐 «از همه جا از همه رنگ» با غنی‌سازیِ اینترنتی",0,"منو",1],["runProduceSpecialEnriched","🌐 «درس‌نامه» با غنی‌سازیِ اینترنتی",0,"منو",1],["runContentSearch","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)",0,"منو",1],["runEmbedBuild","🧠 اثر انگشتِ معنایی — ساخت و ادامه",0,"منو",1],["runEmbedSelfTest","🧪 خودآزمونِ اثر انگشت",0,"منو",1],["runEmbedRebuild","♻️ بازسازیِ کاملِ اثر انگشت‌ها",0,"منو",1],["showSeriesBoard","📊 مجموعه‌های آموزشی و پیشرفت",1,"منو",1],["runScanSeries","اسکن مجموعه‌های آموزشی",1,"منو",1],["runJudgeSeries","داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)",0,"منو",1],["runLocalJudgeAll","⚡ مرتب‌سازیِ سریعِ فهرست (بی‌مدل)",0,"منو",1],["runRejudgeAll","داوریِ همهٔ مجموعه‌ها از نو (با مدل)",0,"منو",1],["showEnrichStatus","🌐 وضعیتِ غنی‌سازیِ اینترنتی",0,"منو",1],["runMusicAuto","🎵 بانکِ موسیقی — پویش و برچسبِ خودکار",0,"منو",1],["runMusicFetch","⬇️ موسیقی — گشتن در اینترنت و آوردن",1,"منو",1],["runMusicRecheck","🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»",1,"منو",1],["runMusicScan","🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)",0,"منو",1],["runVoiceAudition","🎙 آزمونِ شنیداریِ گویندگان",0,"منو",1],["runStyleProbe","🎚 نمونهٔ روحِ خواندن (با و بی کارت)",1,"منو",1],["showPersonaBoard","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست",0,"منو",1],["runVoiceBridge","🌉 پلِ رنگِ صدا — تبدیلِ صوتِ قسمت",1,"منو",1],["runVoiceSoulTest","🎨 نمونهٔ بلند با رنگ و روح (قسمتِ تیک‌خورده)",1,"منو",1],["runBlockVoice","کنار گذاشتنِ یک گوینده",0,"منو",1],["runVoiceIntake","🎤 گویندهٔ تازه — وارسیِ پوشه و صف",0,"منو",1],["runHandoutBuild","📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته",1,"منو",1],["runContentAudit","🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام",0,"منو",1],["runYouTubePublish","▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست",1,"منو",1],["runYouTubeRedo","🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)",1,"منو",1],["runLessonVisualsRebuild","🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)",1,"منو",1],["runLvGenToggle","🎨 تصویرِ ساخته‌شده: روشن/خاموش",1,"منو",1],["runLvStyleAllAuto","🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار",1,"منو",1],["runYouTubeChannel","📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل",1,"منو",1],["runYouTubeStats","📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت",0,"منو",1],["runYouTubeGrowth","📈 رشدِ کانال — آمار و تشخیص",1,"منو",1],["runSourceQuality","🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها",1,"منو",1],["runRecapNow","📚 قسمتِ مرورِ بزرگ — همهٔ مفاهیمِ یک مجموعه، ساده",0,"منو",1],["runYouTubeFix","🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب",1,"منو",1],["runBackupNow","🗄️ پشتیبان‌گیری از شیت‌ها همین حالا",0,"منو",1],["runOrganizeFolders","سامان‌دهیِ پوشهٔ قسمت‌ها",0,"منو",1],["runSelfUpdateNow","⬆️ بررسی و نصبِ کدِ تازه (همین حالا)",1,"منو",1],["runSelfUpdateDiagnose","🔎 عیب‌یابیِ نصبِ خودکار",0,"منو",1],["runAuditSourceScripts","🔍 وارسیِ اسکریپت‌های منبع (فقط تشخیص)",0,"منو",1],["runShowSourceUpdates","🔄 کدِ تازهٔ تحلیلگرهای منبع — چه آماده است؟",1,"منو",1],["runInstallSourceUpdates","⬆️ نصبِ کدِ تحلیلگرهای منبع",0,"منو",1],["runSourceCycleNow","▶️ چرخهٔ تحلیلگرها را همین حالا بدوان",1,"منو",1],["runShowSourceVerdict","📊 چرخهٔ کدِ تحلیلگرها — نتیجهٔ نصب‌ها",0,"منو",1],["installCodeRollback","بازگشت به نسخهٔ پشتیبانِ کد",1,"منو",1],["healthCheck","وارسی سلامت",1,"منو",1],["checkSources","وارسی شیت‌های منبع",0,"منو",1],["runIngestReports","خواندن گزارش‌های نظارت",0,"منو",1],["testGemini","آزمون اتصال Gemini",0,"منو",1],["testTelegram","آزمون ربات تلگرام",1,"منو",1],["refreshModels","به‌روزرسانی فهرست مدل‌ها",0,"منو",1],["showStatus","نمایش وضعیت",0,"منو",1],["removeTriggers","حذف زمان‌بندی",1,"منو",1],["fullRebuild","ساخت دوبارهٔ کامل بانک",0,"منو",1],["uiBoardHtml","📊 مجموعه‌های آموزشی و پیشرفت › uiBoardHtml",1,"پنجره",1],["uiHandoutSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutSeries",1,"پنجره",1],["uiBridgeSave","📊 مجموعه‌های آموزشی و پیشرفت › uiBridgeSave",1,"پنجره",1],["uiRecapQueue","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapQueue",1,"پنجره",1],["uiHandoutAll","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutAll",1,"پنجره",1],["uiCalSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCalSave",1,"پنجره",1],["uiLvMotionSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvMotionSave",1,"پنجره",1],["uiLvTextSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvTextSave",1,"پنجره",1],["uiLvStyleSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvStyleSave",1,"پنجره",1],["uiLvLevelSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvLevelSave",1,"پنجره",1],["uiRecapEverySave","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapEverySave",1,"پنجره",1],["uiPinSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiPinSeries",1,"پنجره",1],["uiPinCategory","📊 مجموعه‌های آموزشی و پیشرفت › uiPinCategory",1,"پنجره",1],["uiSetCourse","📊 مجموعه‌های آموزشی و پیشرفت › uiSetCourse",1,"پنجره",1],["uiSetManual","📊 مجموعه‌های آموزشی و پیشرفت › uiSetManual",1,"پنجره",1],["uiClearManual","📊 مجموعه‌های آموزشی و پیشرفت › uiClearManual",1,"پنجره",1],["uiJudgeNow","📊 مجموعه‌های آموزشی و پیشرفت › uiJudgeNow",1,"پنجره",1],["uiClearPin","📊 مجموعه‌های آموزشی و پیشرفت › uiClearPin",1,"پنجره",1],["personaEpisodeLists","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaEpisodeLists",1,"پنجره",1],["personaBoardData","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardData",1,"پنجره",1],["personaBoardSave","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardSave",1,"پنجره",1],["srchRun","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchRun",1,"پنجره",1],["srchLexStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchLexStart",1,"پنجره",1],["srchLexStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchLexStep",1,"پنجره",1],["srchSemStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStart",1,"پنجره",1],["srchSemStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStep",1,"پنجره",1],["srchDigestStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestStep",1,"پنجره",1],["srchDigestFinal","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestFinal",1,"پنجره",1],["srchExport","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchExport",1,"پنجره",1]];   /* ⚙ BUILD-MENU-ITEMS */
+var BUILD_MENU_ITEMS_ = [["setApiKey","۱) ثبت کلید Gemini",0,"منو",1],["installTriggers","۲) نصب زمان‌بندی خودکار",1,"منو",1],["setGitHubToken","۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو",1,"منو",1],["setInstagramToken","۴) کلیدِ اینستاگرام (متا)",1,"منو",1],["runSyncNow","اجرای همگام‌سازی همین حالا",0,"منو",1],["runProduceVariety","فقط «از همه جا از همه رنگ»",1,"منو",1],["runProduceSpecial","فقط «درس‌نامه» (تخصصی)",1,"منو",1],["runProduceBoth","هر دو، پشت سر هم",1,"منو",1],["runProduceVarietyEnriched","🌐 «از همه جا از همه رنگ» با غنی‌سازیِ اینترنتی",0,"منو",1],["runProduceSpecialEnriched","🌐 «درس‌نامه» با غنی‌سازیِ اینترنتی",0,"منو",1],["runContentSearch","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)",0,"منو",1],["runEmbedBuild","🧠 اثر انگشتِ معنایی — ساخت و ادامه",0,"منو",1],["runEmbedSelfTest","🧪 خودآزمونِ اثر انگشت",0,"منو",1],["runEmbedRebuild","♻️ بازسازیِ کاملِ اثر انگشت‌ها",0,"منو",1],["showSeriesBoard","📊 مجموعه‌های آموزشی و پیشرفت",1,"منو",1],["runScanSeries","اسکن مجموعه‌های آموزشی",1,"منو",1],["runJudgeSeries","داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)",0,"منو",1],["runLocalJudgeAll","⚡ مرتب‌سازیِ سریعِ فهرست (بی‌مدل)",0,"منو",1],["runRejudgeAll","داوریِ همهٔ مجموعه‌ها از نو (با مدل)",0,"منو",1],["showEnrichStatus","🌐 وضعیتِ غنی‌سازیِ اینترنتی",0,"منو",1],["runMusicAuto","🎵 بانکِ موسیقی — پویش و برچسبِ خودکار",0,"منو",1],["runMusicFetch","⬇️ موسیقی — گشتن در اینترنت و آوردن",1,"منو",1],["runMusicRecheck","🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»",1,"منو",1],["runMusicScan","🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)",0,"منو",1],["runVoiceAudition","🎙 آزمونِ شنیداریِ گویندگان",0,"منو",1],["runStyleProbe","🎚 نمونهٔ روحِ خواندن (با و بی کارت)",1,"منو",1],["showPersonaBoard","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست",0,"منو",1],["runVoiceBridge","🌉 پلِ رنگِ صدا — تبدیلِ صوتِ قسمت",1,"منو",1],["runVoiceSoulTest","🎨 نمونهٔ بلند با رنگ و روح (قسمتِ تیک‌خورده)",1,"منو",1],["runBlockVoice","کنار گذاشتنِ یک گوینده",0,"منو",1],["runVoiceIntake","🎤 گویندهٔ تازه — وارسیِ پوشه و صف",0,"منو",1],["runHandoutBuild","📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته",1,"منو",1],["runContentAudit","🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام",0,"منو",1],["runYouTubePublish","▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست",1,"منو",1],["runYouTubeRedo","🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)",1,"منو",1],["runLessonVisualsRebuild","🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)",1,"منو",1],["runLvGenToggle","🎨 تصویرِ ساخته‌شده: روشن/خاموش",1,"منو",1],["runLvStyleAllAuto","🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار",1,"منو",1],["runYouTubeChannel","📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل",1,"منو",1],["runYouTubeStats","📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت",0,"منو",1],["runYouTubeGrowth","📈 رشدِ کانال — آمار و تشخیص",1,"منو",1],["runSourceQuality","🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها",1,"منو",1],["runRecapNow","📚 قسمتِ مرورِ بزرگ — همهٔ مفاهیمِ یک مجموعه، ساده",0,"منو",1],["runYouTubeFix","🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب",1,"منو",1],["runBackupNow","🗄️ پشتیبان‌گیری از شیت‌ها همین حالا",0,"منو",1],["runOrganizeFolders","سامان‌دهیِ پوشهٔ قسمت‌ها",0,"منو",1],["runSelfUpdateNow","⬆️ بررسی و نصبِ کدِ تازه (همین حالا)",1,"منو",1],["runSelfUpdateDiagnose","🔎 عیب‌یابیِ نصبِ خودکار",0,"منو",1],["runAuditSourceScripts","🔍 وارسیِ اسکریپت‌های منبع (فقط تشخیص)",0,"منو",1],["runShowSourceUpdates","🔄 کدِ تازهٔ تحلیلگرهای منبع — چه آماده است؟",1,"منو",1],["runInstallSourceUpdates","⬆️ نصبِ کدِ تحلیلگرهای منبع",0,"منو",1],["runSourceCycleNow","▶️ چرخهٔ تحلیلگرها را همین حالا بدوان",1,"منو",1],["runShowSourceVerdict","📊 چرخهٔ کدِ تحلیلگرها — نتیجهٔ نصب‌ها",0,"منو",1],["installCodeRollback","بازگشت به نسخهٔ پشتیبانِ کد",1,"منو",1],["healthCheck","وارسی سلامت",1,"منو",1],["checkSources","وارسی شیت‌های منبع",0,"منو",1],["runIngestReports","خواندن گزارش‌های نظارت",0,"منو",1],["testGemini","آزمون اتصال Gemini",0,"منو",1],["testTelegram","آزمون ربات تلگرام",1,"منو",1],["refreshModels","به‌روزرسانی فهرست مدل‌ها",0,"منو",1],["showStatus","نمایش وضعیت",0,"منو",1],["removeTriggers","حذف زمان‌بندی",1,"منو",1],["fullRebuild","ساخت دوبارهٔ کامل بانک",0,"منو",1],["uiBoardHtml","📊 مجموعه‌های آموزشی و پیشرفت › uiBoardHtml",1,"پنجره",1],["uiHandoutSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutSeries",1,"پنجره",1],["uiBridgeSave","📊 مجموعه‌های آموزشی و پیشرفت › uiBridgeSave",1,"پنجره",1],["uiRecapQueue","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapQueue",1,"پنجره",1],["uiHandoutAll","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutAll",1,"پنجره",1],["uiCatLockSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCatLockSave",1,"پنجره",1],["uiCalSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCalSave",1,"پنجره",1],["uiLvMotionSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvMotionSave",1,"پنجره",1],["uiLvTextSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvTextSave",1,"پنجره",1],["uiLvStyleSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvStyleSave",1,"پنجره",1],["uiLvLevelSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvLevelSave",1,"پنجره",1],["uiRecapEverySave","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapEverySave",1,"پنجره",1],["uiPinSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiPinSeries",1,"پنجره",1],["uiPinCategory","📊 مجموعه‌های آموزشی و پیشرفت › uiPinCategory",1,"پنجره",1],["uiSetCourse","📊 مجموعه‌های آموزشی و پیشرفت › uiSetCourse",1,"پنجره",1],["uiSetManual","📊 مجموعه‌های آموزشی و پیشرفت › uiSetManual",1,"پنجره",1],["uiClearManual","📊 مجموعه‌های آموزشی و پیشرفت › uiClearManual",1,"پنجره",1],["uiJudgeNow","📊 مجموعه‌های آموزشی و پیشرفت › uiJudgeNow",1,"پنجره",1],["uiClearPin","📊 مجموعه‌های آموزشی و پیشرفت › uiClearPin",1,"پنجره",1],["personaEpisodeLists","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaEpisodeLists",1,"پنجره",1],["personaBoardData","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardData",1,"پنجره",1],["personaBoardSave","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardSave",1,"پنجره",1],["srchRun","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchRun",1,"پنجره",1],["srchLexStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchLexStart",1,"پنجره",1],["srchLexStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchLexStep",1,"پنجره",1],["srchSemStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStart",1,"پنجره",1],["srchSemStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStep",1,"پنجره",1],["srchDigestStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestStep",1,"پنجره",1],["srchDigestFinal","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestFinal",1,"پنجره",1],["srchExport","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchExport",1,"پنجره",1]];   /* ⚙ BUILD-MENU-ITEMS */
 
 function props_() { return PropertiesService.getScriptProperties(); }
 
@@ -11612,7 +11614,9 @@ function readIndex_(hub) {
       nV: Number(vals[i][IX.V]) || 0,
       nP: Number(vals[i][IX.P]) || 0,
       nA: Number(vals[i][IX.A]) || 0,
-      nD: Number(vals[i][IX.D]) || 0
+      nD: Number(vals[i][IX.D]) || 0,
+      used: Number(vals[i][IX.USED]) || 0,       // ۱۱.۳: برای پنلِ دسته‌های تخته
+      left: Number(vals[i][IX.LEFT]) || 0
     });
   }
   return rows.length ? rows : null;
@@ -11731,14 +11735,44 @@ function pickCategory_(hub) {
 
 /** ترتیبِ قفل (۱۱.۰): فقط دسته‌هایی از `CAT_LOCK` که در داشبورد هستند و دست‌کم ۵ ردیفِ واجد دارند. خاموش ⇒ []. */
 function catLockOrder_(idx) {
-  if (CFG.CAT_LOCK_ON === false) return [];
-  var want = CFG.CAT_LOCK || [], out = [];
+  if (!catLockOn_()) return [];
+  var want = catLockList_(), out = [];
   for (var w = 0; w < want.length; w++) {
     for (var i = 0; i < (idx || []).length; i++) {
       if (String(idx[i].name) === String(want[w]) && Number(idx[i].elig) >= 5) { out.push({ name: idx[i].name, s: 0 }); break; }
     }
   }
   return out;
+}
+
+/**
+ * فهرستِ زندهٔ قفل (۱۱.۳) — «هر تیک باید واقعاً روی روند اثر بگذارد». تیک‌های پنلِ «دسته‌های از همه جا» در تختهٔ مجموعه‌ها
+ * در `PK.CAT_LOCK_UI` می‌نشینند و این‌جا بر `CFG.CAT_LOCK` مقدم‌اند؛ هیچ تیکی ثبت نشده ⇒ همان پیکربندی. یک در برای خواندن،
+ * که هم `pickCategory_` و هم پنل و هم خطِ روزانه از آن می‌خوانند — دو نسخه یعنی پنلی که چیزی نشان می‌دهد و موتوری که
+ * کارِ دیگری می‌کند.
+ */
+function catLockUi_() {
+  try { var u = JSON.parse(props_().getProperty(PK.CAT_LOCK_UI) || 'null'); return (u && Array.isArray(u.list)) ? u : null; }
+  catch (e) { return null; }
+}
+function catLockList_() { var u = catLockUi_(); return u ? u.list.slice() : (CFG.CAT_LOCK || []).slice(); }
+function catLockOn_() { var u = catLockUi_(); return u && typeof u.on === 'boolean' ? u.on : CFG.CAT_LOCK_ON !== false; }
+
+/** ذخیرهٔ پنل (۱۱.۳): فقط نام‌های واقعیِ دسته، به همان ترتیبِ تیک‌خورده. ⇒ {on, list, dropped[]} */
+function catLockSave_(on, list) {
+  var valid = {};
+  for (var t = 0; t < TAXONOMY.length; t++) valid[TAXONOMY[t].title] = true;
+  valid[MISC_TITLE] = true;
+  var out = [], dropped = [];
+  (list || []).forEach(function (n) {
+    n = String(n || '').trim();
+    if (!n) return;
+    if (!valid[n]) { dropped.push(n); return; }
+    if (out.indexOf(n) === -1) out.push(n);
+  });
+  var rec = { on: !!on && out.length > 0, list: out, at: nowStr_() };
+  props_().setProperty(PK.CAT_LOCK_UI, JSON.stringify(rec));
+  return { on: rec.on, list: out, dropped: dropped, note: on && !out.length ? 'هیچ دسته‌ای تیک نخورد؛ قفل خاموش شد (چرخشِ عادی)' : '' };
 }
 
 /** تصمیمِ قفل برای خطِ روزانه (بی هاب). */
@@ -11748,10 +11782,10 @@ function catLockNote_(cat, why) {
 
 /** خطِ روزانهٔ قفل — همیشه، حتی وقتی همه‌چیز سرِ جایش است (سکوت با «قفل کار نکرد» یکی است). */
 function catLockLine_() {
-  if (CFG.CAT_LOCK_ON === false) return '📚 قفلِ دسته‌های علمی: خاموش (CAT_LOCK_ON) — چرخشِ عادی میانِ همهٔ دسته‌ها.';
+  if (!catLockOn_()) return '📚 قفلِ دسته‌های علمی: خاموش' + (catLockUi_() ? ' (از تختهٔ مجموعه‌ها)' : ' (CAT_LOCK_ON)') + ' — چرخشِ عادی میانِ همهٔ دسته‌ها.';
   var r = null;
   try { r = JSON.parse(props_().getProperty(PK.CAT_LOCK_LAST) || 'null'); } catch (e) { r = null; }
-  var head = '📚 قفلِ دسته‌های علمی: روشن (به ترتیب: ' + (CFG.CAT_LOCK || []).join(' ← ') + ')';
+  var head = '📚 قفلِ دسته‌های علمی: روشن (به ترتیب: ' + catLockList_().join(' ← ') + (catLockUi_() ? ' — از تختهٔ مجموعه‌ها' : '') + ')';
   if (!r) return head + ' — هنوز قسمتی با آن ساخته نشده.';
   return head + ' — آخرین قسمت (' + r.at + '): ' + (r.cat ? '«' + r.cat + '»' : 'بیرون از قفل') + (r.why ? ' · ' + r.why : '') + '.';
 }
@@ -17522,10 +17556,14 @@ function tgSend_(text) {
  * ۱۱.۰ — «متنِ کاملِ کپشن‌ها (یوتیوب و اینستاگرام) برای هر انتشار در تلگرام ارسال شود تا همیشه قابلِ مرور باشد.»
  * عین همان متنی که رفت، نه خلاصه؛ بلند ⇒ چند پیام. شکستِ تلگرام انتشار را «نشد» نمی‌کند — فقط false.
  */
-function tgCaptionLog_(kind, title, url, text) {
+function tgCaptionLog_(kind, title, url, text, removed) {
   if (CFG.TG_CAPTIONS === false || !tgEnabled_()) return false;
   var head = '📝 <b>کپشن — ' + tgEsc_(kind) + '</b>' + (title ? '\n' + tgEsc_(title) : '') + (url ? '\n' + tgEsc_(url) : '');
-  var parts = tgSplit_(head + '\n\n' + tgEsc_(String(text || '').trim() || '(خالی)'), 3800);
+  /* ۱۱.۳: «هر چیزی که به‌خاطرِ حرفه‌ای‌بودن از کپشن حذف می‌شود، دقیقاً ذیلِ همان محتوا در تلگرام ثبت شود» — در همان پیام،
+     زیرِ متنِ منتشرشده. */
+  var rm = (removed || []).filter(function (x) { return String(x || '').trim(); });
+  var tail = rm.length ? '\n\n✂️ <b>حذف‌شده از نسخهٔ عمومی:</b>\n' + rm.map(function (x) { return '• ' + tgEsc_(String(x)); }).join('\n') : '';
+  var parts = tgSplit_(head + '\n\n' + tgEsc_(String(text || '').trim() || '(خالی)') + tail, 3800);
   for (var i = 0; i < parts.length; i++) tgSend_(parts[i]);
   return true;
 }
@@ -18557,7 +18595,7 @@ function writeStatus_(hub, note) {
     /* کلیپ، حرکت و آزمونِ مدلِ تازه (۸.۵۲) — هر سه فقط از Properties، بی درایو. */
     lessonClip: (function () { try { return lvClipStatus_(); } catch (e) { return null; } })(),
     igPattern: (function () { try { var x = JSON.parse(props_().getProperty(PK.IG_PATTERN) || 'null'); if (x) delete x.byDay; return x; } catch (e) { return null; } })(),
-    catLock: (function () { try { return { on: CFG.CAT_LOCK_ON !== false, order: CFG.CAT_LOCK || [], line: catLockLine_() }; } catch (e) { return null; } })(),
+    catLock: (function () { try { return { on: catLockOn_(), order: catLockList_(), fromBoard: !!catLockUi_(), line: catLockLine_() }; } catch (e) { return null; } })(),
     ytShowsOff: (function () { try { return { shows: CFG.YT_SHOWS_OFF || [], line: ytShowsOffLine_(), parked: ytDueParked_().length }; } catch (e) { return null; } })(),
     ytOwnerPrivate: (function () { try { return { ids: ytOwnerPrivList_().length, line: ytOwnerPrivLine_() }; } catch (e) { return null; } })(),
     lessonMotion: (function () { try { return lvMotionStatus_(); } catch (e) { return null; } })(),
@@ -29632,6 +29670,7 @@ function seriesBoardHtml_(d) {
   // جدا در منو. مدلِ داده همان تبِ «تقویمِ تولید» است و calGate_ دست نخورده؛
   // این فقط سطحِ نمایش است. پس اگر این پنل بشکند، تولید نمی‌شکند.
   H.push(calPanelHtml_());
+  H.push(catPanelHtml_());
   H.push(handoutPanelHtml_(d));
   H.push(recapPanelHtml_(d));
 
@@ -30172,6 +30211,15 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبتِ تقویم…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiCalSave(key,on,days,exc);}');
+  // ── دسته‌های «از همه جا» (۱۱.۳) ──
+  H.push('function catSave(b){var box=document.getElementById("catBox");' +
+         'var on=box.querySelector(".catOn").checked;var list=[];' +
+         'box.querySelectorAll(".catRow").forEach(function(r){var c=r.querySelector(".catTick");' +
+         'if(c&&c.checked)list.push({n:r.dataset.name,o:Number(r.querySelector(".catOrd").value)||99});});' +
+         'list.sort(function(a,b){return a.o-b.o;});' +
+         'busy();say("ثبتِ دسته‌ها…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiCatLockSave(on,list.map(function(x){return x.n;}));}');
   H.push('</script></body></html>');
   return H.join('\n');
 }
@@ -30655,6 +30703,49 @@ function handoutPanelHtml_(d) {
     '<div class="sub" id="hoMsg" style="margin-top:6px"></div></div>';
 }
 
+/**
+ * پنلِ «دسته‌های از همه جا» (۱۱.۳) — «همان منو باید دسته‌ها را با تیک نشان دهد، تعدادِ انجام‌شده و باقی‌مانده بیاید … هر تیک
+ * باید واقعاً روی روند اثر بگذارد و اثرش دیده شود». داده از داشبوردِ هاب (یک خواندن) و تیک‌ها از `catLockList_` — همان دری که
+ * `pickCategory_` از آن می‌خوانَد. «آخرین تصمیمِ موتور» را خودِ انتخابِ دسته می‌نویسد (`catLockNote_`)، پس اثرِ تیک دیده می‌شود.
+ */
+function catPanelHtml_() {
+  var idx = null;
+  try { idx = readIndex_(getHub_()); } catch (e) { idx = null; }
+  if (!idx) return '';
+  var lock = catLockList_(), on = catLockOn_(), last = null;
+  try { last = JSON.parse(props_().getProperty(PK.CAT_LOCK_LAST) || 'null'); } catch (eL) {}
+  var rows = idx.slice().sort(function (a, b) {
+    var ia = lock.indexOf(a.name), ib = lock.indexOf(b.name);
+    if ((ia === -1) !== (ib === -1)) return ia === -1 ? 1 : -1;
+    if (ia !== -1) return ia - ib;
+    return b.elig - a.elig;
+  });
+  var H = ['<div class="card" id="catBox"><div style="font-weight:700;margin-bottom:6px">🗂 دسته‌های «' + bEsc_(CFG.SHOW_NAME) + '»</div>' +
+           '<div class="sub" style="margin-bottom:8px">تیک = این دسته مجاز است؛ عددِ «ترتیب» = نوبت. موتور تا وقتی دستهٔ نوبتِ اول ' +
+           'محتوای کافی دارد فقط از همان می‌سازد و بعد سراغِ بعدی می‌رود؛ وقتی همهٔ دسته‌های تیک‌خورده تمام شوند، به چرخشِ عادیِ همهٔ ' +
+           'دسته‌ها برمی‌گردد و در ایمیلِ روزانه می‌گوید.</div>' +
+           '<label style="font-weight:700"><input type="checkbox" class="catOn"' + (on ? ' checked' : '') + '> قفلِ دسته روشن</label>' +
+           ' <span class="sub">' + (on ? 'روشن' : 'خاموش — چرخشِ عادی میانِ همه') + '</span>' +
+           '<table style="margin-top:8px;border-collapse:collapse;width:100%"><tr class="sub">' +
+           '<th>مجاز</th><th>ترتیب</th><th style="text-align:right">دسته</th><th>واجدِ شرایط (باقی)</th><th>استفاده‌شده</th><th>کل</th></tr>'];
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i], li = lock.indexOf(r.name);
+    var cur = last && last.cat === r.name;
+    H.push('<tr class="catRow" data-name="' + bEsc_(r.name) + '"' + (cur ? ' style="background:#ecfdf5"' : '') + '>' +
+           '<td style="text-align:center"><input type="checkbox" class="catTick"' + (li !== -1 ? ' checked' : '') + '></td>' +
+           '<td style="text-align:center"><input type="number" class="catOrd" min="1" style="width:48px" value="' +
+           (li !== -1 ? li + 1 : '') + '"></td>' +
+           '<td>' + bEsc_(r.name) + (cur ? ' <span class="sub">← آخرین قسمت از این‌جا بود</span>' : '') + '</td>' +
+           '<td style="text-align:center">' + faNum_(r.elig) + '</td><td style="text-align:center">' + faNum_(r.used || 0) +
+           '</td><td style="text-align:center">' + faNum_((r.used || 0) + (r.left || 0)) + '</td></tr>');
+  }
+  H.push('</table><div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+         '<button onclick="catSave(this)">ذخیرهٔ دسته‌ها</button>' +
+         '<span class="sub">آخرین تصمیمِ موتور: ' + bEsc_(last ? (last.at + ' — ' + (last.cat || 'بیرون از قفل') + (last.why ? ' · ' + last.why : '')) : 'هنوز قسمتی با قفل ساخته نشده') +
+         '</span></div></div>');
+  return H.join('');
+}
+
 function calPanelHtml_() {
   var d = null;
   try { d = calBoardData_(); } catch (e) { return ''; }
@@ -30918,6 +31009,16 @@ function uiHandoutAll() {
                         : ' (کارِ شبانه ادامه می‌دهد)') : '') +
       (b.wrapped ? ' · کاوشِ همهٔ مجموعه‌ها یک دور کامل شد' : '') + '.' };
   } catch (e) { return { ok: false, message: 'جزوه‌ها ساخته نشدند: ' + e.message }; }
+}
+
+/** دسته‌های «از همه جا» روی تخته (۱۱.۳): در همان کلیدی می‌نشیند که `pickCategory_` می‌خوانَد. */
+function uiCatLockSave(on, list) {
+  try {
+    var r = catLockSave_(!!on, list || []);
+    return { ok: true, message: 'دسته‌ها ذخیره شد — ' + (r.on ? 'قفل روشن: ' + r.list.join(' ← ') : 'قفل خاموش (چرخشِ عادی)') +
+                                (r.note ? ' (' + r.note + ')' : '') + (r.dropped.length ? ' · ناشناخته کنار رفت: ' + r.dropped.join('، ') : '') +
+                                '. از قسمتِ بعدی اعمال می‌شود.' };
+  } catch (e) { return { ok: false, message: 'ذخیرهٔ دسته‌ها انجام نشد: ' + e.message }; }
 }
 
 /** تقویمِ تولید روی تخته: روشن/خاموش، روزهای هفته و استثناهای هر برنامه را در همان تبی می‌نویسد که calGate_ می‌خوانَد. */
@@ -58182,7 +58283,7 @@ function ytPublicGate_(key, m) {
     if (md !== 'scenes' && md !== 'media') return { ok: true, why: '' };
     var qa = m.qa || null;
     if (!qa) return { ok: false, why: 'سنجشِ خودکارِ رانر برای این ویدئو ثبت نشده' };
-    if (qa.ok !== true) {
+    if (qa.ok !== true && !ytQaSoft_(qa)) {
       return { ok: false, why: 'سنجشِ خودکارِ ویدئو رد کرد: ' + String(qa.why || '').slice(0, 160) };
     }
     /* هر حالت شمارِ خودش را دارد (۸.۹۶): ویدئوی رسانه‌ایِ «از همه جا» راهِ تازه‌ای است و نخستین‌هایش
@@ -58197,6 +58298,22 @@ function ytPublicGate_(key, m) {
     }
     return { ok: true, why: '' };
   } catch (e) { return { ok: false, why: 'سدِ انتشار خوانده نشد: ' + e.message }; }
+}
+
+/**
+ * ردِ نرم (۱۱.۳) — «چرا بعضی ویدیوهای درس‌نامه هنوز Unlisted‌اند؟». special:81 (آئودی، درسِ ۵۷) با «فقط ۳۶ از ۴۱ صحنه سرِ جای
+ * خودش دیده شد» ماند، با **صفر** قابِ خالی، مدتِ برابر و همگامیِ سالمِ سه نقطه. همان سنجه‌ای است که ۹.۹۵ با چشم دید: قابِ
+ * وسطِ گذار یا حرکتِ دوربین را «جابه‌جا» می‌خوانَد. پس فقط وقتی **تنها** علتِ رد همین است و نسبت ≥ `YT_QA_MATCH_SOFT`،
+ * مشاوره است نه سد. قابِ خالی، تصویرِ یخ‌زده، اختلافِ مدت و ناهمگامی همچنان سدند.
+ */
+function ytQaSoft_(qa) {
+  if (!qa || qa.ok === true) return false;
+  var n = Number(qa.n) || 0, m = Number(qa.matched) || 0;
+  if (!n || (qa.blank && qa.blank.length) || Number(qa.durDiff) > 2) return false;
+  if (qa.sync && qa.sync.ok === false) return false;
+  var parts = String(qa.why || '').split(' · ').filter(Boolean);
+  if (!parts.length || !parts.every(function (p) { return /سرِ جای خودش دیده شد/.test(p); })) return false;
+  return m / n >= (Number(CFG.YT_QA_MATCH_SOFT) || 0.8);
 }
 
 var YT_APPROVED_ = null;
@@ -58374,6 +58491,14 @@ function ytDescArchive_(budgetMs) {
   }
   try { props_().setProperty(PK.YT_DESC_ARCH, JSON.stringify(st)); } catch (eS2) {}
   return out;
+}
+
+/** ۱۱.۳: سطرهایی از نقشه که در متنِ نهاییِ عمومی نیامدند (بلوکِ گویندگان، نشانی‌های درونی) — برای پیامِ تلگرامِ همان ویدئو. */
+function ytDescRemoved_(planDesc, finalDesc) {
+  var fin = {};
+  String(finalDesc || '').split('\n').forEach(function (l) { fin[l.trim()] = 1; });
+  return String(planDesc || '').split('\n').map(function (l) { return l.trim(); })
+    .filter(function (l) { return l && !fin[l] && !/^\d{1,2}:\d{2}/.test(l); }).slice(0, 40);
 }
 
 /** بلوکِ «گویندگانِ این قسمت:» و سطرهای «گویندهٔ …» زیرش، تا سطرِ خالیِ بعد (۱۱.۰). */
@@ -60304,7 +60429,7 @@ function ytUploadOne_(item, hub, pub) {
   /* ۹.۹۴: چشم بر سنجه مقدم است — کلیدی که پس از دیدنِ قاب‌ها در `docs/yt-approve.json` نشسته، به‌خاطرِ همین سنجه از نو ساخته
      نمی‌شود. special:76 «۶۵ از ۷۴ صحنه» خورد و قاب‌هایش (هر ۲۲ ثانیه) سالم بودند: نُه قابِ «جابه‌جا» وسطِ گذار یا حرکتِ دوربین بودند. */
   if (qaAgain && ytApprovedSafe_()[String(item.key || (item.show + ':' + item.ep))]) qaAgain = false;
-  if ((mdQ === 'media' || mdQ === 'scenes') && rmeQ.qa && rmeQ.qa.ok !== true && qaAgain) {
+  if ((mdQ === 'media' || mdQ === 'scenes') && rmeQ.qa && !ytQaSoft_(rmeQ.qa) && rmeQ.qa.ok !== true && qaAgain) {   // ۱۱.۳: ردِ نرم ساختِ دوباره نمی‌خواهد
     var asideQ = 0;
     try { asideQ = ytReplaceAside_(folder); } catch (eAq) { asideQ = 0; }
     if (asideQ) {
@@ -60504,7 +60629,7 @@ function ytUploadOne_(item, hub, pub) {
                 note: leaks.length ? 'نشتیِ خصوصی؛ در ' + privacy + ' ماند'
                     : (!gate.ok ? gate.why + '؛ در ' + privacy + ' ماند' : '') });
   ytUpPendingClear_(upKey);
-  try { tgCaptionLog_('یوتیوب — ویدئوی کامل', title, url, desc); } catch (eTc) {}   // ۱۱.۰
+  try { tgCaptionLog_('یوتیوب — ویدئوی کامل', title, url, desc, ytDescRemoved_(plan.description, desc)); } catch (eTc) {}   // ۱۱.۰/۱۱.۳
   logLine_('یوتیوب: «' + title + '» ' +
            (privacy === 'public' ? 'منتشر شد' : 'در ' + privacy + ' ماند') + ' — ' + url);
   res.ok = !leaks.length && gate.ok; res.url = url; res.privacy = privacy; res.title = title;
@@ -83106,7 +83231,12 @@ function igStepPub_(it, plan, st, deadline) {
   }
   plan.phase = 'yts';
   try { tgSend_('✅ ریلزِ اینستاگرام منتشر شد: ' + (plan.permalink || plan.reelId) + '\n«' + tgEsc_(plan.plan.hook) + '»'); } catch (eT) {}
-  try { tgCaptionLog_('اینستاگرام — ریلز', igLessonLabel_(plan) + ' · ' + String(plan.series || ''), plan.permalink || '', igCapClean_(plan.caption)); } catch (eTc) {}
+  try {
+    var rmI = [];
+    if (plan.yt) rmI.push('پیوندِ مستقیمِ درسِ کامل (به‌جایش «' + (CFG.IG_LINK_WORD || 'لینک در بیو') + '»): ' + plan.yt);
+    (String((plan.plan || {}).caption || '').match(/https?:\/\/\S+/g) || []).forEach(function (u) { rmI.push('نشانیِ درونِ متنِ مدل: ' + u); });
+    tgCaptionLog_('اینستاگرام — ریلز', igLessonLabel_(plan) + ' · ' + String(plan.series || ''), plan.permalink || '', igCapClean_(plan.caption), rmI);
+  } catch (eTc) {}
   return { ok: true };
 }
 
@@ -83168,7 +83298,12 @@ function igShortPub_(it, plan) {
     } else plan.shortWhy = 'سهمیهٔ به‌روزرسانی — unlisted ماند';
   } catch (eV) { plan.shortWhy = 'عمومی نشد: ' + String(eV.message || eV).slice(0, 120); }
   try { tgSend_('▶️ شورتزِ یوتیوب: ' + plan.shortUrl + (plan.shortPublic ? '' : ' (هنوز unlisted — ' + tgEsc_(plan.shortWhy || '') + ')')); } catch (eT) {}
-  try { tgCaptionLog_('یوتیوب — شورتز', title, plan.shortUrl, desc); } catch (eTc) {}
+  try {
+    var rmS = [];
+    if (plan.yt && !igLinkLive_(plan.yt)) rmS.push('پیوندِ درسِ کامل (مرده یا خصوصی): ' + plan.yt);
+    if (plUrl && !igLinkLive_(plUrl)) rmS.push('پیوندِ پلی‌لیست (مرده یا خصوصی): ' + plUrl);
+    tgCaptionLog_('یوتیوب — شورتز', title, plan.shortUrl, desc, rmS);
+  } catch (eTc) {}
   return { ok: true };
 }
 
