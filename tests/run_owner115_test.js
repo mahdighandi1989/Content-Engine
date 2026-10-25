@@ -395,7 +395,7 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
   const sync = y.slice(y.indexOf('function ytPlDescSync_'), y.indexOf('function ytChannelDesc_'));
   ok('۱۱.۶ همگامِ شبانه: پیش از نوشتن متنِ زنده، نامِ زنده می‌ماند، دست‌نوشته رد می‌شود، اثر ثبت می‌شود',
      /ytPlLive_\(yt, rec\.id\)/.test(sync) && /ytPlHuman_\(rec, live\.desc\)/.test(sync) && /title: String\(live\.title/.test(sync) && /rec\.descFp = ytDescFp_\(dOut\)/.test(sync));
-  ok('۱۱.۷ دربارهٔ کانال پیش از نوشتن سنجیده می‌شود و اثرش ثبت می‌شود', /var chHuman = ytChanHuman_\(curDesc\)/.test(y) && /setProperty\(PK\.YT_CHAN_MINE, ytDescFp_\(desc\)\)/.test(y));
+  ok('۱۱.۷ دربارهٔ کانال پیش از نوشتن سنجیده می‌شود و اثرش ثبت می‌شود', /var chHuman = ytChanHuman_\(curDesc(, desc)?\)/.test(y) && /setProperty\(PK\.YT_CHAN_MINE, ytDescFp_\(desc\)\)/.test(y));
 }
 
 /* ── ۱۲) ۱۱.۹: «فلسفی و اعتقادی» در فهرستِ داور، اطمینانِ کم ⇒ بی‌دسته، و داوریِ دوباره ── */
@@ -516,22 +516,28 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
      cd.indexOf('سراغ پرسش‌های بنیادین شناخت') < cd.indexOf('از درس یک شروع می‌شوند') && cd.indexOf('معرفت‌شناسی آئودی: ۴۸ درس و ۳ مرور') > cd.indexOf('از درس یک') &&
      /شورتز: پرسش‌های کوتاه از دل همان درس‌ها\.$/.test(cd) && !/۷۴ قسمت/.test(cd) && cd.length <= 990, cd);
   delete global.__PROPS[PK.YT_CHAN_MINE];
-  ok('۱۵.۲ قفل: متنِ قالبِ تازه «مالِ موتور» است، دست‌نوشته نه، خالی پر می‌شود', !ytChanHuman_(cd) && ytChanHuman_('متنی که صاحبِ کانال در Studio نوشت') && !ytChanHuman_(''));
+  ok('۱۵.۲ قفل: عینِ متنِ موتور «مالِ موتور» است، دست‌نوشته نه، خالی پر می‌شود', !ytChanHuman_(cd, cd) && ytChanHuman_('متنی که صاحبِ کانال در Studio نوشت', cd) && !ytChanHuman_('', cd));
+  /* ۱۲.۳: همان قالب که صاحبِ کانال پیش از نخستین نوشتنِ موتور در Studio گذاشت (بی فهرستِ مجموعه‌ها) — مالِ اوست. ۱۲.۲ بازنویسی‌اش می‌کرد. */
+  const pasted = [CFG.YT_CHAN_ABOUT.head, '', CFG.YT_CHAN_ABOUT.body, '', CFG.YT_CHAN_ABOUT.lists, '', CFG.YT_CHAN_ABOUT.shorts].join('\n');
+  ok('۱۵.۲-ب متنِ قالب که دستی در Studio گذاشته شد، پیش از نوشتنِ موتور ⇒ دست‌نوشته، بازنویسی نمی‌شود', ytChanHuman_(pasted, cd) && !ytChanHuman_('… هر روز دو پادکستِ فارسی: …', cd));
+  ok('۱۵.۲-پ سیم: ytChannelSync_ متنِ خودش را برای مقایسه می‌دهد', /var chHuman = ytChanHuman_\(curDesc, desc\)/.test(fs.readFileSync('src/27_YouTube.gs', 'utf8')));
   global.__PROPS[PK.YT_CHAN_MINE] = ytDescFp_(cd);
-  ok('۱۵.۳ پس از نوشتن، ویرایشِ Studio دیده می‌شود (اثرِ انگشت)', !ytChanHuman_(cd) && ytChanHuman_(cd + '\nسطرِ دستی'));
+  ok('۱۵.۳ پس از نوشتن، ویرایشِ Studio دیده می‌شود (اثرِ انگشت)', !ytChanHuman_(cd, cd) && ytChanHuman_(cd + '\nسطرِ دستی', cd));
   delete global.__PROPS[PK.YT_CHAN_MINE];
 
   const sent0 = tg.length;
   delete global.__PROPS[PK.BIO_TG_AT];
   const b1 = bioSuggest_(false), b2 = bioSuggest_(false);
   ok('۱۵.۴ بیوها: یک بار در هفته به تلگرام، نه هر روز', b1.sent && !b2.sent && tg.length === sent0 + 1, tg.length - sent0);
-  ok('۱۵.۵ بیوی اینستاگرام همان متنِ پیشنهادی و زیرِ ۱۵۰ نویسه؛ فیسبوک از سر و جملهٔ اولِ بدنه', /^رد پای حقیقت \| معرفت‌شناسی و فلسفه، ساده و کوتاه\.\nهر روز یک ریل؛ درس کامل در یوتیوب\.$/.test(b1.ig) && !b1.igOver &&
+  ok('۱۵.۵-ب فیسبوک در پیامِ هفتگی نیست (صاحبِ کانال روی فیسبوک کار نمی‌کند)', CFG.BIO_FB === false && !/فیسبوک/.test(b1.text), b1.text);
+  ok('۱۵.۵ بیوی اینستاگرام همان متنِ پیشنهادی و زیرِ ۱۵۰ نویسه؛ متنِ فیسبوک فقط آماده (اگر روزی خواست)', /^رد پای حقیقت \| معرفت‌شناسی و فلسفه، ساده و کوتاه\.\nهر روز یک ریل؛ درس کامل در یوتیوب\.$/.test(b1.ig) && !b1.igOver &&
      /^رد پای حقیقت — اندیشه، دانش، روایت\. اینجا درس‌به‌درس/.test(b1.fb) && /۴۸ درس/.test(b1.fb) && /نمی‌نویسد/.test(b1.text), b1.fb);
   ok('۱۵.۶ به ایمیلِ روزانه وصل است', /bioSuggest_\(false\)/.test(fs.readFileSync('src/08_Health.gs', 'utf8')));
   delete global.__PROPS[PK.BIO_TG_AT];
 
   /* قالبِ جملهٔ کوتاه */
-  ok('۱۵.۷ پیش‌فرض خاموش ⇒ هیچ درسی ریلزِ جملهٔ کوتاه نمی‌گیرد', CFG.IG_QUOTE_ON === false && !igQuoteFor_({ lesson: 3 }) && !igQuoteFor_({ lesson: 6 }));
+  ok('۱۵.۷ ۱۲.۳: روشن به تصمیمِ صاحبِ کانال — هر سومین درس، نه مرور', CFG.IG_QUOTE_ON === true && igQuoteFor_({ lesson: 3 }) && igQuoteFor_({ lesson: 6 }) && !igQuoteFor_({ lesson: 4 }) && !igQuoteFor_({ lesson: 3, recap: 1 }));
+  { const k = CFG.IG_QUOTE_ON; CFG.IG_QUOTE_ON = false; ok('۱۵.۷-ب خاموش ⇒ هیچ درسی', !igQuoteFor_({ lesson: 3 })); CFG.IG_QUOTE_ON = k; }
   const sec = [{ heading: 'الف', narration: 'آئودی می‌گوید: «معرفت باوری صادق است که توجیهِ درستی دارد.» این تعریف ساده به نظر می‌رسد.' },
                { heading: 'ب', narration: 'اما اگر حواس ما را فریب دهند، آیا هنوز چیزی را می‌دانیم؟ این پرسش آغازِ شک است.' }];
   const c1 = igQuoteCheck_('معرفت باوریِ صادق است که توجیهِ درستی دارد', 'آئودی', 'بله', sec);
@@ -588,6 +594,11 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
     global.geminiText_ = () => ans('معرفت باوری صادق است که توجیهِ درستی دارد');
     const r3 = igQuotePlan_({ key: 'k', ep: 41, part: igQuotePart_() }, fo, ep, {}, 'آئودی', 3);
     ok('۱۵.۱۹ داور «ادعای بیرون از درس» گفت ⇒ شکست', !r3.ok && /ادعای بیرون از درس/.test(String(r3.fail)));
+    const kJd = CFG.IG_JUDGE; CFG.IG_JUDGE = false;
+    let called = 0; global.igJudge_ = () => { called++; return { ok: false, why: 'داور جواب نداد: timeout' }; };
+    const r4 = igQuotePlan_({ key: 'k', ep: 41, part: igQuotePart_() }, fo, ep, {}, 'آئودی', 3);
+    CFG.IG_JUDGE = kJd;
+    ok('۱۵.۱۹-ب ۱۲.۳: داوری حتی با IG_JUDGE خاموش هست، و «داور جواب نداد» تأیید نیست ⇒ منتشر نمی‌شود', called === 1 && !r4.ok && /داور جواب نداد/.test(String(r4.fail)), JSON.stringify(r4));
   } finally { global.geminiText_ = kG; global.igJudge_ = kJ; }
   const pl0 = { format: 'جملهٔ کوتاه', short: 'x' };
   ok('۱۵.۲۰ ریلزِ جملهٔ کوتاه به شورتز نمی‌رود', igShortPub_({}, pl0).ok && /فقط اینستاگرام/.test(pl0.shortWhy));
@@ -595,6 +606,24 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
   ok('۱۵.۲۱ سیم‌ها: گامِ برنامه شاخهٔ جملهٔ کوتاه دارد و صف پرچمش را با خود می‌برد',
      /if \(it\.quote \|\| Number\(it\.part\) === igQuotePart_\(\)\) return igQuotePlan_\(/.test(s38) && /quote: nx\.quote \? 1 : 0/.test(s38));
   delete global.__PROPS[PK.YT_SUMMARY];
+}
+
+/* ── ۱۶) ۱۲.۳: فیسبوک خاموش ⇒ اینستاگرام هیچ وابستگی و هیچ هشداری ندارد ── */
+{
+  destMemoClear_();
+  ok('۱۶.۱ مقصدِ فیسبوک پیش‌فرض خاموش', !destGate_('fb', 'special').ok);
+  const kF = global.fbPageToken_; let asked = 0; global.fbPageToken_ = () => { asked++; return { why: 'x' }; };
+  delete global.__PROPS[PK.FB_Q];
+  const plan = { video: 'https://x/v.mp4', caption: 'c' };
+  const r = fbAfterReel_({ key: 'ig:special:41', folderId: 'F', part: 1 }, plan);
+  global.fbPageToken_ = kF;
+  ok('۱۶.۲ پس از انتشارِ ریلز: فیسبوک خاموش ⇒ هیچ تماسی با صفحه، هیچ صف، هیچ علتی در برنامه', r.off === true && asked === 0 && fbQueue_().length === 0 && !plan.fbWhy && !plan.fbId, JSON.stringify(r));
+  const fs0 = fbStatus_();
+  ok('۱۶.۳ خطِ ایمیل: فیسبوکِ خاموش و صفِ خالی چیزی نمی‌گوید (نه هشدار، نه یادداشت)', !fs0.on && !fs0.queued &&
+     /if \(fbS\.on \|\| fbS\.queued\) notes\.push/.test(fs.readFileSync('src/08_Health.gs', 'utf8')));
+  const s38 = fs.readFileSync('src/38_Instagram.gs', 'utf8');
+  const pub = s38.slice(s38.indexOf('function igStepPub_'), s38.indexOf('function igShortPub_'));
+  ok('۱۶.۴ انتشارِ ریلز هیچ‌جا pages_manage_posts یا کلیدِ صفحه نمی‌خواهد', !/pages_manage_posts|fbPageToken_/.test(pub) && /fbAfterReel_/.test(pub));
 }
 
 summary('owner115');

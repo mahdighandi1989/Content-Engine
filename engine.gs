@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 12.2
+ *  موتور محتوا و پادکست — نسخهٔ 12.3
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1397,6 +1397,7 @@ var CFG = {
      هر BIO_TG_DAYS روز یک بار به تلگرام می‌روند تا صاحبِ کانال خودش بچسباند. */
   BIO_IG: 'رد پای حقیقت | معرفت‌شناسی و فلسفه، ساده و کوتاه.\nهر روز یک ریل؛ درس کامل در یوتیوب.',
   BIO_TG_DAYS: 7,
+  BIO_FB: false,                // ۱۲.۳: صاحبِ کانال روی فیسبوک کار نمی‌کند — پیشنهادِ «دربارهٔ» فیسبوک در پیامِ هفتگی نمی‌آید
   YT_CHANNEL_EVERY_DAYS: 7,             // وارسیِ کامل، حتی وقتی چیزی عوض نشده
   YT_TODO_EVERY_DAYS: 7,                // یادآوریِ کارهای دستی — نه هر روز
   YT_THUMB: true,
@@ -1502,7 +1503,7 @@ var CFG = {
   IG_VOICE: 'Alnilam',
   IG_SHORTS_PER_DAY: 2,          // ۹.۶۹: «یوتیوب هم دوتا» — شورتز در روز
   IG_SHORT_ONE_PER_LESSON: true, // ۱۱.۰: «دو Short هم‌روز از یک درس … همدیگر را می‌خورند» — از هر درس روزی یک شورتز
-  IG_QUOTE_ON: false,           // ۱۲.۲: قالبِ آزمایشیِ «جملهٔ کوتاه» — پیش‌فرض خاموش (تصمیمِ صاحبِ کانال)؛ روشن ⇒ یک ریلزِ افزوده، نه جایگزین
+  IG_QUOTE_ON: true,            // ۱۲.۳: روشن، آزمایشی — تصمیمِ صاحبِ کانال (۲۵ اکتبر)؛ یک ریلزِ افزوده، نه جایگزین. false ⇒ خاموش
   IG_QUOTE_EVERY: 3,            // ۱۲.۲: هر چندمین درس یک ریلزِ «جملهٔ کوتاه» هم می‌گیرد (پس از ریلزهای آموزشیِ همان درس)
   IG_QUOTE_PART: 9,             // ۱۲.۲: شناسهٔ بخشِ ریلزِ جملهٔ کوتاه («۱۴.۹») و پوشهٔ «اینستاگرام ۹» — جدا از بخش‌های آموزشی
   IG_FMT_DEFAULT: 'آموزشی',     // ۱۲.۱: قالبِ همهٔ ریلزهای تا امروز؛ «جملهٔ کوتاه» قالبِ آزمایشیِ آینده است و هنوز ساخته نمی‌شود
@@ -2312,7 +2313,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '12.2',
+  CODE_VERSION: '12.3',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -65570,7 +65571,7 @@ function bioSuggest_(force) {
            .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
   var text = '📝 <b>پیشنهادِ بیوها</b> (هفتگی) — موتور این‌ها را نمی‌نویسد؛ خودتان بچسبانید.\n\n' +
              '📱 اینستاگرام (' + faDigitsOut_(String(ig.length)) + ' از ۱۵۰ نویسه):\n' + tgEsc_(ig) + '\n\n' +
-             '📘 فیسبوک — «دربارهٔ صفحه» (' + faDigitsOut_(String(fb.length)) + ' نویسه):\n' + tgEsc_(fb) + '\n\n' +
+             (CFG.BIO_FB === true ? '📘 فیسبوک — «دربارهٔ صفحه» (' + faDigitsOut_(String(fb.length)) + ' نویسه):\n' + tgEsc_(fb) + '\n\n' : '') +
              '▶️ دربارهٔ یوتیوب را خودِ موتور با همین قالب به‌روز نگه می‌دارد؛ اگر در Studio عوض کنید، دست نمی‌خورد.';
   var out = { sent: false, text: text, ig: ig, fb: fb, igOver: ig.length > 150 };
   var every = Math.max(1, Number(CFG.BIO_TG_DAYS) || 7) * 86400000, last = 0;
@@ -65802,7 +65803,7 @@ function ytChannelSync_(force) {
   // ── ۱) توضیح و کلیدواژه ──
   var curDesc = String(((info.brandingSettings || {}).channel || {}).description || '');
   /* ۱۱.۸: «دربارهٔ کانال» که در Studio نوشته شد مالِ شماست — همان قاعدهٔ توضیحِ ویدئو (۱۱.۶). */
-  var chHuman = ytChanHuman_(curDesc);
+  var chHuman = ytChanHuman_(curDesc, desc);
   if (chHuman) { byKey.description.did = 'دست‌نوشتهٔ Studio — دست نخورد'; out.kept = true; }
   else if (curDesc !== desc && ytQuotaTake_(YT_COST.playlistsUpdate, false)) {
     try {
@@ -66360,12 +66361,16 @@ function ytPlHuman_(rec, liveDesc) {
   if (rec && rec.descFp) return rec.descFp !== ytDescFp_(liveDesc);
   return !ytPlEngineText_(liveDesc);
 }
-function ytChanHuman_(curDesc) {
+function ytChanHuman_(curDesc, engineDesc) {
   if (!String(curDesc || '').trim()) return false;
   var mine = '';
   try { mine = String(props_().getProperty(PK.YT_CHAN_MINE) || ''); } catch (e) {}
   if (mine) return mine !== ytDescFp_(curDesc);
-  return !/هر روز دو پادکستِ فارسی|سراغ پرسش‌های بنیادین شناخت/.test(String(curDesc));
+  /* ۱۲.۳: بی اثرِ انگشت، «مالِ موتور» فقط دو چیز است: متنِ پیش از ۱۲.۲ (که هرگز نوشتهٔ صاحبِ کانال نبود)، یا **عینِ** متنی که
+     موتور امشب می‌نوشت. ۱۲.۲ هر متنی را که جملهٔ قالب را داشت مالِ موتور می‌گرفت — و قالب، متنِ خودِ صاحبِ کانال است؛ پس About‌ای که
+     او پیش از نخستین نوشتنِ موتور در Studio می‌گذاشت، بازنویسی می‌شد. */
+  if (/هر روز دو پادکستِ فارسی/.test(String(curDesc))) return false;
+  return !(engineDesc && ytDescFp_(curDesc) === ytDescFp_(engineDesc));
 }
 
 /* ══ سنجشِ فرضیه‌های رقبا با دادهٔ خودِ کانال (۱۲.۰) ══
@@ -85557,12 +85562,12 @@ function igQuotePlan_(it, fo, ep, meta, seriesName, lesson) {
   var p = igPlanTrim_({ idea: 'جملهٔ کوتاه: ' + qt, script: qt + ' ' + String(r.context || ''), scenes: r.scenes, coverTitle: r.coverTitle,
                         caption: r.caption, story: r.story, tags: r.tags, emph: [], ytDesc: '', kicker: r.kicker, names: chk.who ? [chk.who] : [] }, opt);
   if (!p.lines) return { fail: 'جملهٔ کوتاه: ' + p.why };
-  /* داور فقط یک چیز را مانع می‌داند: ادعای بیرون از درس. قلاب/پرسش در این قالب نیست، پس آن‌ها نمی‌شمارند. */
-  if (CFG.IG_JUDGE !== false) {
-    var jd = igJudge_(p, igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000, null), opt);
-    if (/ادعای بیرون از درس|داور جواب نداد/.test(String(jd.why || ''))) return { fail: 'جملهٔ کوتاه: ' + jd.why };
-    p.judge = 'جملهٔ کوتاه — ' + (jd.ok ? 'پذیرفته' : 'ایرادِ غیرِ مانع: ' + jd.why);
-  }
+  /* داور فقط یک چیز را مانع می‌داند: ادعای بیرون از درس. قلاب/پرسش در این قالب نیست، پس آن‌ها نمی‌شمارند.
+     ۱۲.۳: داوری این‌جا **همیشه** هست، حتی وقتی `IG_JUDGE` خاموش باشد — «اگر داورِ بیرونی ادعا را تأیید نکرد، منتشر نشود»؛
+     و داوری که جواب نداد تأیید نیست. نرم‌شدنِ ۲۴ ساعتهٔ قالبِ آموزشی هم این‌جا نیست: این ریلز مانعِ صف نیست، پس دلیلی برای کوتاه آمدن ندارد. */
+  var jd = igJudge_(p, igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000, null), opt);
+  if (!jd || /ادعای بیرون از درس|داور جواب نداد/.test(String(jd.why || ''))) return { fail: 'جملهٔ کوتاه: ' + ((jd && jd.why) || 'داور جواب نداد') };
+  p.judge = 'جملهٔ کوتاه — ' + (jd.ok ? 'پذیرفته' : 'ایرادِ غیرِ مانع: ' + jd.why);
   var attr = igQuoteAttr_(chk, lesson, seriesName);
   p.kicker = igKicker_(seriesName, p.kicker);
   p.hook = qt.slice(0, 140);

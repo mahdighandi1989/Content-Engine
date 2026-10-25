@@ -14,6 +14,7 @@ const FILES = fs.readdirSync('src').filter(f => f.endsWith('.gs')).sort();
 let src = ''; for (const f of FILES) src += '\n' + fs.readFileSync('src/' + f, 'utf8');
 (0, eval)(src);
 global.__PROPS['GEMINI_API_KEY'] = 'TEST';
+CFG.IG_QUOTE_ON = false;   // ۱۲.۳: ترتیبِ صف بی ریلزِ افزودهٔ «جملهٔ کوتاه» سنجیده می‌شود؛ آن قالب در run_owner115 §۱۵
 
 let pass = 0;
 const ok = (n, c, info) => {

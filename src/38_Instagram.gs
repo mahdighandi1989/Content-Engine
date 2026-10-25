@@ -2426,12 +2426,12 @@ function igQuotePlan_(it, fo, ep, meta, seriesName, lesson) {
   var p = igPlanTrim_({ idea: 'جملهٔ کوتاه: ' + qt, script: qt + ' ' + String(r.context || ''), scenes: r.scenes, coverTitle: r.coverTitle,
                         caption: r.caption, story: r.story, tags: r.tags, emph: [], ytDesc: '', kicker: r.kicker, names: chk.who ? [chk.who] : [] }, opt);
   if (!p.lines) return { fail: 'جملهٔ کوتاه: ' + p.why };
-  /* داور فقط یک چیز را مانع می‌داند: ادعای بیرون از درس. قلاب/پرسش در این قالب نیست، پس آن‌ها نمی‌شمارند. */
-  if (CFG.IG_JUDGE !== false) {
-    var jd = igJudge_(p, igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000, null), opt);
-    if (/ادعای بیرون از درس|داور جواب نداد/.test(String(jd.why || ''))) return { fail: 'جملهٔ کوتاه: ' + jd.why };
-    p.judge = 'جملهٔ کوتاه — ' + (jd.ok ? 'پذیرفته' : 'ایرادِ غیرِ مانع: ' + jd.why);
-  }
+  /* داور فقط یک چیز را مانع می‌داند: ادعای بیرون از درس. قلاب/پرسش در این قالب نیست، پس آن‌ها نمی‌شمارند.
+     ۱۲.۳: داوری این‌جا **همیشه** هست، حتی وقتی `IG_JUDGE` خاموش باشد — «اگر داورِ بیرونی ادعا را تأیید نکرد، منتشر نشود»؛
+     و داوری که جواب نداد تأیید نیست. نرم‌شدنِ ۲۴ ساعتهٔ قالبِ آموزشی هم این‌جا نیست: این ریلز مانعِ صف نیست، پس دلیلی برای کوتاه آمدن ندارد. */
+  var jd = igJudge_(p, igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000, null), opt);
+  if (!jd || /ادعای بیرون از درس|داور جواب نداد/.test(String(jd.why || ''))) return { fail: 'جملهٔ کوتاه: ' + ((jd && jd.why) || 'داور جواب نداد') };
+  p.judge = 'جملهٔ کوتاه — ' + (jd.ok ? 'پذیرفته' : 'ایرادِ غیرِ مانع: ' + jd.why);
   var attr = igQuoteAttr_(chk, lesson, seriesName);
   p.kicker = igKicker_(seriesName, p.kicker);
   p.hook = qt.slice(0, 140);

@@ -14603,7 +14603,7 @@ function bioSuggest_(force) {
            .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
   var text = '📝 <b>پیشنهادِ بیوها</b> (هفتگی) — موتور این‌ها را نمی‌نویسد؛ خودتان بچسبانید.\n\n' +
              '📱 اینستاگرام (' + faDigitsOut_(String(ig.length)) + ' از ۱۵۰ نویسه):\n' + tgEsc_(ig) + '\n\n' +
-             '📘 فیسبوک — «دربارهٔ صفحه» (' + faDigitsOut_(String(fb.length)) + ' نویسه):\n' + tgEsc_(fb) + '\n\n' +
+             (CFG.BIO_FB === true ? '📘 فیسبوک — «دربارهٔ صفحه» (' + faDigitsOut_(String(fb.length)) + ' نویسه):\n' + tgEsc_(fb) + '\n\n' : '') +
              '▶️ دربارهٔ یوتیوب را خودِ موتور با همین قالب به‌روز نگه می‌دارد؛ اگر در Studio عوض کنید، دست نمی‌خورد.';
   var out = { sent: false, text: text, ig: ig, fb: fb, igOver: ig.length > 150 };
   var every = Math.max(1, Number(CFG.BIO_TG_DAYS) || 7) * 86400000, last = 0;
@@ -14835,7 +14835,7 @@ function ytChannelSync_(force) {
   // ── ۱) توضیح و کلیدواژه ──
   var curDesc = String(((info.brandingSettings || {}).channel || {}).description || '');
   /* ۱۱.۸: «دربارهٔ کانال» که در Studio نوشته شد مالِ شماست — همان قاعدهٔ توضیحِ ویدئو (۱۱.۶). */
-  var chHuman = ytChanHuman_(curDesc);
+  var chHuman = ytChanHuman_(curDesc, desc);
   if (chHuman) { byKey.description.did = 'دست‌نوشتهٔ Studio — دست نخورد'; out.kept = true; }
   else if (curDesc !== desc && ytQuotaTake_(YT_COST.playlistsUpdate, false)) {
     try {
@@ -15393,12 +15393,16 @@ function ytPlHuman_(rec, liveDesc) {
   if (rec && rec.descFp) return rec.descFp !== ytDescFp_(liveDesc);
   return !ytPlEngineText_(liveDesc);
 }
-function ytChanHuman_(curDesc) {
+function ytChanHuman_(curDesc, engineDesc) {
   if (!String(curDesc || '').trim()) return false;
   var mine = '';
   try { mine = String(props_().getProperty(PK.YT_CHAN_MINE) || ''); } catch (e) {}
   if (mine) return mine !== ytDescFp_(curDesc);
-  return !/هر روز دو پادکستِ فارسی|سراغ پرسش‌های بنیادین شناخت/.test(String(curDesc));
+  /* ۱۲.۳: بی اثرِ انگشت، «مالِ موتور» فقط دو چیز است: متنِ پیش از ۱۲.۲ (که هرگز نوشتهٔ صاحبِ کانال نبود)، یا **عینِ** متنی که
+     موتور امشب می‌نوشت. ۱۲.۲ هر متنی را که جملهٔ قالب را داشت مالِ موتور می‌گرفت — و قالب، متنِ خودِ صاحبِ کانال است؛ پس About‌ای که
+     او پیش از نخستین نوشتنِ موتور در Studio می‌گذاشت، بازنویسی می‌شد. */
+  if (/هر روز دو پادکستِ فارسی/.test(String(curDesc))) return false;
+  return !(engineDesc && ytDescFp_(curDesc) === ytDescFp_(engineDesc));
 }
 
 /* ══ سنجشِ فرضیه‌های رقبا با دادهٔ خودِ کانال (۱۲.۰) ══
