@@ -180,12 +180,21 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
   resetProps([PK.SP_PIN]);
   const old = CFG.SERIES_PAR_MAX; CFG.SERIES_PAR_MAX = 1;
   const r4 = base(); r4[1].vals[SC.PAR - 1] = 'بله';
+  r4.forEach((x) => { x.vals[SC.MCAT - 1] = 'فلسفی و اعتقادی'; });   // ۱۱.۷: تیکِ موازی فقط برای دسته‌دستی
   const sv2 = global.readSeriesReg_;
   global.readSeriesReg_ = () => mkReg(r4);
   const s1 = seriesParSave_({}, 'C', true);
   ok('۶.۸ سقفِ مجموعه‌های موازی رعایت می‌شود', !s1.ok && /سقفِ تولیدِ موازی/.test(s1.message));
   const s2 = seriesParSave_({}, 'B', false);
   ok('۶.۹ برداشتنِ تیک همان ستون را خالی می‌کند', s2.ok && r4[1].vals[SC.PAR - 1] === '' && !s2.on);
+  r4[2].vals[SC.MCAT - 1] = '';
+  CFG.SERIES_PAR_MAX = 3;
+  const s3 = seriesParSave_({}, 'C', true);
+  ok('۶.۹-ب (۱۱.۷) مجموعهٔ بی دستهٔ دستی تیکِ موازی نمی‌گیرد، با علت', !s3.ok && /دستهٔ دستی/.test(s3.message) && r4[2].vals[SC.PAR - 1] === '', s3.message);
+  const hv = CFG.HANDOUT_VIZ_ENABLED; CFG.HANDOUT_VIZ_ENABLED = false; r4[2].vals[SC.MCAT - 1] = 'x';
+  const s4 = seriesParSave_({}, 'C', true);
+  CFG.HANDOUT_VIZ_ENABLED = hv;
+  ok('۶.۹-پ (۱۱.۷) نمودارِ جزوه خاموش ⇒ تیکِ موازی باز نمی‌شود', !s4.ok && /جزوه/.test(s4.message));
   global.readSeriesReg_ = sv2; CFG.SERIES_PAR_MAX = old;
   const st6 = seriesParStatus_({}, mkReg(r1));
   ok('۶.۱۰ خطِ روزانه وقتی روشن است می‌گوید، خاموش ساکت', st6.on && /تولیدِ موازی/.test(st6.line) && seriesParStatus_({}, mkReg(base())).line === '');
@@ -298,6 +307,60 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
     Object.assign(global, sv);
     return !a.keep && b.keep && b.live === 'ویرایش‌شده' && c.keep && /پیش از ۱۱.۶/.test(c.why) && d.keep && d.live === null;
   })());
+}
+
+/* ── ۱۰) ۱۱.۷: «هیچ تصمیمی روی دستهٔ خودکار» ── */
+{
+  const mk = (key, row, st, order, mcat, cat, extra) => {
+    const v = new Array(SERIES_HEADERS.length).fill('');
+    v[SC.KEY - 1] = key; v[SC.NAME - 1] = 'نامِ ' + key; v[SC.STATUS - 1] = st; v[SC.ORDER - 1] = order;
+    v[SC.MCAT - 1] = mcat || ''; v[SC.CAT - 1] = cat || 'علمی و آموزشی'; v[SC.JUDGED - 1] = '2026-10-01';
+    Object.assign(v, extra || {});
+    return { row, key, vals: v };
+  };
+  const mkReg = (rows) => { const r = { rows, byKey: {} }; rows.forEach((x) => { r.byKey[x.key] = x; }); return r; };
+  const sv = { seriesHasWork_: global.seriesHasWork_, seriesEligible_: global.seriesEligible_ };
+  global.seriesHasWork_ = () => true; global.seriesEligible_ = () => true;
+  resetProps([PK.SP_PIN]);
+  ok('۱۰.۰ پیش‌فرض: دستهٔ خودکار تصمیم نمی‌سازد', CFG.SERIES_AUTO_CAT_TRUST === false);
+  /* A خودکار با اولویت ۱، B دسته‌دستی با اولویت ۵ ⇒ B؛ پیش از ۱۱.۷ A می‌آمد */
+  const rows = () => [mk('A', 2, SST.NEW, 1, '', 'علمی و آموزشی'), mk('B', 3, SST.NEW, 5, 'فلسفی و اعتقادی')];
+  const p1 = pickSeriesPlan_({}, mkReg(rows()), { byKey: {} });
+  ok('۱۰.۱ مجموعهٔ تازه فقط از دسته‌دستی‌ها شروع می‌شود (B، نه A با اولویتِ بهتر)', p1.rec && p1.rec.key === 'B' && p1.heldAuto === 1, JSON.stringify({ k: p1.rec && p1.rec.key, h: p1.heldAuto }));
+  CFG.SERIES_AUTO_CAT_TRUST = true;
+  ok('۱۰.۲ و با کلیدِ قدیم همان رفتارِ پیشین (A)', pickSeriesPlan_({}, mkReg(rows()), { byKey: {} }).rec.key === 'A');
+  CFG.SERIES_AUTO_CAT_TRUST = false;
+  const onlyAuto = mkReg([mk('A', 2, SST.NEW, 1)]);
+  ok('۱۰.۳ هیچ دسته‌دستیِ در نوبت ⇒ مجموعهٔ تازه شروع نمی‌شود، و مسئلهٔ روز گفته می‌شود',
+     !pickSeriesPlan_({}, onlyAuto, { byKey: {} }).rec && /هیچ مجموعهٔ دسته‌دستیِ «در نوبت» نیست/.test(seriesCatLine_(onlyAuto).problem));
+  const act = mkReg([mk('A', 2, SST.ACTIVE, 1), mk('B', 3, SST.NEW, 5, 'فلسفی و اعتقادی')]);
+  ok('۱۰.۴ مجموعهٔ «در حال تولید» (هر دسته‌ای) تا پایان ادامه دارد — کارِ نیمه‌کاره رها نمی‌شود', pickSeriesPlan_({}, act, { byKey: {} }).rec.key === 'A');
+  const mo = mkReg([mk('A', 2, SST.NEW, 1), mk('M', 4, SST.NEW, 9, '', '', { [SC.MORDER - 1]: '1' })]);
+  ok('۱۰.۵ شمارهٔ دستی (بی دسته) هم «دستی» است و شروع می‌شود', pickSeriesPlan_({}, mo, { byKey: {} }).rec.key === 'M');
+  global.__PROPS[PK.SP_PIN] = 'cat:علمی و آموزشی';
+  const pc = pickSeriesPlan_({}, mkReg(rows()), { byKey: {} });
+  ok('۱۰.۶ سنجاقِ دسته فقط دستهٔ دستی را می‌گیرد (دستهٔ خودکارِ «علمی و آموزشی» ⇒ هیچ)', !pc.rec || pc.rec.key !== 'A', JSON.stringify(pc.rec && pc.rec.key));
+  resetProps([PK.SP_PIN]);
+  const v0 = rows()[0].vals, v1 = rows()[1].vals;
+  ok('۱۰.۷ seriesCatTrusted_ / منشأ', seriesCatTrusted_(v0) === '' && seriesCatTrusted_(v1) === 'فلسفی و اعتقادی' &&
+     seriesCatOrigin_(v1) === 'دستی' && seriesCatOrigin_(v0) === 'خودکار (مدل)' && seriesCatOf_(v0) === 'علمی و آموزشی');
+  const src14 = fs.readFileSync('src/14_Special.gs', 'utf8'), src30 = fs.readFileSync('src/30_Recap.gs', 'utf8');
+  ok('۱۰.۸ گوینده فقط از دستهٔ دستی انتخاب می‌شود (درس‌نامه و مرور)', /ensureCast_\(ep, ENRICH_SHOW_SPECIAL, epNum, seriesCatTrusted_\(rec\.vals\)\)/.test(src14) &&
+     /ensureCast_\(ep, ENRICH_SHOW_SPECIAL, epNum, seriesCatTrusted_\(pick\.rec\.vals\)\)/.test(src30));
+  /* فهرستِ بازبینی */
+  const reg = mkReg([mk('A', 2, SST.NEW, 1, '', 'علمی و آموزشی', { [SC.ABOUT - 1]: 'آموزشِ ترید' }), mk('B', 3, SST.ACTIVE, 5, 'فلسفی و اعتقادی', 'دینی', { [SC.ABOUT - 1]: 'معرفت‌شناسی' })]);
+  const rr = seriesCatReviewRows_(reg);
+  ok('۱۰.۹ فهرستِ بازبینی: دستی‌ها اول؛ دستهٔ فعلی، منشأ، دستهٔ خودکار و موضوعِ واقعی', rr[0][0] === 'B' && rr[0][2] === 'فلسفی و اعتقادی' && rr[0][3] === 'دستی' &&
+     rr[0][4] === 'دینی' && rr[0][6] === 'معرفت‌شناسی' && rr[1][3] === 'خودکار (مدل)' && rr[1][6] === 'آموزشِ ترید', JSON.stringify(rr));
+  Object.assign(global, sv);
+  const d0 = []; const svA = global.tgApi_; global.tgApi_ = (m, p) => { if (m === 'sendDocument') d0.push(p); return { ok: true }; };
+  const rv = seriesCatReview_(getHub_(), true);
+  global.tgApi_ = svA;
+  const tab = getHub_().getSheetByName(CFG.SERIES_CAT_REVIEW_TAB);
+  ok('۱۰.۱۰ تبِ بازبینی ساخته می‌شود و همان فهرست به تلگرام می‌رود', tab && rv.sent && d0.length === 1 && tab.getRange(1, 1, 1, 4).getValues()[0][3] === 'منشأ', JSON.stringify(rv));
+  const html = (() => { try { return uiBoardHtml(); } catch (e) { return ''; } })();
+  ok('۱۰.۱۱ تخته: دکمهٔ فهرست وصل است و گروهِ بی‌دسته‌دستی دکمهٔ «کار روی این دسته» ندارد', /\.uiCatReview\(/.test(html) &&
+     /grp\.cat === SERIES_NOMAN_TITLE \? 'disabled/.test(fs.readFileSync('src/15_Board.gs', 'utf8')));
 }
 
 summary('owner115');

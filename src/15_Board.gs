@@ -93,7 +93,10 @@ function seriesBoardData_(hub) {
     rows.push({
       key: key,
       name: String(v[SC.NAME - 1] || key),
-      cat: seriesCatOf_(v),
+      /* ۱۱.۷: گروهِ تخته فقط از دستهٔ دستی (یا رفتارِ پیشین با SERIES_AUTO_CAT_TRUST)؛ خودکار فقط پیشنهاد. */
+      cat: seriesCatTrusted_(v) || SERIES_NOMAN_TITLE,
+      catAuto: String(v[SC.CAT - 1] || '').trim(),
+      catOrigin: seriesCatOrigin_(v),
       level: String(v[SC.LEVEL - 1] || '').trim(),
       levelRank: lvRank(String(v[SC.LEVEL - 1] || '').trim()),
       topic: String(v[SC.TOPIC - 1] || ''),
@@ -257,6 +260,8 @@ function seriesBoardData_(hub) {
   }
   // دسته‌ای که موتور الان در آن کار می‌کند اول می‌آید، بعد بر پایهٔ اولویت
   groups.sort(function (a, b) {
+    var na = a.cat === SERIES_NOMAN_TITLE ? 1 : 0, nb = b.cat === SERIES_NOMAN_TITLE ? 1 : 0;   // ۱۱.۷: بی‌دسته‌دستی آخر
+    if (na !== nb) return na - nb;
     if (a.hasCurrent !== b.hasCurrent) return a.hasCurrent ? -1 : 1;
     if (a.minOrder !== b.minOrder) return a.minOrder - b.minOrder;
     if (a.minLevel !== b.minLevel) return a.minLevel - b.minLevel;
@@ -588,6 +593,11 @@ function seriesBoardHtml_(d) {
   /* ۱۱.۵: مقصدها و نمای چهارحالته — هر دو فقط می‌خوانند/می‌نویسند همان جایی که تولید می‌خوانَد؛ شکستشان تخته را نمی‌خواباند. */
   try { H.push(destPanelHtml_()); } catch (eDp) {}
   try { H.push(seriesStatesHtml_(d)); } catch (eSs) {}
+  /* ۱۱.۷: «دسته‌بندیِ خودکار غلط بوده» — فهرستِ بازبینی یک دکمه فاصله دارد. */
+  H.push('<div class="card"><b>🗂 دستهٔ مجموعه‌ها</b> <span class="sub">فقط دستهٔ دستی تصمیم می‌سازد' +
+         (CFG.SERIES_AUTO_CAT_TRUST === false ? '' : ' (اکنون دستهٔ خودکار هم — SERIES_AUTO_CAT_TRUST روشن است)') +
+         '؛ بقیه زیرِ «' + bEsc_(SERIES_NOMAN_TITLE) + '» آمده‌اند و پیشنهادِ خودکارشان کنارِ نام است.</span> ' +
+         '<button onclick="catReview()">فهرستِ بازبینیِ همهٔ مجموعه‌ها (تب + تلگرام)</button></div>');
   H.push(handoutPanelHtml_(d));
   H.push(recapPanelHtml_(d));
 
@@ -694,7 +704,8 @@ function seriesBoardHtml_(d) {
            ' &nbsp;<button ' + (grp.pinned ? 'class="pin" ' : '') +
            'data-cat="' + bEsc_(grp.cat) + '" ' +
            'data-act="' + (grp.pinned ? 'unpin' : 'pin') + '" ' +
-           (grp.pinned || grp.hasWork ? '' :
+           (grp.cat === SERIES_NOMAN_TITLE ? 'disabled title="دستهٔ خودکار معتبر نیست؛ اول دستهٔ دستی بگذارید" ' :
+            grp.pinned || grp.hasWork ? '' :
              'disabled title="مجموعه‌های این دسته تمام شده‌اند یا نادیده گرفته شده‌اند؛ چیزی برای ساختن نمانده" ') +
            'onclick="pinCat(this)">' +
            (grp.pinned ? 'انتخاب‌شده — کلیک برای برداشتن' : 'کار روی این دسته') +
@@ -722,6 +733,7 @@ function seriesBoardHtml_(d) {
              (!x.locked && x.isCourse === null ? ' <span class="bdg b-new">داوری نشده</span>' : '') +
              (!x.locked && x.unsure ? ' <span class="bdg b-re">مشکوک</span>' : '') +
              (x.msub ? ' <span class="sub">زیر‌دسته: ' + bEsc_(x.msub) + '</span>' : '') +
+             (x.catOrigin !== 'دستی' ? ' <span class="sub">— پیشنهادِ خودکار: ' + bEsc_(x.catAuto || '—') + ' (' + bEsc_(x.catOrigin) + ')</span>' : '') +
              // شرحِ یک‌خطیِ محتوا: برای فایل‌هایی که از نامشان چیزی فهمیده نمی‌شود
              (x.about ? '<div class="abt">' + bEsc_(x.about) + '</div>'
                       : (x.topic ? '<div class="sub">' + bEsc_(x.topic) + '</div>' : '')) +
@@ -1147,6 +1159,8 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبتِ مقصدها…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiDestSave(list);}');
+  H.push('function catReview(){busy();say("ساختِ فهرستِ بازبینی…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail).uiCatReview();}');
   H.push('function parTick(c){var k=c.dataset.key,on=c.checked;' +
          'busy();say("ثبتِ تولیدِ موازی…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
@@ -2761,7 +2775,8 @@ var BOARD_CONTROLS_ = [
   { ui: 'uiHandoutSeries', kind: 'action', runs: 'handoutOneSeries_' },
   { ui: 'uiHandoutAll', kind: 'action', runs: 'handoutBackfill_' },
   { ui: 'uiJudgeNow', kind: 'action', runs: 'judgeSeries' },
-  { ui: 'uiBoardHtml', kind: 'action', runs: 'seriesBoardHtml_' }
+  { ui: 'uiBoardHtml', kind: 'action', runs: 'seriesBoardHtml_' },
+  { ui: 'uiCatReview', kind: 'action', runs: 'seriesCatReview_' }
 ];
 
 /** مقصدها روی تخته — همان تب که `destGate_` می‌خوانَد. */
@@ -2870,4 +2885,15 @@ function seriesStatesHtml_(d) {
          box('⏳ در انتظار', '#2e5cb8', S.wait, 'به ترتیبِ نوبت؛ اولی نفرِ بعد است') +
          box('⛔ نرفته', '#9ca3af', S.out, 'تولید نمی‌شود — با دلیلش') +
          '</div></div>';
+}
+
+/** ۱۱.۷: فهرستِ بازبینیِ دسته‌ها — تب از نو، و همان فهرست به تلگرام. */
+function uiCatReview() {
+  try {
+    var r = seriesCatReview_(getHub_(), true);
+    var msg = 'فهرستِ بازبینی ساخته شد: ' + r.n + ' مجموعه (' + r.manual + ' دسته‌دستی، ' + r.auto + ' فقط خودکار) در تبِ «' +
+              (CFG.SERIES_CAT_REVIEW_TAB || 'بازبینیِ دستهٔ مجموعه‌ها') + '»' + (r.sent ? ' و در تلگرام' : '') + '.';
+    boardReceipt_(true, msg, ['آن تب فقط‌خواندنی است و هر بار از نو ساخته می‌شود؛ اصلاح با دکمهٔ «شماره و دستهٔ دستی» هر ردیف.']);
+    return { ok: true, message: msg };
+  } catch (e) { return { ok: false, message: 'فهرست ساخته نشد: ' + e.message }; }
 }

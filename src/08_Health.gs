@@ -2726,6 +2726,16 @@ function healthCheck() {
   try { lvHealth_(problems, notes); } catch (eLv) {}
   try { notes.push(catLockLine_()); } catch (eCl) {}    // ۱۱.۰: قفلِ دسته‌های علمی — هر روز، حتی سالم
   try { notes.push(destStatus_().line); } catch (eDs) {}   // ۱۱.۵: مقصدها — هر روز، حتی سالم
+  /* ۱۱.۷: دستهٔ مجموعه‌ها — هر روز؛ و فهرستِ بازبینی یک بار برای هر نسخه به تلگرام. */
+  try {
+    var regC = readSeriesReg_(getHub_()), scl = seriesCatLine_(regC);
+    notes.push(scl.line);
+    if (scl.problem) problems.push(scl.problem);
+    if (props_().getProperty(PK.CAT_REVIEW_REV) !== String(CFG.CODE_VERSION)) {
+      var rv = seriesCatReview_(null, true);
+      if (rv.sent) props_().setProperty(PK.CAT_REVIEW_REV, String(CFG.CODE_VERSION));
+    }
+  } catch (eSc) {}
   try { var daL = ytDescArchLine_(); if (daL) notes.push(daL); } catch (eDa) {}   // ۱۱.۶
   try { var fbS = fbStatus_(); if (fbS.on || fbS.queued) notes.push(fbS.line); } catch (eFs) {}
   try { var spS = seriesParStatus_(); if (spS.line) notes.push(spS.line); } catch (eSp) {}

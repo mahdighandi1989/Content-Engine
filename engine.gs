@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 11.6
+ *  موتور محتوا و پادکست — نسخهٔ 11.7
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2110,6 +2110,11 @@ var CFG = {
   FB_TRY_MAX: 5,                 // تلاشِ دوبارهٔ یک بازنشرِ ناموفق، بعد کنار (علتش در برنامهٔ همان ریلز)
   /* ۱۱.۵ — تولیدِ موازیِ درس‌نامه: حداکثر چند مجموعهٔ تیک‌خورده کنارِ مجموعهٔ جاری. هیچ تیکی ⇒ رفتارِ پیشین. */
   SERIES_PAR_MAX: 3,
+  /* ۱۱.۷ — «دسته‌بندیِ خودکارِ خیلی از مجموعه‌ها غلط بوده؛ هیچ تصمیمی را روی دستهٔ خودکار پایه نگذارید. فقط دسته‌هایی که
+     دستی گذاشته معتبرند.» false ⇒ دستهٔ خودکار فقط «پیشنهاد» است: مجموعهٔ تازه فقط با دسته یا شمارهٔ دستی شروع می‌شود،
+     سنجاقِ دسته و انتخابِ گوینده فقط دستهٔ دستی را می‌بینند، و تخته بی‌دسته‌دستی‌ها را جدا نشان می‌دهد. true ⇒ رفتارِ پیش از ۱۱.۷. */
+  SERIES_AUTO_CAT_TRUST: false,
+  SERIES_CAT_REVIEW_TAB: 'بازبینیِ دستهٔ مجموعه‌ها',   // ۱۱.۷: فهرستِ فقط‌خواندنی؛ هر بار از نو ساخته می‌شود
   CAL_TAB: 'تقویمِ تولید',      // روزهای تولیدِ هر برنامه و استثناها
   // ══ بخشِ ۳۲ — «صداها» ══
   // شخصیتِ خواندن (مکث و کشش و دامنه)، نه رنگِ صدا. جدولش در هاب است و
@@ -2276,7 +2281,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '11.6',
+  CODE_VERSION: '11.7',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3462,7 +3467,8 @@ var PK = {
   CAT_LOCK_LAST: 'CAT_LOCK_LAST',
   DEST_CACHE: 'DEST_CACHE',        // ۱۱.۵: آخرین خواندنِ سالمِ تبِ «مقصدها» — اگر تب خوانده نشود
   FB_DAY: 'FB_DAY',                // ۱۱.۵: شمارِ بازنشرِ فیسبوکِ امروز
-  FB_Q: 'FB_Q',                    // ۱۱.۵: صفِ تلاشِ دوبارهٔ فیسبوک — فقط کلید و پوشه
+  FB_Q: 'FB_Q',
+  CAT_REVIEW_REV: 'CAT_REVIEW_REV',  // ۱۱.۷: فهرستِ بازبینیِ دسته‌ها برای کدام نسخه به تلگرام رفت                    // ۱۱.۵: صفِ تلاشِ دوبارهٔ فیسبوک — فقط کلید و پوشه
   CAT_LOCK_UI: 'CAT_LOCK_UI',      // ۱۱.۳: تیک‌های پنلِ «دسته‌های از همه جا» در تخته {on, list[], at} — بر CFG.CAT_LOCK مقدم  // ۱۱.۰: آخرین تصمیمِ قفلِ دسته {cat, why, at}
   YT_PL: 'YT_PLAYLIST_MAP',        // نگاشتِ کلیدِ مجموعه → شناسهٔ پلی‌لیست
   YT_STATS: 'YT_STATS_AT',
@@ -3592,7 +3598,7 @@ var PK = {
  * نخوانَد سرخ می‌شود.
  */
 var BUILD_MENU_ = { total: 63, debt: 33 };   /* ⚙ BUILD-MENU */
-var BUILD_MENU_ITEMS_ = [["setApiKey","۱) ثبت کلید Gemini",0,"منو",1],["installTriggers","۲) نصب زمان‌بندی خودکار",1,"منو",1],["setGitHubToken","۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو",1,"منو",1],["setInstagramToken","۴) کلیدِ اینستاگرام (متا)",1,"منو",1],["runSyncNow","اجرای همگام‌سازی همین حالا",0,"منو",1],["runProduceVariety","فقط «از همه جا از همه رنگ»",1,"منو",1],["runProduceSpecial","فقط «درس‌نامه» (تخصصی)",1,"منو",1],["runProduceBoth","هر دو، پشت سر هم",1,"منو",1],["runProduceVarietyEnriched","🌐 «از همه جا از همه رنگ» با غنی‌سازیِ اینترنتی",0,"منو",1],["runProduceSpecialEnriched","🌐 «درس‌نامه» با غنی‌سازیِ اینترنتی",0,"منو",1],["runContentSearch","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)",0,"منو",1],["runEmbedBuild","🧠 اثر انگشتِ معنایی — ساخت و ادامه",0,"منو",1],["runEmbedSelfTest","🧪 خودآزمونِ اثر انگشت",0,"منو",1],["runEmbedRebuild","♻️ بازسازیِ کاملِ اثر انگشت‌ها",0,"منو",1],["showSeriesBoard","📊 مجموعه‌های آموزشی و پیشرفت",1,"منو",1],["runScanSeries","اسکن مجموعه‌های آموزشی",1,"منو",1],["runJudgeSeries","داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)",0,"منو",1],["runLocalJudgeAll","⚡ مرتب‌سازیِ سریعِ فهرست (بی‌مدل)",0,"منو",1],["runRejudgeAll","داوریِ همهٔ مجموعه‌ها از نو (با مدل)",0,"منو",1],["showEnrichStatus","🌐 وضعیتِ غنی‌سازیِ اینترنتی",0,"منو",1],["runMusicAuto","🎵 بانکِ موسیقی — پویش و برچسبِ خودکار",0,"منو",1],["runMusicFetch","⬇️ موسیقی — گشتن در اینترنت و آوردن",1,"منو",1],["runMusicRecheck","🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»",1,"منو",1],["runMusicScan","🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)",0,"منو",1],["runVoiceAudition","🎙 آزمونِ شنیداریِ گویندگان",0,"منو",1],["runStyleProbe","🎚 نمونهٔ روحِ خواندن (با و بی کارت)",1,"منو",1],["showPersonaBoard","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست",0,"منو",1],["runVoiceBridge","🌉 پلِ رنگِ صدا — تبدیلِ صوتِ قسمت",1,"منو",1],["runVoiceSoulTest","🎨 نمونهٔ بلند با رنگ و روح (قسمتِ تیک‌خورده)",1,"منو",1],["runBlockVoice","کنار گذاشتنِ یک گوینده",0,"منو",1],["runVoiceIntake","🎤 گویندهٔ تازه — وارسیِ پوشه و صف",0,"منو",1],["runHandoutBuild","📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته",1,"منو",1],["runContentAudit","🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام",0,"منو",1],["runYouTubePublish","▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست",1,"منو",1],["runYouTubeRedo","🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)",1,"منو",1],["runLessonVisualsRebuild","🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)",1,"منو",1],["runLvGenToggle","🎨 تصویرِ ساخته‌شده: روشن/خاموش",1,"منو",1],["runLvStyleAllAuto","🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار",1,"منو",1],["runYouTubeChannel","📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل",1,"منو",1],["runYouTubeStats","📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت",0,"منو",1],["runYouTubeGrowth","📈 رشدِ کانال — آمار و تشخیص",1,"منو",1],["runSourceQuality","🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها",1,"منو",1],["runRecapNow","📚 قسمتِ مرورِ بزرگ — همهٔ مفاهیمِ یک مجموعه، ساده",0,"منو",1],["runYouTubeFix","🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب",1,"منو",1],["runBackupNow","🗄️ پشتیبان‌گیری از شیت‌ها همین حالا",0,"منو",1],["runOrganizeFolders","سامان‌دهیِ پوشهٔ قسمت‌ها",0,"منو",1],["runSelfUpdateNow","⬆️ بررسی و نصبِ کدِ تازه (همین حالا)",1,"منو",1],["runSelfUpdateDiagnose","🔎 عیب‌یابیِ نصبِ خودکار",0,"منو",1],["runAuditSourceScripts","🔍 وارسیِ اسکریپت‌های منبع (فقط تشخیص)",0,"منو",1],["runShowSourceUpdates","🔄 کدِ تازهٔ تحلیلگرهای منبع — چه آماده است؟",1,"منو",1],["runInstallSourceUpdates","⬆️ نصبِ کدِ تحلیلگرهای منبع",0,"منو",1],["runSourceCycleNow","▶️ چرخهٔ تحلیلگرها را همین حالا بدوان",1,"منو",1],["runShowSourceVerdict","📊 چرخهٔ کدِ تحلیلگرها — نتیجهٔ نصب‌ها",0,"منو",1],["installCodeRollback","بازگشت به نسخهٔ پشتیبانِ کد",1,"منو",1],["healthCheck","وارسی سلامت",1,"منو",1],["checkSources","وارسی شیت‌های منبع",0,"منو",1],["runIngestReports","خواندن گزارش‌های نظارت",0,"منو",1],["testGemini","آزمون اتصال Gemini",0,"منو",1],["testTelegram","آزمون ربات تلگرام",1,"منو",1],["refreshModels","به‌روزرسانی فهرست مدل‌ها",0,"منو",1],["showStatus","نمایش وضعیت",0,"منو",1],["removeTriggers","حذف زمان‌بندی",1,"منو",1],["fullRebuild","ساخت دوبارهٔ کامل بانک",0,"منو",1],["uiBoardHtml","📊 مجموعه‌های آموزشی و پیشرفت › uiBoardHtml",1,"پنجره",1],["uiHandoutSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutSeries",1,"پنجره",1],["uiBridgeSave","📊 مجموعه‌های آموزشی و پیشرفت › uiBridgeSave",1,"پنجره",1],["uiRecapQueue","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapQueue",1,"پنجره",1],["uiHandoutAll","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutAll",1,"پنجره",1],["uiCatLockSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCatLockSave",1,"پنجره",1],["uiCalSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCalSave",1,"پنجره",1],["uiLvMotionSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvMotionSave",1,"پنجره",1],["uiLvTextSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvTextSave",1,"پنجره",1],["uiLvStyleSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvStyleSave",1,"پنجره",1],["uiLvLevelSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvLevelSave",1,"پنجره",1],["uiRecapEverySave","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapEverySave",1,"پنجره",1],["uiPinSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiPinSeries",1,"پنجره",1],["uiPinCategory","📊 مجموعه‌های آموزشی و پیشرفت › uiPinCategory",1,"پنجره",1],["uiSetCourse","📊 مجموعه‌های آموزشی و پیشرفت › uiSetCourse",1,"پنجره",1],["uiSetManual","📊 مجموعه‌های آموزشی و پیشرفت › uiSetManual",1,"پنجره",1],["uiClearManual","📊 مجموعه‌های آموزشی و پیشرفت › uiClearManual",1,"پنجره",1],["uiJudgeNow","📊 مجموعه‌های آموزشی و پیشرفت › uiJudgeNow",1,"پنجره",1],["uiClearPin","📊 مجموعه‌های آموزشی و پیشرفت › uiClearPin",1,"پنجره",1],["uiDestSave","📊 مجموعه‌های آموزشی و پیشرفت › uiDestSave",1,"پنجره",1],["uiParSave","📊 مجموعه‌های آموزشی و پیشرفت › uiParSave",1,"پنجره",1],["personaEpisodeLists","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaEpisodeLists",1,"پنجره",1],["personaBoardData","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardData",1,"پنجره",1],["personaBoardSave","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardSave",1,"پنجره",1],["srchRun","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchRun",1,"پنجره",1],["srchLexStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchLexStart",1,"پنجره",1],["srchLexStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchLexStep",1,"پنجره",1],["srchSemStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStart",1,"پنجره",1],["srchSemStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStep",1,"پنجره",1],["srchDigestStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestStep",1,"پنجره",1],["srchDigestFinal","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestFinal",1,"پنجره",1],["srchExport","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchExport",1,"پنجره",1]];   /* ⚙ BUILD-MENU-ITEMS */
+var BUILD_MENU_ITEMS_ = [["setApiKey","۱) ثبت کلید Gemini",0,"منو",1],["installTriggers","۲) نصب زمان‌بندی خودکار",1,"منو",1],["setGitHubToken","۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو",1,"منو",1],["setInstagramToken","۴) کلیدِ اینستاگرام (متا)",1,"منو",1],["runSyncNow","اجرای همگام‌سازی همین حالا",0,"منو",1],["runProduceVariety","فقط «از همه جا از همه رنگ»",1,"منو",1],["runProduceSpecial","فقط «درس‌نامه» (تخصصی)",1,"منو",1],["runProduceBoth","هر دو، پشت سر هم",1,"منو",1],["runProduceVarietyEnriched","🌐 «از همه جا از همه رنگ» با غنی‌سازیِ اینترنتی",0,"منو",1],["runProduceSpecialEnriched","🌐 «درس‌نامه» با غنی‌سازیِ اینترنتی",0,"منو",1],["runContentSearch","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)",0,"منو",1],["runEmbedBuild","🧠 اثر انگشتِ معنایی — ساخت و ادامه",0,"منو",1],["runEmbedSelfTest","🧪 خودآزمونِ اثر انگشت",0,"منو",1],["runEmbedRebuild","♻️ بازسازیِ کاملِ اثر انگشت‌ها",0,"منو",1],["showSeriesBoard","📊 مجموعه‌های آموزشی و پیشرفت",1,"منو",1],["runScanSeries","اسکن مجموعه‌های آموزشی",1,"منو",1],["runJudgeSeries","داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)",0,"منو",1],["runLocalJudgeAll","⚡ مرتب‌سازیِ سریعِ فهرست (بی‌مدل)",0,"منو",1],["runRejudgeAll","داوریِ همهٔ مجموعه‌ها از نو (با مدل)",0,"منو",1],["showEnrichStatus","🌐 وضعیتِ غنی‌سازیِ اینترنتی",0,"منو",1],["runMusicAuto","🎵 بانکِ موسیقی — پویش و برچسبِ خودکار",0,"منو",1],["runMusicFetch","⬇️ موسیقی — گشتن در اینترنت و آوردن",1,"منو",1],["runMusicRecheck","🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»",1,"منو",1],["runMusicScan","🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)",0,"منو",1],["runVoiceAudition","🎙 آزمونِ شنیداریِ گویندگان",0,"منو",1],["runStyleProbe","🎚 نمونهٔ روحِ خواندن (با و بی کارت)",1,"منو",1],["showPersonaBoard","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست",0,"منو",1],["runVoiceBridge","🌉 پلِ رنگِ صدا — تبدیلِ صوتِ قسمت",1,"منو",1],["runVoiceSoulTest","🎨 نمونهٔ بلند با رنگ و روح (قسمتِ تیک‌خورده)",1,"منو",1],["runBlockVoice","کنار گذاشتنِ یک گوینده",0,"منو",1],["runVoiceIntake","🎤 گویندهٔ تازه — وارسیِ پوشه و صف",0,"منو",1],["runHandoutBuild","📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته",1,"منو",1],["runContentAudit","🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام",0,"منو",1],["runYouTubePublish","▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست",1,"منو",1],["runYouTubeRedo","🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)",1,"منو",1],["runLessonVisualsRebuild","🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)",1,"منو",1],["runLvGenToggle","🎨 تصویرِ ساخته‌شده: روشن/خاموش",1,"منو",1],["runLvStyleAllAuto","🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار",1,"منو",1],["runYouTubeChannel","📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل",1,"منو",1],["runYouTubeStats","📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت",0,"منو",1],["runYouTubeGrowth","📈 رشدِ کانال — آمار و تشخیص",1,"منو",1],["runSourceQuality","🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها",1,"منو",1],["runRecapNow","📚 قسمتِ مرورِ بزرگ — همهٔ مفاهیمِ یک مجموعه، ساده",0,"منو",1],["runYouTubeFix","🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب",1,"منو",1],["runBackupNow","🗄️ پشتیبان‌گیری از شیت‌ها همین حالا",0,"منو",1],["runOrganizeFolders","سامان‌دهیِ پوشهٔ قسمت‌ها",0,"منو",1],["runSelfUpdateNow","⬆️ بررسی و نصبِ کدِ تازه (همین حالا)",1,"منو",1],["runSelfUpdateDiagnose","🔎 عیب‌یابیِ نصبِ خودکار",0,"منو",1],["runAuditSourceScripts","🔍 وارسیِ اسکریپت‌های منبع (فقط تشخیص)",0,"منو",1],["runShowSourceUpdates","🔄 کدِ تازهٔ تحلیلگرهای منبع — چه آماده است؟",1,"منو",1],["runInstallSourceUpdates","⬆️ نصبِ کدِ تحلیلگرهای منبع",0,"منو",1],["runSourceCycleNow","▶️ چرخهٔ تحلیلگرها را همین حالا بدوان",1,"منو",1],["runShowSourceVerdict","📊 چرخهٔ کدِ تحلیلگرها — نتیجهٔ نصب‌ها",0,"منو",1],["installCodeRollback","بازگشت به نسخهٔ پشتیبانِ کد",1,"منو",1],["healthCheck","وارسی سلامت",1,"منو",1],["checkSources","وارسی شیت‌های منبع",0,"منو",1],["runIngestReports","خواندن گزارش‌های نظارت",0,"منو",1],["testGemini","آزمون اتصال Gemini",0,"منو",1],["testTelegram","آزمون ربات تلگرام",1,"منو",1],["refreshModels","به‌روزرسانی فهرست مدل‌ها",0,"منو",1],["showStatus","نمایش وضعیت",0,"منو",1],["removeTriggers","حذف زمان‌بندی",1,"منو",1],["fullRebuild","ساخت دوبارهٔ کامل بانک",0,"منو",1],["uiBoardHtml","📊 مجموعه‌های آموزشی و پیشرفت › uiBoardHtml",1,"پنجره",1],["uiHandoutSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutSeries",1,"پنجره",1],["uiBridgeSave","📊 مجموعه‌های آموزشی و پیشرفت › uiBridgeSave",1,"پنجره",1],["uiRecapQueue","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapQueue",1,"پنجره",1],["uiHandoutAll","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutAll",1,"پنجره",1],["uiCatLockSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCatLockSave",1,"پنجره",1],["uiCalSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCalSave",1,"پنجره",1],["uiLvMotionSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvMotionSave",1,"پنجره",1],["uiLvTextSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvTextSave",1,"پنجره",1],["uiLvStyleSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvStyleSave",1,"پنجره",1],["uiLvLevelSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvLevelSave",1,"پنجره",1],["uiRecapEverySave","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapEverySave",1,"پنجره",1],["uiPinSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiPinSeries",1,"پنجره",1],["uiPinCategory","📊 مجموعه‌های آموزشی و پیشرفت › uiPinCategory",1,"پنجره",1],["uiSetCourse","📊 مجموعه‌های آموزشی و پیشرفت › uiSetCourse",1,"پنجره",1],["uiSetManual","📊 مجموعه‌های آموزشی و پیشرفت › uiSetManual",1,"پنجره",1],["uiClearManual","📊 مجموعه‌های آموزشی و پیشرفت › uiClearManual",1,"پنجره",1],["uiJudgeNow","📊 مجموعه‌های آموزشی و پیشرفت › uiJudgeNow",1,"پنجره",1],["uiClearPin","📊 مجموعه‌های آموزشی و پیشرفت › uiClearPin",1,"پنجره",1],["uiDestSave","📊 مجموعه‌های آموزشی و پیشرفت › uiDestSave",1,"پنجره",1],["uiParSave","📊 مجموعه‌های آموزشی و پیشرفت › uiParSave",1,"پنجره",1],["uiCatReview","📊 مجموعه‌های آموزشی و پیشرفت › uiCatReview",1,"پنجره",1],["personaEpisodeLists","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaEpisodeLists",1,"پنجره",1],["personaBoardData","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardData",1,"پنجره",1],["personaBoardSave","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardSave",1,"پنجره",1],["srchRun","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchRun",1,"پنجره",1],["srchLexStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchLexStart",1,"پنجره",1],["srchLexStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchLexStep",1,"پنجره",1],["srchSemStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStart",1,"پنجره",1],["srchSemStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStep",1,"پنجره",1],["srchDigestStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestStep",1,"پنجره",1],["srchDigestFinal","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestFinal",1,"پنجره",1],["srchExport","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchExport",1,"پنجره",1]];   /* ⚙ BUILD-MENU-ITEMS */
 
 function props_() { return PropertiesService.getScriptProperties(); }
 
@@ -20661,6 +20667,16 @@ function healthCheck() {
   try { lvHealth_(problems, notes); } catch (eLv) {}
   try { notes.push(catLockLine_()); } catch (eCl) {}    // ۱۱.۰: قفلِ دسته‌های علمی — هر روز، حتی سالم
   try { notes.push(destStatus_().line); } catch (eDs) {}   // ۱۱.۵: مقصدها — هر روز، حتی سالم
+  /* ۱۱.۷: دستهٔ مجموعه‌ها — هر روز؛ و فهرستِ بازبینی یک بار برای هر نسخه به تلگرام. */
+  try {
+    var regC = readSeriesReg_(getHub_()), scl = seriesCatLine_(regC);
+    notes.push(scl.line);
+    if (scl.problem) problems.push(scl.problem);
+    if (props_().getProperty(PK.CAT_REVIEW_REV) !== String(CFG.CODE_VERSION)) {
+      var rv = seriesCatReview_(null, true);
+      if (rv.sent) props_().setProperty(PK.CAT_REVIEW_REV, String(CFG.CODE_VERSION));
+    }
+  } catch (eSc) {}
   try { var daL = ytDescArchLine_(); if (daL) notes.push(daL); } catch (eDa) {}   // ۱۱.۶
   try { var fbS = fbStatus_(); if (fbS.on || fbS.queued) notes.push(fbS.line); } catch (eFs) {}
   try { var spS = seriesParStatus_(); if (spS.line) notes.push(spS.line); } catch (eSp) {}
@@ -26014,6 +26030,23 @@ function seriesCatOf_(vals) {
   return c || MISC_TITLE;
 }
 
+/* ══ دستهٔ دستی، تنها دسته‌ای که تصمیم می‌سازد (۱۱.۷) ══
+   `seriesCatOf_` برای نمایش و پوشه همان می‌ماند (دستی، وگرنه خودکار). هر جا دسته **تصمیم** می‌سازد — شروعِ مجموعهٔ تازه،
+   سنجاقِ دسته، انتخابِ گوینده، گروهِ تخته — از این‌جا می‌خوانَد: با `SERIES_AUTO_CAT_TRUST: false` فقط دستهٔ دستی، وگرنه
+   رفتارِ پیشین. */
+var SERIES_NOMAN_TITLE = 'بی دستهٔ دستی (دستهٔ خودکار فقط پیشنهاد است)';
+function seriesCatTrusted_(vals) {
+  var m = String(vals && vals[SC.MCAT - 1] !== undefined ? vals[SC.MCAT - 1] : '').trim();
+  if (m) return m;
+  return CFG.SERIES_AUTO_CAT_TRUST === false ? '' : seriesCatOf_(vals);
+}
+/** منشأِ دستهٔ نمایش‌داده: «دستی»، «خودکار (مدل)»، «خودکار (قاعده)» یا «حدس از نام». */
+function seriesCatOrigin_(vals) {
+  if (String(vals && vals[SC.MCAT - 1] || '').trim()) return 'دستی';
+  if (!String(vals && vals[SC.JUDGED - 1] || '').trim()) return 'حدس از نام';
+  return String(vals[SC.WHY - 1] || '').indexOf(JUDGE_LOCAL_MARK) !== -1 ? 'خودکار (قاعده)' : 'خودکار (مدل)';
+}
+
 /** زیر‌دستهٔ دستی، اگر تعیین شده باشد. */
 function seriesSubOf_(vals) {
   return String(vals && vals[SC.MSUB - 1] !== undefined ? vals[SC.MSUB - 1] : '').trim();
@@ -26189,7 +26222,7 @@ function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt, optsOpt) {
       // خوانده شده یا نه. وگرنه یک دورهٔ خرابِ بی‌ربط، سنجاقِ شما را «مسدود»
       // اعلام می‌کرد و بسته‌شدنِ درستِ سنجاقِ تمام‌شده را عقب می‌انداخت.
       var matches = (pin.kind === 'series' && reg.rows[i].key === pin.value) ||
-                    (pin.kind === 'cat' && seriesCatOf_(v) === String(pin.value).trim());
+                    (pin.kind === 'cat' && seriesCatTrusted_(v) === String(pin.value).trim());   // ۱۱.۷
       if (!matches) continue;
       // سنجاقِ یک دسته، موارد غیرآموزشیِ همان دسته را برنمی‌دارد؛ ولی سنجاقِ
       // یک مجموعهٔ مشخص یعنی «همین را می‌خواهم» و داوری را کنار می‌زند.
@@ -26232,7 +26265,11 @@ function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt, optsOpt) {
     if (!seriesEligible_(v, reg.rows[i].key, pin)) continue;
     if (st === SST.ACTIVE) actives.push(reg.rows[i]);
     else if (st === SST.REOPENED && !reopenedRec) reopenedRec = reg.rows[i];
-    else if (st === SST.NEW) queue.push(reg.rows[i]);
+    else if (st === SST.NEW) {
+      /* ۱۱.۷: مجموعهٔ تازه فقط وقتی شروع می‌شود که دسته یا شماره‌اش دستی باشد — ترتیبِ بقیه از دستهٔ خودکار می‌آید. */
+      if (CFG.SERIES_AUTO_CAT_TRUST === false && !seriesManualLock_(v)) { out.heldAuto = (out.heldAuto || 0) + 1; continue; }
+      queue.push(reg.rows[i]);
+    }
   }
   if (actives.length) {
     // تازه‌ترین مجموعه‌ای که رویش کار شده — یعنی همان‌جایی که سنجاق نصفه‌اش گذاشت
@@ -26388,6 +26425,14 @@ function seriesParPick_(hub, reg, parts, base, isSkipped) {
 function seriesParSave_(hub, key, on) {
   var reg = readSeriesReg_(hub), rec = reg.byKey[String(key || '').trim()];
   if (!rec) return { ok: false, message: 'مجموعه پیدا نشد.' };
+  if (on && CFG.SERIES_AUTO_CAT_TRUST === false && !String(rec.vals[SC.MCAT - 1] || '').trim()) {
+    /* ۱۱.۷: «هیچ تصمیمی روی دستهٔ خودکار» — مجموعهٔ موازی گوینده و جزوه‌اش را از دسته می‌گیرد. */
+    return { ok: false, message: 'اول برای «' + String(rec.vals[SC.NAME - 1] || rec.key) + '» دستهٔ دستی بگذارید («شماره و دستهٔ دستی»)؛ ' +
+                                 'دستهٔ خودکارش معتبر نیست و گوینده و جزوه از دسته می‌آیند.' };
+  }
+  if (on && (CFG.HANDOUT_ENABLED === false || CFG.HANDOUT_VIZ_ENABLED === false)) {
+    return { ok: false, message: 'جزوه یا نمودارهای جزوه در تنظیماتِ کد خاموش است؛ تا روشن نشود تولیدِ موازی باز نمی‌شود.' };
+  }
   if (on) {
     var n = seriesParList_(reg).filter(function (r) { return r.key !== rec.key; }).length;
     var mx = Math.max(1, Number(CFG.SERIES_PAR_MAX) || 3);
@@ -26408,6 +26453,81 @@ function seriesParStatus_(hub, reg) {
              line: t.length ? '⇄ تولیدِ موازیِ درس‌نامه روشن: ' + t.map(function (r) { return '«' + String(r.vals[SC.NAME - 1] || r.key) + '»'; }).join('، ') +
                               ' + مجموعهٔ جاری، یک‌درمیان (هر روز آنکه دیرتر قسمت گرفته).' : '' };
   } catch (e) { return { on: false, ticked: [], line: '' }; }
+}
+
+/* ═══════ بازبینیِ دسته‌ها (۱۱.۷) ═══════
+   «فهرستِ همهٔ مجموعه‌ها را با دستهٔ فعلی، منشأِ دسته (دستی/خودکار) و موضوعِ واقعی بدهید تا در شیت بازبینی و اصلاح کنیم.»
+   تبِ «بازبینیِ دستهٔ مجموعه‌ها» **فقط‌خواندنی** است و هر بار از نو ساخته می‌شود — اصلاح در ستونِ «دستهٔ دستی»ِ رجیستری یا
+   دکمهٔ «شماره و دستهٔ دستی»ِ تخته است (همان‌جا که `seriesCatOf_` می‌خوانَد؛ و دکمه پوشهٔ درایو را هم جابه‌جا می‌کند).
+   همان فهرست به تلگرام هم می‌رود: صاحبِ کانال شیت باز نمی‌کند (۵.۹۰). */
+var SERIES_CAT_REVIEW_HEADERS = ['کلید', 'نامِ مجموعه', 'دستهٔ فعلی', 'منشأ', 'دستهٔ خودکار', 'دستهٔ دستی', 'موضوعِ واقعی (از محتوا)',
+                                 'آموزشی؟', 'وضعیت', 'قسمت‌های ساخته‌شده', 'فعال (موازی)', 'دلیلِ داوری'];
+
+function seriesCatReviewRows_(reg) {
+  var out = [];
+  for (var i = 0; i < reg.rows.length; i++) {
+    var v = reg.rows[i].vals;
+    out.push([reg.rows[i].key, String(v[SC.NAME - 1] || ''), seriesCatOf_(v), seriesCatOrigin_(v),
+              String(v[SC.CAT - 1] || ''), String(v[SC.MCAT - 1] || ''),
+              String(v[SC.ABOUT - 1] || v[SC.TOPIC - 1] || '—'), String(v[SC.IS_COURSE - 1] || ''),
+              String(v[SC.STATUS - 1] || ''), epNumsOf_(v[SC.EPISODES - 1]).length, seriesParOn_(v) ? 'بله' : '',
+              String(v[SC.WHY - 1] || '').slice(0, 300)]);
+  }
+  out.sort(function (a, b) {
+    var ma = a[3] === 'دستی' ? 0 : 1, mb = b[3] === 'دستی' ? 0 : 1;
+    if (ma !== mb) return ma - mb;
+    return a[2] !== b[2] ? (a[2] < b[2] ? -1 : 1) : (a[1] < b[1] ? -1 : 1);
+  });
+  return out;
+}
+
+/** تب را از نو می‌سازد و (اگر `tg`) فهرست را به تلگرام می‌فرستد. ⇒ {n, manual, auto, sent} */
+function seriesCatReview_(hub, tg) {
+  hub = hub || getHub_();
+  var reg = readSeriesReg_(hub), rows = seriesCatReviewRows_(reg);
+  var sh = ensureTab_(hub, CFG.SERIES_CAT_REVIEW_TAB || 'بازبینیِ دستهٔ مجموعه‌ها', SERIES_CAT_REVIEW_HEADERS);
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, SERIES_CAT_REVIEW_HEADERS.length).clearContent();
+  if (rows.length) sh.getRange(2, 1, rows.length, SERIES_CAT_REVIEW_HEADERS.length).setValues(rows);
+  var man = rows.filter(function (r) { return r[3] === 'دستی'; }).length;
+  var out = { n: rows.length, manual: man, auto: rows.length - man, sent: false };
+  if (tg) {
+    try {
+      var L = ['بازبینیِ دستهٔ مجموعه‌های آموزشی — ' + nowStr_(), out.n + ' مجموعه: ' + man + ' دسته‌دستی، ' + out.auto +
+               ' فقط دستهٔ خودکار (در هیچ تصمیمی به کار نمی‌رود).', 'اصلاح: تخته ← «شماره و دستهٔ دستی»، یا ستونِ «دستهٔ دستی» در «' +
+               CFG.SERIES_TAB + '».', ''];
+      rows.forEach(function (r, i) {
+        L.push((i + 1) + ') ' + r[1] + '  [' + r[0] + ']');
+        L.push('   دستهٔ فعلی: ' + r[2] + ' — ' + r[3] + (r[3] !== 'دستی' && r[4] ? '' : '') + ' · وضعیت: ' + r[8] + ' · قسمت: ' + r[9] +
+               (r[10] ? ' · موازی' : ''));
+        L.push('   موضوعِ واقعی: ' + r[6]);
+        L.push('');
+      });
+      tgApi_('sendDocument', { chat_id: tgChat_(), document: Utilities.newBlob(L.join('\n'), 'text/plain', 'بازبینیِ دستهٔ مجموعه‌ها.txt'),
+                               caption: '🗂 فهرستِ همهٔ ' + out.n + ' مجموعه با دستهٔ فعلی، منشأ و موضوعِ واقعی — ' + man + ' دسته‌دستی' });
+      out.sent = true;
+    } catch (eT) { out.why = String(eT.message || eT).slice(0, 100); }
+  }
+  return out;
+}
+
+/** خطِ روزانه، و مسئله‌ای وقتی پس از مجموعهٔ جاری هیچ مجموعهٔ دسته‌دستی در نوبت نیست. ⇒ {line, problem} */
+function seriesCatLine_(reg) {
+  var man = 0, auto = 0, nextMan = 0, held = 0;
+  for (var i = 0; i < reg.rows.length; i++) {
+    var v = reg.rows[i].vals, st = String(v[SC.STATUS - 1] || '');
+    if (st === SST.SKIPPED) continue;
+    if (String(v[SC.MCAT - 1] || '').trim()) man++; else auto++;
+    if (st === SST.NEW && seriesEligible_(v, reg.rows[i].key, null)) { if (seriesManualLock_(v)) nextMan++; else held++; }
+  }
+  var trust = CFG.SERIES_AUTO_CAT_TRUST !== false;
+  return {
+    line: '🗂 دستهٔ مجموعه‌ها: ' + man + ' دسته‌دستی، ' + auto + ' فقط خودکار' +
+          (trust ? ' (دستهٔ خودکار هم تصمیم می‌سازد — SERIES_AUTO_CAT_TRUST روشن)' : ' — دستهٔ خودکار در هیچ تصمیمی به کار نمی‌رود') +
+          ' · در نوبت: ' + nextMan + ' دستی، ' + held + ' منتظرِ دستهٔ دستی.',
+    /* فقط وقتی چیزی واقعاً منتظر است و هیچ‌کدام دستی نیست — رجیستریِ خالی یا تمام‌شده این مسئله نیست. */
+    problem: (!trust && !nextMan && held) ? '⚠️ هیچ مجموعهٔ دسته‌دستیِ «در نوبت» نیست: وقتی مجموعهٔ جاری تمام شود، درس‌نامهٔ تازه‌ای شروع نمی‌شود — ' +
+                                     'در تخته برای مجموعهٔ بعدی «شماره و دستهٔ دستی» بگذارید (یا سنجاقش کنید).' : ''
+  };
 }
 
 /* ═══════════════════════════ 14_Special.gs ═══════════════════════════ */
@@ -27986,7 +28106,7 @@ function produceSpecialEpisode(opt) {
       'قسمت ' + ('000' + epNum).slice(-3) + ' — ' +
       Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyyMMdd') + ' — ' +
       String(ep.title || '').slice(0, 60));
-    try { ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, seriesCatOf_(rec.vals)); }
+    try { ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, seriesCatTrusted_(rec.vals)); }   // ۱۱.۷: فقط دستهٔ دستی
     catch (eCast) { logLine_('نقش‌گزینیِ درس‌نامه انجام نشد: ' + eCast.message); }
 
     writeSpecialJson_(folder, {
@@ -29332,7 +29452,10 @@ function seriesBoardData_(hub) {
     rows.push({
       key: key,
       name: String(v[SC.NAME - 1] || key),
-      cat: seriesCatOf_(v),
+      /* ۱۱.۷: گروهِ تخته فقط از دستهٔ دستی (یا رفتارِ پیشین با SERIES_AUTO_CAT_TRUST)؛ خودکار فقط پیشنهاد. */
+      cat: seriesCatTrusted_(v) || SERIES_NOMAN_TITLE,
+      catAuto: String(v[SC.CAT - 1] || '').trim(),
+      catOrigin: seriesCatOrigin_(v),
       level: String(v[SC.LEVEL - 1] || '').trim(),
       levelRank: lvRank(String(v[SC.LEVEL - 1] || '').trim()),
       topic: String(v[SC.TOPIC - 1] || ''),
@@ -29496,6 +29619,8 @@ function seriesBoardData_(hub) {
   }
   // دسته‌ای که موتور الان در آن کار می‌کند اول می‌آید، بعد بر پایهٔ اولویت
   groups.sort(function (a, b) {
+    var na = a.cat === SERIES_NOMAN_TITLE ? 1 : 0, nb = b.cat === SERIES_NOMAN_TITLE ? 1 : 0;   // ۱۱.۷: بی‌دسته‌دستی آخر
+    if (na !== nb) return na - nb;
     if (a.hasCurrent !== b.hasCurrent) return a.hasCurrent ? -1 : 1;
     if (a.minOrder !== b.minOrder) return a.minOrder - b.minOrder;
     if (a.minLevel !== b.minLevel) return a.minLevel - b.minLevel;
@@ -29827,6 +29952,11 @@ function seriesBoardHtml_(d) {
   /* ۱۱.۵: مقصدها و نمای چهارحالته — هر دو فقط می‌خوانند/می‌نویسند همان جایی که تولید می‌خوانَد؛ شکستشان تخته را نمی‌خواباند. */
   try { H.push(destPanelHtml_()); } catch (eDp) {}
   try { H.push(seriesStatesHtml_(d)); } catch (eSs) {}
+  /* ۱۱.۷: «دسته‌بندیِ خودکار غلط بوده» — فهرستِ بازبینی یک دکمه فاصله دارد. */
+  H.push('<div class="card"><b>🗂 دستهٔ مجموعه‌ها</b> <span class="sub">فقط دستهٔ دستی تصمیم می‌سازد' +
+         (CFG.SERIES_AUTO_CAT_TRUST === false ? '' : ' (اکنون دستهٔ خودکار هم — SERIES_AUTO_CAT_TRUST روشن است)') +
+         '؛ بقیه زیرِ «' + bEsc_(SERIES_NOMAN_TITLE) + '» آمده‌اند و پیشنهادِ خودکارشان کنارِ نام است.</span> ' +
+         '<button onclick="catReview()">فهرستِ بازبینیِ همهٔ مجموعه‌ها (تب + تلگرام)</button></div>');
   H.push(handoutPanelHtml_(d));
   H.push(recapPanelHtml_(d));
 
@@ -29933,7 +30063,8 @@ function seriesBoardHtml_(d) {
            ' &nbsp;<button ' + (grp.pinned ? 'class="pin" ' : '') +
            'data-cat="' + bEsc_(grp.cat) + '" ' +
            'data-act="' + (grp.pinned ? 'unpin' : 'pin') + '" ' +
-           (grp.pinned || grp.hasWork ? '' :
+           (grp.cat === SERIES_NOMAN_TITLE ? 'disabled title="دستهٔ خودکار معتبر نیست؛ اول دستهٔ دستی بگذارید" ' :
+            grp.pinned || grp.hasWork ? '' :
              'disabled title="مجموعه‌های این دسته تمام شده‌اند یا نادیده گرفته شده‌اند؛ چیزی برای ساختن نمانده" ') +
            'onclick="pinCat(this)">' +
            (grp.pinned ? 'انتخاب‌شده — کلیک برای برداشتن' : 'کار روی این دسته') +
@@ -29961,6 +30092,7 @@ function seriesBoardHtml_(d) {
              (!x.locked && x.isCourse === null ? ' <span class="bdg b-new">داوری نشده</span>' : '') +
              (!x.locked && x.unsure ? ' <span class="bdg b-re">مشکوک</span>' : '') +
              (x.msub ? ' <span class="sub">زیر‌دسته: ' + bEsc_(x.msub) + '</span>' : '') +
+             (x.catOrigin !== 'دستی' ? ' <span class="sub">— پیشنهادِ خودکار: ' + bEsc_(x.catAuto || '—') + ' (' + bEsc_(x.catOrigin) + ')</span>' : '') +
              // شرحِ یک‌خطیِ محتوا: برای فایل‌هایی که از نامشان چیزی فهمیده نمی‌شود
              (x.about ? '<div class="abt">' + bEsc_(x.about) + '</div>'
                       : (x.topic ? '<div class="sub">' + bEsc_(x.topic) + '</div>' : '')) +
@@ -30386,6 +30518,8 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبتِ مقصدها…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiDestSave(list);}');
+  H.push('function catReview(){busy();say("ساختِ فهرستِ بازبینی…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail).uiCatReview();}');
   H.push('function parTick(c){var k=c.dataset.key,on=c.checked;' +
          'busy();say("ثبتِ تولیدِ موازی…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
@@ -32000,7 +32134,8 @@ var BOARD_CONTROLS_ = [
   { ui: 'uiHandoutSeries', kind: 'action', runs: 'handoutOneSeries_' },
   { ui: 'uiHandoutAll', kind: 'action', runs: 'handoutBackfill_' },
   { ui: 'uiJudgeNow', kind: 'action', runs: 'judgeSeries' },
-  { ui: 'uiBoardHtml', kind: 'action', runs: 'seriesBoardHtml_' }
+  { ui: 'uiBoardHtml', kind: 'action', runs: 'seriesBoardHtml_' },
+  { ui: 'uiCatReview', kind: 'action', runs: 'seriesCatReview_' }
 ];
 
 /** مقصدها روی تخته — همان تب که `destGate_` می‌خوانَد. */
@@ -32109,6 +32244,17 @@ function seriesStatesHtml_(d) {
          box('⏳ در انتظار', '#2e5cb8', S.wait, 'به ترتیبِ نوبت؛ اولی نفرِ بعد است') +
          box('⛔ نرفته', '#9ca3af', S.out, 'تولید نمی‌شود — با دلیلش') +
          '</div></div>';
+}
+
+/** ۱۱.۷: فهرستِ بازبینیِ دسته‌ها — تب از نو، و همان فهرست به تلگرام. */
+function uiCatReview() {
+  try {
+    var r = seriesCatReview_(getHub_(), true);
+    var msg = 'فهرستِ بازبینی ساخته شد: ' + r.n + ' مجموعه (' + r.manual + ' دسته‌دستی، ' + r.auto + ' فقط خودکار) در تبِ «' +
+              (CFG.SERIES_CAT_REVIEW_TAB || 'بازبینیِ دستهٔ مجموعه‌ها') + '»' + (r.sent ? ' و در تلگرام' : '') + '.';
+    boardReceipt_(true, msg, ['آن تب فقط‌خواندنی است و هر بار از نو ساخته می‌شود؛ اصلاح با دکمهٔ «شماره و دستهٔ دستی» هر ردیف.']);
+    return { ok: true, message: msg };
+  } catch (e) { return { ok: false, message: 'فهرست ساخته نشد: ' + e.message }; }
 }
 
 /* ═══════════════════════════ 16_Curate.gs ═══════════════════════════ */
@@ -68206,7 +68352,7 @@ function runRecapEpisode(opt) {
     String(ep.title || '').slice(0, 50));
 
   try {
-    ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, seriesCatOf_(pick.rec.vals));
+    ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, seriesCatTrusted_(pick.rec.vals));   // ۱۱.۷
     recapCast_(ep);
   } catch (eCast) { logLine_('نقش‌گزینیِ مرور انجام نشد: ' + eCast.message); }
 

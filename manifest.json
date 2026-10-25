@@ -1,17 +1,19 @@
 {
-  "version": "11.6",
+  "version": "11.7",
   "codeFile": "engine.gs",
-  "sha256": "47dab5ccf1b38125f28d1775c824aa5975d05f98f9ddd0625249e9350b3f475f",
-  "releasedAt": "2026-10-25T13:06:01Z",
-  "summary": "توضیحِ ویرایش‌شده در Studio دست نمی‌خورد؛ بایگانیِ کاملِ توضیحاتِ یوتیوب (شورتز و ویدئوهای پیشین هم) در تلگرام",
+  "sha256": "78dd57ade84334baf836d2faa568f9685b5169e23475688dfd55d2070380f8e8",
+  "releasedAt": "2026-10-25T13:25:32Z",
+  "summary": "دستهٔ خودکارِ مجموعه‌ها فقط پیشنهاد است؛ فهرستِ بازبینیِ دسته‌ها؛ تیکِ موازی فقط برای دسته‌دستی",
   "fixes": [
-    "ytDescHuman_/ytDescMineSet_ (PK.YT_DESC_MINE): راهِ خودکارِ ytRedoOne_ متنِ زندهٔ ویرایش‌شده را نگه می‌دارد؛ manual فقط از منو",
-    "ytDescArchive_ دورِ ۲: پلی‌لیستِ آپلودها، نوعِ هر ویدئو، بی تکرارِ دورِ ۱؛ ytDescArchLine_ در ایمیلِ روزانه"
+    "SERIES_AUTO_CAT_TRUST:false + seriesCatTrusted_: صف، سنجاقِ دسته، ensureCast_ و گروهِ تخته فقط دستهٔ دستی",
+    "seriesCatReview_ + uiCatReview + خطِ روزانهٔ seriesCatLine_ (مسئله وقتی هیچ دسته‌دستیِ در نوبت نیست)",
+    "seriesParSave_: بی دستهٔ دستی یا با جزوه/نمودارِ خاموش رد می‌شود"
   ],
   "sourceReportIds": [],
   "answers": [
-    "R-20261025-33",
-    "R-20261025-34"
+    "R-20261025-35",
+    "R-20261025-36",
+    "R-20261025-37"
   ],
   "promptImpact": [],
   "promptImpactKinds": []

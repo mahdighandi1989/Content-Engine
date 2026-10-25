@@ -91,6 +91,8 @@ function seedVariety() {
                                     ' برای گرفتنِ امتیازِ لازم در سنجه‌ها.' }),
       '', '', '', ('خلاصهٔ اجراییِ شمارهٔ ' + i + ' با جزئیاتِ کافی. ').repeat(3), 'SUCCESS']);
   }
+  /* ۱۱.۷: تولید با رجیستریِ دسته‌خودکار سنجیده می‌شود، نه قاعدهٔ دسته (آن در run_owner115 §۱۰). */
+  CFG.SERIES_AUTO_CAT_TRUST = true;
   const ss = new Spread('s', CFG.VIDEO_SHEET_ID);
   const sh = ss.insertSheet('S1');
   sh._d.push(VH.slice()); rows.forEach(r => sh._d.push(r));

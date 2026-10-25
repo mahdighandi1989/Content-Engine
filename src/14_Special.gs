@@ -1572,7 +1572,7 @@ function produceSpecialEpisode(opt) {
       'قسمت ' + ('000' + epNum).slice(-3) + ' — ' +
       Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyyMMdd') + ' — ' +
       String(ep.title || '').slice(0, 60));
-    try { ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, seriesCatOf_(rec.vals)); }
+    try { ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, seriesCatTrusted_(rec.vals)); }   // ۱۱.۷: فقط دستهٔ دستی
     catch (eCast) { logLine_('نقش‌گزینیِ درس‌نامه انجام نشد: ' + eCast.message); }
 
     writeSpecialJson_(folder, {

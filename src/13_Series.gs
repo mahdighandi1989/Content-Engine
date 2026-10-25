@@ -1417,6 +1417,23 @@ function seriesCatOf_(vals) {
   return c || MISC_TITLE;
 }
 
+/* ══ دستهٔ دستی، تنها دسته‌ای که تصمیم می‌سازد (۱۱.۷) ══
+   `seriesCatOf_` برای نمایش و پوشه همان می‌ماند (دستی، وگرنه خودکار). هر جا دسته **تصمیم** می‌سازد — شروعِ مجموعهٔ تازه،
+   سنجاقِ دسته، انتخابِ گوینده، گروهِ تخته — از این‌جا می‌خوانَد: با `SERIES_AUTO_CAT_TRUST: false` فقط دستهٔ دستی، وگرنه
+   رفتارِ پیشین. */
+var SERIES_NOMAN_TITLE = 'بی دستهٔ دستی (دستهٔ خودکار فقط پیشنهاد است)';
+function seriesCatTrusted_(vals) {
+  var m = String(vals && vals[SC.MCAT - 1] !== undefined ? vals[SC.MCAT - 1] : '').trim();
+  if (m) return m;
+  return CFG.SERIES_AUTO_CAT_TRUST === false ? '' : seriesCatOf_(vals);
+}
+/** منشأِ دستهٔ نمایش‌داده: «دستی»، «خودکار (مدل)»، «خودکار (قاعده)» یا «حدس از نام». */
+function seriesCatOrigin_(vals) {
+  if (String(vals && vals[SC.MCAT - 1] || '').trim()) return 'دستی';
+  if (!String(vals && vals[SC.JUDGED - 1] || '').trim()) return 'حدس از نام';
+  return String(vals[SC.WHY - 1] || '').indexOf(JUDGE_LOCAL_MARK) !== -1 ? 'خودکار (قاعده)' : 'خودکار (مدل)';
+}
+
 /** زیر‌دستهٔ دستی، اگر تعیین شده باشد. */
 function seriesSubOf_(vals) {
   return String(vals && vals[SC.MSUB - 1] !== undefined ? vals[SC.MSUB - 1] : '').trim();
@@ -1592,7 +1609,7 @@ function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt, optsOpt) {
       // خوانده شده یا نه. وگرنه یک دورهٔ خرابِ بی‌ربط، سنجاقِ شما را «مسدود»
       // اعلام می‌کرد و بسته‌شدنِ درستِ سنجاقِ تمام‌شده را عقب می‌انداخت.
       var matches = (pin.kind === 'series' && reg.rows[i].key === pin.value) ||
-                    (pin.kind === 'cat' && seriesCatOf_(v) === String(pin.value).trim());
+                    (pin.kind === 'cat' && seriesCatTrusted_(v) === String(pin.value).trim());   // ۱۱.۷
       if (!matches) continue;
       // سنجاقِ یک دسته، موارد غیرآموزشیِ همان دسته را برنمی‌دارد؛ ولی سنجاقِ
       // یک مجموعهٔ مشخص یعنی «همین را می‌خواهم» و داوری را کنار می‌زند.
@@ -1635,7 +1652,11 @@ function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt, optsOpt) {
     if (!seriesEligible_(v, reg.rows[i].key, pin)) continue;
     if (st === SST.ACTIVE) actives.push(reg.rows[i]);
     else if (st === SST.REOPENED && !reopenedRec) reopenedRec = reg.rows[i];
-    else if (st === SST.NEW) queue.push(reg.rows[i]);
+    else if (st === SST.NEW) {
+      /* ۱۱.۷: مجموعهٔ تازه فقط وقتی شروع می‌شود که دسته یا شماره‌اش دستی باشد — ترتیبِ بقیه از دستهٔ خودکار می‌آید. */
+      if (CFG.SERIES_AUTO_CAT_TRUST === false && !seriesManualLock_(v)) { out.heldAuto = (out.heldAuto || 0) + 1; continue; }
+      queue.push(reg.rows[i]);
+    }
   }
   if (actives.length) {
     // تازه‌ترین مجموعه‌ای که رویش کار شده — یعنی همان‌جایی که سنجاق نصفه‌اش گذاشت
@@ -1791,6 +1812,14 @@ function seriesParPick_(hub, reg, parts, base, isSkipped) {
 function seriesParSave_(hub, key, on) {
   var reg = readSeriesReg_(hub), rec = reg.byKey[String(key || '').trim()];
   if (!rec) return { ok: false, message: 'مجموعه پیدا نشد.' };
+  if (on && CFG.SERIES_AUTO_CAT_TRUST === false && !String(rec.vals[SC.MCAT - 1] || '').trim()) {
+    /* ۱۱.۷: «هیچ تصمیمی روی دستهٔ خودکار» — مجموعهٔ موازی گوینده و جزوه‌اش را از دسته می‌گیرد. */
+    return { ok: false, message: 'اول برای «' + String(rec.vals[SC.NAME - 1] || rec.key) + '» دستهٔ دستی بگذارید («شماره و دستهٔ دستی»)؛ ' +
+                                 'دستهٔ خودکارش معتبر نیست و گوینده و جزوه از دسته می‌آیند.' };
+  }
+  if (on && (CFG.HANDOUT_ENABLED === false || CFG.HANDOUT_VIZ_ENABLED === false)) {
+    return { ok: false, message: 'جزوه یا نمودارهای جزوه در تنظیماتِ کد خاموش است؛ تا روشن نشود تولیدِ موازی باز نمی‌شود.' };
+  }
   if (on) {
     var n = seriesParList_(reg).filter(function (r) { return r.key !== rec.key; }).length;
     var mx = Math.max(1, Number(CFG.SERIES_PAR_MAX) || 3);
@@ -1811,4 +1840,79 @@ function seriesParStatus_(hub, reg) {
              line: t.length ? '⇄ تولیدِ موازیِ درس‌نامه روشن: ' + t.map(function (r) { return '«' + String(r.vals[SC.NAME - 1] || r.key) + '»'; }).join('، ') +
                               ' + مجموعهٔ جاری، یک‌درمیان (هر روز آنکه دیرتر قسمت گرفته).' : '' };
   } catch (e) { return { on: false, ticked: [], line: '' }; }
+}
+
+/* ═══════ بازبینیِ دسته‌ها (۱۱.۷) ═══════
+   «فهرستِ همهٔ مجموعه‌ها را با دستهٔ فعلی، منشأِ دسته (دستی/خودکار) و موضوعِ واقعی بدهید تا در شیت بازبینی و اصلاح کنیم.»
+   تبِ «بازبینیِ دستهٔ مجموعه‌ها» **فقط‌خواندنی** است و هر بار از نو ساخته می‌شود — اصلاح در ستونِ «دستهٔ دستی»ِ رجیستری یا
+   دکمهٔ «شماره و دستهٔ دستی»ِ تخته است (همان‌جا که `seriesCatOf_` می‌خوانَد؛ و دکمه پوشهٔ درایو را هم جابه‌جا می‌کند).
+   همان فهرست به تلگرام هم می‌رود: صاحبِ کانال شیت باز نمی‌کند (۵.۹۰). */
+var SERIES_CAT_REVIEW_HEADERS = ['کلید', 'نامِ مجموعه', 'دستهٔ فعلی', 'منشأ', 'دستهٔ خودکار', 'دستهٔ دستی', 'موضوعِ واقعی (از محتوا)',
+                                 'آموزشی؟', 'وضعیت', 'قسمت‌های ساخته‌شده', 'فعال (موازی)', 'دلیلِ داوری'];
+
+function seriesCatReviewRows_(reg) {
+  var out = [];
+  for (var i = 0; i < reg.rows.length; i++) {
+    var v = reg.rows[i].vals;
+    out.push([reg.rows[i].key, String(v[SC.NAME - 1] || ''), seriesCatOf_(v), seriesCatOrigin_(v),
+              String(v[SC.CAT - 1] || ''), String(v[SC.MCAT - 1] || ''),
+              String(v[SC.ABOUT - 1] || v[SC.TOPIC - 1] || '—'), String(v[SC.IS_COURSE - 1] || ''),
+              String(v[SC.STATUS - 1] || ''), epNumsOf_(v[SC.EPISODES - 1]).length, seriesParOn_(v) ? 'بله' : '',
+              String(v[SC.WHY - 1] || '').slice(0, 300)]);
+  }
+  out.sort(function (a, b) {
+    var ma = a[3] === 'دستی' ? 0 : 1, mb = b[3] === 'دستی' ? 0 : 1;
+    if (ma !== mb) return ma - mb;
+    return a[2] !== b[2] ? (a[2] < b[2] ? -1 : 1) : (a[1] < b[1] ? -1 : 1);
+  });
+  return out;
+}
+
+/** تب را از نو می‌سازد و (اگر `tg`) فهرست را به تلگرام می‌فرستد. ⇒ {n, manual, auto, sent} */
+function seriesCatReview_(hub, tg) {
+  hub = hub || getHub_();
+  var reg = readSeriesReg_(hub), rows = seriesCatReviewRows_(reg);
+  var sh = ensureTab_(hub, CFG.SERIES_CAT_REVIEW_TAB || 'بازبینیِ دستهٔ مجموعه‌ها', SERIES_CAT_REVIEW_HEADERS);
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, SERIES_CAT_REVIEW_HEADERS.length).clearContent();
+  if (rows.length) sh.getRange(2, 1, rows.length, SERIES_CAT_REVIEW_HEADERS.length).setValues(rows);
+  var man = rows.filter(function (r) { return r[3] === 'دستی'; }).length;
+  var out = { n: rows.length, manual: man, auto: rows.length - man, sent: false };
+  if (tg) {
+    try {
+      var L = ['بازبینیِ دستهٔ مجموعه‌های آموزشی — ' + nowStr_(), out.n + ' مجموعه: ' + man + ' دسته‌دستی، ' + out.auto +
+               ' فقط دستهٔ خودکار (در هیچ تصمیمی به کار نمی‌رود).', 'اصلاح: تخته ← «شماره و دستهٔ دستی»، یا ستونِ «دستهٔ دستی» در «' +
+               CFG.SERIES_TAB + '».', ''];
+      rows.forEach(function (r, i) {
+        L.push((i + 1) + ') ' + r[1] + '  [' + r[0] + ']');
+        L.push('   دستهٔ فعلی: ' + r[2] + ' — ' + r[3] + (r[3] !== 'دستی' && r[4] ? '' : '') + ' · وضعیت: ' + r[8] + ' · قسمت: ' + r[9] +
+               (r[10] ? ' · موازی' : ''));
+        L.push('   موضوعِ واقعی: ' + r[6]);
+        L.push('');
+      });
+      tgApi_('sendDocument', { chat_id: tgChat_(), document: Utilities.newBlob(L.join('\n'), 'text/plain', 'بازبینیِ دستهٔ مجموعه‌ها.txt'),
+                               caption: '🗂 فهرستِ همهٔ ' + out.n + ' مجموعه با دستهٔ فعلی، منشأ و موضوعِ واقعی — ' + man + ' دسته‌دستی' });
+      out.sent = true;
+    } catch (eT) { out.why = String(eT.message || eT).slice(0, 100); }
+  }
+  return out;
+}
+
+/** خطِ روزانه، و مسئله‌ای وقتی پس از مجموعهٔ جاری هیچ مجموعهٔ دسته‌دستی در نوبت نیست. ⇒ {line, problem} */
+function seriesCatLine_(reg) {
+  var man = 0, auto = 0, nextMan = 0, held = 0;
+  for (var i = 0; i < reg.rows.length; i++) {
+    var v = reg.rows[i].vals, st = String(v[SC.STATUS - 1] || '');
+    if (st === SST.SKIPPED) continue;
+    if (String(v[SC.MCAT - 1] || '').trim()) man++; else auto++;
+    if (st === SST.NEW && seriesEligible_(v, reg.rows[i].key, null)) { if (seriesManualLock_(v)) nextMan++; else held++; }
+  }
+  var trust = CFG.SERIES_AUTO_CAT_TRUST !== false;
+  return {
+    line: '🗂 دستهٔ مجموعه‌ها: ' + man + ' دسته‌دستی، ' + auto + ' فقط خودکار' +
+          (trust ? ' (دستهٔ خودکار هم تصمیم می‌سازد — SERIES_AUTO_CAT_TRUST روشن)' : ' — دستهٔ خودکار در هیچ تصمیمی به کار نمی‌رود') +
+          ' · در نوبت: ' + nextMan + ' دستی، ' + held + ' منتظرِ دستهٔ دستی.',
+    /* فقط وقتی چیزی واقعاً منتظر است و هیچ‌کدام دستی نیست — رجیستریِ خالی یا تمام‌شده این مسئله نیست. */
+    problem: (!trust && !nextMan && held) ? '⚠️ هیچ مجموعهٔ دسته‌دستیِ «در نوبت» نیست: وقتی مجموعهٔ جاری تمام شود، درس‌نامهٔ تازه‌ای شروع نمی‌شود — ' +
+                                     'در تخته برای مجموعهٔ بعدی «شماره و دستهٔ دستی» بگذارید (یا سنجاقش کنید).' : ''
+  };
 }

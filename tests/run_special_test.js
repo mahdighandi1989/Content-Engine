@@ -128,6 +128,9 @@ function mkSheet(id, tabs) {
   global.__SS[id] = ss; return ss;
 }
 const SRC = {};
+/* ۱۱.۷: این مجموعه ترتیب و گروهِ «دستهٔ خودکار» را می‌سنجد — همان رفتاری که با SERIES_AUTO_CAT_TRUST هنوز در دسترس است.
+   رفتارِ پیش‌فرضِ تازه (فقط دستهٔ دستی) در run_owner115_test §۱۰ سنجیده می‌شود. */
+CFG.SERIES_AUTO_CAT_TRUST = true;
 CFG.SOURCES.forEach(s => SRC[s.key] = s);
 mkSheet(SRC.trading.id, [
   { name: 'Video Analysis', hdr: TVH, rows: shuffled },

@@ -95,6 +95,9 @@ function mkSheet(id, tabs) {
     t.rows.forEach(r => sh._d.push(r.slice())); sh._max = Math.max(1000, sh._d.length + 20); });
   global.__SS[id] = ss; return ss;
 }
+/* ۱۱.۷: این مجموعه ترتیب و گروهِ «دستهٔ خودکار» را می‌سنجد — همان رفتاری که با SERIES_AUTO_CAT_TRUST هنوز در دسترس است.
+   رفتارِ پیش‌فرضِ تازه (فقط دستهٔ دستی) در run_owner115_test §۱۰ سنجیده می‌شود. */
+CFG.SERIES_AUTO_CAT_TRUST = true;
 const SRC = {}; CFG.SOURCES.forEach(s => SRC[s.key] = s);
 mkSheet(SRC.trading.id, [{ name: 'Video Analysis', hdr: TVH, rows: tv }]);
 mkSheet(SRC.general.id, [{ name: 'Document Analysis', hdr: GDH, rows: dv }]);

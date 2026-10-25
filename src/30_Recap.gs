@@ -1037,7 +1037,7 @@ function runRecapEpisode(opt) {
     String(ep.title || '').slice(0, 50));
 
   try {
-    ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, seriesCatOf_(pick.rec.vals));
+    ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, seriesCatTrusted_(pick.rec.vals));   // ۱۱.۷
     recapCast_(ep);
   } catch (eCast) { logLine_('نقش‌گزینیِ مرور انجام نشد: ' + eCast.message); }
 

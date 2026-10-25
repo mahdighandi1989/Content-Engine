@@ -72,6 +72,8 @@ function mkSheet(id, tabs) {
     t.rows.forEach(r => sh._d.push(r.slice())); sh._max = Math.max(2000, sh._d.length + 20); });
   global.__SS[id] = ss; return ss;
 }
+/* ۱۱.۷: این مجموعه تولید را با رجیستریِ دسته‌خودکار می‌سنجد، نه قاعدهٔ دسته را (آن در run_owner115 §۱۰). */
+CFG.SERIES_AUTO_CAT_TRUST = true;
 const SRC = {}; CFG.SOURCES.forEach(s => SRC[s.key] = s);
 mkSheet(SRC.trading.id, [{ name: 'Video Analysis', hdr: TVH, rows: rows }]);
 CFG.SOURCES.forEach(s => { if (!global.__SS[s.id]) { const ss = new Spread('s', s.id);
