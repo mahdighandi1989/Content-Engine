@@ -62,17 +62,50 @@ const resetProps = (keys) => keys.forEach((k) => { delete global.__PROPS[k]; });
 
 /* ── ۲) سازوکارِ خاموش‌کردنِ یک برنامه در یوتیوب ──
    ۱۱.۱: پیش‌فرض خالی است («از همه جا» متوقف نشود، فقط علمی)؛ سازوکار با فهرستِ پُر سنجیده می‌شود. */
-ok('۲.۰ (۱۱.۱) پیش‌فرض: هیچ برنامه‌ای در یوتیوب خاموش نیست', Array.isArray(CFG.YT_SHOWS_OFF) && CFG.YT_SHOWS_OFF.length === 0 && ytShowsOffLine_() === '');
+ok('۲.۰ (۱۱.۱) پیش‌فرض: هیچ برنامه‌ای در یوتیوب خاموش نیست', Array.isArray(CFG.YT_SHOWS_OFF) && CFG.YT_SHOWS_OFF.length === 0 && !/متوقف/.test(ytShowsOffLine_()));
+/* ── ۲-ب) ۱۱.۲: ۶۴ قسمتِ قدیمیِ «از همه جا» خصوصی شدند؛ تازه‌ها عادی ── */
+{
+  resetProps([PK.YT_DUE, PK.YT_DUE_PARKED]);
+  ok('۲-ب.۱ کفِ شماره: variety زیرِ ۸۴ بیرون، ۸۴ و بعد درون؛ درس‌نامه بی کف',
+     ytItemOff_({ show: 'variety', ep: '83' }) && ytItemOff_({ show: 'variety', ep: '12' }) && !ytItemOff_({ show: 'variety', ep: '84' }) &&
+     !ytItemOff_({ show: 'variety', ep: '90' }) && !ytItemOff_({ show: 'special', ep: '3' }));
+  ok('۲-ب.۲ قسمتِ قدیمی به صف نمی‌رود، تازه می‌رود', ytDueAdd_('variety', '71', 'F71') === 0 && ytDueAdd_('variety', '84', 'F84') === 1);
+  global.__PROPS[PK.YT_DUE] = JSON.stringify([{ key: 'variety:83', show: 'variety', ep: '83', folderId: 'F83', replace: 'qa-11.1' },
+                                              { key: 'variety:84', show: 'variety', ep: '84', folderId: 'F84' }]);
+  const l = ytDueList_();
+  ok('۲-ب.۳ ردیفِ قدیمیِ صف (حتی ساختِ دوبارهٔ qa) کنار می‌رود و برنمی‌گردد', l.length === 1 && l[0].key === 'variety:84' &&
+     ytDueParked_().some((x) => x.key === 'variety:83') && ytDueList_().length === 1);
+  ok('۲-ب.۴ خطِ روزانه کف را می‌گوید', /زیرِ ۸۴/.test(ytShowsOffLine_()) && /عادی منتشر می‌شوند/.test(ytShowsOffLine_()));
+  /* آپلودِ دوباره: قسمتی که ویدئوی منتشرشده‌اش خصوصی است، دوباره بالا نمی‌رود — حتی درس‌نامه، حتی با «جایگزینی». */
+  const sv = { ytSvc_: global.ytSvc_, ytQuotaTake_: global.ytQuotaTake_, DriveApp: global.DriveApp, ytEpInProd_: global.ytEpInProd_ };
+  for (const k in YT_PRIV_SEEN_) delete YT_PRIV_SEEN_[k];
+  const ins = [];
+  global.ytSvc_ = () => ({ Videos: { list: (p, o) => ({ items: [{ status: { privacyStatus: o.id === 'OLDP' ? 'private' : 'public' } }] }),
+                                     insert: () => { ins.push(1); return { id: 'NEW' }; } } });
+  global.ytQuotaTake_ = () => true;
+  global.ytEpInProd_ = () => false;
+  global.DriveApp = Object.assign({}, global.DriveApp || {}, { getFolderById: (id) => ({ getId: () => id, getFiles: () => ({ hasNext: () => false }), getFilesByName: () => ({ hasNext: () => false }) }) });
+  global.__PROPS[PK.YT_DUE] = JSON.stringify([{ key: 'special:50', show: 'special', ep: '50', folderId: 'S50', replace: 'r1' }]);
+  const r = ytUploadOne_({ key: 'special:50', show: 'special', ep: '50', folderId: 'S50', replace: 'r1' }, {}, { 'special:50': { videoId: 'OLDP' } });
+  ok('۲-ب.۵ ویدئوی قبلیِ خصوصی ⇒ هیچ آپلود، از صف بیرون و کنار (نه پاک)', !ins.length && /خصوصی/.test(r.why) &&
+     !ytDueList_().some((x) => x.key === 'special:50') && ytDueParked_().some((x) => x.key === 'special:50'), r.why);
+  const r2 = ytUploadOne_({ key: 'special:51', show: 'special', ep: '51', folderId: 'S51' }, {}, { 'special:51': { videoId: 'OKPUB' } });
+  ok('۲-ب.۶ ویدئوی قبلیِ عمومی ⇒ محافظ کنار می‌ایستد (درس‌نامه و جایگزینی‌اش مثلِ قبل)', !/خصوصی/.test(String(r2.why)), r2.why);
+  Object.assign(global, sv);
+  resetProps([PK.YT_DUE, PK.YT_DUE_PARKED]);
+  const src = require('fs').readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۲-ب.۷ جایگزینی پیش از آغاز می‌پرسد', /ytItemOff_\(\{ show: showK, ep: ep \}\) \|\| ytHandsOff_\(rec\.videoId, 'جایگزینی'\)/.test(src));
+}
 {
   CFG.YT_SHOWS_OFF = ['variety'];
   resetProps([PK.YT_DUE, PK.YT_DUE_PARKED]);
   global.__PROPS[PK.YT_DUE] = JSON.stringify([
-    { key: 'variety:80', show: 'variety', ep: '80', folderId: 'F80' },
+    { key: 'variety:90', show: 'variety', ep: '90', folderId: 'F90' },
     { key: 'special:84', show: 'special', ep: '84', folderId: 'S84' }]);
   const l = ytDueList_();
   ok('۲.۱ صف فقط درس‌نامه را نشان می‌دهد', l.length === 1 && l[0].key === 'special:84');
-  ok('۲.۲ ردیفِ از همه جا پاک نشد، کنار رفت', ytDueParked_().some((x) => x.key === 'variety:80'));
-  ok('۲.۳ ردیفِ تازهٔ از همه جا به صف نمی‌رود', ytDueAdd_('variety', '85', 'F85') === 0 && !ytDueList_().some((x) => x.show === 'variety'));
+  ok('۲.۲ ردیفِ از همه جا پاک نشد، کنار رفت', ytDueParked_().some((x) => x.key === 'variety:90'));
+  ok('۲.۳ ردیفِ تازهٔ از همه جا به صف نمی‌رود', ytDueAdd_('variety', '95', 'F95') === 0 && !ytDueList_().some((x) => x.show === 'variety'));
   ok('۲.۴ درس‌نامه همچنان به صف می‌رود', ytDueAdd_('special', '85', 'S85', 'k', 'n') === 1);
   ok('۲.۵ خطِ روزانه می‌گوید متوقف و چه کنار رفت', /متوقف/.test(ytShowsOffLine_()) && /کنار گذاشته شده/.test(ytShowsOffLine_()));
   const vs = vmStatus_();
@@ -80,14 +113,14 @@ ok('۲.۰ (۱۱.۱) پیش‌فرض: هیچ برنامه‌ای در یوتیو�
   const keepOff = CFG.YT_SHOWS_OFF;
   CFG.YT_SHOWS_OFF = [];
   const back = ytDueList_();
-  ok('۲.۷ روشن‌کردنِ دوباره ⇒ کنارگذاشته‌ها خودشان برمی‌گردند', back.some((x) => x.key === 'variety:80') && !ytDueParked_().length);
+  ok('۲.۷ روشن‌کردنِ دوباره ⇒ کنارگذاشته‌ها خودشان برمی‌گردند', back.some((x) => x.key === 'variety:90') && !ytDueParked_().length);
   CFG.YT_SHOWS_OFF = keepOff;
   ok('۲.۸ تنظیماتِ پادکست دست نخورده (VM و دستهٔ یوتیوب سرِ جایشان)', CFG.YT_CATEGORY_VARIETY === '22' && typeof CFG.VM_MAX_MB !== 'undefined');
   resetProps([PK.YT_DUE, PK.YT_DUE_PARKED]);
   CFG.YT_SHOWS_OFF = [];
   /* ۱۱.۱: نصبِ ۱۱.۰ ردیف‌ها را کنار گذاشته باشد ⇒ با پیش‌فرضِ تازه خودشان برمی‌گردند. */
-  global.__PROPS[PK.YT_DUE_PARKED] = JSON.stringify([{ key: 'variety:81', show: 'variety', ep: '81', folderId: 'F81' }]);
-  ok('۲.۹ (۱۱.۱) کنارگذاشته‌های ۱۱.۰ با پیش‌فرضِ تازه به صف برمی‌گردند', ytDueList_().some((x) => x.key === 'variety:81') && !ytDueParked_().length);
+  global.__PROPS[PK.YT_DUE_PARKED] = JSON.stringify([{ key: 'variety:91', show: 'variety', ep: '91', folderId: 'F91' }]);
+  ok('۲.۹ (۱۱.۱) کنارگذاشته‌های ۱۱.۰ با پیش‌فرضِ تازه به صف برمی‌گردند', ytDueList_().some((x) => x.key === 'variety:91') && !ytDueParked_().length);
   resetProps([PK.YT_DUE, PK.YT_DUE_PARKED]);
 }
 

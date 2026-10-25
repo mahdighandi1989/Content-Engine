@@ -91,6 +91,7 @@ CFG.LV_CLIP_ON = true;
 /* ۱۱.۰: انتشارِ «از همه جا» خاموش است (YT_SHOWS_OFF)، ولی سازوکارِ صف و پلی‌لیستِ هر دو برنامه برای کانالِ آینده سالم می‌ماند —
    این مجموعه همان سازوکار را با هر دو برنامهٔ روشن می‌سنجد؛ حالتِ خاموش در run_owner110_test §۲. */
 CFG.YT_SHOWS_OFF = [];
+CFG.YT_SHOW_MIN_EP = {};   // ۱۱.۲: کفِ شماره هم — این مجموعه با قسمت‌های کم‌شماره کار می‌کند؛ کف در run_owner110_test §۲-ب
 
 let pass = 0;
 const ok = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d ? ' — ' + d : ''));
@@ -8551,7 +8552,7 @@ console.log('\n=== ۸۷) جایگزینیِ ویدئوی منتشرشده: تا�
   ok('۸۷.۱ آغاز: ویدئوی قبلیِ پوشه کنار می‌رود (نه سطل)، کلیپ و کارت‌ها از نو، قسمت با «replace» در صف؛ به یوتیوب دست نمی‌خورد',
      t1.prepped === 1 && st1.phase === 'build' && st1.oldVid === 'OLD62' && !ytVideoIn_(f) && subMp4 === 1 &&
      d1.clip && d1.clip.state === '' && !d1.ovFillAt && due1.replace === 'r1' && due1.folderId === 'EPRPL' &&
-     yc.list === 0 && !yc.upd.length && !yc.rm.length,
+     yc.list <= 1 && !yc.upd.length && !yc.rm.length,   // ۱۱.۲: یک خواندنِ وضعیت (خصوصی است؟) پیش از جایگزینی؛ هیچ تغییری
      JSON.stringify({ t1, st1, clip: d1.clip, due1, subMp4 }));
   ok('۸۷.۲ دورِ دوم پیش از ساخت کاری نمی‌کند — قبلی سرِ جایش، صف همان',
      ytReplaceTick_(60000, hub).prepped === 0 && ytDueList_().filter((x) => x.key === 'special:62').length === 1 &&
@@ -8597,7 +8598,7 @@ console.log('\n=== ۸۷) جایگزینیِ ویدئوی منتشرشده: تا�
   ytReplaceTick_(60000, hub);
   const st3 = ytReplState_()['special:62'];
   ok('۸۷.۶ تازه هنوز عمومی نیست ⇒ قبلی دست نمی‌خورد (از خودِ یوتیوب پرسیده شد، نه از دفتر)',
-     st3.phase === 'swap' && st3.newVid === 'NEW62' && yc.list === 1 && !yc.upd.length && !yc.rm.length &&
+     st3.phase === 'swap' && st3.newVid === 'NEW62' && yc.list >= 1 && !yc.upd.length /* ۱۱.۲: به‌علاوهٔ یک خواندنِ «خصوصی است؟» سرِ آغاز */ && !yc.rm.length &&
      /هنوز unlisted/.test(st3.why), JSON.stringify(st3));
   yc.priv = 'public';
   const tg = [], tgWas = global.tgApi_, tgEnWas = global.tgEnabled_;

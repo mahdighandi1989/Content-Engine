@@ -2490,10 +2490,10 @@ function ytDueList_() {
   try {
     var park = ytDueParked_(), moved = 0, keep = [], back = [];
     for (var i = 0; i < a.length; i++) {
-      if (ytShowOff_(a[i] && a[i].show)) { park.push(a[i]); moved++; } else keep.push(a[i]);
+      if (ytItemOff_(a[i])) { park.push(a[i]); moved++; } else keep.push(a[i]);
     }
     for (var j = 0; j < park.length; j++) {
-      if (!ytShowOff_(park[j] && park[j].show)) back.push(park[j]);
+      if (!ytItemOff_(park[j]) && !park[j].why) back.push(park[j]);   // «خصوصی» (۱۱.۲) برنمی‌گردد
     }
     if (moved || back.length) {
       var rest = park.filter(function (x) { return back.indexOf(x) === -1; });
@@ -2514,6 +2514,19 @@ function ytShowOff_(show) {
   return !!show && off.indexOf(String(show)) !== -1;
 }
 
+/**
+ * ۱۱.۲: این ردیفِ صف بیرون از انتشار است؟ برنامهٔ خاموش، یا قسمتِ زیرِ کفِ `YT_SHOW_MIN_EP` — «۶۴ قسمتِ قدیمیِ از همه جا
+ * را خصوصی کردم؛ قسمت‌های علمیِ تازه عادی عمومی شوند». کفِ شماره یعنی قسمتِ تازه بی هیچ فهرستی منتشر می‌شود و قدیمی‌ها،
+ * حتی آن‌ها که هیچ‌وقت بالا نرفته بودند، هیچ‌وقت.
+ */
+function ytItemOff_(it) {
+  if (!it) return false;
+  if (ytShowOff_(it.show)) return true;
+  var floor = Number((CFG.YT_SHOW_MIN_EP || {})[String(it.show)]) || 0;
+  var n = parseInt(String(it.ep || '').replace(/[^\d]/g, ''), 10);
+  return floor > 0 && n > 0 && n < floor;
+}
+
 /** ردیف‌های کنارگذاشتهٔ صف (۱۱.۰). */
 function ytDueParked_() {
   try {
@@ -2525,7 +2538,11 @@ function ytDueParked_() {
 /** خطِ روزانه (۱۱.۰) — خالی وقتی هیچ برنامه‌ای خاموش نیست. */
 function ytShowsOffLine_() {
   var off = CFG.YT_SHOWS_OFF || [];
-  if (!off.length) return '';
+  var fl = CFG.YT_SHOW_MIN_EP || {}, flK = Object.keys(fl).filter(function (k) { return Number(fl[k]) > 0; });
+  var flLine = flK.length ? '🔒 قسمت‌های قدیمی بیرون از انتشارِ یوتیوب: ' + flK.map(function (k) {
+      return (k === ENRICH_SHOW_VARIETY ? '«' + CFG.SHOW_NAME + '»' : k) + ' زیرِ ' + faDigitsOut_(String(fl[k]));
+    }).join('، ') + ' — نه آپلودِ تازه، نه جایگزینی، نه ساختِ دوباره؛ قسمت‌های بعد عادی منتشر می‌شوند.' : '';
+  if (!off.length) return flLine;
   var names = off.map(function (k) { return k === ENRICH_SHOW_VARIETY ? '«' + CFG.SHOW_NAME + '»' : k === ENRICH_SHOW_SPECIAL ? '«' + CFG.SPECIAL_SHOW_NAME + '»' : k; });
   var n = ytDueParked_().length;
   return '⏸ انتشار در یوتیوب برای ' + names.join(' و ') + ': متوقف — ' + (CFG.YT_SHOWS_OFF_WHY || 'به خواستِ شما') +
@@ -2604,7 +2621,7 @@ function ytDueSave_(list) {
 }
 
 function ytDueAdd_(show, ep, folderId, seriesKey, seriesName) {
-  if (ytShowOff_(show)) return 0;                // ۱۱.۰: برنامهٔ خاموش به صف نمی‌رود
+  if (ytItemOff_({ show: show, ep: ep })) return 0;   // ۱۱.۰/۱۱.۲: برنامهٔ خاموش یا قسمتِ زیرِ کف به صف نمی‌رود
   var l = ytDueList_(), k = String(show) + ':' + String(ep);
   for (var i = 0; i < l.length; i++) if (String(l[i].key) === k) return 0;
   l.push({ key: k, show: String(show), ep: String(ep),
@@ -9775,6 +9792,21 @@ function ytUploadOne_(item, hub, pub) {
   if (ytEpInProd_(item.show, folder.getId())) {
     res.waiting = true; res.why = 'قسمت هنوز در ساخت است (صدا تمام نشده)'; return res;
   }
+  /* ۱۱.۲: قسمتی که ویدئوی منتشرشده‌اش خصوصی است، هیچ‌وقت دوباره بالا نمی‌رود — هر راهی که آن را به صف آورده باشد
+     (جایگزینی، ساختِ دوبارهٔ پس از سنجش، پیمایش). صاحبِ کانال ۶۴ قسمتِ «از همه جا» را خصوصی کرد؛ آپلودِ تازه یعنی
+     همان قسمت، عمومی، با شناسهٔ دیگر — که محافظِ «دست نزن» نمی‌بیند چون ویدئو تازه است. */
+  try {
+    var prevRec = (pub || {})[String(item.key || (item.show + ':' + item.ep))];
+    if (ytItemOff_(item) || (prevRec && prevRec.videoId && ytHandsOff_(prevRec.videoId, 'آپلودِ دوباره'))) {
+      ytDueDrop_(String(item.key || (item.show + ':' + item.ep)));
+      try {
+        var pk0 = ytDueParked_(); pk0.push(Object.assign({}, item, { why: 'خصوصی یا بیرون از انتشار', at: nowStr_() }));
+        props_().setProperty(PK.YT_DUE_PARKED, JSON.stringify(pk0.slice(-200)));
+      } catch (ePk) {}
+      res.why = 'ویدئوی این قسمت خصوصی است یا قسمت بیرون از انتشار است — دوباره بالا نمی‌رود';
+      return res;
+    }
+  } catch (ePv) {}
   var meta = ytEpisodeMeta_(folder);
   if (!meta || !meta.ep) { res.why = 'پروندهٔ قسمت (‌_episode/_special.json) نبود'; return res; }
   var ep = meta.ep;
@@ -11043,6 +11075,11 @@ function ytReplaceTick_(budgetMs, hubIn) {
         if (!rec || !rec.videoId) {
           st[key] = { tag: tag, phase: 'skip', at: nowStr_(), notPub: true,
                       why: 'این قسمت هنوز منتشر نشده؛ انتشارِ عادی همان ویدئوی تازه را می‌سازد' };
+          changed = true; continue;
+        }
+        /* ۱۱.۲: جایگزینی یعنی ویدئوی **تازه**ای که عمومی می‌شود — قسمتی که او خصوصی کرده، از این راه برنمی‌گردد. */
+        if (ytItemOff_({ show: showK, ep: ep }) || ytHandsOff_(rec.videoId, 'جایگزینی')) {
+          st[key] = { tag: tag, phase: 'skip', at: nowStr_(), why: 'ویدئوی این قسمت خصوصی است یا قسمت بیرون از انتشار است — جایگزین نمی‌شود' };
           changed = true; continue;
         }
         var rq = ytRenderRead_(), folderId = '';
