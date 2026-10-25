@@ -2262,7 +2262,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '11.7',
+  CODE_VERSION: '11.8',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3442,7 +3442,8 @@ var PK = {
   YT_QUOTA: 'YT_QUOTA_DAY',        // سهمیهٔ مصرف‌شدهٔ امروز
   YT_DUE_PARKED: 'YT_DUE_PARKED',  // ۱۱.۰: ردیف‌های صفِ برنامه‌ای که انتشارش خاموش است (YT_SHOWS_OFF) — کنار، نه پاک
   YT_OWNER_PRIVATE: 'YT_OWNER_PRIVATE', // ۱۱.۰: ویدئوهایی که خصوصی دیده شدند — موتور دست نمی‌زند
-  YT_DESC_MINE: 'YT_DESC_MINE',    // ۱۱.۶: اثرِ انگشتِ توضیحی که موتور نوشت {videoId: fp} — ویرایشِ Studio از روی آن شناخته می‌شود
+  YT_DESC_MINE: 'YT_DESC_MINE',
+  YT_CHAN_MINE: 'YT_CHAN_MINE',    // ۱۱.۸: اثرِ انگشتِ «دربارهٔ کانال» و کلیدواژه‌هایی که موتور نوشت    // ۱۱.۶: اثرِ انگشتِ توضیحی که موتور نوشت {videoId: fp} — ویرایشِ Studio از روی آن شناخته می‌شود
   YT_DESC_ARCH: 'YT_DESC_ARCH',    // ۱۱.۰: بایگانیِ توضیحاتِ ویدئوهای بلند در تلگرام {rev, done[], at}
   IG_PATTERN: 'IG_PATTERN',        // ۱۱.۰: الگوی ساعت/قالبِ ریلزها (igPattern_) — کلیدِ جدا از IG_STATE
   CAT_LOCK_LAST: 'CAT_LOCK_LAST',

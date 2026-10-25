@@ -1,19 +1,17 @@
 {
-  "version": "11.7",
+  "version": "11.8",
   "codeFile": "engine.gs",
-  "sha256": "78dd57ade84334baf836d2faa568f9685b5169e23475688dfd55d2070380f8e8",
-  "releasedAt": "2026-10-25T13:25:32Z",
-  "summary": "دستهٔ خودکارِ مجموعه‌ها فقط پیشنهاد است؛ فهرستِ بازبینیِ دسته‌ها؛ تیکِ موازی فقط برای دسته‌دستی",
+  "sha256": "1f1c3956aff0d054e896b5473e04e33f9e58e6dcbe5dedec0df7a33ecbdc3d75",
+  "releasedAt": "2026-10-25T13:55:25Z",
+  "summary": "قفلِ دست‌نوشتهٔ Studio برای پلی‌لیست‌ها و دربارهٔ کانال؛ گزارشِ کاملِ درخواست‌ها",
   "fixes": [
-    "SERIES_AUTO_CAT_TRUST:false + seriesCatTrusted_: صف، سنجاقِ دسته، ensureCast_ و گروهِ تخته فقط دستهٔ دستی",
-    "seriesCatReview_ + uiCatReview + خطِ روزانهٔ seriesCatLine_ (مسئله وقتی هیچ دسته‌دستیِ در نوبت نیست)",
-    "seriesParSave_: بی دستهٔ دستی یا با جزوه/نمودارِ خاموش رد می‌شود"
+    "ytPlDescSync_/ytPlEnsure_: متنِ زنده پیش از نوشتن؛ نامِ زنده می‌ماند؛ توضیحِ دست‌نوشته دست نمی‌خورد (ytPlHuman_)",
+    "ytChannelSync_: دربارهٔ کانالِ دست‌نوشته دست نمی‌خورد (ytChanHuman_، PK.YT_CHAN_MINE)",
+    "tools/requests_report.py ⇒ docs/requests_report.md"
   ],
   "sourceReportIds": [],
   "answers": [
-    "R-20261025-35",
-    "R-20261025-36",
-    "R-20261025-37"
+    "R-20261025-38"
   ],
   "promptImpact": [],
   "promptImpactKinds": []

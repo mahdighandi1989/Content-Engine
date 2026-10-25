@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 11.7
+ *  موتور محتوا و پادکست — نسخهٔ 11.8
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2281,7 +2281,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '11.7',
+  CODE_VERSION: '11.8',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3461,7 +3461,8 @@ var PK = {
   YT_QUOTA: 'YT_QUOTA_DAY',        // سهمیهٔ مصرف‌شدهٔ امروز
   YT_DUE_PARKED: 'YT_DUE_PARKED',  // ۱۱.۰: ردیف‌های صفِ برنامه‌ای که انتشارش خاموش است (YT_SHOWS_OFF) — کنار، نه پاک
   YT_OWNER_PRIVATE: 'YT_OWNER_PRIVATE', // ۱۱.۰: ویدئوهایی که خصوصی دیده شدند — موتور دست نمی‌زند
-  YT_DESC_MINE: 'YT_DESC_MINE',    // ۱۱.۶: اثرِ انگشتِ توضیحی که موتور نوشت {videoId: fp} — ویرایشِ Studio از روی آن شناخته می‌شود
+  YT_DESC_MINE: 'YT_DESC_MINE',
+  YT_CHAN_MINE: 'YT_CHAN_MINE',    // ۱۱.۸: اثرِ انگشتِ «دربارهٔ کانال» و کلیدواژه‌هایی که موتور نوشت    // ۱۱.۶: اثرِ انگشتِ توضیحی که موتور نوشت {videoId: fp} — ویرایشِ Studio از روی آن شناخته می‌شود
   YT_DESC_ARCH: 'YT_DESC_ARCH',    // ۱۱.۰: بایگانیِ توضیحاتِ ویدئوهای بلند در تلگرام {rev, done[], at}
   IG_PATTERN: 'IG_PATTERN',        // ۱۱.۰: الگوی ساعت/قالبِ ریلزها (igPattern_) — کلیدِ جدا از IG_STATE
   CAT_LOCK_LAST: 'CAT_LOCK_LAST',
@@ -53033,6 +53034,10 @@ function ytPlEnsure_(key, title, desc) {
   if (rec && rec.id) {
     // نام عوض شده؟ فقط آن‌وقت به‌روزرسانی — وگرنه هر شب پنجاه واحد بی‌دلیل
     if (String(rec.title || '') === String(body.snippet.title)) return rec.id;
+    /* ۱۱.۸: تغییرِ نام از تخته (تصمیمِ صریحِ شما) اعمال می‌شود، ولی توضیحِ زنده — شاید دست‌نوشته — همان می‌ماند. */
+    var liveR = ytPlLive_(yt, rec.id);
+    if (!liveR) return rec.id;
+    body.snippet.description = liveR.desc;
     if (!ytQuotaTake_(YT_COST.playlistsUpdate, false)) return rec.id;
     try {
       body.id = rec.id;
@@ -65326,11 +65331,18 @@ function ytPlDescSync_(budgetMs) {
     out.checked++;
     var sig = sha256Hex_(text).slice(0, 12);
     if (rec.descSig === sig) return;
+    /* ۱۱.۸: «اگر من در Studio دستی عوض کنم موتور برمی‌گرداند؟» — تا ۱۱.۷ بله: هر شب توضیح را، و **نامِ** حافظهٔ خودش را،
+       روی پلی‌لیست می‌نشاند. حالا اول متنِ زنده خوانده می‌شود (۱ واحد): نامِ زنده همیشه می‌ماند، و توضیحی که با آنچه موتور
+       نوشته بود نمی‌خوانَد دست نمی‌خورد. */
+    var live = ytPlLive_(yt, rec.id);
+    if (!live) { out.why.push(String(title).slice(0, 30) + ': متنِ زنده خوانده نشد — دست نخورد'); return; }
+    if (ytPlHuman_(rec, live.desc)) { rec.descHuman = nowStr_(); map[key] = rec; out.kept = (out.kept || 0) + 1; return; }
     if (!ytQuotaTake_(YT_COST.playlistsUpdate, false)) { out.why.push('سهمیه'); return; }
     try {
-      yt.Playlists.update({ id: rec.id, snippet: { title: String(rec.title || title).slice(0, 150), description: ytScrub_(text).slice(0, 4500),
+      var dOut = ytScrub_(text).slice(0, 4500);
+      yt.Playlists.update({ id: rec.id, snippet: { title: String(live.title || rec.title || title).slice(0, 150), description: dOut,
                                                      defaultLanguage: CFG.YT_LANG || 'fa' } }, 'snippet');
-      rec.descSig = sig; rec.descAt = nowStr_(); map[key] = rec; out.updated++;
+      rec.descSig = sig; rec.descAt = nowStr_(); rec.descFp = ytDescFp_(dOut); delete rec.descHuman; map[key] = rec; out.updated++;
     } catch (eU) { out.why.push(String(title).slice(0, 30) + ': ' + String(eU.message || eU).slice(0, 80)); }
   };
   if (!ytShowOff_(ENRICH_SHOW_VARIETY)) try {   // ۱۱.۰: پلی‌لیستِ برنامهٔ خاموش دست نمی‌خورد
@@ -65353,7 +65365,8 @@ function ytPlDescSync_(budgetMs) {
   }
   ytPlMapSave_(map);
   try { props_().setProperty(PK.YT_SUMMARY, JSON.stringify(summary).slice(0, 8000)); } catch (eP) {}
-  if (out.updated) logLine_('توضیحِ پلی‌لیست‌ها: ' + out.updated + ' از ' + out.checked + ' به‌روز شد.');
+  if (out.updated || out.kept) logLine_('توضیحِ پلی‌لیست‌ها: ' + out.updated + ' از ' + out.checked + ' به‌روز شد' +
+                                       (out.kept ? '؛ ' + out.kept + ' دست‌نوشتهٔ Studio دست نخورد' : '') + '.');
   return out;
 }
 
@@ -65606,12 +65619,16 @@ function ytChannelSync_(force) {
 
   // ── ۱) توضیح و کلیدواژه ──
   var curDesc = String(((info.brandingSettings || {}).channel || {}).description || '');
-  if (curDesc !== desc && ytQuotaTake_(YT_COST.playlistsUpdate, false)) {
+  /* ۱۱.۸: «دربارهٔ کانال» که در Studio نوشته شد مالِ شماست — همان قاعدهٔ توضیحِ ویدئو (۱۱.۶). */
+  var chHuman = ytChanHuman_(curDesc);
+  if (chHuman) { byKey.description.did = 'دست‌نوشتهٔ Studio — دست نخورد'; out.kept = true; }
+  else if (curDesc !== desc && ytQuotaTake_(YT_COST.playlistsUpdate, false)) {
     try {
       ytSvc_().Channels.update({ id: info.id, brandingSettings: {
         channel: { description: desc, keywords: kw,
                    defaultLanguage: CFG.YT_LANG || 'fa' } } }, 'brandingSettings');
       byKey.description.did = curDesc ? 'به‌روز شد' : 'پر شد';
+      try { props_().setProperty(PK.YT_CHAN_MINE, ytDescFp_(desc)); } catch (eMn) {}
       byKey.keywords.did = 'به‌روز شد';
       out.did.push('توضیح و کلیدواژه');
     } catch (e2) { byKey.description.did = 'نشد: ' + String(e2.message).slice(0, 90); }
@@ -66138,6 +66155,35 @@ function qaAutoChecks_(mapIn) {
   props_().setProperty(PK.QA_AUTO_LAST, sig);
   try { logLine_('وارسی‌های خودکارِ ویدئو (' + bk + '): ' + checks.map(function (c) { return c.key + '=' + c.verdict; }).join('، ')); } catch (eL) {}
   return n;
+}
+
+/* ══ پلی‌لیست و «دربارهٔ کانال»: دست‌نوشتهٔ Studio مالِ صاحبِ کانال است (۱۱.۸) ══
+ * همان سازوکارِ ۱۱.۶: اثرِ انگشتِ آنچه موتور نوشت ثبت می‌شود؛ متنِ زنده‌ای که با آن نمی‌خوانَد دست‌نوشته است. برای آنچه پیش
+ * از ۱۱.۸ نوشته شد اثری نیست، پس نشانِ متنِ خودِ موتور جایش را می‌گیرد (سطرهایی که فقط موتور می‌نویسد) — وگرنه همهٔ
+ * پلی‌لیست‌ها از امشب برای همیشه یخ می‌زدند و «فهرستِ درس‌ها» دیگر به‌روز نمی‌شد. */
+function ytPlLive_(yt, id) {
+  if (!ytQuotaTake_(YT_COST.playlistsList, false)) return null;
+  try {
+    var r = yt.Playlists.list('snippet', { id: String(id) });
+    var it = r && r.items && r.items[0];
+    if (!it || !it.snippet) return null;
+    return { title: String(it.snippet.title || ''), desc: String(it.snippet.description || '') };
+  } catch (e) { return null; }
+}
+function ytPlEngineText_(t) {
+  t = String(t || '');
+  return !t.trim() || /فهرستِ درس‌ها:|تازه‌ترین‌ها:|درس‌به‌درس، به ترتیب|همهٔ قسمت‌ها، به ترتیبِ انتشار/.test(t);
+}
+function ytPlHuman_(rec, liveDesc) {
+  if (rec && rec.descFp) return rec.descFp !== ytDescFp_(liveDesc);
+  return !ytPlEngineText_(liveDesc);
+}
+function ytChanHuman_(curDesc) {
+  if (!String(curDesc || '').trim()) return false;
+  var mine = '';
+  try { mine = String(props_().getProperty(PK.YT_CHAN_MINE) || ''); } catch (e) {}
+  if (mine) return mine !== ytDescFp_(curDesc);
+  return !/هر روز دو پادکستِ فارسی/.test(String(curDesc));
 }
 
 /* ═══════════════════════════ 28_SourceQuality.gs ═══════════════════════════ */

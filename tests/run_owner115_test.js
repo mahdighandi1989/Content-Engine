@@ -363,4 +363,36 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
      /grp\.cat === SERIES_NOMAN_TITLE \? 'disabled/.test(fs.readFileSync('src/15_Board.gs', 'utf8')));
 }
 
+/* ── ۱۱) ۱۱.۸: پلی‌لیست و «دربارهٔ کانال» — دست‌نوشتهٔ Studio برنمی‌گردد ── */
+{
+  ok('۱۱.۱ متنِ خودِ موتور (پیش از ۱۱.۸، بی اثر) شناخته می‌شود ⇒ به‌روز می‌شود؛ متنِ دیگر ⇒ دست‌نوشته',
+     !ytPlHuman_({}, 'معرفت — درس‌نامه\n…\nفهرستِ درس‌ها:\nدرسِ ۱ — …') && ytPlHuman_({}, 'توضیحی که صاحبِ کانال نوشت') && !ytPlHuman_({}, ''));
+  ok('۱۱.۲ با اثرِ ثبت‌شده: برابر ⇒ موتور؛ متفاوت (حتی با نشانِ موتور) ⇒ دست‌نوشته',
+     !ytPlHuman_({ descFp: ytDescFp_('الف') }, 'الف') && ytPlHuman_({ descFp: ytDescFp_('الف') }, 'الف\nفهرستِ درس‌ها: + یک سطرِ دستی'));
+  resetProps([PK.YT_CHAN_MINE]);
+  ok('۱۱.۳ دربارهٔ کانال: متنِ موتور ⇒ آزاد؛ متنِ دیگر یا ویرایش‌شده ⇒ دست نمی‌خورد',
+     !ytChanHuman_('… هر روز دو پادکستِ فارسی: …') && ytChanHuman_('دربارهٔ ما — نوشتهٔ صاحبِ کانال') && !ytChanHuman_('') &&
+     (global.__PROPS[PK.YT_CHAN_MINE] = ytDescFp_('متنِ موتور'), !ytChanHuman_('متنِ موتور') && ytChanHuman_('متنِ موتور + ویرایش')));
+  resetProps([PK.YT_CHAN_MINE]);
+  /* تغییرِ نام از تخته: نام می‌رود، توضیحِ زنده می‌ماند */
+  const upd = [];
+  const sv = { ytSvc_: global.ytSvc_, ytQuotaTake_: global.ytQuotaTake_ };
+  global.ytQuotaTake_ = () => true;
+  global.ytSvc_ = () => ({ Playlists: { list: () => ({ items: [{ snippet: { title: 'نامی که در Studio گذاشتم', description: 'توضیحِ دست‌نوشته' } }] }),
+                                       update: (b) => { upd.push(b); } } });
+  const m = ytPlMap_(); m.kX = { id: 'PLX', title: 'نامِ قدیم' }; ytPlMapSave_(m);
+  ytPlEnsure_('kX', 'نامِ تازه از تخته', 'توضیحِ پیش‌فرض');
+  ok('۱۱.۴ تغییرِ نام از تخته اعمال می‌شود و توضیحِ زنده دست نمی‌خورد', upd.length === 1 && upd[0].snippet.title === 'نامِ تازه از تخته' && upd[0].snippet.description === 'توضیحِ دست‌نوشته', JSON.stringify(upd));
+  global.ytSvc_ = () => ({ Playlists: { list: () => { throw new Error('x'); }, update: (b) => { upd.push(b); } } });
+  m.kX.title = 'نامِ تازه از تخته'; ytPlMapSave_(m);
+  ytPlEnsure_('kX', 'نامی دیگر', '');
+  ok('۱۱.۵ متنِ زنده خوانده نشد ⇒ هیچ چیز فرستاده نمی‌شود', upd.length === 1);
+  Object.assign(global, sv);
+  const y = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const sync = y.slice(y.indexOf('function ytPlDescSync_'), y.indexOf('function ytChannelDesc_'));
+  ok('۱۱.۶ همگامِ شبانه: پیش از نوشتن متنِ زنده، نامِ زنده می‌ماند، دست‌نوشته رد می‌شود، اثر ثبت می‌شود',
+     /ytPlLive_\(yt, rec\.id\)/.test(sync) && /ytPlHuman_\(rec, live\.desc\)/.test(sync) && /title: String\(live\.title/.test(sync) && /rec\.descFp = ytDescFp_\(dOut\)/.test(sync));
+  ok('۱۱.۷ دربارهٔ کانال پیش از نوشتن سنجیده می‌شود و اثرش ثبت می‌شود', /var chHuman = ytChanHuman_\(curDesc\)/.test(y) && /setProperty\(PK\.YT_CHAN_MINE, ytDescFp_\(desc\)\)/.test(y));
+}
+
 summary('owner115');

@@ -2203,7 +2203,8 @@ console.log('\n=== ۴۸) عددِ بی‌علت: بنر و کاور باید *ب
     const calls = { cover: 0, pod: 0, list: 0, upd: [] };
     global.ytPlaylistCover_ = () => { calls.cover++; return 'نشد (500): Internal error encountered.'; };
     global.ytPlPodcast_ = () => { calls.pod++; return 'نشست'; };
-    const fakeYt = { Playlists: { list: (part, o) => { calls.list++; return { items: [{ id: o.id, status: { privacyStatus: 'public', podcastStatus: o.id === 'PLM' ? 'enabled' : 'disabled' } }] }; },
+    const fakeYt = { Playlists: { list: (part, o) => { calls.list++; return { items: [{ id: o.id, snippet: { title: 'دستی', description: 'درس‌به‌درس، به ترتیب.' },   /* ۱۱.۸ */
+                                                                status: { privacyStatus: 'public', podcastStatus: o.id === 'PLM' ? 'enabled' : 'disabled' } }] }; },
                                   update: (b, part) => { calls.upd.push({ b: JSON.parse(JSON.stringify(b)), part }); return b; },
                                   insert: (b) => ({ id: 'NEW' }) } };
     global.ytSvc_ = () => fakeYt; global.ytQuotaTake_ = () => true;
