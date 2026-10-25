@@ -29,7 +29,11 @@ global.__STUB=function(url,body){
     {name:'models/gemini-2.5-flash-preview-tts',supportedGenerationMethods:['generateContent']},
     /* سنجاقِ ۸.۳۸ در حسابِ واقعی هست؛ حالتِ «سالم» یعنی همین. بی آن، وارسیِ
        سلامت درست می‌گوید «مدلِ سنجاق‌شده رفته» (۸.۳۹). */
-    {name:'models/'+CFG.TTS_MODEL_PIN,supportedGenerationMethods:['generateContent']}]}};
+    {name:'models/'+CFG.TTS_MODEL_PIN,supportedGenerationMethods:['generateContent']},
+    /* ۱۰.۹: هر مدلِ ثابتِ پیکربندی هر روز با این فهرست سنجیده می‌شود (`fixedModelsWatch_`)؛ حسابِ سالم همه را دارد. */
+    {name:'models/'+CFG.LV_GEN_MODEL_PIN,supportedGenerationMethods:['generateContent']},
+    {name:'models/'+CFG.LV_CLIP_MODEL,supportedGenerationMethods:['predictLongRunning']},
+    {name:'models/'+CFG.EMB_MODEL,supportedGenerationMethods:['embedContent']}]}};
   const t=body.contents?body.contents[0].parts[0].text:'';
   /* ۸.۹۹: حداقلِ هر نوع فقط از اعضای سیر پر می‌شود؛ سردبیرِ «سالم» سیرش را با اعضایش می‌دهد. */
   if(t.indexOf('سردبیرِ یک برنامهٔ رادیویی')!==-1){const c=[...t.matchAll(/- id: (\S+) \|/g)].map(m=>m[1]);
