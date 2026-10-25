@@ -2138,7 +2138,8 @@ function healthCheck() {
     // است هدف عملاً ~۱۱ دقیقه است؛ سنجیدن با ۱۵ یعنی قسمتِ ۱۳:۲۷ — که دقیقاً
     // به‌خاطرِ همان بلندی دو فایل شد — هیچ اعتراضی برنینگیزد.
     var tMin = CFG.SPECIAL_TARGET_MINUTES;
-    try { tMin = specialTargetMin_(); } catch (eT) {}
+    /* ۱۰.۸: طولِ قسمتِ **تمام‌شده** با هدفِ قسمتِ تمام‌شده — نه با هدفِ نوشتن، که ۳۷٪ کمتر است چون غنی‌سازی و عصری‌سازی بعد می‌آیند. */
+    try { tMin = specialFinishedMin_(); } catch (eT) {}
     var overS = spx.lastRecap ? 0 : epTooLong_(spx.lastDuration, tMin);
     if (overS) {
       problems.push('درس‌نامه ' + spx.lastDuration + ' شد در برابرِ هدفِ ' +

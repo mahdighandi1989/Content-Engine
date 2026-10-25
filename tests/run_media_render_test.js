@@ -569,4 +569,31 @@ console.log('=== ۱۵) لحظه‌ای که تصویرش ساکن است، کن�
   ok('۱۵.۲ و علت گفته شد (نه بی‌صدا)', res.stat.still === 1 && /ساکن/.test(notes.join(' ')), notes.join(' | '));
 }
 
+console.log('=== ۱۶) «از همه جا» ۸۳: کارت روی محوِ اسکرین‌شاتِ تیره = قابِ خالی (۱۰.۸) ===');
+{
+  fs.mkdirSync(dir, { recursive: true });            // پوشهٔ موقت در خطِ ۵۰۴ پاک شده است
+  /* شکلِ واقعی: نظرهای اینستاگرامِ حالتِ تیره — چند خطِ نازکِ سفید روی تقریباً سیاه. محوشده ⇒ سیاهِ یکدست (sd ۲٫۶ در قابِ واقعیِ ۸۳). */
+  const dark = P('dark-shot.png');
+  ff(['-f', 'lavfi', '-i', 'color=c=0x0d0d0d:s=1080x2340', '-vf',
+      'drawbox=x=120:y=300:w=700:h=6:color=white:t=fill,drawbox=x=120:y=360:w=520:h=6:color=white:t=fill,drawbox=x=120:y=900:w=640:h=6:color=white:t=fill',
+      '-frames:v', '1', dark]);
+  const col = P('col.png');
+  ff(['-f', 'lavfi', '-i', 'testsrc2=s=1920x1080:d=1', '-frames:v', '1', col]);
+  const a = MKIT.cardFlat(FF, dark), b = MKIT.cardFlat(FF, col);
+  ok('۱۶.۱ زمینهٔ محوِ اسکرین‌شاتِ تیره «یکدست» است؛ قابِ رنگیِ کلیپ نه', a.flat === true && b.flat === false, JSON.stringify({ dark: a, color: b }));
+  const rj = fs.readFileSync('tools/render.js', 'utf8');
+  ok('۱۶.۲ رانر: کارتِ روی زمینهٔ یکدست، یا پس از یک عکس ⇒ خودِ عکسِ صحنه در چیدمانِ کناری، نه محو',
+     /const cf = afterPhoto \? \{ flat: false, sd: -1 \} : MKIT\.cardFlat\(FF, srcImg\);/.test(rj) &&
+     /if \(cf\.flat \|\| afterPhoto\) \{\s*isCard = false; srcImg = g\.file;/.test(rj) &&
+     rj.indexOf('MKIT.cardFlat(FF, srcImg)') < rj.indexOf("MKIT.photoClip(FF, srcImg, out + '.mp4', want, { layout: layOf[s.n], card: isCard })"));
+  const pd = MKIT.photoClip(FF, dark, P('dark-plain.mp4'), 6, { layout: 'left' });
+  const g = require('../tools/scenekit.js');
+  const sdPlain = g.sd(g.gray(FF, pd.file, 3));
+  const pc = MKIT.photoClip(FF, dark, P('dark-card.mp4'), 6, { layout: 'left', card: true });
+  const sdCard = g.sd(g.gray(FF, pc.file, 3));
+  ok('۱۶.۳ همان اسکرین‌شات: کارتِ محو را QA «خالی» می‌خواند؛ نمایشِ خودِ عکس نه — همان سنجهٔ رانر',
+     sdCard < g.SK.qaBlankSd && sdPlain >= g.SK.qaBlankSd, JSON.stringify({ card: sdCard.toFixed(1), plain: sdPlain.toFixed(1), thr: g.SK.qaBlankSd }));
+  if (process.env.KEEP !== '1') { try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {} }
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ ساختِ ویدئوی رسانه‌ای گذشت.');

@@ -36,7 +36,8 @@ const MK = {
   freezeMax: 10, freezeNoise: 0.003,   // ۹.۷۱: تصویرِ یخ‌زدهٔ بیش از این در ویدئوی نهایی ⇒ سنجش رد می‌کند
   fadeV: 0.35, fadeA: 0.45,      // ۹.۰۰: پایانِ صدا ۰٫۱۲ ثانیه بود — «سریع قطع می‌شد»
   loud: 'loudnorm=I=-16:TP=-1.5:LRA=11',
-  crf: 20
+  crf: 20,
+  cardFlatSd: 12     // ۱۰.۸: زیرِ این، زمینهٔ محوِ کارت خاکستریِ یکدست است (QA در ۶ «خالی» می‌گوید؛ این دو برابرِ آن است تا لبه نباشد)
 };
 
 /** مدت، اندازه و صدا داشتن — از گزارشِ خودِ ffmpeg. خوانده نشد ⇒ null. */
@@ -113,6 +114,31 @@ function contentBox(ff, file, info, opt) {
   box.w = Math.min(box.w, p.w - box.x); box.h = Math.min(box.h, p.h - box.y);
   if (box.w >= p.w * 0.97 && box.h >= p.h * 0.97) return null;
   return box;
+}
+
+/**
+ * آیا زمینهٔ محوِ کارت چیزی نشان می‌دهد؟ (۱۰.۸)
+ * «از همه جا» ۸۳ فقط عکس داشت، بیشترش اسکرین‌شاتِ بلند و سفید. کارتِ نوشته روی محوِ همان اسکرین‌شات نشست و نتیجه
+ * خاکستریِ یکدست شد: ناظر «ثانیهٔ ۴۸۸ تا ۵۱۲ فقط پس‌زمینهٔ تار است و خودِ عکس نیست» دید، و QAِ رانر همان را «قابِ خالی»
+ * شمرد (۴ صحنه) و انتشار ایستاد — از ۷۹ تا ۸۳. کارت‌هایی که روی قابِ کلیپ نشستند رنگی ماندند (۸۲: صفر خالی).
+ * همان محوی که کارت می‌سازد را با همان سنجهٔ QA (انحرافِ معیار) می‌سنجد. ⇒ {flat, sd}
+ */
+function cardFlat(ff, file, thr) {
+  let buf;
+  try {
+    buf = execFileSync(ff, ['-hide_banner', '-loglevel', 'error', '-i', file, '-frames:v', '1', '-vf',
+      'scale=' + MK.w + ':' + MK.h + ':force_original_aspect_ratio=increase,crop=' + MK.w + ':' + MK.h +
+      ',boxblur=40:3,eq=brightness=-0.16:saturation=0.8,scale=64:36,format=gray', '-f', 'rawvideo', '-'],
+      { maxBuffer: 1 << 20 });
+  } catch (e) { return { flat: false, sd: -1 }; }
+  if (!buf || buf.length < 64) return { flat: false, sd: -1 };
+  let m = 0;
+  for (let i = 0; i < buf.length; i++) m += buf[i];
+  m /= buf.length;
+  let v = 0;
+  for (let i = 0; i < buf.length; i++) v += (buf[i] - m) * (buf[i] - m);
+  const s = Math.sqrt(v / buf.length);
+  return { flat: s < (Number(thr) || MK.cardFlatSd), sd: Math.round(s * 10) / 10 };
 }
 
 /** هندسهٔ رسانه در قاب: اندازه و جایِ نشستن در جعبهٔ چیدمان. */
@@ -599,4 +625,4 @@ function freezes(ff, file, minSec) {
   return out.map(x => ({ s: Math.round(x.s * 10) / 10, e: Math.round(x.e * 10) / 10, d: Math.round((x.e - x.s) * 10) / 10 }));
 }
 
-module.exports = { freezes, collage, teaserPlan, contentEnd, fillTail, MK, BOX, probe, contentBox, placeIn, layoutOf, frameFilter, photo, photoClip, clip, brightFrom, moment, find, placeMoments, splice };
+module.exports = { freezes, collage, teaserPlan, contentEnd, fillTail, MK, BOX, probe, contentBox, cardFlat, placeIn, layoutOf, frameFilter, photo, photoClip, clip, brightFrom, moment, find, placeMoments, splice };

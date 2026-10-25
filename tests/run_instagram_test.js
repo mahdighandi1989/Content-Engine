@@ -1159,4 +1159,17 @@ console.log('=== ۲۵) ریلز: تصویرِ پوشهٔ درس خاموش؛ ت�
   ok('۲۵.۳ بخشِ دوم متنِ بخشِ اول را دارد و باید تکرار نکند', /متنِ ریلزِ دیگرِ همین درس[\s\S]*متنِ بخشِ اول/.test(pb) && /تکرار نکن/.test(pb));
 }
 
+console.log('=== ۲۶) «تعدادِ دقیقِ پست‌ها ۴۴ تاست» — خط ۴۷ می‌گفت (۱۰.۸) ===');
+{
+  global.__PROPS[PK.IG_ACCT] = JSON.stringify({ ig: '1784', user: 'truth.traces', page: 'PG1' });
+  igStateSave_({ stats: { published: 47 }, ins: { mediaCount: 44, at: '2026-10-25 12:30' } });
+  const st = igStatus_();
+  ok('۲۶.۱ عددِ صفحه از متا می‌آید و شمارندهٔ انتشار کنارش با نامِ خودش — نه «۴۷ ریلز منتشر شده»',
+     /44 پست در صفحه/.test(st.line) && /47 بار انتشار/.test(st.line) && /3 تا پس‌گرفته/.test(st.line) && !/47 ریلز منتشر شده/.test(st.line) && st.live === 44, st.line.slice(0, 160));
+  igStateSave_({ stats: { published: 5 } });
+  ok('۲۶.۲ پیش از نخستین خواندنِ آمار، همان شمارنده — با نامِ درست', /5 بار انتشار/.test(igStatus_().line));
+  igStateSave_({});
+  delete global.__PROPS[PK.IG_ACCT];
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');

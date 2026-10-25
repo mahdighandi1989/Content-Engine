@@ -755,4 +755,74 @@ console.log('=== ۱۷) کارت در خودِ تلگرام پخش می‌شود 
   CFG.MR_PREV_WAIT_MIN = 0;
 }
 
+console.log('=== ۱۸) «این چند روز چیزی اضافه نشده» — گشتن همیشه صفحهٔ ۱ را می‌خواست (۱۰.۸) ===');
+{
+  /* دادهٔ واقعیِ ۲۵ اکتبر: فیدِ موسیقی صفر نامزدِ در انتظار داشت، افکت ۳۰ اجرا و ۱ فایل، و آخرین اجرا «sought: 0».
+     صفحهٔ ۱ِ همان پرسش قبلاً دیده شده بود؛ تا ۱۰.۷ گشتن همان‌جا می‌ایستاد. */
+  const keep = global.__STUB, keepW = global.sfxWantedTerms_, asked = [];
+  global.sfxWantedTerms_ = () => ['creaking door'];
+  const doc = (id) => ({ identifier: id, title: 'Door Library ' + id, licenseurl: 'https://creativecommons.org/publicdomain/zero/1.0/' });
+  let lastPage = 6;
+  global.__STUB = (url, body) => {
+    if (/advancedsearch\.php/.test(url)) {
+      const pg = Number((url.match(/[?&]page=(\d+)/) || [])[1]);
+      asked.push(pg);
+      const docs = pg === 1 ? [doc('door-p1')] : pg === 2 ? [doc('door-p2')] : pg < lastPage ? [doc('door-p' + pg)] : [];
+      return { code: 200, json: { response: { docs } } };
+    }
+    const m = url.match(/\/metadata\/(door-p\d+)/);
+    if (m) return { code: 200, json: { metadata: { title: 'Door Library', licenseurl: 'https://creativecommons.org/publicdomain/zero/1.0/' },
+      files: [{ name: m[1] + '_creak.wav', size: 200000, title: 'Door creak ' + m[1] }] } };
+    return keep(url, body);
+  };
+  global.__PROPS[PK.MUSIC_SEEN] = JSON.stringify(['door-p1']);
+  delete global.__PROPS[PK.MUSIC_QPAGE];
+  const before = (musicFeedRead_().items || []).length;
+  let r1;
+  try { r1 = musicSeek_(null, true); } finally { global.__STUB = keep; }
+  const got1 = (musicFeedRead_().items || []).slice(before).map(x => x.url);
+  ok('۱۸.۱ صفحهٔ ۱ همه دیده‌شده ⇒ همان اجرا به صفحهٔ ۲ می‌رود و نامزدِ تازه می‌آورد (تا ۱۰.۷: صفر)',
+     asked[0] === 1 && asked.indexOf(2) !== -1 && got1.some(u => /door-p2/.test(u)) && r1.added >= 1, JSON.stringify({ asked, got1 }));
+
+  asked.length = 0;
+  global.__STUB = (url, body) => {
+    if (/advancedsearch\.php/.test(url)) {
+      const pg = Number((url.match(/[?&]page=(\d+)/) || [])[1]); asked.push(pg);
+      return { code: 200, json: { response: { docs: pg < lastPage ? [doc('door-p' + pg)] : [] } } };
+    }
+    return keep(url, body);
+  };
+  try { musicSeek_(null, true); } finally { global.__STUB = keep; }
+  ok('۱۸.۲ اجرای بعد از همان‌جایی شروع می‌کند که ماند — نه دوباره صفحهٔ ۱', asked[0] === 4 && asked.indexOf(1) === -1, JSON.stringify(asked));
+  const q = sfxSeekQuery_('creaking door');
+  ok('۱۸.۳ تهِ نتیجه‌ها (صفحهٔ خالی) ⇒ نشانگر به ۱ برمی‌گردد، نه گیر روی صفحهٔ خالی', musicQPage_(q) === 1, String(musicQPage_(q)));
+  global.sfxWantedTerms_ = keepW;
+}
+
+console.log('=== ۱۹) «درس‌نامه ۸۳ و از همه جا ۸۳ بی پایان» با ۴۴ قطعهٔ پایان در بانک (۱۰.۸) ===');
+{
+  /* شکلِ واقعیِ تبِ «بازبینیِ موسیقی» در ۲۵ اکتبر: «Unsolved Investigation» تأیید با ۵ ستاره، شنیدنِ مدل «زمینهٔ کشیده —
+     نه شروع، نه پایان»، جایگاه را او نزده؛ «Peaceful Village Loop» تأیید با ۵ ستاره و «آهنگ». */
+  const amb = { id: 'amb1', name: 'Unsolved Investigation.wav', kind: 'موسیقی', slots: 'شروع، پایان، میانه', sec: 60, used: 0, mood: '',
+                heard: '✅ مدل شنید: زمینهٔ کشیده — نه شروع، نه پایان', note: 'خودکار', rev: { ok: true, stars: 5, vibe: '', slots: '' } };
+  const mel = { id: 'mel1', name: 'Peaceful Village Loop.wav', kind: 'موسیقی', slots: 'شروع، پایان، میانه', sec: 60, used: 0, mood: '',
+                heard: '✅ مدل شنید: آهنگ (ملودی‌دار)', note: 'خودکار', rev: { ok: true, stars: 4, vibe: '', slots: '' } };
+  const pk = musicPick_([amb, mel], 'پایان', '', '');
+  ok('۱۹.۱ پایان: آهنگِ تأییدشده، نه زمینهٔ تأییدشده‌ای که مدل «نه شروع، نه پایان» شنید (تا ۱۰.۷: زمینه، با +۱۰ِ تأیید)',
+     pk && pk.id === 'mel1', pk && pk.name);
+  const ambMine = Object.assign({}, amb, { id: 'amb2', rev: { ok: true, stars: 5, vibe: '', slots: 'پایان' } });
+  const pk2 = musicPick_([ambMine], 'پایان', '', '');
+  ok('۱۹.۲ ولی اگر خودش جایگاهِ «پایان» را زده باشد، همان زمینه پایان می‌شود — تصمیمِ او بر شنیدنِ مدل مقدم است',
+     pk2 && pk2.id === 'amb2', pk2 && pk2.name);
+  const keepDA = global.DriveApp;
+  let drive = 0;
+  global.DriveApp = Object.assign({}, keepDA, { getFileById: (id) => { drive++; return keepDA.getFileById(id); } });
+  let sg;
+  try { sg = musicSegOk_(mel, 0, 'پایان'); } finally { global.DriveApp = keepDA; }
+  ok('۱۹.۳ قطعهٔ تأییدشده سرِ پخش دوباره به مدل داده نمی‌شود — «او خودش شنیده است» (تا ۱۰.۷ فقط یادداشت را می‌دید)',
+     sg.ok && /تأیید/.test(sg.heard) && drive === 0, JSON.stringify(sg) + ' drive=' + drive);
+  const src = require('fs').readFileSync('src/23_Music.gs', 'utf8');
+  ok('۱۹.۴ لبه‌ای که رد شد بیش از یک جانشین می‌گیرد', /for \(var ft = 0; ft < Math\.max\(1, Number\(CFG\.MUSIC_EDGE_TRIES\) \|\| 3\); ft\+\+\)/.test(src) && CFG.MUSIC_EDGE_TRIES >= 2);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ بازبینیِ موسیقی گذشت.');

@@ -1769,8 +1769,16 @@ function igStatus_() {
                 var dn = igDoneMap_(st), n = S.eps.filter(function (x) { return dn[String(x.ep)]; }).length;
                 return { series: S.name, done: n, total: S.eps.length };
               }) };
+  /* ══ «تعدادِ دقیقِ پست‌ها ۴۴ تاست» (۱۰.۸) ══ `published` شمارندهٔ انتشار است و هرگز کم نمی‌شود — ریلزی که پس گرفته شد
+     (۹.۵۲، ۹.۶۶) یا از نو ساخته شد (۹.۷۳) هنوز در آن است. خط ۴۷ می‌گفت و صفحه ۴۴ داشت. عددِ صفحه از خودِ متاست
+     (`ins.mediaCount`، هر سه ساعت)، و شمارنده کنارش با نامِ درستش می‌ماند. */
+  var live = (st.ins && Number(st.ins.mediaCount)) || 0;
+  out.live = live || null;
+  var cnt = live ? live + ' پست در صفحه (طبقِ متا، ' + ((st.ins && st.ins.at) || '') + ')' +
+                   (out.published > live ? '؛ ' + out.published + ' بار انتشار — ' + (out.published - live) + ' تا پس‌گرفته یا پاک‌شده' : '')
+                 : out.published + ' بار انتشار';
   out.line = !a ? 'اینستاگرام: کلید ثبت نشده (منوی «۴) کلیدِ اینستاگرام (متا)»).'
-    : 'اینستاگرام @' + a.user + ': ' + out.published + ' ریلز منتشر شده، امروز ' + out.today + '؛ در جریان: ' +
+    : 'اینستاگرام @' + a.user + ': ' + cnt + '، امروز ' + out.today + '؛ در جریان: ' +
       (fl.length ? fl.map(function (x) { return x.key.split(':').pop() + ' (' + x.phase + (x.why ? ' — ' + x.why : '') + ')'; }).join('، ') : 'هیچ') +
       (out.lastWhy ? '. آخرین ایراد: ' + out.lastWhy : '') +
       igInsLine_(st.ins) +

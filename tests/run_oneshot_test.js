@@ -67,8 +67,18 @@ console.log('=== ۱) پرامپتِ درس‌نامه با سقفِ خودش ن�
   const p14 = fs.readFileSync('src/14_Special.gs', 'utf8');
   ok('۱.۳ هیچ‌جای درس‌نامه دیگر SPECIAL_TARGET_MINUTES خام را به مدل نمی‌گوید',
      !/CFG\.SPECIAL_TARGET_MINUTES \* 150/.test(p14));
-  ok('۱.۴ وارسیِ سلامت هم با هدفِ مؤثر می‌سنجد',
-     /specialTargetMin_\(\)/.test(fs.readFileSync('src/08_Health.gs', 'utf8')));
+  ok('۱.۴ وارسیِ سلامت هم با هدفِ مؤثر می‌سنجد — هدفِ قسمتِ تمام‌شده، که خودش از هدفِ نوشتن ساخته می‌شود (۱۰.۸)',
+     /specialFinishedMin_\(\)/.test(fs.readFileSync('src/08_Health.gs', 'utf8')) &&
+     /specialTargetMin_\(\) \* ratio/.test(fs.readFileSync('src/14_Special.gs', 'utf8')));
+  /* دادهٔ واقعیِ ۲۵ اکتبر: درس‌نامه ۸۳، ۲۱:۵۲، ۱۳٬۰۸۰ نویسه با ۱۰ نویسه بر ثانیه — همان اندازه‌ای که پیکربندی می‌خواهد. */
+  {
+    const keepO = CFG.SPECIAL_ONE_FILE; CFG.SPECIAL_ONE_FILE = false;
+    const fin = specialFinishedMin_(), wr = specialTargetMin_();
+    CFG.SPECIAL_ONE_FILE = keepO;
+    ok('۱.۴-ب هدفِ تمام‌شده = هدفِ نوشتن × سهمِ غنی‌سازی و عصری‌سازی؛ ۲۱:۵۲ هشدار نمی‌سازد، ۴۲:۰۰ (۹.۹۱) هنوز می‌سازد',
+       fin > wr * 1.2 && epTooLong_('21:52', fin) === 0 && epTooLong_('42:00', fin) > 25,
+       JSON.stringify({ writing: wr, finished: fin, at2152: epTooLong_('21:52', fin), at42: epTooLong_('42:00', fin) }));
+  }
 
   /* و با خاموش‌شدنِ «یک فایل»، سقفِ فایل از معادله بیرون می‌رود ولی رزرو
      نه — پس هدف بالا می‌رود و هنوز همان سقفِ نوشتن است (۶٫۵۳). */

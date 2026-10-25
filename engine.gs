@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 10.7
+ *  موتور محتوا و پادکست — نسخهٔ 10.8
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1706,6 +1706,12 @@ var CFG = {
   // چرخش با همان واژه‌های جست‌وجو نتیجهٔ تازه نمی‌دهد: archive.org همان
   // ۲۵ نتیجهٔ اول را می‌دهد و همه‌شان قبلاً دیده شده‌اند. پس صفحه می‌چرخد.
   MUSIC_SEEK_PAGES: 5,
+  /* ۱۰.۸: هر پرسش نشانگرِ صفحهٔ خودش را دارد و در یک اجرا تا این‌قدر صفحه جلو می‌رود. تا ۱۰.۷ پرسشِ «کمبود» و پرسشِ
+     افکت همیشه صفحهٔ ۱ را می‌خواستند و شناسه‌های دیده‌شده را رد می‌کردند؛ وقتی همان ۲۵/۵۰ نتیجه دیده شد، هر شب صفر
+     نامزدِ تازه — بانکِ افکت ۳۰ اجرا و ۱ فایل، و بانکِ موسیقی یک فایل هر دو روز. */
+  MUSIC_SEEK_PAGE_TRIES: 3,
+  MUSIC_EDGE_TRIES: 3,          // ۱۰.۸: چند جانشین برای آغاز/پایانی که شنیدنِ بازه ردش کرد
+  MUSIC_SEEK_MS: 60000,         // سقفِ زمانِ کلِ یک گشتن (صفحه‌ها و شناسنامه‌ها)
   // دانلود در کارِ شبانه جا دارد ولی مهلتِ شش‌دقیقه‌ای گوگل هم هست. به‌جای
   // یک سقفِ ثابتِ محافظه‌کارانه، سقفِ زمانی: تا وقتی وقت هست بیاور.
   MUSIC_FETCH_BUDGET_MS: 150000,
@@ -2226,7 +2232,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '10.7',
+  CODE_VERSION: '10.8',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2611,8 +2617,11 @@ var CFG = {
     /* ۹.۶۸: علتِ «افتضاح» پیدا شد — گام. از ۱۴ اکتبر آزمایشگاه (`pitchResolve`) گامِ پل را از نو می‌سنجید و با مرجعِ = مبدأ
        هر گامِ بیش از ۳ نیم‌پرده را کنار می‌گذاشت: Alnilam ‎−۷ خواست و ۱۶۰ هرتز درآمد (هدف ۱۰۷)، گلدوز +۴ خواست و ۱۳۱ شد (هدف
        ۱۵۸). دو نمونهٔ تازه با Charon (رنگی که او پسندید)، گامِ دقیق، و سدی که خروجیِ دور از هدف را نمی‌فرستد. */
-    { speaker: 'razavi',      show: 'special', ep: '74', tag: 'درسِ ۷۴ · آرام · گامِ دقیق · مبدأ Charon · مکث به اندازهٔ خودش', nospans: true, calm: true, hx: true },
-    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · آرام · گامِ دقیق · مبدأ Charon · مکث به اندازهٔ خودش', nospans: true, calm: true, hx: true, colour: 'prev' }
+    /* ۱۰.۸: او هر دو نمونه را شنید — «تو هر کلمه یه جاهاییش صدا قطع می‌شد و انگار صدای جمینای یک ثانیه پخش می‌شد». علت `hx`
+       بود (`voicebridge.fricSplice`): قاب‌هایی از صدای جمینای را وسطِ واژه می‌گذاشت. در رانر پشتِ `VBR_HX=1` رفت و از این‌جا
+       برداشته شد؛ برچسب عوض شد تا نمونهٔ تازه ساخته شود (۷٫۸۶). «ه» ⇐ «خ» با این درمان برمی‌گردد و راهِ دیگری می‌خواهد. */
+    { speaker: 'razavi',      show: 'special', ep: '74', tag: 'درسِ ۷۴ · آرام · گامِ دقیق · مبدأ Charon · مکث به اندازهٔ خودش · بی وصلهٔ صدای جمینای', nospans: true, calm: true },
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · آرام · گامِ دقیق · مبدأ Charon · مکث به اندازهٔ خودش · بی وصلهٔ صدای جمینای', nospans: true, calm: true, colour: 'prev' }
   ],
   /* ══ سقف، شمارندهٔ **زمان‌بندی** است نه شمارندهٔ موفقیت (۷٫۹۱) ══
      `vbrSoulSeedDue_` شمارنده را همان‌جا که کار را زمان‌بندی می‌کند یک
@@ -3493,6 +3502,7 @@ var PK = {
   // مجموعه‌هایی که یک بار گشته شده‌اند — تا هر شب همان‌ها بالا نیایند
   MUSIC_SEEN: 'MUSIC_SEEK_SEEN',
   MUSIC_PAGE: 'MUSIC_SEEK_PAGE',
+  MUSIC_QPAGE: 'MUSIC_SEEK_QPAGE',  // ۱۰.۸: {hash(پرسش): {p, at}} — صفحهٔ بعدیِ هر پرسش
   // نسخه‌ای که ردهای ناحقش یک بار باز شده — تا هر شب تکرار نشود
   MUSIC_UNBLOCK: 'MUSIC_UNBLOCK_AT',
   // نوبتِ صدای پایه‌ای — تا هر اجرا سراغِ یکی برود، نه همیشه همان
@@ -19833,7 +19843,8 @@ function healthCheck() {
     // است هدف عملاً ~۱۱ دقیقه است؛ سنجیدن با ۱۵ یعنی قسمتِ ۱۳:۲۷ — که دقیقاً
     // به‌خاطرِ همان بلندی دو فایل شد — هیچ اعتراضی برنینگیزد.
     var tMin = CFG.SPECIAL_TARGET_MINUTES;
-    try { tMin = specialTargetMin_(); } catch (eT) {}
+    /* ۱۰.۸: طولِ قسمتِ **تمام‌شده** با هدفِ قسمتِ تمام‌شده — نه با هدفِ نوشتن، که ۳۷٪ کمتر است چون غنی‌سازی و عصری‌سازی بعد می‌آیند. */
+    try { tMin = specialFinishedMin_(); } catch (eT) {}
     var overS = spx.lastRecap ? 0 : epTooLong_(spx.lastDuration, tMin);
     if (overS) {
       problems.push('درس‌نامه ' + spx.lastDuration + ' شد در برابرِ هدفِ ' +
@@ -26166,6 +26177,21 @@ function specialTargetMin_() {
    * اینکه قسمتِ تمام‌شده به هدفِ پیکربندی برسد، عددِ پیکربندی بالا رفت. */
   var byCap = specialMaxChars_() / speechCps_() / 60;
   return Math.max(1, Math.round(byCap * 10) / 10);
+}
+
+/**
+ * هدفِ **قسمتِ تمام‌شده** (۱۰.۸) — هدفِ نوشتن به‌علاوهٔ سهمی که `specialReserve_` برای غنی‌سازی و عصری‌سازی کنار گذاشت.
+ *
+ * ══ هشداری که هر روز می‌زد و هیچ‌وقت درست نبود ══
+ * «درس‌نامه ۲۱:۵۲ شد در برابرِ هدفِ ۱۶٫۱ دقیقه (۳۶٪ بلندتر)». هر دو عدد درست بودند و مقایسه غلط: ۱۶٫۱ هدفِ **نوشتن** است
+ * (پس از کنار گذاشتنِ ۳۷٪)، و آن ۳۷٪ همان چیزی است که بعد اضافه می‌شود — قسمتِ ۸۳ ۱۳٬۰۸۰ نویسه با ۱۰ نویسه بر ثانیه، یعنی
+ * درست همان ۲۲ دقیقه‌ای که پیکربندی (۲۰ × ۱٫۱) می‌خواهد. هشداری که برای حالتِ سالم بزند خوانده نمی‌شود، و ۴۲ دقیقهٔ ۹.۹۱ هنوز
+ * با همین سنجه (۹۰٪) گرفته می‌شود. نسبت از خودِ `specialReserve_` می‌آید، نه از کپیِ دومِ درصدها.
+ */
+function specialFinishedMin_() {
+  var big = 1000000, kept = specialReserve_(big);
+  var ratio = kept > 0 ? big / kept : 1;
+  return Math.max(1, Math.round(specialTargetMin_() * ratio * 10) / 10);
 }
 
 function colsAll_(headers, names) {
@@ -40936,7 +40962,13 @@ function musicPick_(bank, slot, moodWords, wantedId) {
     /* تأییدِ صاحبِ برنامه (۹.۷۵) از سدهای شنیدنِ مدل می‌گذرد — او خودش شنیده است. */
     var hum = !!(b.rev && b.rev.ok);
     if (!hum && !heardPlayable_(b.heard, b.note)) continue;
-    if (!hum && (slot === 'شروع' || slot === 'پایان') && !heardCanEdge_(b.heard, b.note)) continue;
+    /* ══ تأیید یعنی «خوب است»، نه «برای آغاز و پایان» (۱۰.۸) ══
+     * درس‌نامهٔ ۸۳ و «از همه جا» ۸۳ هر دو بی پایان رفتند با ۴۴ قطعهٔ «پایان» در بانک. تأییدِ او (+۱۰) قطعه‌هایی مثلِ
+     * «Unsolved Investigation» را — که مدل «زمینهٔ کشیده — نه شروع، نه پایان» شنیده بود و جایگاهی هم برایش نزده بود — به
+     * صدرِ فهرستِ پایان می‌بُرد؛ شنیدنِ بازه ردش می‌کرد، جانشین هم یک زمینهٔ تأییدشدهٔ دیگر بود، و پایان خالی می‌ماند در
+     * حالی که آهنگ‌های تأییدشده هرگز امتحان نشدند. زمینه سرِ لبه نمی‌نشیند (۶.۸۸)، مگر خودش آن جایگاه را زده باشد. */
+    var ownSlot = !!(b.rev && b.rev.slots && String(b.rev.slots).indexOf(slot) !== -1);
+    if ((slot === 'شروع' || slot === 'پایان') && !ownSlot && !heardCanEdge_(b.heard, b.note)) continue;
     /* ── فقط آهنگ، در هر جایگاه — پل هم (۹.۵۷) ──
      * او شنید «یکی دوجا تو موسیقی‌های میانی … چیزای خیلی زشت که اصلاً موسیقی نبودن». علت از خودِ این بخش بود:
      * «زمینه» (drone، گرانولار، غرّشِ یکنواخت) از لبه دور می‌شد ولی **به پل فرستاده می‌شد** — `musicAutoTag_`
@@ -41248,6 +41280,9 @@ function musicSegOk_(track, startSec, slot) {
     if (!track || !track.id) { out.why = 'قطعه نیست'; return out; }
     var nt = String(track.note || '').trim();
     if (nt && nt.indexOf('خودکار') !== 0) { out.ok = true; out.heard = 'آدم'; return out; }
+    /* ۱۰.۸: تأییدِ او هم — همان قاعدهٔ `musicPick_` (۹.۷۵): «او خودش شنیده است». این‌جا تا ۱۰.۷ فقط یادداشت را می‌دید،
+       پس قطعهٔ تأییدشده دوباره به مدل داده می‌شد و «زمینه» یا «نشنید» ردش می‌کرد. */
+    if (track.rev && track.rev.ok) { out.ok = true; out.heard = 'آدم (تأیید)'; return out; }
     var b = DriveApp.getFileById(track.id).getBlob().getBytes();
     var info = wavInfo_(b);
     if (!wavReadable_(info)) { out.why = 'WAV خوانده نشد'; return out; }
@@ -41283,9 +41318,13 @@ function musicEdgeHear_(bank, track, slot, key, mood, plan) {
     return track;
   }
   var tried = [String(track && track.name || '') + ' (' + r.why + ')'];
-  var pool = bank.filter(function (b) { return !track || b.id !== track.id; });
-  var fb = musicPick_(pool, slot, mood, '');
-  if (fb) {
+  var skip = {}; if (track) skip[track.id] = 1;
+  /* ۱۰.۸: تا سه جانشین، نه یکی — یک «نه» از مدل نباید پایانِ قسمت را بی‌موسیقی کند وقتی بانک آهنگِ شنیده‌شده دارد. */
+  for (var ft = 0; ft < Math.max(1, Number(CFG.MUSIC_EDGE_TRIES) || 3); ft++) {
+    var pool = bank.filter(function (b) { return !skip[b.id]; });
+    var fb = musicPick_(pool, slot, mood, '');
+    if (!fb) break;
+    skip[fb.id] = 1;
     var r2 = musicSegOk_(fb, 0, slot);
     if (r2.ok) {
       plan[key + 'Id'] = fb.id; plan[key + 'Start'] = 0;
@@ -43335,8 +43374,34 @@ function sfxStarterTerms_() {
   return '';
 }
 
+/* ══ ۱۰.۸: صفحهٔ بعدیِ هر پرسش ══
+   کلید چکیدهٔ خودِ متنِ پرسش است، پس وقتی واژه‌ها عوض می‌شوند (خانوادهٔ دیگر، دستهٔ افکتِ دیگر) از صفحهٔ ۱ شروع
+   می‌شود و وقتی همان پرسش برمی‌گردد از جایی که مانده بود. پایانِ نتیجه‌ها (صفحهٔ خالی) نشانگر را به ۱ برمی‌گرداند. */
+function musicQKey_(q) {
+  var h = 5381, s = String(q || '');
+  for (var i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
+function musicQPage_(q, setTo) {
+  var P = props_(), m = {};
+  try { m = JSON.parse(P.getProperty(PK.MUSIC_QPAGE) || '{}') || {}; } catch (e) { m = {}; }
+  var k = musicQKey_(q);
+  if (setTo == null) return (m[k] && Number(m[k].p)) || 1;
+  m[k] = { p: Math.max(1, Number(setTo) || 1), at: Date.now() };
+  var ks = Object.keys(m);
+  if (ks.length > 60) {
+    ks.sort(function (a, b) { return (m[a].at || 0) - (m[b].at || 0); });
+    for (var d = 0; d < ks.length - 60; d++) delete m[ks[d]];
+  }
+  try { P.setProperty(PK.MUSIC_QPAGE, JSON.stringify(m)); } catch (e2) {}
+  return m[k].p;
+}
+
 function musicSeek_(slots, sfxOnly) {
   var out = { added: 0, looked: 0, notes: [] };
+  var seekEnd = Date.now() + Math.max(15000, Number(CFG.MUSIC_SEEK_MS) || 60000);
+  var tries = Math.max(1, Number(CFG.MUSIC_SEEK_PAGE_TRIES) || 3);
   if (CFG.MUSIC_ENABLED === false || CFG.MUSIC_SEEK === false) return out;
 
   var want = (slots && slots.length) ? slots : ['شروع', 'پایان', 'میانه'];
@@ -43379,21 +43444,28 @@ function musicSeek_(slots, sfxOnly) {
     var terms = gap ? musicTermsForFamily_(gap.family, slot) : musicSeekTerms_(slot);
     // صفحه فقط وقتی جلو می‌رود که چرخش باشد؛ برای کمبودِ واقعی، نتیجه‌های
     // اولِ همان واژه‌ها بهترین‌اند.
-    var page = worn ? musicSeekPage_(true) : 1;
+    var qStr = musicSeekQuery_(slot, terms);
+    var page = worn ? musicSeekPage_(true) : musicQPage_(qStr);
     out.notes.push(slot +
                    (gap ? (worn ? ' (چرخش — خانوادهٔ ' + gap.family.split('|')[0] +
                                   ' فرسوده، صفحهٔ ' + page + ')'
                                 : ' (کمبودِ خانوادهٔ ' + gap.family.split('|')[0] + ')') : '') +
                    ' ← گشته شد با: ' + terms);
-    var url = base + '/advancedsearch.php?q=' + encodeURIComponent(musicSeekQuery_(slot, terms)) +
+    for (var pt = 0; pt < (worn ? 1 : tries) && out.added < cap && Date.now() < seekEnd; pt++) {
+    var url = base + '/advancedsearch.php?q=' + encodeURIComponent(qStr) +
               '&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=licenseurl' +
               '&rows=25&page=' + page + '&output=json';
     var sr = musicApiJson_(url);
     var docs = (sr && sr.response && sr.response.docs) || [];
     out.looked += docs.length;
-    if (!docs.length) { out.notes.push(slot + ': نتیجه‌ای نیامد'); continue; }
+    if (!docs.length) {
+      if (!worn && page > 1) musicQPage_(qStr, 1);
+      out.notes.push(slot + ': صفحهٔ ' + page + ' نتیجه‌ای نداشت' + (!worn && page > 1 ? ' — دفعهٔ بعد از صفحهٔ ۱' : ''));
+      break;
+    }
 
-    for (var di = 0; di < docs.length && out.added < cap; di++) {
+    var di = 0;
+    for (; di < docs.length && out.added < cap && Date.now() < seekEnd; di++) {
       var id = String(docs[di].identifier || '');
       if (!id || seen.indexOf(id) !== -1) continue;
       musicSeenAdd_(id); seen.push(id);
@@ -43447,6 +43519,10 @@ function musicSeek_(slots, sfxOnly) {
       out.notes.push(slot + ': ' + auditCut_(title, 40) +
                      ' (' + Math.round(best.size / 1e5) / 10 + ' مگابایت)');
     }
+    /* همهٔ صفحه دیده شد ⇒ نوبتِ بعد (و همین اجرا، اگر وقت هست) صفحهٔ بعد. نیمه‌کاره ⇒ همین صفحه می‌مانَد. */
+    if (worn || di < docs.length) break;
+    page = musicQPage_(qStr, page + 1);
+    }
   }
 
   // ── جلوه‌های صوتی ──
@@ -43485,13 +43561,21 @@ function musicSeek_(slots, sfxOnly) {
       } catch (eSS2) {}
     }
     out.notes.push('افکت ← گشته شد با: ' + (sfxTerms || 'واژه‌های عمومی (خواسته‌ای ثبت نشده)'));
-    var su = base + '/advancedsearch.php?q=' + encodeURIComponent(sfxSeekQuery_(sfxTerms)) +
+    var sq = sfxSeekQuery_(sfxTerms), spage = musicQPage_(sq);
+    for (var spt = 0; spt < tries && sfxAdded < sfxCap && Date.now() < seekEnd; spt++) {
+    var su = base + '/advancedsearch.php?q=' + encodeURIComponent(sq) +
              '&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=licenseurl' +
-             '&rows=50&page=1&output=json';
+             '&rows=50&page=' + spage + '&output=json';
     var sres = musicApiJson_(su);
     var sdocs = (sres && sres.response && sres.response.docs) || [];
     out.looked += sdocs.length;
-    for (var sd = 0; sd < sdocs.length && sfxAdded < sfxCap; sd++) {
+    if (!sdocs.length) {
+      if (spage > 1) musicQPage_(sq, 1);
+      out.notes.push('افکت: صفحهٔ ' + spage + ' نتیجه‌ای نداشت' + (spage > 1 ? ' — دفعهٔ بعد از صفحهٔ ۱' : ''));
+      break;
+    }
+    var sd = 0;
+    for (; sd < sdocs.length && sfxAdded < sfxCap && Date.now() < seekEnd; sd++) {
       var sid = String(sdocs[sd].identifier || '');
       if (!sid || seen.indexOf(sid) !== -1) continue;
       musicSeenAdd_(sid); seen.push(sid);
@@ -43536,6 +43620,9 @@ function musicSeek_(slots, sfxOnly) {
         out.added++; sfxAdded++; took++;
         out.notes.push('افکت: ' + auditCut_(lib, 40) + (cat ? ' (' + cat + ')' : ''));
       }
+    }
+    if (sd < sdocs.length) break;
+    spage = musicQPage_(sq, spage + 1);
     }
   }
 
@@ -83062,8 +83149,16 @@ function igStatus_() {
                 var dn = igDoneMap_(st), n = S.eps.filter(function (x) { return dn[String(x.ep)]; }).length;
                 return { series: S.name, done: n, total: S.eps.length };
               }) };
+  /* ══ «تعدادِ دقیقِ پست‌ها ۴۴ تاست» (۱۰.۸) ══ `published` شمارندهٔ انتشار است و هرگز کم نمی‌شود — ریلزی که پس گرفته شد
+     (۹.۵۲، ۹.۶۶) یا از نو ساخته شد (۹.۷۳) هنوز در آن است. خط ۴۷ می‌گفت و صفحه ۴۴ داشت. عددِ صفحه از خودِ متاست
+     (`ins.mediaCount`، هر سه ساعت)، و شمارنده کنارش با نامِ درستش می‌ماند. */
+  var live = (st.ins && Number(st.ins.mediaCount)) || 0;
+  out.live = live || null;
+  var cnt = live ? live + ' پست در صفحه (طبقِ متا، ' + ((st.ins && st.ins.at) || '') + ')' +
+                   (out.published > live ? '؛ ' + out.published + ' بار انتشار — ' + (out.published - live) + ' تا پس‌گرفته یا پاک‌شده' : '')
+                 : out.published + ' بار انتشار';
   out.line = !a ? 'اینستاگرام: کلید ثبت نشده (منوی «۴) کلیدِ اینستاگرام (متا)»).'
-    : 'اینستاگرام @' + a.user + ': ' + out.published + ' ریلز منتشر شده، امروز ' + out.today + '؛ در جریان: ' +
+    : 'اینستاگرام @' + a.user + ': ' + cnt + '، امروز ' + out.today + '؛ در جریان: ' +
       (fl.length ? fl.map(function (x) { return x.key.split(':').pop() + ' (' + x.phase + (x.why ? ' — ' + x.why : '') + ')'; }).join('، ') : 'هیچ') +
       (out.lastWhy ? '. آخرین ایراد: ' + out.lastWhy : '') +
       igInsLine_(st.ins) +

@@ -776,9 +776,23 @@ function prepMedia(it, scenes, dir, notes, placed) {
       if (g.kind === 'photo' || (s.media && s.media.kind === 'photo')) {
         if (g.kind !== 'photo') { st.failed++; notes.push('صحنهٔ ' + s.n + ': عکس نبود'); return; }
         /* ۹.۰۴: کارتِ نوشته روی تصویرِ محوِ **همان رسانه‌ای** که پیشش بود (آخرین قابِ کلیپ یا خودِ عکس)، نه کاور. */
-        const isCard = !!(s.media && s.media.card);
+        let isCard = !!(s.media && s.media.card);
         const prevImg = isCard && i > 0 ? imgs[String(scenes[i - 1].n)] : '';
-        const srcImg = prevImg && fs.existsSync(prevImg) ? prevImg : g.file;
+        let srcImg = prevImg && fs.existsSync(prevImg) ? prevImg : g.file;
+        /* ۱۰.۸: زمینه‌ای که پس از محوشدن خاکستریِ یکدست می‌شود (اسکرین‌شاتِ سفید) کارت را روی هیچ می‌نشانَد — خودِ عکسِ همین
+           صحنه در چیدمانِ کناری، و کارتِ برداری در نیمهٔ خالی (همان جایی که برای کارت کنار گذاشته شده). */
+        /* و کارتی که پشتِ یک **عکس** می‌آید هم: محوِ همان عکس هیچ پیوستگی‌ای نمی‌سازد که خودِ عکس نسازد — ناظر در ۸۳
+           «۴۸۸ تا ۵۱۲ فقط پس‌زمینهٔ تار» دید، روی اسکرین‌شاتِ روشن که QA ردش نمی‌کرد. محو فقط پس از کلیپ معنا دارد (۹.۰۴). */
+        if (isCard) {
+          const pg = i > 0 ? got[scenes[i - 1].url] : null;
+          const afterPhoto = !!(pg && pg.kind === 'photo');
+          const cf = afterPhoto ? { flat: false, sd: -1 } : MKIT.cardFlat(FF, srcImg);
+          if (cf.flat || afterPhoto) {
+            isCard = false; srcImg = g.file;
+            st.cardFlat = (st.cardFlat || 0) + 1;
+            notes.push('صحنهٔ ' + s.n + ': ' + (afterPhoto ? 'کارت پس از عکس' : 'زمینهٔ کارت یکدست بود (sd ' + cf.sd + ')') + ' ⇒ خودِ عکس، کنارِ کارت');
+          }
+        }
         const pc = MKIT.photoClip(FF, srcImg, out + '.mp4', want, { layout: layOf[s.n], card: isCard });
         if (isCard && srcImg !== g.file) st.cardOwn = (st.cardOwn || 0) + 1;
         if (pc.kind === 'card') st.cards = (st.cards || 0) + 1;
