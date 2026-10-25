@@ -38,7 +38,9 @@ global.__STUB = function (url, body) {
     return { code: 200, json: { url: 'https://banner', presentationId: 'PRES1' } };
   }
   if (url.indexOf('/v1beta/models?') !== -1) return { code: 200, json: { models: [
-    { name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['generateContent'] }] } };
+    { name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['generateContent'] },
+    /* ۱۰.۹: مدلِ کلیپ از فهرستِ زنده انتخاب می‌شود (`lvClipModel_`)؛ حسابی که کلیپ می‌سازد veo دارد. */
+    { name: 'models/' + CFG.LV_CLIP_MODEL, supportedGenerationMethods: ['predictLongRunning'] }] } };
   __askCount++;
   return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify({
     title: 'عنوانِ ساختگیِ شمارهٔ ' + __askCount,
@@ -83,6 +85,9 @@ function visFromPrompt(body) {
    آن. چند بند استابِ محلی‌شان را رها می‌کنند و بندِ بعدی در دنیای آن‌ها
    می‌دود — که یعنی شکستش چیزی دربارهٔ خودش نمی‌گوید. */
 const BASE_STUB = global.__STUB;
+/* ۱۰.۹: کلیپِ آغاز در پیکربندی خاموش است (به خواستِ او، `docs/parked.md`)؛ این فایل خودِ سازوکارِ کلیپ را می‌سنجد — روزی که
+   روشن شود باید کار کند — پس این‌جا روشن است. خاموش‌بودنِ پیکربندی را ۱۰.۹ِ `run_ttsmodel_test.js` می‌سنجد. */
+CFG.LV_CLIP_ON = true;
 
 let pass = 0;
 const ok = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d ? ' — ' + d : ''));
@@ -6800,6 +6805,8 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
       return { r: r, d: lvSceneRead_(E.f), whys: whys, cnt: cnt, E: E };
     };
     const capWas77 = CFG.LV_GEN_USD_MONTH;
+    /* ۱۰.۹: کلیپ در پیکربندی خاموش است (به خواستِ او)؛ این بخش خودِ سازوکارِ کلیپ را می‌سنجد، پس روشنش می‌کند و برمی‌گرداند. */
+    const clipWas77 = CFG.LV_CLIP_ON; CFG.LV_CLIP_ON = true;
     CFG.LV_GEN_USD_MONTH = 120;
     global.__PROPS[PK.LV_GEN_SPEND] = '';
     delete global.__PROPS[PK.LV_CLIP_LAST];
@@ -7284,6 +7291,7 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
     global.__TRIGGERS = global.__TRIGGERS.filter(t => t.getHandlerFunction() !== 'lvAuditionLater');
     CFG.LV_GEN_MODEL_PIN = pinWas77; CFG.LV_GEN_MODEL = setWas77;
     CFG.LV_GEN_USD_MONTH = capWas77;
+    CFG.LV_CLIP_ON = clipWas77;
     global.__PROPS[PK.LV_GEN_SPEND] = '';
   }
 
