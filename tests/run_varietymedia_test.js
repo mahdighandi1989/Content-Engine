@@ -512,7 +512,8 @@ console.log('=== ۱۴) هر پرچمی که رانر می‌خوانَد از ص
   const rj = fs.readFileSync('tools/render.js', 'utf8');
   ok('۱۴.۴ کارت روی تصویرِ محوِ همان رسانه‌ای که پیشش بود، نه کاور (۹.۰۴)',
      /const prevImg = isCard && i > 0 \? imgs\[String\(scenes\[i - 1\]\.n\)\] : '';/.test(rj) &&
-     /const srcImg = prevImg && fs\.existsSync\(prevImg\) \? prevImg : g\.file;/.test(rj) &&
+     /(?:const|let) srcImg = prevImg && fs\.existsSync\(prevImg\) \? prevImg : g\.file;/.test(rj) &&   // ۱۰.۸: let — پس از عکس یا زمینهٔ یکدست، خودِ عکس
+    
      /MKIT\.photoClip\(FF, srcImg, out \+ '\.mp4', want, \{ layout: layOf\[s\.n\], card: isCard \}\)/.test(rj));
   ok('۱۴.۳ رانر صحنهٔ cont را از جایی که صحنهٔ پیشینِ همان کلیپ ایستاد ادامه می‌دهد',
      /const cont = !!\(s\.media && s\.media\.cont\) && usedTo\[s\.url\] !== undefined;/.test(rj) &&
