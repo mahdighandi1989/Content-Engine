@@ -567,7 +567,8 @@ function seriesBoardHtml_(d) {
     'زیردسته (اختیاری)</div>' +
     '<input id="moSub" type="text" style="width:100%;box-sizing:border-box;padding:8px;' +
     'border:1px solid #cbd5e1;border-radius:7px;font:inherit"></div>' +
-    '<div style="font-size:11.5px;color:#5a6478;margin-top:8px">با ثبت، این مجموعه برای داوریِ ' +
+    '<div style="font-size:11.5px;color:#5a6478;margin-top:8px"><b>شماره = ورود به نوبتِ شروعِ تولید</b> (کوچک‌تر اول)؛ ' +
+    '<b>دسته به‌تنهایی فقط برچسب است</b> و مجموعه را وارد نوبت نمی‌کند. با ثبت، این مجموعه برای داوریِ ' +
     'خودکار قفل می‌شود، پوشهٔ درایوش زیرِ دسته می‌رود و شماره/دسته برای قسمت‌های قبلی هم عقب‌گرد می‌خورد.</div>' +
     '<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-start">' +
     '<button onclick="moSave()" style="background:#166534;color:#fff;border:0;padding:8px 16px;' +
@@ -594,7 +595,7 @@ function seriesBoardHtml_(d) {
   try { H.push(destPanelHtml_()); } catch (eDp) {}
   try { H.push(seriesStatesHtml_(d)); } catch (eSs) {}
   /* ۱۱.۷: «دسته‌بندیِ خودکار غلط بوده» — فهرستِ بازبینی یک دکمه فاصله دارد. */
-  H.push('<div class="card"><b>🗂 دستهٔ مجموعه‌ها</b> <span class="sub">فقط دستهٔ دستی تصمیم می‌سازد' +
+  H.push('<div class="card"><b>🗂 دستهٔ مجموعه‌ها</b> <span class="sub">دستهٔ دستی فقط برچسب است و شمارهٔ دستی مجموعه را وارد نوبت می‌کند؛ دستهٔ خودکار هیچ تصمیمی نمی‌سازد' +
          (CFG.SERIES_AUTO_CAT_TRUST === false ? '' : ' (اکنون دستهٔ خودکار هم — SERIES_AUTO_CAT_TRUST روشن است)') +
          '؛ بقیه زیرِ «' + bEsc_(SERIES_NOMAN_TITLE) + '» آمده‌اند و پیشنهادِ خودکارشان کنارِ نام است.</span> ' +
          '<button onclick="catReview()">فهرستِ بازبینیِ همهٔ مجموعه‌ها (تب + تلگرام)</button></div>');

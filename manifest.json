@@ -1,17 +1,20 @@
 {
-  "version": "11.8",
+  "version": "11.9",
   "codeFile": "engine.gs",
-  "sha256": "1f1c3956aff0d054e896b5473e04e33f9e58e6dcbe5dedec0df7a33ecbdc3d75",
-  "releasedAt": "2026-10-25T13:55:25Z",
-  "summary": "قفلِ دست‌نوشتهٔ Studio برای پلی‌لیست‌ها و دربارهٔ کانال؛ گزارشِ کاملِ درخواست‌ها",
+  "sha256": "836996ed222f5afc4b550f97857213fdaa04579b7f0478f28b7d90627175a62d",
+  "releasedAt": "2026-10-25T14:15:18Z",
+  "summary": "داورِ مجموعه‌ها با «فلسفی و اعتقادی» و دسته‌های دستی؛ catSure؛ داوریِ دوباره؛ دستهٔ دستی فقط برچسب",
   "fixes": [
-    "ytPlDescSync_/ytPlEnsure_: متنِ زنده پیش از نوشتن؛ نامِ زنده می‌ماند؛ توضیحِ دست‌نوشته دست نمی‌خورد (ytPlHuman_)",
-    "ytChannelSync_: دربارهٔ کانالِ دست‌نوشته دست نمی‌خورد (ytChanHuman_، PK.YT_CHAN_MINE)",
-    "tools/requests_report.py ⇒ docs/requests_report.md"
+    "seriesCatList_/validSeriesCategory_ (16_Curate) در judgePrompt_/applyVerdict_/planCurriculum_؛ TAXONOMY دست نخورد",
+    "JUDGE_SCHEMA.catSure + SERIES_CAT_MIN_SURE ⇒ SERIES_CAT_UNSURE",
+    "JUDGE_CAT_SINCE: داوری‌های کهنه یک بار از نو",
+    "pickSeriesPlan_: شروعِ مجموعهٔ تازه فقط با شمارهٔ دستی"
   ],
   "sourceReportIds": [],
   "answers": [
-    "R-20261025-38"
+    "R-20261025-40",
+    "R-20261025-41",
+    "R-20261025-42"
   ],
   "promptImpact": [],
   "promptImpactKinds": []

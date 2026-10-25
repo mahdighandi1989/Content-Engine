@@ -324,16 +324,19 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
   resetProps([PK.SP_PIN]);
   ok('۱۰.۰ پیش‌فرض: دستهٔ خودکار تصمیم نمی‌سازد', CFG.SERIES_AUTO_CAT_TRUST === false);
   /* A خودکار با اولویت ۱، B دسته‌دستی با اولویت ۵ ⇒ B؛ پیش از ۱۱.۷ A می‌آمد */
-  const rows = () => [mk('A', 2, SST.NEW, 1, '', 'علمی و آموزشی'), mk('B', 3, SST.NEW, 5, 'فلسفی و اعتقادی')];
+  const rows = () => [mk('A', 2, SST.NEW, 1, '', 'علمی و آموزشی'), mk('B', 3, SST.NEW, 5, 'فلسفی و اعتقادی', '', { [SC.MORDER - 1]: '2' })];
   const p1 = pickSeriesPlan_({}, mkReg(rows()), { byKey: {} });
-  ok('۱۰.۱ مجموعهٔ تازه فقط از دسته‌دستی‌ها شروع می‌شود (B، نه A با اولویتِ بهتر)', p1.rec && p1.rec.key === 'B' && p1.heldAuto === 1, JSON.stringify({ k: p1.rec && p1.rec.key, h: p1.heldAuto }));
+  ok('۱۰.۱ مجموعهٔ تازه فقط با شمارهٔ دستی شروع می‌شود (B، نه A با اولویتِ خودکارِ بهتر)', p1.rec && p1.rec.key === 'B' && p1.heldAuto === 1, JSON.stringify({ k: p1.rec && p1.rec.key, h: p1.heldAuto }));
   CFG.SERIES_AUTO_CAT_TRUST = true;
-  ok('۱۰.۲ و با کلیدِ قدیم همان رفتارِ پیشین (A)', pickSeriesPlan_({}, mkReg(rows()), { byKey: {} }).rec.key === 'A');
+  ok('۱۰.۲ و با کلیدِ قدیم همان رفتارِ پیشین (A — دستهٔ دستیِ بی شماره هیچ امتیازی ندارد)', pickSeriesPlan_({}, mkReg([mk('A', 2, SST.NEW, 1, '', 'علمی و آموزشی'), mk('B', 3, SST.NEW, 5, 'فلسفی و اعتقادی')]), { byKey: {} }).rec.key === 'A');
   CFG.SERIES_AUTO_CAT_TRUST = false;
   const onlyAuto = mkReg([mk('A', 2, SST.NEW, 1)]);
   ok('۱۰.۳ هیچ دسته‌دستیِ در نوبت ⇒ مجموعهٔ تازه شروع نمی‌شود، و مسئلهٔ روز گفته می‌شود',
-     !pickSeriesPlan_({}, onlyAuto, { byKey: {} }).rec && /هیچ مجموعهٔ دسته‌دستیِ «در نوبت» نیست/.test(seriesCatLine_(onlyAuto).problem));
-  const act = mkReg([mk('A', 2, SST.ACTIVE, 1), mk('B', 3, SST.NEW, 5, 'فلسفی و اعتقادی')]);
+     !pickSeriesPlan_({}, onlyAuto, { byKey: {} }).rec && /هیچ مجموعه‌ای با «شمارهٔ دستی» در نوبت نیست/.test(seriesCatLine_(onlyAuto).problem));
+  const lab = mkReg([mk('L', 2, SST.NEW, 1, 'فلسفی و اعتقادی')]);
+  ok('۱۰.۳-ب (۱۱.۹) فقط دستهٔ دستی (بی شماره) = برچسب: وارد نوبت نمی‌شود، ولی داوری قفل است',
+     !pickSeriesPlan_({}, lab, { byKey: {} }).rec && seriesManualLock_(lab.rows[0].vals) && /بی شماره/.test(seriesCatLine_(lab).line));
+  const act = mkReg([mk('A', 2, SST.ACTIVE, 1), mk('B', 3, SST.NEW, 5, 'فلسفی و اعتقادی', '', { [SC.MORDER - 1]: '1' })]);
   ok('۱۰.۴ مجموعهٔ «در حال تولید» (هر دسته‌ای) تا پایان ادامه دارد — کارِ نیمه‌کاره رها نمی‌شود', pickSeriesPlan_({}, act, { byKey: {} }).rec.key === 'A');
   const mo = mkReg([mk('A', 2, SST.NEW, 1), mk('M', 4, SST.NEW, 9, '', '', { [SC.MORDER - 1]: '1' })]);
   ok('۱۰.۵ شمارهٔ دستی (بی دسته) هم «دستی» است و شروع می‌شود', pickSeriesPlan_({}, mo, { byKey: {} }).rec.key === 'M');
@@ -393,6 +396,30 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
   ok('۱۱.۶ همگامِ شبانه: پیش از نوشتن متنِ زنده، نامِ زنده می‌ماند، دست‌نوشته رد می‌شود، اثر ثبت می‌شود',
      /ytPlLive_\(yt, rec\.id\)/.test(sync) && /ytPlHuman_\(rec, live\.desc\)/.test(sync) && /title: String\(live\.title/.test(sync) && /rec\.descFp = ytDescFp_\(dOut\)/.test(sync));
   ok('۱۱.۷ دربارهٔ کانال پیش از نوشتن سنجیده می‌شود و اثرش ثبت می‌شود', /var chHuman = ytChanHuman_\(curDesc\)/.test(y) && /setProperty\(PK\.YT_CHAN_MINE, ytDescFp_\(desc\)\)/.test(y));
+}
+
+/* ── ۱۲) ۱۱.۹: «فلسفی و اعتقادی» در فهرستِ داور، اطمینانِ کم ⇒ بی‌دسته، و داوریِ دوباره ── */
+{
+  const reg = { rows: [{ key: 'X', row: 2, vals: (() => { const v = new Array(SERIES_HEADERS.length).fill(''); v[SC.MCAT - 1] = 'دستهٔ تازهٔ دستی'; return v; })() }] };
+  const L = seriesCatList_(reg);
+  ok('۱۲.۱ فهرستِ داور: ۱۴ دستهٔ TAXONOMY + «فلسفی و اعتقادی» + دستهٔ دستیِ تازه + متفرقه', L.indexOf('فلسفی و اعتقادی') !== -1 && L.indexOf('دستهٔ تازهٔ دستی') !== -1 &&
+     L.indexOf(MISC_TITLE) === L.length - 1 && TAXONOMY.every((t) => L.indexOf(t.title) !== -1), L.join(' · '));
+  ok('۱۲.۲ TAXONOMY («از همه جا» و تب‌های هاب) دست نخورد', !TAXONOMY.some((t) => t.title === 'فلسفی و اعتقادی'));
+  const pr = judgePrompt_([{ key: 'k1', partNames: ['جلسه دوم'], kind: 'صوت', parts: 1, chunks: 3, src: 's', tab: 'مکالمه عربی', text: 'متن' }], L);
+  ok('۱۲.۳ پرامپت: فهرستِ تازه، مرزِ فلسفی/مذهبی، هنر جدا از علمی، catSure، و نامِ بی‌محتوا ⇒ متن و تب', /فلسفی و اعتقادی/.test(pr) && /مراسم، هیئت، مداحی/.test(pr) &&
+     /فیلم‌نامه/.test(pr) && /catSure/.test(pr) && /جلسه دوم/.test(pr) && /تب\/پوشهٔ منبع: مکالمه عربی/.test(pr) && JUDGE_SCHEMA.properties.verdicts.items.properties.catSure);
+  const mkv = () => { const v = new Array(SERIES_HEADERS.length).fill(''); v[SC.KEY - 1] = 'k1'; v[SC.NAME - 1] = 'جلسه دوم'; return v; };
+  const fakeReg = (v) => ({ rows: [{ key: 'k1', row: 2, vals: v }], sheet: { getRange: () => ({ setValues: () => {} }) } });
+  const v1 = mkv(), r1 = fakeReg(v1);
+  applyVerdict_(r1, r1.rows[0], { key: 'k1', isCourse: 'true', score: '70', about: 'فلسفهٔ حقوق', topic: 'فلسفه حقوق', category: 'فلسفی و اعتقادی', catSure: '85', level: 'میانی', why: 'نظریهٔ حقوق' }, { name: 'x', partNames: [] }, true);
+  ok('۱۲.۴ «فلسفی و اعتقادی» با اطمینانِ کافی پذیرفته می‌شود', v1[SC.CAT - 1] === 'فلسفی و اعتقادی', v1[SC.CAT - 1]);
+  const v2 = mkv(), r2 = fakeReg(v2);
+  applyVerdict_(r2, r2.rows[0], { key: 'k1', isCourse: 'true', score: '60', about: 'مکالمه', topic: 'عربی', category: 'علمی و آموزشی', catSure: '35', level: 'مقدماتی', why: 'نمونه کم' }, { name: 'x', partNames: [] }, true);
+  ok('۱۲.۵ اطمینانِ کمتر از آستانه ⇒ «بدون دسته (نیازمند بازبینی)» با علت', v2[SC.CAT - 1] === CFG.SERIES_CAT_UNSURE && /نامطمئن/.test(v2[SC.WHY - 1]), v2[SC.CAT - 1] + ' | ' + v2[SC.WHY - 1]);
+  const v3 = mkv(); v3[SC.JUDGED - 1] = '2026-10-20 10:00'; v3[SC.IS_COURSE - 1] = SJ.YES;
+  const v4 = mkv(); v4[SC.JUDGED - 1] = '2026-10-20 10:00'; v4[SC.MCAT - 1] = 'فلسفی و اعتقادی';
+  const need = seriesNeedingJudgement_({ rows: [{ key: 'a', vals: v3 }, { key: 'b', vals: v4 }] }).map((r) => r.key);
+  ok('۱۲.۶ داوری‌های پیش از فهرستِ تازه یک بار از نو — ولی ردیفِ دستی هرگز', need.join(',') === 'a', need.join(','));
 }
 
 summary('owner115');

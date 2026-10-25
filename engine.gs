@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 11.8
+ *  موتور محتوا و پادکست — نسخهٔ 11.9
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2114,7 +2114,18 @@ var CFG = {
      دستی گذاشته معتبرند.» false ⇒ دستهٔ خودکار فقط «پیشنهاد» است: مجموعهٔ تازه فقط با دسته یا شمارهٔ دستی شروع می‌شود،
      سنجاقِ دسته و انتخابِ گوینده فقط دستهٔ دستی را می‌بینند، و تخته بی‌دسته‌دستی‌ها را جدا نشان می‌دهد. true ⇒ رفتارِ پیش از ۱۱.۷. */
   SERIES_AUTO_CAT_TRUST: false,
-  SERIES_CAT_REVIEW_TAB: 'بازبینیِ دستهٔ مجموعه‌ها',   // ۱۱.۷: فهرستِ فقط‌خواندنی؛ هر بار از نو ساخته می‌شود
+  SERIES_CAT_REVIEW_TAB: 'بازبینیِ دستهٔ مجموعه‌ها',
+  /* ۱۱.۹ — دسته‌هایی که فقط برای **مجموعه‌ها**ست، نه برای ردیف‌های «از همه جا» (TAXONOMY دست نمی‌خورد: تب‌های هاب و
+     دسته‌بندیِ محتوای «از همه جا» از همان می‌آیند). داور این‌ها را هم می‌شناسد، به‌اضافهٔ هر دستهٔ دستیِ تازه در رجیستری. */
+  SERIES_EXTRA_CATS: [
+    { title: 'فلسفی و اعتقادی',
+      def: 'نظریه و استدلال: معرفت‌شناسی، منطق، فلسفهٔ دین، کلام و اعتقاداتِ استدلالی، انسان‌شناسیِ فلسفی، و فلسفه‌های مضاف ' +
+           '(فلسفهٔ حقوق، سیاست، اخلاق، ذهن، علم). مرزش با «مذهبی و معنوی»: نظریه و استدلال ⇒ این دسته؛ مراسم، هیئت، مداحی، ' +
+           'روضه، دعا، احکامِ عملی و کارِ تشکیلاتی ⇒ «مذهبی و معنوی».' }
+  ],
+  SERIES_CAT_MIN_SURE: 60,           // ۱۱.۹: اطمینانِ داور به دسته کمتر از این ⇒ «بدون دسته، نیازمند بازبینی»
+  SERIES_CAT_UNSURE: 'بدون دسته (نیازمند بازبینی)',
+  JUDGE_CAT_SINCE: '2026-10-26 00:00',   // ۱۱.۹: داوری‌های پیش از این با فهرستِ دستهٔ کهنه بودند ⇒ یک بار از نو (قفلِ دستی هرگز)   // ۱۱.۷: فهرستِ فقط‌خواندنی؛ هر بار از نو ساخته می‌شود
   CAL_TAB: 'تقویمِ تولید',      // روزهای تولیدِ هر برنامه و استثناها
   // ══ بخشِ ۳۲ — «صداها» ══
   // شخصیتِ خواندن (مکث و کشش و دامنه)، نه رنگِ صدا. جدولش در هاب است و
@@ -2281,7 +2292,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '11.8',
+  CODE_VERSION: '11.9',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -25913,7 +25924,8 @@ function planCurriculum_(hub, regOpt) {
     '• topic: موضوعِ مجموعه در حداکثر پنج واژهٔ فارسی.\n' +
     '• related: کلیدِ نزدیک‌ترین مجموعهٔ هم‌موضوع (اگر هست)، وگرنه رشتهٔ خالی.\n' +
     '• category: دستهٔ این مجموعه، دقیقاً یکی از این نام‌ها و بی هیچ تغییر:\n   ' +
-    TAXONOMY.map(function (t) { return t.title; }).concat([MISC_TITLE]).join(' · ') + '\n' +
+    seriesCatList_(reg).join(' · ') + '\n' +   // ۱۱.۹: همان فهرستِ داور
+
     '• why: در یک جمله بگو چرا این جایگاه را دادی.\n\n' +
     'فقط از روی نام و نوع و اندازه قضاوت کن. هیچ مجموعه‌ای را جا ننداز و هیچ ترتیبی را ' +
     'تکراری نده.';
@@ -25950,8 +25962,7 @@ function planCurriculum_(hub, regOpt) {
     // می‌دهد: پاسخِ «constructor» یا «__proto__» از مدل پذیرفته می‌شد و بعد
     // کلِ تختهٔ مجموعه‌ها را می‌شکست.
     var okCats = Object.create(null);
-    for (var t3 = 0; t3 < TAXONOMY.length; t3++) okCats[TAXONOMY[t3].title] = true;
-    okCats[MISC_TITLE] = true;
+    seriesCatList_(reg).forEach(function (t) { okCats[t] = true; });   // ۱۱.۹: همان فهرستِ داور
     var pc = String(pl.category || '').trim();
     if (Object.prototype.hasOwnProperty.call(okCats, pc)) rec.vals[SC.CAT - 1] = pc;
     else if (!String(rec.vals[SC.CAT - 1] || '').trim()) {
@@ -26267,8 +26278,9 @@ function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt, optsOpt) {
     if (st === SST.ACTIVE) actives.push(reg.rows[i]);
     else if (st === SST.REOPENED && !reopenedRec) reopenedRec = reg.rows[i];
     else if (st === SST.NEW) {
-      /* ۱۱.۷: مجموعهٔ تازه فقط وقتی شروع می‌شود که دسته یا شماره‌اش دستی باشد — ترتیبِ بقیه از دستهٔ خودکار می‌آید. */
-      if (CFG.SERIES_AUTO_CAT_TRUST === false && !seriesManualLock_(v)) { out.heldAuto = (out.heldAuto || 0) + 1; continue; }
+      /* ۱۱.۷/۱۱.۹: مجموعهٔ تازه فقط با **شمارهٔ دستی** شروع می‌شود. دستهٔ دستی فقط برچسب است — «می‌خواهم دسته را اصلاح کنم
+         بی‌آنکه ناخواسته مجموعه‌ای وارد نوبتِ تولید شود». ترتیب = همان شماره (کوچک‌تر اول). */
+      if (CFG.SERIES_AUTO_CAT_TRUST === false && !isFinite(seriesMOrder_(v))) { out.heldAuto = (out.heldAuto || 0) + 1; continue; }
       queue.push(reg.rows[i]);
     }
   }
@@ -26518,16 +26530,16 @@ function seriesCatLine_(reg) {
     var v = reg.rows[i].vals, st = String(v[SC.STATUS - 1] || '');
     if (st === SST.SKIPPED) continue;
     if (String(v[SC.MCAT - 1] || '').trim()) man++; else auto++;
-    if (st === SST.NEW && seriesEligible_(v, reg.rows[i].key, null)) { if (seriesManualLock_(v)) nextMan++; else held++; }
+    if (st === SST.NEW && seriesEligible_(v, reg.rows[i].key, null)) { if (isFinite(seriesMOrder_(v))) nextMan++; else held++; }
   }
   var trust = CFG.SERIES_AUTO_CAT_TRUST !== false;
   return {
     line: '🗂 دستهٔ مجموعه‌ها: ' + man + ' دسته‌دستی، ' + auto + ' فقط خودکار' +
           (trust ? ' (دستهٔ خودکار هم تصمیم می‌سازد — SERIES_AUTO_CAT_TRUST روشن)' : ' — دستهٔ خودکار در هیچ تصمیمی به کار نمی‌رود') +
-          ' · در نوبت: ' + nextMan + ' دستی، ' + held + ' منتظرِ دستهٔ دستی.',
+          ' · در نوبت: ' + nextMan + ' با شمارهٔ دستی، ' + held + ' بی شماره (منتظر؛ دستهٔ دستی فقط برچسب است).',
     /* فقط وقتی چیزی واقعاً منتظر است و هیچ‌کدام دستی نیست — رجیستریِ خالی یا تمام‌شده این مسئله نیست. */
-    problem: (!trust && !nextMan && held) ? '⚠️ هیچ مجموعهٔ دسته‌دستیِ «در نوبت» نیست: وقتی مجموعهٔ جاری تمام شود، درس‌نامهٔ تازه‌ای شروع نمی‌شود — ' +
-                                     'در تخته برای مجموعهٔ بعدی «شماره و دستهٔ دستی» بگذارید (یا سنجاقش کنید).' : ''
+    problem: (!trust && !nextMan && held) ? '⚠️ هیچ مجموعه‌ای با «شمارهٔ دستی» در نوبت نیست: وقتی مجموعهٔ جاری تمام شود، درس‌نامهٔ تازه‌ای شروع نمی‌شود — ' +
+                                     'در تخته برای مجموعهٔ بعدی «شماره و دستهٔ دستی» شماره بگذارید (یا سنجاقش کنید).' : ''
   };
 }
 
@@ -29927,7 +29939,8 @@ function seriesBoardHtml_(d) {
     'زیردسته (اختیاری)</div>' +
     '<input id="moSub" type="text" style="width:100%;box-sizing:border-box;padding:8px;' +
     'border:1px solid #cbd5e1;border-radius:7px;font:inherit"></div>' +
-    '<div style="font-size:11.5px;color:#5a6478;margin-top:8px">با ثبت، این مجموعه برای داوریِ ' +
+    '<div style="font-size:11.5px;color:#5a6478;margin-top:8px"><b>شماره = ورود به نوبتِ شروعِ تولید</b> (کوچک‌تر اول)؛ ' +
+    '<b>دسته به‌تنهایی فقط برچسب است</b> و مجموعه را وارد نوبت نمی‌کند. با ثبت، این مجموعه برای داوریِ ' +
     'خودکار قفل می‌شود، پوشهٔ درایوش زیرِ دسته می‌رود و شماره/دسته برای قسمت‌های قبلی هم عقب‌گرد می‌خورد.</div>' +
     '<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-start">' +
     '<button onclick="moSave()" style="background:#166534;color:#fff;border:0;padding:8px 16px;' +
@@ -29954,7 +29967,7 @@ function seriesBoardHtml_(d) {
   try { H.push(destPanelHtml_()); } catch (eDp) {}
   try { H.push(seriesStatesHtml_(d)); } catch (eSs) {}
   /* ۱۱.۷: «دسته‌بندیِ خودکار غلط بوده» — فهرستِ بازبینی یک دکمه فاصله دارد. */
-  H.push('<div class="card"><b>🗂 دستهٔ مجموعه‌ها</b> <span class="sub">فقط دستهٔ دستی تصمیم می‌سازد' +
+  H.push('<div class="card"><b>🗂 دستهٔ مجموعه‌ها</b> <span class="sub">دستهٔ دستی فقط برچسب است و شمارهٔ دستی مجموعه را وارد نوبت می‌کند؛ دستهٔ خودکار هیچ تصمیمی نمی‌سازد' +
          (CFG.SERIES_AUTO_CAT_TRUST === false ? '' : ' (اکنون دستهٔ خودکار هم — SERIES_AUTO_CAT_TRUST روشن است)') +
          '؛ بقیه زیرِ «' + bEsc_(SERIES_NOMAN_TITLE) + '» آمده‌اند و پیشنهادِ خودکارشان کنارِ نام است.</span> ' +
          '<button onclick="catReview()">فهرستِ بازبینیِ همهٔ مجموعه‌ها (تب + تلگرام)</button></div>');
@@ -32305,6 +32318,7 @@ var JUDGE_SCHEMA = {
           about: { type: 'string' },
           topic: { type: 'string' },
           category: { type: 'string' },
+          catSure: { type: 'string' },
           level: { type: 'string' },
           related: { type: 'string' },
           orderHint: { type: 'string' },
@@ -32336,6 +32350,9 @@ function seriesJudged_(vals) {
   if (!at) return false;
   var ms = parseWhen_(at);
   if (isNaN(ms)) return true;
+  /* ۱۱.۹: داوریِ پیش از فهرستِ تازهٔ دسته‌ها ⇒ یک بار از نو. */
+  var since = parseWhen_(String(CFG.JUDGE_CAT_SINCE || ''));
+  if (!isNaN(since) && ms < since) return false;
   var days = (new Date().getTime() - ms) / 86400000;
   // داوریِ «مشکوک» قطعی نیست: زودتر دوباره امتحان می‌شود، نه پس از ۴۵ روز.
   // (شاید تبِ منبع همان یک بار در دسترس نبوده باشد.)
@@ -32729,13 +32746,15 @@ function clearAiJudgeCooldown_() {
 
 // ---------------------------------------------------------------- داوری
 
-function judgePrompt_(entries) {
+function judgePrompt_(entries, catsOpt) {
   var L = [];
   L.push('تو سردبیرِ یک آرشیوِ شخصیِ بزرگ هستی. برای هر «مجموعه» زیر، تکه‌هایی از ' +
          'متنِ واقعیِ خودش آمده است (پیاده‌سازیِ صدا یا متنِ استخراج‌شدهٔ سند). ' +
          'قرار است تصمیم بگیری کدام‌ها به یک پادکستِ آموزشیِ درس‌به‌درس تبدیل شوند.');
   L.push('');
   L.push('قاعدهٔ تشخیص — بر پایهٔ خودِ متن، نه نامِ فایل. نام فایل می‌تواند گمراه‌کننده باشد:');
+  L.push('• نامِ بی‌محتوا («جلسه دوم»، «Standard recording»، فقط شماره) هیچ نشانه‌ای نیست: موضوع و دسته را فقط از متن، ' +
+         'نامِ قطعه‌ها و نامِ تب/پوشهٔ منبع بگیر.');
   L.push('• «آموزشی» یعنی محتوا چیزی را منظم یاد می‌دهد: مفهوم را تعریف می‌کند، ' +
          'مرحله‌به‌مرحله جلو می‌رود، مثال و تمرین و اشتباهِ رایج دارد، یا دانشی را ' +
          'ساخت‌یافته منتقل می‌کند. سخنرانیِ تخصصی و مصاحبهٔ عمیقِ کارشناسی هم ' +
@@ -32755,7 +32774,7 @@ function judgePrompt_(entries) {
     L.push('نامِ فایل‌ها: ' + (e.partNames.join(' ، ') || '—') +
            '   (نام صرفاً یک نشانهٔ فرعی است)');
     L.push('نوع: ' + e.kind + ' | شمارِ قسمت: ' + e.parts + ' | شمارِ قطعه: ' + e.chunks +
-           ' | منبع: ' + e.src);
+           ' | منبع: ' + e.src + (e.tab ? ' | تب/پوشهٔ منبع: ' + e.tab : ''));
     L.push('— متنِ نمونه —');
     L.push(e.text || '(هیچ متنی خوانده نشد)');
   }
@@ -32771,8 +32790,13 @@ function judgePrompt_(entries) {
          'مجموعه دقیقاً دربارهٔ چیست. باید طوری باشد که کسی که نامِ فایل را نمی‌فهمد، ' +
          'از همین یک جمله موضوع را بفهمد. کلی‌گویی نکن.');
   L.push('• topic: موضوع در حداکثر پنج واژهٔ فارسی.');
+  var cats = (catsOpt && catsOpt.length) ? catsOpt : seriesCatList_(null);
   L.push('• category: دقیقاً یکی از این نام‌ها، بی هیچ تغییر:');
-  L.push('  ' + TAXONOMY.map(function (t) { return t.title; }).concat([MISC_TITLE]).join(' · '));
+  L.push('  ' + cats.join(' · '));
+  /* ۱۱.۹: مرزِ دسته‌هایی که بیشتر قاطی شدند — تعریف از پیکربندی، نه از حافظهٔ مدل. */
+  (CFG.SERIES_EXTRA_CATS || []).forEach(function (x) { if (x && x.title && x.def) L.push('  ◦ «' + x.title + '»: ' + x.def); });
+  L.push('  ◦ «علمی و آموزشی» برای علم، فناوری، پزشکی، ریاضی و زبان است؛ هنر و نویسندگی (فیلم‌نامه، داستان، شعر) ⇒ «فرهنگی، تاریخی و ادبی» یا «موسیقی و هنر».');
+  L.push('• catSure: اطمینانت به همین دسته، عددِ ۰ تا ۱۰۰ به‌شکلِ رشته. اگر متن کم یا نامفهوم است، پایین بگذار — حدسِ مطمئن‌نما بدتر از «نمی‌دانم» است.');
   L.push('• level: یکی از «مقدماتی» / «میانی» / «پیشرفته» — بر پایهٔ سختیِ خودِ متن.');
   L.push('• orderHint: اگر چند مجموعه در یک دسته‌اند، ترتیبِ یادگیریشان را با عددِ ' +
          'کوچک‌به‌بزرگ نشان بده (۱ یعنی باید اول شنیده شود).');
@@ -32793,7 +32817,7 @@ function entriesFor_(slice, parts, optsOpt) {
     out.push({ key: slice[i].key, name: String(v[SC.NAME - 1] || ''),
                kind: String(v[SC.KIND - 1] || ''),
                parts: v[SC.PARTS - 1], chunks: v[SC.CHUNKS - 1],
-               src: String(v[SC.SRC - 1] || ''), hint: String(v[SC.TOPIC - 1] || ''),
+               src: String(v[SC.SRC - 1] || ''), hint: String(v[SC.TOPIC - 1] || ''), tab: String(v[SC.TAB - 1] || ''),
                partNames: smp.partNames, text: smp.text, samples: smp.samples });
   }
   return out;
@@ -32935,7 +32959,7 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
     }
 
     var out = null, callErr = null;
-    try { out = geminiText_(judgePrompt_(entries), JUDGE_SCHEMA, CFG.JUDGE_MAX_TOKENS || 24576); }
+    try { out = geminiText_(judgePrompt_(entries, seriesCatList_(reg)), JUDGE_SCHEMA, CFG.JUDGE_MAX_TOKENS || 24576); }
     catch (e) { callErr = e; }
 
     if (!callErr) {
@@ -33156,7 +33180,15 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
   var lvl = String(vd.level || '').trim();
   if (lvl === 'مقدماتی' || lvl === 'میانی' || lvl === 'پیشرفته') v[SC.LEVEL - 1] = lvl;
   var cat = String(vd.category || '').trim();
-  if (cat && validCategory_(cat)) v[SC.CAT - 1] = cat;
+  /* ۱۱.۹: دسته از فهرستِ مجموعه‌ها (با «فلسفی و اعتقادی» و دسته‌های دستی)؛ و اطمینانِ کم ⇒ «بدون دسته»، نه حدس. */
+  var sure = Number(faDigits_(String(vd.catSure === undefined ? '' : vd.catSure)).replace(/[^0-9.]/g, ''));
+  var hasSure = vd.__local !== true && String(vd.catSure === undefined ? '' : vd.catSure).trim() !== '' && isFinite(sure);
+  var okCat = !!cat && validSeriesCategory_(cat, reg);
+  if (okCat && hasSure && sure < (Number(CFG.SERIES_CAT_MIN_SURE) || 0)) {
+    v[SC.CAT - 1] = String(CFG.SERIES_CAT_UNSURE || 'بدون دسته (نیازمند بازبینی)');
+    v[SC.WHY - 1] = String(v[SC.WHY - 1] || '') + ' ‹دسته نامطمئن: «' + cat + '» با اطمینانِ ' + Math.round(sure) + '›';
+  }
+  else if (okCat) v[SC.CAT - 1] = cat;
   else if (!String(v[SC.CAT - 1] || '').trim()) v[SC.CAT - 1] = MISC_TITLE;
   if (vd.related) v[SC.RELATED - 1] = String(vd.related).slice(0, 120);
   var hintNum = Number(faDigits_(String(vd.orderHint === undefined ? '' : vd.orderHint))
@@ -33185,12 +33217,20 @@ function judgeYes_(v) {
   return /(^|\s)(true|yes|y|1|بله|اری|آری|درست|صحیح)(\s|$)/.test(s);
 }
 
-/** آیا این نامِ دسته در سیاههٔ رسمی هست؟ */
-function validCategory_(cat) {
-  if (cat === MISC_TITLE) return true;
-  for (var i = 0; i < TAXONOMY.length; i++) if (TAXONOMY[i].title === cat) return true;
-  return false;
+/* ══ فهرستِ دسته‌های مجموعه (۱۱.۹) ══ «صاحبِ کانال دستهٔ «فلسفی و اعتقادی» را خودش ساخته و در فهرستِ ۱۵ دستهٔ داور نیست؛
+   پس موضوعاتِ فلسفی به دسته‌های دیگر رفته‌اند.» فهرست = TAXONOMY + SERIES_EXTRA_CATS + هر دستهٔ دستیِ موجود در رجیستری + متفرقه.
+   TAXONOMY عمداً دست نمی‌خورد: تب‌های هاب و دسته‌بندیِ ردیف‌های «از همه جا» از آن ساخته می‌شوند. */
+function seriesCatList_(reg) {
+  var out = [], seen = Object.create(null);
+  var add = function (t) { t = String(t || '').trim(); if (t && !seen[t]) { seen[t] = 1; out.push(t); } };
+  TAXONOMY.forEach(function (t) { add(t.title); });
+  (CFG.SERIES_EXTRA_CATS || []).forEach(function (x) { add(x && x.title); });
+  try { (reg && reg.rows || []).forEach(function (r) { add(r.vals[SC.MCAT - 1]); }); } catch (e) {}
+  add(MISC_TITLE);
+  return out;
 }
+function validSeriesCategory_(cat, reg) { return seriesCatList_(reg).indexOf(String(cat || '').trim()) !== -1; }
+
 
 // ------------------------------------------------- اولویت‌بندی درونِ دسته
 

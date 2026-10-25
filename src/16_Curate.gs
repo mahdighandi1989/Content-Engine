@@ -43,6 +43,7 @@ var JUDGE_SCHEMA = {
           about: { type: 'string' },
           topic: { type: 'string' },
           category: { type: 'string' },
+          catSure: { type: 'string' },
           level: { type: 'string' },
           related: { type: 'string' },
           orderHint: { type: 'string' },
@@ -74,6 +75,9 @@ function seriesJudged_(vals) {
   if (!at) return false;
   var ms = parseWhen_(at);
   if (isNaN(ms)) return true;
+  /* ۱۱.۹: داوریِ پیش از فهرستِ تازهٔ دسته‌ها ⇒ یک بار از نو. */
+  var since = parseWhen_(String(CFG.JUDGE_CAT_SINCE || ''));
+  if (!isNaN(since) && ms < since) return false;
   var days = (new Date().getTime() - ms) / 86400000;
   // داوریِ «مشکوک» قطعی نیست: زودتر دوباره امتحان می‌شود، نه پس از ۴۵ روز.
   // (شاید تبِ منبع همان یک بار در دسترس نبوده باشد.)
@@ -467,13 +471,15 @@ function clearAiJudgeCooldown_() {
 
 // ---------------------------------------------------------------- داوری
 
-function judgePrompt_(entries) {
+function judgePrompt_(entries, catsOpt) {
   var L = [];
   L.push('تو سردبیرِ یک آرشیوِ شخصیِ بزرگ هستی. برای هر «مجموعه» زیر، تکه‌هایی از ' +
          'متنِ واقعیِ خودش آمده است (پیاده‌سازیِ صدا یا متنِ استخراج‌شدهٔ سند). ' +
          'قرار است تصمیم بگیری کدام‌ها به یک پادکستِ آموزشیِ درس‌به‌درس تبدیل شوند.');
   L.push('');
   L.push('قاعدهٔ تشخیص — بر پایهٔ خودِ متن، نه نامِ فایل. نام فایل می‌تواند گمراه‌کننده باشد:');
+  L.push('• نامِ بی‌محتوا («جلسه دوم»، «Standard recording»، فقط شماره) هیچ نشانه‌ای نیست: موضوع و دسته را فقط از متن، ' +
+         'نامِ قطعه‌ها و نامِ تب/پوشهٔ منبع بگیر.');
   L.push('• «آموزشی» یعنی محتوا چیزی را منظم یاد می‌دهد: مفهوم را تعریف می‌کند، ' +
          'مرحله‌به‌مرحله جلو می‌رود، مثال و تمرین و اشتباهِ رایج دارد، یا دانشی را ' +
          'ساخت‌یافته منتقل می‌کند. سخنرانیِ تخصصی و مصاحبهٔ عمیقِ کارشناسی هم ' +
@@ -493,7 +499,7 @@ function judgePrompt_(entries) {
     L.push('نامِ فایل‌ها: ' + (e.partNames.join(' ، ') || '—') +
            '   (نام صرفاً یک نشانهٔ فرعی است)');
     L.push('نوع: ' + e.kind + ' | شمارِ قسمت: ' + e.parts + ' | شمارِ قطعه: ' + e.chunks +
-           ' | منبع: ' + e.src);
+           ' | منبع: ' + e.src + (e.tab ? ' | تب/پوشهٔ منبع: ' + e.tab : ''));
     L.push('— متنِ نمونه —');
     L.push(e.text || '(هیچ متنی خوانده نشد)');
   }
@@ -509,8 +515,13 @@ function judgePrompt_(entries) {
          'مجموعه دقیقاً دربارهٔ چیست. باید طوری باشد که کسی که نامِ فایل را نمی‌فهمد، ' +
          'از همین یک جمله موضوع را بفهمد. کلی‌گویی نکن.');
   L.push('• topic: موضوع در حداکثر پنج واژهٔ فارسی.');
+  var cats = (catsOpt && catsOpt.length) ? catsOpt : seriesCatList_(null);
   L.push('• category: دقیقاً یکی از این نام‌ها، بی هیچ تغییر:');
-  L.push('  ' + TAXONOMY.map(function (t) { return t.title; }).concat([MISC_TITLE]).join(' · '));
+  L.push('  ' + cats.join(' · '));
+  /* ۱۱.۹: مرزِ دسته‌هایی که بیشتر قاطی شدند — تعریف از پیکربندی، نه از حافظهٔ مدل. */
+  (CFG.SERIES_EXTRA_CATS || []).forEach(function (x) { if (x && x.title && x.def) L.push('  ◦ «' + x.title + '»: ' + x.def); });
+  L.push('  ◦ «علمی و آموزشی» برای علم، فناوری، پزشکی، ریاضی و زبان است؛ هنر و نویسندگی (فیلم‌نامه، داستان، شعر) ⇒ «فرهنگی، تاریخی و ادبی» یا «موسیقی و هنر».');
+  L.push('• catSure: اطمینانت به همین دسته، عددِ ۰ تا ۱۰۰ به‌شکلِ رشته. اگر متن کم یا نامفهوم است، پایین بگذار — حدسِ مطمئن‌نما بدتر از «نمی‌دانم» است.');
   L.push('• level: یکی از «مقدماتی» / «میانی» / «پیشرفته» — بر پایهٔ سختیِ خودِ متن.');
   L.push('• orderHint: اگر چند مجموعه در یک دسته‌اند، ترتیبِ یادگیریشان را با عددِ ' +
          'کوچک‌به‌بزرگ نشان بده (۱ یعنی باید اول شنیده شود).');
@@ -531,7 +542,7 @@ function entriesFor_(slice, parts, optsOpt) {
     out.push({ key: slice[i].key, name: String(v[SC.NAME - 1] || ''),
                kind: String(v[SC.KIND - 1] || ''),
                parts: v[SC.PARTS - 1], chunks: v[SC.CHUNKS - 1],
-               src: String(v[SC.SRC - 1] || ''), hint: String(v[SC.TOPIC - 1] || ''),
+               src: String(v[SC.SRC - 1] || ''), hint: String(v[SC.TOPIC - 1] || ''), tab: String(v[SC.TAB - 1] || ''),
                partNames: smp.partNames, text: smp.text, samples: smp.samples });
   }
   return out;
@@ -673,7 +684,7 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
     }
 
     var out = null, callErr = null;
-    try { out = geminiText_(judgePrompt_(entries), JUDGE_SCHEMA, CFG.JUDGE_MAX_TOKENS || 24576); }
+    try { out = geminiText_(judgePrompt_(entries, seriesCatList_(reg)), JUDGE_SCHEMA, CFG.JUDGE_MAX_TOKENS || 24576); }
     catch (e) { callErr = e; }
 
     if (!callErr) {
@@ -894,7 +905,15 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
   var lvl = String(vd.level || '').trim();
   if (lvl === 'مقدماتی' || lvl === 'میانی' || lvl === 'پیشرفته') v[SC.LEVEL - 1] = lvl;
   var cat = String(vd.category || '').trim();
-  if (cat && validCategory_(cat)) v[SC.CAT - 1] = cat;
+  /* ۱۱.۹: دسته از فهرستِ مجموعه‌ها (با «فلسفی و اعتقادی» و دسته‌های دستی)؛ و اطمینانِ کم ⇒ «بدون دسته»، نه حدس. */
+  var sure = Number(faDigits_(String(vd.catSure === undefined ? '' : vd.catSure)).replace(/[^0-9.]/g, ''));
+  var hasSure = vd.__local !== true && String(vd.catSure === undefined ? '' : vd.catSure).trim() !== '' && isFinite(sure);
+  var okCat = !!cat && validSeriesCategory_(cat, reg);
+  if (okCat && hasSure && sure < (Number(CFG.SERIES_CAT_MIN_SURE) || 0)) {
+    v[SC.CAT - 1] = String(CFG.SERIES_CAT_UNSURE || 'بدون دسته (نیازمند بازبینی)');
+    v[SC.WHY - 1] = String(v[SC.WHY - 1] || '') + ' ‹دسته نامطمئن: «' + cat + '» با اطمینانِ ' + Math.round(sure) + '›';
+  }
+  else if (okCat) v[SC.CAT - 1] = cat;
   else if (!String(v[SC.CAT - 1] || '').trim()) v[SC.CAT - 1] = MISC_TITLE;
   if (vd.related) v[SC.RELATED - 1] = String(vd.related).slice(0, 120);
   var hintNum = Number(faDigits_(String(vd.orderHint === undefined ? '' : vd.orderHint))
@@ -923,12 +942,20 @@ function judgeYes_(v) {
   return /(^|\s)(true|yes|y|1|بله|اری|آری|درست|صحیح)(\s|$)/.test(s);
 }
 
-/** آیا این نامِ دسته در سیاههٔ رسمی هست؟ */
-function validCategory_(cat) {
-  if (cat === MISC_TITLE) return true;
-  for (var i = 0; i < TAXONOMY.length; i++) if (TAXONOMY[i].title === cat) return true;
-  return false;
+/* ══ فهرستِ دسته‌های مجموعه (۱۱.۹) ══ «صاحبِ کانال دستهٔ «فلسفی و اعتقادی» را خودش ساخته و در فهرستِ ۱۵ دستهٔ داور نیست؛
+   پس موضوعاتِ فلسفی به دسته‌های دیگر رفته‌اند.» فهرست = TAXONOMY + SERIES_EXTRA_CATS + هر دستهٔ دستیِ موجود در رجیستری + متفرقه.
+   TAXONOMY عمداً دست نمی‌خورد: تب‌های هاب و دسته‌بندیِ ردیف‌های «از همه جا» از آن ساخته می‌شوند. */
+function seriesCatList_(reg) {
+  var out = [], seen = Object.create(null);
+  var add = function (t) { t = String(t || '').trim(); if (t && !seen[t]) { seen[t] = 1; out.push(t); } };
+  TAXONOMY.forEach(function (t) { add(t.title); });
+  (CFG.SERIES_EXTRA_CATS || []).forEach(function (x) { add(x && x.title); });
+  try { (reg && reg.rows || []).forEach(function (r) { add(r.vals[SC.MCAT - 1]); }); } catch (e) {}
+  add(MISC_TITLE);
+  return out;
 }
+function validSeriesCategory_(cat, reg) { return seriesCatList_(reg).indexOf(String(cat || '').trim()) !== -1; }
+
 
 // ------------------------------------------------- اولویت‌بندی درونِ دسته
 

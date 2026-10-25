@@ -1299,7 +1299,8 @@ function planCurriculum_(hub, regOpt) {
     '• topic: موضوعِ مجموعه در حداکثر پنج واژهٔ فارسی.\n' +
     '• related: کلیدِ نزدیک‌ترین مجموعهٔ هم‌موضوع (اگر هست)، وگرنه رشتهٔ خالی.\n' +
     '• category: دستهٔ این مجموعه، دقیقاً یکی از این نام‌ها و بی هیچ تغییر:\n   ' +
-    TAXONOMY.map(function (t) { return t.title; }).concat([MISC_TITLE]).join(' · ') + '\n' +
+    seriesCatList_(reg).join(' · ') + '\n' +   // ۱۱.۹: همان فهرستِ داور
+
     '• why: در یک جمله بگو چرا این جایگاه را دادی.\n\n' +
     'فقط از روی نام و نوع و اندازه قضاوت کن. هیچ مجموعه‌ای را جا ننداز و هیچ ترتیبی را ' +
     'تکراری نده.';
@@ -1336,8 +1337,7 @@ function planCurriculum_(hub, regOpt) {
     // می‌دهد: پاسخِ «constructor» یا «__proto__» از مدل پذیرفته می‌شد و بعد
     // کلِ تختهٔ مجموعه‌ها را می‌شکست.
     var okCats = Object.create(null);
-    for (var t3 = 0; t3 < TAXONOMY.length; t3++) okCats[TAXONOMY[t3].title] = true;
-    okCats[MISC_TITLE] = true;
+    seriesCatList_(reg).forEach(function (t) { okCats[t] = true; });   // ۱۱.۹: همان فهرستِ داور
     var pc = String(pl.category || '').trim();
     if (Object.prototype.hasOwnProperty.call(okCats, pc)) rec.vals[SC.CAT - 1] = pc;
     else if (!String(rec.vals[SC.CAT - 1] || '').trim()) {
@@ -1653,8 +1653,9 @@ function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt, optsOpt) {
     if (st === SST.ACTIVE) actives.push(reg.rows[i]);
     else if (st === SST.REOPENED && !reopenedRec) reopenedRec = reg.rows[i];
     else if (st === SST.NEW) {
-      /* ۱۱.۷: مجموعهٔ تازه فقط وقتی شروع می‌شود که دسته یا شماره‌اش دستی باشد — ترتیبِ بقیه از دستهٔ خودکار می‌آید. */
-      if (CFG.SERIES_AUTO_CAT_TRUST === false && !seriesManualLock_(v)) { out.heldAuto = (out.heldAuto || 0) + 1; continue; }
+      /* ۱۱.۷/۱۱.۹: مجموعهٔ تازه فقط با **شمارهٔ دستی** شروع می‌شود. دستهٔ دستی فقط برچسب است — «می‌خواهم دسته را اصلاح کنم
+         بی‌آنکه ناخواسته مجموعه‌ای وارد نوبتِ تولید شود». ترتیب = همان شماره (کوچک‌تر اول). */
+      if (CFG.SERIES_AUTO_CAT_TRUST === false && !isFinite(seriesMOrder_(v))) { out.heldAuto = (out.heldAuto || 0) + 1; continue; }
       queue.push(reg.rows[i]);
     }
   }
@@ -1904,15 +1905,15 @@ function seriesCatLine_(reg) {
     var v = reg.rows[i].vals, st = String(v[SC.STATUS - 1] || '');
     if (st === SST.SKIPPED) continue;
     if (String(v[SC.MCAT - 1] || '').trim()) man++; else auto++;
-    if (st === SST.NEW && seriesEligible_(v, reg.rows[i].key, null)) { if (seriesManualLock_(v)) nextMan++; else held++; }
+    if (st === SST.NEW && seriesEligible_(v, reg.rows[i].key, null)) { if (isFinite(seriesMOrder_(v))) nextMan++; else held++; }
   }
   var trust = CFG.SERIES_AUTO_CAT_TRUST !== false;
   return {
     line: '🗂 دستهٔ مجموعه‌ها: ' + man + ' دسته‌دستی، ' + auto + ' فقط خودکار' +
           (trust ? ' (دستهٔ خودکار هم تصمیم می‌سازد — SERIES_AUTO_CAT_TRUST روشن)' : ' — دستهٔ خودکار در هیچ تصمیمی به کار نمی‌رود') +
-          ' · در نوبت: ' + nextMan + ' دستی، ' + held + ' منتظرِ دستهٔ دستی.',
+          ' · در نوبت: ' + nextMan + ' با شمارهٔ دستی، ' + held + ' بی شماره (منتظر؛ دستهٔ دستی فقط برچسب است).',
     /* فقط وقتی چیزی واقعاً منتظر است و هیچ‌کدام دستی نیست — رجیستریِ خالی یا تمام‌شده این مسئله نیست. */
-    problem: (!trust && !nextMan && held) ? '⚠️ هیچ مجموعهٔ دسته‌دستیِ «در نوبت» نیست: وقتی مجموعهٔ جاری تمام شود، درس‌نامهٔ تازه‌ای شروع نمی‌شود — ' +
-                                     'در تخته برای مجموعهٔ بعدی «شماره و دستهٔ دستی» بگذارید (یا سنجاقش کنید).' : ''
+    problem: (!trust && !nextMan && held) ? '⚠️ هیچ مجموعه‌ای با «شمارهٔ دستی» در نوبت نیست: وقتی مجموعهٔ جاری تمام شود، درس‌نامهٔ تازه‌ای شروع نمی‌شود — ' +
+                                     'در تخته برای مجموعهٔ بعدی «شماره و دستهٔ دستی» شماره بگذارید (یا سنجاقش کنید).' : ''
   };
 }
