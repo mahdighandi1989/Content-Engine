@@ -341,7 +341,7 @@ print(json.dumps(r))`);
   ok('۱۲.۲ ورودیِ خوانده‌نشده ⇒ «نشد»', res.bad.ok === false);
   const vb = fs.readFileSync('tools/voicebridge.py', 'utf8');
   ok('۱۲.۳ سیم: `hx` روی خروجیِ اصلی پیش از شنیدن، نسخهٔ بی‌درمان «تبدیلِ دوم» برای شمردن؛ پایانِ جمله‌ها (مکثِ ۰٫۴) در رکورد',
-     /if it\.get\("hx"\):[\s\S]*?fricSplice\(best, "vb\/src\.wav"/.test(vb) && vb.indexOf('fricSplice(best') < vb.indexOf('hear = hearCompare(') &&
+     /if it\.get\("hx"\) and HX_SPLICE_ON:[\s\S]*?fricSplice\(best, "vb\/src\.wav"/.test(vb) && vb.indexOf('fricSplice(best') < vb.indexOf('hear = hearCompare(') &&
      /altOut = best/.test(vb) && /riseEnd = riseScan\("vb\/src\.wav", minPause=0\.4\)/.test(vb) && /rec\["riseEnd"\] = riseEnd/.test(vb) &&
      /rec\["hx"\] = hxRes/.test(vb));
   const eng = fs.readFileSync('src/36_VoiceBridge.gs', 'utf8');
