@@ -2739,6 +2739,7 @@ function healthCheck() {
   } catch (eSc) {}
   try { var daL = ytDescArchLine_(); if (daL) notes.push(daL); } catch (eDa) {}   // ۱۱.۶
   try { var hyp = ytHypoRun_(); if (hyp && hyp.line) notes.push(hyp.line); } catch (eHy) {}   // ۱۲.۰: فقط سنجش
+  try { bioSuggest_(false); } catch (eBio) {}   // ۱۲.۲: پیشنهادِ بیوها، هفتگی به تلگرام
   try { var fbS = fbStatus_(); if (fbS.on || fbS.queued) notes.push(fbS.line); } catch (eFs) {}
   try { var spS = seriesParStatus_(); if (spS.line) notes.push(spS.line); } catch (eSp) {}
   try { var ytOffL = ytShowsOffLine_(); if (ytOffL) notes.push(ytOffL); } catch (eYo) {}

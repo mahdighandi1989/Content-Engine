@@ -14564,31 +14564,53 @@ function ytPlDescSync_(budgetMs) {
 }
 
 function ytChannelDesc_() {
-  var L = [];
-  L.push(String(CFG.SHOW_NAME || '') + ' — ' + String(CFG.SHOW_TAGLINE || ''));
-  if (CFG.SPECIAL_ENABLED) {
-    L.push(String(CFG.SPECIAL_SHOW_NAME || '') + ' — ' + String(CFG.SPECIAL_TAGLINE || ''));
-  }
-  L.push('');
-  L.push('هر روز دو پادکستِ فارسی: یکی از هر دری سخنی، و یکی درسِ دنباله‌دار ' +
-         'از یک مجموعهٔ آموزشی. مجموعه‌ها هرکدام پلی‌لیستِ خودشان را دارند و ' +
-         'به ترتیب چیده شده‌اند، پس می‌شود از درسِ اول شروع کرد.');
+  /* ۱۲.۲: قالبِ صاحبِ کانال. «از همه جا» از ۱۱.۰ در یوتیوب نیست، پس نامش این‌جا هم نیست. */
+  var A = CFG.YT_CHAN_ABOUT || {};
+  var L = [String(A.head || CFG.SPECIAL_SHOW_NAME || ''), ''];
+  if (A.body) { L.push(String(A.body)); L.push(''); }
+  if (A.lists) L.push(String(A.lists));
   /* ۹.۳۰: آنچه هست و آنچه تازه آمده، از خلاصهٔ شبانهٔ `ytPlDescSync_` — بی یادآوریِ کسی. */
   try {
     var sm = JSON.parse(props_().getProperty(PK.YT_SUMMARY) || 'null');
     if (sm && sm.series && sm.series.length) {
-      L.push('');
       L.push('مجموعه‌ها تا امروز:');
       sm.series.forEach(function (x) {
         L.push('• ' + String(x.name).slice(0, 60) + ': ' + faDigitsOut_(String(x.n)) + ' درس' +
                (x.recaps ? ' و ' + faDigitsOut_(String(x.recaps)) + ' مرور' : ''));
       });
-      if (sm.variety && sm.variety.n) L.push('• ' + String(CFG.SHOW_NAME || '') + ': ' + faDigitsOut_(String(sm.variety.n)) + ' قسمت');
-      L.push('ویدئوهای کوتاه (Shorts): چکیدهٔ هر درس در یک دقیقه.');
     }
   } catch (eS) {}
-  var txt = L.join('\n');
+  if (A.shorts) { L.push(''); L.push(String(A.shorts)); }
+  var txt = L.join('\n').replace(/\n{3,}/g, '\n\n').trim();
   return txt.length > 990 ? txt.slice(0, 990) : txt;
+}
+
+/**
+ * پیشنهادِ بیوها، هفتگی به تلگرام (۱۲.۲). موتور بیوی اینستاگرام و «دربارهٔ» فیسبوک را **نمی‌نویسد** — Graph API برای بیوی
+ * اینستاگرام هیچ درِ نوشتنی ندارد، و «دربارهٔ» صفحه اجازه‌ای می‌خواهد که کلیدِ امروز ندارد. پس متن آماده می‌رسد، با شمارِ
+ * نویسه، و صاحبِ کانال می‌چسباند. ⇒ {sent, text}
+ */
+function bioSuggest_(force) {
+  var ig = String(CFG.BIO_IG || '').replace(/\\n/g, '\n');
+  var A = CFG.YT_CHAN_ABOUT || {};
+  var handle = '';
+  try { handle = String((JSON.parse(props_().getProperty(PK.YT_MARK_ID) || 'null') || {}).handle || ''); } catch (eH) {}
+  var lessons = 0, series = 0;
+  try { var sm = JSON.parse(props_().getProperty(PK.YT_SUMMARY) || 'null'); (sm && sm.series || []).forEach(function (x) { series++; lessons += Number(x.n) || 0; }); } catch (eS) {}
+  var fb = [String(A.head || ''), (String(A.body || '').match(/^[^.!؟?]*[.!؟?]/) || [''])[0],
+            'هر روز یک ریل از درس‌نامه' + (lessons ? ' — تا امروز ' + faDigitsOut_(String(lessons)) + ' درس در ' + faDigitsOut_(String(series)) + ' مجموعه' : '') + '.',
+            'درس کامل در یوتیوب' + (handle ? ': youtube.com/' + handle.replace(/^(?!@)/, '@') : '') + '.']
+           .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+  var text = '📝 <b>پیشنهادِ بیوها</b> (هفتگی) — موتور این‌ها را نمی‌نویسد؛ خودتان بچسبانید.\n\n' +
+             '📱 اینستاگرام (' + faDigitsOut_(String(ig.length)) + ' از ۱۵۰ نویسه):\n' + tgEsc_(ig) + '\n\n' +
+             '📘 فیسبوک — «دربارهٔ صفحه» (' + faDigitsOut_(String(fb.length)) + ' نویسه):\n' + tgEsc_(fb) + '\n\n' +
+             '▶️ دربارهٔ یوتیوب را خودِ موتور با همین قالب به‌روز نگه می‌دارد؛ اگر در Studio عوض کنید، دست نمی‌خورد.';
+  var out = { sent: false, text: text, ig: ig, fb: fb, igOver: ig.length > 150 };
+  var every = Math.max(1, Number(CFG.BIO_TG_DAYS) || 7) * 86400000, last = 0;
+  try { last = Number(props_().getProperty(PK.BIO_TG_AT) || 0) || 0; } catch (eL) {}
+  if (!force && Date.now() - last < every) return out;
+  try { if (tgSend_(text)) { props_().setProperty(PK.BIO_TG_AT, String(Date.now())); out.sent = true; } } catch (eT) {}
+  return out;
 }
 
 function ytChannelKeywords_() {
@@ -15376,7 +15398,7 @@ function ytChanHuman_(curDesc) {
   var mine = '';
   try { mine = String(props_().getProperty(PK.YT_CHAN_MINE) || ''); } catch (e) {}
   if (mine) return mine !== ytDescFp_(curDesc);
-  return !/هر روز دو پادکستِ فارسی/.test(String(curDesc));
+  return !/هر روز دو پادکستِ فارسی|سراغ پرسش‌های بنیادین شناخت/.test(String(curDesc));
 }
 
 /* ══ سنجشِ فرضیه‌های رقبا با دادهٔ خودِ کانال (۱۲.۰) ══

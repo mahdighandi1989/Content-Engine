@@ -669,7 +669,7 @@ console.log('=== ۱۹) کاورِ پلی‌لیست و شناسنامهٔ کان
     if (kMap === undefined) delete global.__PROPS[PK.YT_PL]; else global.__PROPS[PK.YT_PL] = kMap;
   }
   ok('۱۹.۳ توضیح و کلیدواژهٔ کانال از پیکربندی ساخته می‌شوند',
-     ytChannelDesc_().indexOf(String(CFG.SHOW_NAME)) !== -1);
+     ytChannelDesc_().indexOf(String(CFG.YT_CHAN_ABOUT.head)) === 0);
   ok('۱۹.۴ کلیدواژه‌ها از سقفِ یوتیوب نمی‌گذرند',
      ytChannelKeywords_().length <= 500, String(ytChannelKeywords_().length));
   ok('۱۹.۵ و توضیحِ کانال هیچ نشتیِ خصوصی ندارد',

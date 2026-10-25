@@ -237,6 +237,18 @@ function igNextEp_(pub, st, orderIn) {
       st.gaps = gaps; st.caught = caught;
       return null;
       }
+      /* ۱۲.۲: ریلزِ «جملهٔ کوتاه» — پس از همهٔ بخش‌های آموزشیِ همین درس، و **هرگز مانع**: شکست یا گیرش رد می‌شود، نه صف را
+         نگه می‌دارد. آزمایشی که کلِ مجموعه را بخواباند، هزینه‌اش از سودش بیشتر است. */
+      if (igQuoteFor_(x)) {
+        var qu = igUid_({ ep: e, part: igQuotePart_() }), allDone = true;
+        for (var pq = 1; pq <= np; pq++) if (!done[igUid_({ ep: e, part: pq })]) allDone = false;
+        if (allDone && !done[qu] && !busy[qu] && !igFailHold_(st, qu) && isPub(e)) {
+          var rq = pub[ENRICH_SHOW_SPECIAL + ':' + e];
+          st.gaps = gaps; st.caught = caught;
+          return { ep: e, url: String(rq.url || ('https://youtu.be/' + rq.videoId)), series: S.name, title: String(rq.title || ''),
+                   recap: false, lesson: Number(x.lesson) || 0, part: igQuotePart_(), parts: 1, sIdx: s, quote: 1 };
+        }
+      }
     }
   }
   st.gaps = gaps; st.caught = caught;
@@ -252,7 +264,7 @@ function igEarlierPending_(st, ep, part) {
     for (var i = 0; i < eps.length; i++) if (Number(eps[i].ep) === Number(ep)) at = i;
     if (at < 0) continue;
     for (var k = 0; k <= at; k++) {
-      var np = igPartsFor_(s, eps[k].recap), last = k < at ? np : me - 1;
+      var np = igPartsFor_(s, eps[k].recap), last = k < at ? np : (me === igQuotePart_() ? np : me - 1);
       for (var pt = 1; pt <= last; pt++) {
         if (done[igUid_({ ep: eps[k].ep, part: pt })]) continue;
         return (eps[k].recap ? 'مرورِ بزرگ (' + eps[k].ep + ')' : 'درسِ ' + eps[k].lesson) +
@@ -500,6 +512,7 @@ function igSeenSeed_(st, deadline) {
 function igWords_(opt) {
   opt = opt || {};
   var lo = 80, hi = 150, min = 50, max = 210;
+  if (opt.quote) return { lo: 30, hi: 65, min: 20, max: 80 };   // ۱۲.۲: جملهٔ کوتاه — خودِ جمله و چند جملهٔ زمینه
   if (opt.recap) { var R = CFG.IG_RECAP_WORDS || [200, 400]; lo = Number(R[0]) || 200; hi = Number(R[1]) || 400; min = Math.round(lo * 0.75); max = Math.round(hi * 1.1); }
   var flo = Number(opt.minWords) || 0;
   if (flo > 0) { lo = Math.max(lo, flo); min = Math.max(min, Math.round(flo * 0.9)); hi = Math.max(hi, lo); max = Math.max(max, Math.round(hi * 1.1)); }
@@ -809,6 +822,7 @@ function igStepPlan_(it, fo) {
   }
   /* ۹.۶۹: آنچه صفحه در مجموعه‌های دیگر گفته — آئودی پس از مصباح. */
   try { opt.seen = igSeenFor_(seriesName); } catch (eSn) { opt.seen = []; }
+  if (it.quote || Number(it.part) === igQuotePart_()) return igQuotePlan_(it, fo, ep, meta, seriesName, lesson);
   var r = null;
   /* ۹.۵۶: درسِ ۱۳ِ مصباح سه بار با «برای مخاطبِ عام سنگین است» رد شد و هر بار از صفر و کور نوشته شد — درس‌های ۱۴ و ۱۵ِ
      آماده پشتش ایستادند و آن روز هیچ ریلزی نرفت. حالا علتِ ردِ قبلی به نویسنده گفته می‌شود. */
@@ -1311,6 +1325,8 @@ function igStepPub_(it, plan, st, deadline) {
  */
 function igShortPub_(it, plan) {
   if (CFG.IG_SHORTS === false) { plan.shortWhy = 'خاموش (IG_SHORTS)'; return { ok: true }; }
+  /* ۱۲.۲: ریلزِ «جملهٔ کوتاه» آزمایشِ اینستاگرام است؛ شورتزش ترتیبِ پلی‌لیستِ درس‌ها را به هم می‌زد. */
+  if (plan.format === 'جملهٔ کوتاه') { plan.shortWhy = 'قالبِ آزمایشیِ «جملهٔ کوتاه» — فقط اینستاگرام'; return { ok: true }; }
   if (!plan.short) { plan.shortWhy = 'رانر نسخهٔ شورتز نداد'; return { ok: true }; }
   if (plan.shortId) { igShortThumb_(plan); return { ok: true }; }
   var yt = ytSvc_();
@@ -1575,7 +1591,7 @@ function igTick() {
         if (fo0) st.inflight.push({ key: 'ig:' + ENRICH_SHOW_SPECIAL + ':' + nUid, ep: nx.ep, part: nx.part || 1, parts: nx.parts || 1,
                                     sIdx: nx.sIdx || 0, series: nx.series,
                                     folderId: fo0.getId(), yt: nx.url, phase: igResumePhase_(fo0, nx.part), at: nowStr_(),
-                                    recap: nx.recap ? 1 : 0, lesson: nx.lesson || 0 });
+                                    recap: nx.recap ? 1 : 0, lesson: nx.lesson || 0, quote: nx.quote ? 1 : 0 });
         else { st.fails = st.fails || {}; st.fails[nUid] = 9; st.lastWhy = 'پوشهٔ قسمتِ ' + nx.ep + ' پیدا نشد'; }
       }
     }
@@ -2330,6 +2346,114 @@ function igPattern_(rows, nowMs, fmtOpt) {
                      'روزهای پرانتشار بازدیدِ هر ریلز را میان خودشان پخش می‌کنند.' : '') +
              (nTop ? '\n🔝 پربازدیدترین‌ها:\n' + top.map(row1).join('\n') + '\n🔻 کم‌بازدیدترین‌ها:\n' + low.map(row1).join('\n') : '');
   return { top: top.map(row1), low: low.map(row1), n: old.length, all: posts.length, median: m0, byHour: byHour, byHook: byHook, byFormat: byFormat, byDay: byDay, peak: peak ? peak.k : '', text: text };
+}
+
+/* ═══════ قالبِ «جملهٔ کوتاه» (۱۲.۲) — آزمایشی، پیش‌فرض خاموش ═══════
+   صاحبِ کانال: «قالبِ جملهٔ کوتاه برای ریل ساخته شود ولی پیش‌فرض خاموش؛ هر نقل‌قول با منبع تأیید شود.»
+   • **افزوده، نه جایگزین:** هر `IG_QUOTE_EVERY`مین درس، پس از ریلزهای آموزشیِ همان درس، یک ریلزِ دیگر — قالبِ فعلی دست نمی‌خورد.
+   • **تأیید در کد، نه در درخواست:** جمله باید **عیناً** در متنِ درس باشد (پس از برداشتنِ اعراب و نشانه‌ها)، و نامِ منسوب هم در
+     **همان بخشِ** درس. «سخنِ خودِ او» فقط وقتی گفته می‌شود که درس آن جمله را در «» آورده باشد؛ وگرنه برچسب «برداشتِ درس از …» است.
+     نسبتِ نادرست جبران‌پذیر نیست — ریلزِ نرفته هست.
+   • تصویر: بی چهره و بی پرتره — چهرهٔ آدمِ واقعی ساختنی نیست (همان سدِ ۹.۶۶).
+   • شورتز ندارد (`igShortPub_`)، و قالبش در `PK.IG_FMT` ثبت می‌شود تا ف۷ بسنجد. */
+function igQuotePart_() { return Math.max(4, Number(CFG.IG_QUOTE_PART) || 9); }
+function igQuoteFor_(x) {
+  if (CFG.IG_QUOTE_ON !== true || !x || x.recap) return false;
+  var n = Number(x.lesson) || 0, every = Math.max(1, Number(CFG.IG_QUOTE_EVERY) || 3);
+  return n > 0 && n % every === 0;
+}
+/** برای مقایسه: بی اعراب، بی نیم‌فاصله و نشانه، ی/ک یکسان. */
+function igQuoteNorm_(t) {
+  return String(t || '').replace(/[ً-ْٰـ]/g, '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
+    .replace(/[‌‏‎]/g, ' ').replace(/[«»"'“”.,،؛;:!?؟…\-–—()\[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+/**
+ * ⇒ {ok, why, kind: 'direct'|'lesson', sec, who} — `sections` = بخش‌های درس ([{heading, narration}]).
+ */
+function igQuoteCheck_(quote, who, direct, sections) {
+  var q = igQuoteNorm_(quote), w = igQuoteNorm_(who);
+  var nw = q ? q.split(' ').length : 0;
+  if (nw < 5 || nw > 30) return { ok: false, why: 'جمله باید ۵ تا ۳۰ واژه باشد (' + nw + ')' };
+  var sec = -1;
+  for (var i = 0; i < (sections || []).length; i++) {
+    if (sections[i] && (' ' + igQuoteNorm_(sections[i].narration) + ' ').indexOf(' ' + q + ' ') !== -1) { sec = i; break; }
+  }
+  if (sec < 0) return { ok: false, why: 'جمله عیناً در متنِ درس نیست' };
+  var raw = String(sections[sec].narration || '');
+  if (w && (' ' + igQuoteNorm_(raw) + ' ').indexOf(' ' + w + ' ') === -1) return { ok: false, why: 'نامِ «' + String(who).slice(0, 30) + '» در همان بخشِ درس نیست' };
+  var kind = 'lesson';
+  if (w && /^(بله|آری|yes)/i.test(String(direct || '').trim())) {
+    var segs = raw.match(/«[^»]{4,600}»/g) || [];
+    if (segs.some(function (g) { return (' ' + igQuoteNorm_(g) + ' ').indexOf(' ' + q + ' ') !== -1; })) kind = 'direct';
+  }
+  return { ok: true, why: '', kind: kind, sec: sec, who: w ? String(who).trim() : '' };
+}
+/** برچسبِ نسبت — همان که روی کپشن و کاور می‌آید. */
+function igQuoteAttr_(chk, lesson, series) {
+  if (chk.kind === 'direct') return '— ' + chk.who;
+  var src = 'درسِ ' + faDigitsOut_(String(lesson || '')) + ' از «' + String(series || '') + '»';
+  return chk.who ? '— برداشتِ ' + src + ' از ' + chk.who : '— ' + src;
+}
+var IG_QUOTE_SCHEMA = { type: 'object', properties: {
+  quote: { type: 'string' }, who: { type: 'string' }, direct: { type: 'string' }, context: { type: 'string' },
+  scenes: { type: 'array', items: { type: 'string' } }, coverTitle: { type: 'string' }, caption: { type: 'string' },
+  story: { type: 'string' }, tags: { type: 'array', items: { type: 'string' } }, kicker: { type: 'string' }
+}, required: ['quote', 'who', 'direct', 'context', 'scenes', 'coverTitle', 'caption', 'tags'] };
+function igQuotePrompt_(ep, seriesName, lesson) {
+  return [
+    'از درسِ زیر **یک جملهٔ کوتاه و ماندگار** برای ریلزِ اینستاگرام انتخاب کن — جمله‌ای که به‌تنهایی تکان بدهد یا به فکر وادارد.',
+    'مجموعه: «' + seriesName + '»' + (lesson ? ' — درسِ ' + lesson : ''),
+    '• quote = همان جمله، **کلمه به کلمه از متنِ درس رونویسی شده** (۸ تا ۲۵ واژه). بازنویسی، کوتاه‌کردن یا ترکیبِ دو جمله ممنوع — کد مقایسه می‌کند و جملهٔ نایافته رد می‌شود.',
+    '• who = نامِ فیلسوف یا نویسنده‌ای که این دیدگاه از اوست، **فقط اگر همان بخشِ درس نامش را آورده**؛ وگرنه خالی. نام را حدس نزن.',
+    '• direct = «بله» فقط اگر درس این جمله را میانِ «» و به‌عنوانِ سخنِ خودِ او آورده؛ وگرنه «خیر».',
+    '• context = ۳ یا ۴ جملهٔ کوتاه (هر کدام حداکثر ۱۶ واژه، با هم ۳۵ تا ۵۰ واژه) به زبانِ ساده: این جمله چه می‌گوید و چرا مهم است — فقط از خودِ درس؛ بی تاریخ، «پادکست»، یوتیوب یا «امروز».',
+    '• scenes = ۳ توصیفِ انگلیسیِ تصویرِ نقاشی‌گونه و نمادین؛ **بی چهره، بی پرترهٔ آدمِ واقعی**، بی هیچ نوشته، حرف، عدد یا لوگو.',
+    '• coverTitle = حداکثر ۶ واژه از دلِ همان جمله. caption = ' + IG_CAPTION_RULE,
+    '• tags = ۸ تا ۱۵ برچسب، بی #. story = یک جملهٔ کوتاه. kicker = نامِ فارسیِ کوتاهِ مجموعه (۲ تا ۴ واژه).',
+    '', 'متنِ درس:', igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000, null)
+  ].join('\n');
+}
+/** گامِ برنامه برای ریلزِ جملهٔ کوتاه. ⇒ همان شکلِ `igStepPlan_`: {ok, plan} | {fail} | {wait} */
+function igQuotePlan_(it, fo, ep, meta, seriesName, lesson) {
+  var r = null;
+  try { r = geminiText_(igQuotePrompt_(ep, seriesName, lesson), IG_QUOTE_SCHEMA, 8192); }
+  catch (e) { return { wait: 'مدلِ متن: ' + String(e.message || e).slice(0, 120) }; }
+  if (!r || !r.quote) return { fail: 'جملهٔ کوتاه: مدل جمله‌ای نداد' };
+  var chk = igQuoteCheck_(r.quote, r.who, r.direct, ep.sections || []);
+  if (!chk.ok) return { fail: 'جملهٔ کوتاه: ' + chk.why };
+  var qt = String(r.quote).replace(/\s+/g, ' ').trim().replace(/[.!؟?…]*$/, '.');
+  var opt = { part: 1, parts: 1, quote: true };
+  var p = igPlanTrim_({ idea: 'جملهٔ کوتاه: ' + qt, script: qt + ' ' + String(r.context || ''), scenes: r.scenes, coverTitle: r.coverTitle,
+                        caption: r.caption, story: r.story, tags: r.tags, emph: [], ytDesc: '', kicker: r.kicker, names: chk.who ? [chk.who] : [] }, opt);
+  if (!p.lines) return { fail: 'جملهٔ کوتاه: ' + p.why };
+  /* داور فقط یک چیز را مانع می‌داند: ادعای بیرون از درس. قلاب/پرسش در این قالب نیست، پس آن‌ها نمی‌شمارند. */
+  if (CFG.IG_JUDGE !== false) {
+    var jd = igJudge_(p, igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000, null), opt);
+    if (/ادعای بیرون از درس|داور جواب نداد/.test(String(jd.why || ''))) return { fail: 'جملهٔ کوتاه: ' + jd.why };
+    p.judge = 'جملهٔ کوتاه — ' + (jd.ok ? 'پذیرفته' : 'ایرادِ غیرِ مانع: ' + jd.why);
+  }
+  var attr = igQuoteAttr_(chk, lesson, seriesName);
+  p.kicker = igKicker_(seriesName, p.kicker);
+  p.hook = qt.slice(0, 140);
+  p.lines.push({ text: IG_CTA_LINE, scene: '', cta: true });
+  var plan = { v: Number(CFG.IG_PLAN_V) || 2, key: it.key, ep: it.ep, part: igQuotePart_(), parts: 1, format: 'جملهٔ کوتاه',
+               quote: { text: qt, who: chk.who, kind: chk.kind, sec: chk.sec, attr: attr },
+               series: seriesName, seriesKey: String(meta.seriesKey || ''), lesson: lesson, recap: false, range: '',
+               title: String(ep.title || ''), yt: it.yt, at: nowStr_(), phase: 'voice', plan: p,
+               caption: '«' + qt.replace(/\.$/, '') + '»\n' + attr + '\n\n' +
+                        igCaption_({ caption: p.caption, coverTitle: p.coverTitle, hook: p.hook, tags: p.tags, part: 1, parts: 1 },
+                                   it.yt, p.kicker || seriesName, lesson),
+               voice: igVoice_(ep) };
+  igPlanWrite_(fo, plan);
+  try {
+    var oldT = fo.getFilesByName('ریلز — متن و کپشن.txt');
+    while (oldT.hasNext()) oldT.next().setTrashed(true);
+    fo.createFile(Utilities.newBlob('قالب: جملهٔ کوتاه (آزمایشی)\nجمله: «' + qt + '»\nنسبت: ' + attr + ' (' + (chk.kind === 'direct' ? 'سخنِ مستقیم در «» درس' : 'از متنِ درس') +
+                                    '، بخشِ ' + (chk.sec + 1) + ')\nداور: ' + (p.judge || '') + '\n\n' +
+                                    p.lines.map(function (x) { return x.text; }).join('\n') + '\n\n—— کپشن ——\n' + plan.caption,
+                                    'text/plain', 'ریلز — متن و کپشن.txt'));
+  } catch (eT) {}
+  return { ok: true, plan: plan };
 }
 
 /** نقشهٔ قالب‌ها — فقط غیرپیش‌فرض‌ها نوشته می‌شوند، پس زیرِ سقفِ هر Property می‌ماند. */

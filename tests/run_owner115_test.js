@@ -508,4 +508,93 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
   delete global.__PROPS[PK.IG_FMT];
 }
 
+/* ── ۱۵) ۱۲.۲: دربارهٔ کانال با قالبِ صاحبِ کانال، بیوها هفتگی در تلگرام، و قالبِ «جملهٔ کوتاه» (پیش‌فرض خاموش) ── */
+{
+  global.__PROPS[PK.YT_SUMMARY] = JSON.stringify({ series: [{ name: 'معرفت‌شناسی آئودی', n: 48, recaps: 3 }], variety: { n: 74 } });
+  const cd = ytChannelDesc_();
+  ok('۱۵.۱ دربارهٔ کانال: سر، بدنه، پلی‌لیست‌ها، فهرستِ زنده و شورتز — به همان ترتیبِ قالب', cd.indexOf('رد پای حقیقت — اندیشه، دانش، روایت.') === 0 &&
+     cd.indexOf('سراغ پرسش‌های بنیادین شناخت') < cd.indexOf('از درس یک شروع می‌شوند') && cd.indexOf('معرفت‌شناسی آئودی: ۴۸ درس و ۳ مرور') > cd.indexOf('از درس یک') &&
+     /شورتز: پرسش‌های کوتاه از دل همان درس‌ها\.$/.test(cd) && !/۷۴ قسمت/.test(cd) && cd.length <= 990, cd);
+  delete global.__PROPS[PK.YT_CHAN_MINE];
+  ok('۱۵.۲ قفل: متنِ قالبِ تازه «مالِ موتور» است، دست‌نوشته نه، خالی پر می‌شود', !ytChanHuman_(cd) && ytChanHuman_('متنی که صاحبِ کانال در Studio نوشت') && !ytChanHuman_(''));
+  global.__PROPS[PK.YT_CHAN_MINE] = ytDescFp_(cd);
+  ok('۱۵.۳ پس از نوشتن، ویرایشِ Studio دیده می‌شود (اثرِ انگشت)', !ytChanHuman_(cd) && ytChanHuman_(cd + '\nسطرِ دستی'));
+  delete global.__PROPS[PK.YT_CHAN_MINE];
+
+  const sent0 = tg.length;
+  delete global.__PROPS[PK.BIO_TG_AT];
+  const b1 = bioSuggest_(false), b2 = bioSuggest_(false);
+  ok('۱۵.۴ بیوها: یک بار در هفته به تلگرام، نه هر روز', b1.sent && !b2.sent && tg.length === sent0 + 1, tg.length - sent0);
+  ok('۱۵.۵ بیوی اینستاگرام همان متنِ پیشنهادی و زیرِ ۱۵۰ نویسه؛ فیسبوک از سر و جملهٔ اولِ بدنه', /^رد پای حقیقت \| معرفت‌شناسی و فلسفه، ساده و کوتاه\.\nهر روز یک ریل؛ درس کامل در یوتیوب\.$/.test(b1.ig) && !b1.igOver &&
+     /^رد پای حقیقت — اندیشه، دانش، روایت\. اینجا درس‌به‌درس/.test(b1.fb) && /۴۸ درس/.test(b1.fb) && /نمی‌نویسد/.test(b1.text), b1.fb);
+  ok('۱۵.۶ به ایمیلِ روزانه وصل است', /bioSuggest_\(false\)/.test(fs.readFileSync('src/08_Health.gs', 'utf8')));
+  delete global.__PROPS[PK.BIO_TG_AT];
+
+  /* قالبِ جملهٔ کوتاه */
+  ok('۱۵.۷ پیش‌فرض خاموش ⇒ هیچ درسی ریلزِ جملهٔ کوتاه نمی‌گیرد', CFG.IG_QUOTE_ON === false && !igQuoteFor_({ lesson: 3 }) && !igQuoteFor_({ lesson: 6 }));
+  const sec = [{ heading: 'الف', narration: 'آئودی می‌گوید: «معرفت باوری صادق است که توجیهِ درستی دارد.» این تعریف ساده به نظر می‌رسد.' },
+               { heading: 'ب', narration: 'اما اگر حواس ما را فریب دهند، آیا هنوز چیزی را می‌دانیم؟ این پرسش آغازِ شک است.' }];
+  const c1 = igQuoteCheck_('معرفت باوریِ صادق است که توجیهِ درستی دارد', 'آئودی', 'بله', sec);
+  ok('۱۵.۸ جملهٔ عینِ درس (با اعرابِ متفاوت) پیدا می‌شود؛ در «» و با نام ⇒ سخنِ مستقیم', c1.ok && c1.kind === 'direct' && c1.sec === 0 && c1.who === 'آئودی', JSON.stringify(c1));
+  const c2 = igQuoteCheck_('اگر حواس ما را فریب دهند، آیا هنوز چیزی را می‌دانیم', 'آئودی', 'بله', sec);
+  ok('۱۵.۹ نامی که در همان بخش نیست ⇒ رد (نسبتِ نادرست جبران‌پذیر نیست)', !c2.ok && /در همان بخشِ درس نیست/.test(c2.why), c2.why);
+  const c3 = igQuoteCheck_('اگر حواس ما را فریب دهند، آیا هنوز چیزی را می‌دانیم', '', 'خیر', sec);
+  ok('۱۵.۱۰ بی نام ⇒ «از درس»، نه سخنِ کسی', c3.ok && c3.kind === 'lesson' && /^— درسِ ۶ از «آئودی»$/.test(igQuoteAttr_(c3, 6, 'آئودی')), igQuoteAttr_(c3, 6, 'آئودی'));
+  const c4 = igQuoteCheck_('معرفت همیشه باوری است که هرگز خطا نمی‌کند و یقینی است', 'آئودی', 'بله', sec);
+  ok('۱۵.۱۱ جملهٔ ساختگی (نه عینِ درس) ⇒ رد', !c4.ok && /عیناً در متنِ درس نیست/.test(c4.why));
+  const c5 = igQuoteCheck_('این تعریف ساده به نظر می‌رسد و', 'آئودی', 'بله', sec);
+  ok('۱۵.۱۲ «بله»ی مدل بی «» در درس ⇒ برداشت، نه سخنِ مستقیم', !c5.ok || c5.kind === 'lesson');
+
+  /* صف: افزوده پس از بخش‌های آموزشی، و هرگز مانع */
+  const keepQ = CFG.IG_QUOTE_ON; CFG.IG_QUOTE_ON = true;
+  try {
+    const order = [{ name: 'آئودی', eps: [{ ep: 40, lesson: 2 }, { ep: 41, lesson: 3 }, { ep: 42, lesson: 4 }] }];
+    const pub = {}; [40, 41, 42].forEach((e) => { pub['special:' + e] = { videoId: 'v' + e, privacy: 'public', title: 't' + e }; });
+    const np = igPartsFor_(0, false);
+    const doneOf = (eps) => eps.join(',');
+    const parts41 = Array.from({ length: np }, (_, i) => igUid_({ ep: 41, part: i + 1 }));
+    const parts40 = Array.from({ length: np }, (_, i) => igUid_({ ep: 40, part: i + 1 }));
+    const n1 = igNextEp_(pub, { done: doneOf(parts40.concat(parts41)), inflight: [] }, order);
+    ok('۱۵.۱۳ درسِ ۳ (مضربِ ۳) پس از بخش‌های آموزشی‌اش یک ریلزِ جملهٔ کوتاه می‌گیرد', n1 && n1.ep === 41 && n1.quote === 1 && n1.part === igQuotePart_() && n1.parts === 1, JSON.stringify(n1));
+    const stF = { done: doneOf(parts40.concat(parts41)), inflight: [], fails: {} };
+    stF.fails[igUid_({ ep: 41, part: igQuotePart_() })] = 9;
+    const n2 = igNextEp_(pub, stF, order);
+    ok('۱۵.۱۴ جملهٔ کوتاهِ گیرکرده صف را نگه نمی‌دارد: درسِ بعد می‌آید', n2 && n2.ep === 42 && !n2.quote, JSON.stringify(n2));
+    const n3 = igNextEp_(pub, { done: doneOf(parts40), inflight: [] }, order);
+    ok('۱۵.۱۵ پیش از بخش‌های آموزشیِ همان درس نمی‌آید', n3 && n3.ep === 41 && !n3.quote && n3.part === 1, JSON.stringify(n3));
+    const enc = { s: [{ n: 'آئودی', e: '40:2,41:3,42:4' }] };
+    const pOk = igEarlierPending_({ done: doneOf(parts40.concat(parts41)), order: enc }, 41, igQuotePart_());
+    const pWait = igEarlierPending_({ done: doneOf(parts40.concat(parts41.slice(0, 1))), order: enc }, 41, igQuotePart_());
+    ok('۱۵.۱۶ انتشارش فقط منتظرِ بخش‌های آموزشیِ همان درس است (نه بخش‌های ناموجودِ ۳ تا ۸)', pOk === '' && (np < 2 || /درسِ 3/.test(pWait)), pOk + ' | ' + pWait);
+  } finally { CFG.IG_QUOTE_ON = keepQ; }
+
+  /* برنامه: جمله از درس، نسبت در کپشن، قالب ثبت‌شده؛ و جملهٔ نایافته ⇒ شکست */
+  const kG = global.geminiText_, kJ = global.igJudge_;
+  const ep = { title: 'معرفت', sections: sec };
+  const fo = { getFilesByName: () => ({ hasNext: () => false }), createFile: () => ({}) };
+  const ans = (q) => ({ quote: q, who: 'آئودی', direct: 'بله', context: 'یعنی دانستن فقط باور نیست. باید درست هم باشد. و دلیلِ خوبی هم بخواهد. همین سه شرط بحثِ بزرگی ساخته است.',
+                        scenes: ['an old lamp on a desk', 'a path in fog', 'a balance scale'], coverTitle: 'معرفت یعنی چه', caption: 'دانستن یعنی چه؟', tags: ['فلسفه'], kicker: 'معرفت‌شناسی' });
+  global.igJudge_ = () => ({ ok: true, why: '' });
+  try {
+    global.geminiText_ = () => ans('معرفت باوری صادق است که توجیهِ درستی دارد');
+    const r1 = igQuotePlan_({ key: 'ig:special:41.9', ep: 41, part: igQuotePart_(), yt: 'https://youtu.be/v41', quote: 1 }, fo, ep, { seriesKey: 'k' }, 'معرفت‌شناسی آئودی', 3);
+    const pl = r1.plan || {};
+    ok('۱۵.۱۷ برنامهٔ جملهٔ کوتاه: قالب، بخشِ ۹، نسبتِ «— آئودی» در کپشن، دعوت به درسِ کامل', r1.ok && pl.format === 'جملهٔ کوتاه' && pl.part === igQuotePart_() && pl.parts === 1 &&
+       /^«معرفت باوری صادق است که توجیهِ درستی دارد»\n— آئودی\n/.test(pl.caption) && pl.plan.lines[pl.plan.lines.length - 1].cta && pl.quote.kind === 'direct', JSON.stringify(r1).slice(0, 300));
+    global.geminiText_ = () => ans('معرفت همیشه باوری است که هرگز خطا نمی‌کند و یقینی است');
+    const r2 = igQuotePlan_({ key: 'k', ep: 41, part: igQuotePart_() }, fo, ep, {}, 'آئودی', 3);
+    ok('۱۵.۱۸ جملهٔ ساختهٔ مدل (نه عینِ درس) ⇒ شکست، نه انتشار', !r2.ok && /عیناً در متنِ درس نیست/.test(String(r2.fail)), JSON.stringify(r2));
+    global.igJudge_ = () => ({ ok: false, why: 'ادعای بیرون از درس — جملهٔ سوم' });
+    global.geminiText_ = () => ans('معرفت باوری صادق است که توجیهِ درستی دارد');
+    const r3 = igQuotePlan_({ key: 'k', ep: 41, part: igQuotePart_() }, fo, ep, {}, 'آئودی', 3);
+    ok('۱۵.۱۹ داور «ادعای بیرون از درس» گفت ⇒ شکست', !r3.ok && /ادعای بیرون از درس/.test(String(r3.fail)));
+  } finally { global.geminiText_ = kG; global.igJudge_ = kJ; }
+  const pl0 = { format: 'جملهٔ کوتاه', short: 'x' };
+  ok('۱۵.۲۰ ریلزِ جملهٔ کوتاه به شورتز نمی‌رود', igShortPub_({}, pl0).ok && /فقط اینستاگرام/.test(pl0.shortWhy));
+  const s38 = fs.readFileSync('src/38_Instagram.gs', 'utf8');
+  ok('۱۵.۲۱ سیم‌ها: گامِ برنامه شاخهٔ جملهٔ کوتاه دارد و صف پرچمش را با خود می‌برد',
+     /if \(it\.quote \|\| Number\(it\.part\) === igQuotePart_\(\)\) return igQuotePlan_\(/.test(s38) && /quote: nx\.quote \? 1 : 0/.test(s38));
+  delete global.__PROPS[PK.YT_SUMMARY];
+}
+
 summary('owner115');
