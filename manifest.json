@@ -1,20 +1,15 @@
 {
-  "version": "11.9",
+  "version": "12.0",
   "codeFile": "engine.gs",
-  "sha256": "836996ed222f5afc4b550f97857213fdaa04579b7f0478f28b7d90627175a62d",
-  "releasedAt": "2026-10-25T14:15:18Z",
-  "summary": "داورِ مجموعه‌ها با «فلسفی و اعتقادی» و دسته‌های دستی؛ catSure؛ داوریِ دوباره؛ دستهٔ دستی فقط برچسب",
+  "sha256": "12baa558ed8e5a1a1f7f5af3406ed51600441f39df57a887ae8177d601b59cc4",
+  "releasedAt": "2026-10-25T14:31:51Z",
+  "summary": "سنجشِ فرضیه‌های رقبا با دادهٔ خودِ کانال — فقط اندازه",
   "fixes": [
-    "seriesCatList_/validSeriesCategory_ (16_Curate) در judgePrompt_/applyVerdict_/planCurriculum_؛ TAXONOMY دست نخورد",
-    "JUDGE_SCHEMA.catSure + SERIES_CAT_MIN_SURE ⇒ SERIES_CAT_UNSURE",
-    "JUDGE_CAT_SINCE: داوری‌های کهنه یک بار از نو",
-    "pickSeriesPlan_: شروعِ مجموعهٔ تازه فقط با شمارهٔ دستی"
+    "ytHypo_/ytHypoRun_: میانهٔ نمایش در روز برای هر فرضیه؛ خطِ روزانه و جدولِ هفتگی در تلگرام"
   ],
   "sourceReportIds": [],
   "answers": [
-    "R-20261025-40",
-    "R-20261025-41",
-    "R-20261025-42"
+    "R-20261025-43"
   ],
   "promptImpact": [],
   "promptImpactKinds": []

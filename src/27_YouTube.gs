@@ -15357,3 +15357,80 @@ function ytChanHuman_(curDesc) {
   if (mine) return mine !== ytDescFp_(curDesc);
   return !/هر روز دو پادکستِ فارسی/.test(String(curDesc));
 }
+
+/* ══ سنجشِ فرضیه‌های رقبا با دادهٔ خودِ کانال (۱۲.۰) ══
+ * «فرضیه‌ها را با داده‌های خودتان بسنجید و چیزی را بدون آزمایش اعمال نکنید.» فقط **اندازه** می‌گیرد، چیزی عوض نمی‌کند:
+ * از آخرین عکسِ هر ویدئو در تبِ «بازخوردِ یوتیوب» (نمایش در روز، نه نمایشِ خام — ویدئوی قدیمی‌تر فقط وقتِ بیشتری داشته)
+ * میانهٔ هر گروه را می‌دهد. گروهِ کمتر از YT_HYPO_MIN ویدئو «کم‌داده» گفته می‌شود، نه نتیجه.
+ *   ف۱ عنوان: کوتاه/بلند، با/بی «درس N»، آغاز با پرسش · ف۲ ورودی: درس‌های ۱ تا ۳ در برابرِ بعدی، مرورِ بزرگ
+ *   ف۳ شورتز در برابرِ ویدئوی بلند · ف۴ رقیق‌شدن: ویدئوهای هفته‌های پرانتشار در برابرِ کم‌انتشار */
+function ytHypoMed_(a) {
+  if (!a.length) return null;
+  var s = a.slice().sort(function (x, y) { return x - y; }), m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+function ytHypo_(rows) {
+  var last = Object.create(null);
+  for (var i = 0; i < (rows || []).length; i++) {
+    var id = String(rows[i][4] || '');
+    if (!id || !String(rows[i][5] || '')) continue;
+    last[id] = { title: String(rows[i][5]), perDay: Number(rows[i][11]) || 0, age: Number(rows[i][10]) || 0, at: String(rows[i][0] || '') };
+  }
+  var vids = Object.keys(last).map(function (k) { return last[k]; });
+  var min = Math.max(2, Number(CFG.YT_HYPO_MIN) || 5);
+  var g = function (name, a, b, fa, fb) {
+    var A = vids.filter(fa).map(function (x) { return x.perDay; }), B = vids.filter(fb).map(function (x) { return x.perDay; });
+    var ma = ytHypoMed_(A), mb = ytHypoMed_(B);
+    var thin = A.length < min || B.length < min;
+    return { name: name, a: a, b: b, na: A.length, nb: B.length, ma: ma, mb: mb, thin: thin,
+             say: thin ? 'کم‌داده (' + A.length + ' در برابرِ ' + B.length + ')'
+                       : (ma > mb * 1.3 ? '«' + a + '» بیشتر دیده شده' : mb > ma * 1.3 ? '«' + b + '» بیشتر دیده شده' : 'تفاوتِ معنادار نیست') };
+  };
+  var dig = function (t) { return faDigits_(t); };
+  var lesson = function (x) { var m = dig(x.title).match(/درس\s*(\d+)/); return m ? Number(m[1]) : 0; };
+  var isShort = function (x) { return /#shorts/i.test(x.title); };
+  var longs = function (f) { return function (x) { return !isShort(x) && f(x); }; };
+  var head = function (x) { return String(x.title).split('|')[0]; };
+  var out = { n: vids.length, at: nowStr_(), tests: [] };
+  out.tests.push(g('ف۱ طولِ عنوان', 'تا ۶۰ نویسه', 'بلندتر', longs(function (x) { return x.title.length <= 60; }), longs(function (x) { return x.title.length > 60; })));
+  out.tests.push(g('ف۱ «درس N» در عنوان', 'بی «درس N»', 'با «درس N»', longs(function (x) { return !lesson(x); }), longs(function (x) { return !!lesson(x); })));
+  out.tests.push(g('ف۱ آغاز با پرسش', 'پرسشی', 'غیرپرسشی', longs(function (x) { return /[؟?]/.test(head(x)); }), longs(function (x) { return !/[؟?]/.test(head(x)); })));
+  out.tests.push(g('ف۲ نقطهٔ ورود', 'درس‌های ۱ تا ۳', 'درسِ ۴ به بعد', longs(function (x) { var n = lesson(x); return n >= 1 && n <= 3; }), longs(function (x) { return lesson(x) > 3; })));
+  out.tests.push(g('ف۲ مرورِ بزرگ', 'مرور', 'درسِ عادی', longs(function (x) { return /مرور/.test(x.title); }), longs(function (x) { return !/مرور/.test(x.title) && !!lesson(x); })));
+  out.tests.push(g('ف۳ شورتز', 'شورتز', 'ویدئوی بلند', isShort, function (x) { return !isShort(x); }));
+  /* ف۴: هفتهٔ انتشار از «تاریخ» منهای «روز از انتشار» */
+  var wk = Object.create(null);
+  vids.forEach(function (x) {
+    var t = parseWhen_(x.at);
+    if (isNaN(t) || isShort(x)) return;
+    var w = Math.floor((t - x.age * 86400000) / (7 * 86400000));
+    x.wk = w; wk[w] = (wk[w] || 0) + 1;
+  });
+  var counts = Object.keys(wk).map(function (k) { return wk[k]; }).sort(function (a, b) { return a - b; });
+  var mid = ytHypoMed_(counts) || 0;
+  out.tests.push(g('ف۴ رقیق‌شدن', 'هفته‌های کم‌انتشار', 'هفته‌های پرانتشار',
+                   longs(function (x) { return x.wk !== undefined && wk[x.wk] <= mid; }), longs(function (x) { return x.wk !== undefined && wk[x.wk] > mid; })));
+  out.line = '📐 سنجشِ فرضیه‌ها (' + out.n + ' ویدئو، میانهٔ نمایش در روز): ' + out.tests.map(function (t) {
+    return t.name + ': ' + t.say + (t.thin ? '' : ' [' + (t.ma == null ? '—' : t.ma.toFixed(1)) + ' / ' + (t.mb == null ? '—' : t.mb.toFixed(1)) + ']');
+  }).join(' · ') + '. فقط سنجش است؛ چیزی عوض نشد.';
+  return out;
+}
+/** از تبِ «بازخوردِ یوتیوب»؛ و هر YT_HYPO_DAYS روز یک بار جدولِ کامل به تلگرام. ⇒ {line} یا null */
+function ytHypoRun_(hub) {
+  var sh = (hub || getHub_()).getSheetByName(CFG.YTS_TAB || 'بازخوردِ یوتیوب');
+  if (!sh || sh.getLastRow() < 2) return null;
+  var r = ytHypo_(sh.getRange(2, 1, sh.getLastRow() - 1, YTS_HEADERS.length).getValues());
+  try {
+    var lastAt = Number(props_().getProperty(PK.YT_HYPO_AT) || 0) || 0;
+    if (Date.now() - lastAt > Math.max(1, Number(CFG.YT_HYPO_DAYS) || 7) * 86400000) {
+      var L = ['📐 <b>سنجشِ فرضیه‌های رقبا با دادهٔ خودِ کانال</b> — ' + r.n + ' ویدئو، میانهٔ «نمایش در روز»', ''];
+      r.tests.forEach(function (t) {
+        L.push('• ' + tgEsc_(t.name) + ': «' + tgEsc_(t.a) + '» ' + (t.ma == null ? '—' : t.ma.toFixed(1)) + ' (' + t.na + ') در برابرِ «' +
+               tgEsc_(t.b) + '» ' + (t.mb == null ? '—' : t.mb.toFixed(1)) + ' (' + t.nb + ') ⇒ ' + tgEsc_(t.say));
+      });
+      L.push(''); L.push('فقط سنجش است؛ هیچ تنظیمی عوض نشد. همبستگی، نه علیت.');
+      if (tgSend_(L.join('\n'))) props_().setProperty(PK.YT_HYPO_AT, String(Date.now()));
+    }
+  } catch (e) {}
+  return r;
+}
