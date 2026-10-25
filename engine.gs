@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 11.3
+ *  موتور محتوا و پادکست — نسخهٔ 11.4
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1133,6 +1133,7 @@ var CFG = {
      خودِ ویدئو خوانده می‌شود (۱ واحد)؛ «private» ⇒ دست نمی‌خورد، و شناسه‌اش در PK.YT_OWNER_PRIVATE می‌ماند تا اگر روزی
      خواندن نشد هم دست نخورد. */
   YT_PRIVATE_HANDS_OFF: true,
+  YT_COVER_QUESTION: true,      // ۱۱.۴: متنِ کاورِ ویدئوی بلند = پرسشِ ملموس، حداکثر ۶ واژه با «؟» (false ⇒ قاعدهٔ پیشینِ «دو تا پنج واژه، خودِ موضوع»)
   YT_QA_MATCH_SOFT: 0.8,        // ۱۱.۳: «فقط X از N صحنه سرِ جای خودش» به‌تنهایی با X/N ≥ این، مشاوره است نه سد (special:81 = ۳۶/۴۱ با صفر قابِ خالی و همگامیِ سالم)
   YT_DESC_CAST: true,           // ۱۱.۱: ویدئوهای بلند «دقیقاً مثلِ قبل» — بلوکِ «گویندگانِ این قسمت» می‌ماند تا خودِ صاحبِ کانال کوتاه‌کردن را تأیید کند (false ⇒ برداشته می‌شود)
   YT_DESC_ARCHIVE: 1,           // ۱۱.۰: «اصلِ توضیحاتِ ویدیوهای بلندِ فعلی را در تلگرام ذخیره کنید» — یک بار برای هر شماره؛ بالا بردنش ⇒ دوباره
@@ -2267,7 +2268,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '11.3',
+  CODE_VERSION: '11.4',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2656,8 +2657,14 @@ var CFG = {
        بود (`voicebridge.fricSplice`): قاب‌هایی از صدای جمینای را وسطِ واژه می‌گذاشت. در رانر پشتِ `VBR_HX=1` رفت و از این‌جا
        برداشته شد؛ برچسب عوض شد تا نمونهٔ تازه ساخته شود (۷٫۸۶). «ه» ⇐ «خ» با این درمان برمی‌گردد و راهِ دیگری می‌خواهد. */
     { speaker: 'razavi',      show: 'special', ep: '74', tag: 'درسِ ۷۴ · آرام · گامِ دقیق · مبدأ Charon · مکث به اندازهٔ خودش · بی وصلهٔ صدای جمینای', nospans: true, calm: true },
-    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · آرام · گامِ دقیق · مبدأ Charon · مکث به اندازهٔ خودش · بی وصلهٔ صدای جمینای', nospans: true, calm: true, colour: 'prev' }
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · آرام · گامِ دقیق · مبدأ Charon · مکث به اندازهٔ خودش · بی وصلهٔ صدای جمینای', nospans: true, calm: true, colour: 'prev' },
+    /* ۱۱.۴: او دو نمونهٔ بالا را شنید — «کلی بازخوردِ خوب»؛ گلدوز گاهی «سرِ تغییرِ حالت از کانسپتِ صدایش بیرون می‌رفت» و جاهایی
+       تند و بی‌روح. علت با کد جور است: یک گام برای کلِ گوینده. همان دو نمونه با زیروبمِ هر تکه (`voicebridge.segPitchPlan`،
+       فقط بیرون‌زدگی بیش از ۲ نیم‌پرده، با سقفِ ۴)، تا بشنود؛ روی قسمت‌ها خاموش (`VBR_SEG_PITCH`) تا تأییدِ او. */
+    { speaker: 'razavi',      show: 'special', ep: '74', tag: 'درسِ ۷۴ · آرام · گامِ دقیق · مبدأ Charon · مکث به اندازهٔ خودش · بی وصلهٔ صدای جمینای · زیروبمِ هر تکه', nospans: true, calm: true, segPitch: true },
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · آرام · گامِ دقیق · مبدأ Charon · مکث به اندازهٔ خودش · بی وصلهٔ صدای جمینای · زیروبمِ هر تکه', nospans: true, calm: true, colour: 'prev', segPitch: true }
   ],
+  VBR_SEG_PITCH: false,          // ۱۱.۴: زیروبمِ هر تکه روی قسمت‌ها — آزمایشی، خاموش تا صاحبِ کانال نمونهٔ درسِ ۷۴ را بشنود و تأیید کند
   /* ══ سقف، شمارندهٔ **زمان‌بندی** است نه شمارندهٔ موفقیت (۷٫۹۱) ══
      `vbrSoulSeedDue_` شمارنده را همان‌جا که کار را زمان‌بندی می‌کند یک
      می‌کند، نه وقتی نمونه ساخته شد. با دو بذر و سقفِ دو، **یک** امتناع
@@ -50454,9 +50461,14 @@ function ytMetaPrompt_(ctx) {
   L.push('• coverTitle — متنِ بزرگِ روی کاور. **حداکثر ' +
          faDigitsOut_(String(CFG.YT_COVER_CHARS || 42)) + ' نویسه**، ترجیحاً کمتر. ' +
          'کاور در اندازهٔ بندانگشتی دیده می‌شود، پس این باید در یک نگاه خوانده شود: ' +
-         'دو تا پنج واژه، خودِ موضوع، بی فعلِ اضافه، بی «قسمت فلان»، بی نامِ برنامه ' +
-         '(این‌ها جداگانه روی کاور هستند). مثالِ خوب: «سه شرطِ معرفت» — ' +
-         'مثالِ بد: «در این قسمت دربارهٔ شرایط معرفت صحبت می‌کنیم».');
+         (CFG.YT_COVER_QUESTION !== false
+           /* ۱۱.۴: «کاور با پرسشِ ملموس، حداکثر ۶ واژه با «؟»» — همان قاعدهٔ قلابِ ریلزها (پربازدیدها پرسشِ روزمره بودند). */
+           ? '**یک پرسشِ ملموس و روزمره، حداکثر ۶ واژه، با «؟»** — چیزی که بیننده دربارهٔ زندگیِ خودش از خودش می‌پرسد، نه ' +
+             'عنوانِ کتابی. بی «قسمت فلان»، بی نامِ برنامه (این‌ها جداگانه روی کاور هستند). مثالِ خوب: «از کجا می‌دانی راست ' +
+             'می‌گوید؟» — مثالِ بد: «سه شرطِ معرفت» یا «در این قسمت دربارهٔ شرایط معرفت صحبت می‌کنیم».'
+           : 'دو تا پنج واژه، خودِ موضوع، بی فعلِ اضافه، بی «قسمت فلان»، بی نامِ برنامه ' +
+             '(این‌ها جداگانه روی کاور هستند). مثالِ خوب: «سه شرطِ معرفت» — ' +
+             'مثالِ بد: «در این قسمت دربارهٔ شرایط معرفت صحبت می‌کنیم».'));
   L.push('• coverKicker — دو تا چهار واژه‌ی کوچک‌تر که بالای آن می‌نشیند و ' +
          'موضوع را جا می‌اندازد (مثل «معرفت‌شناسی» یا «روان‌شناسیِ رسانه»).');
   L.push('• hookLine — یک جملهٔ کوتاه که در نتیجهٔ جست‌وجو زیرِ عنوان دیده می‌شود. ' +
@@ -58493,6 +58505,18 @@ function ytDescArchive_(budgetMs) {
   return out;
 }
 
+/**
+ * کاورِ پرسشی (۱۱.۴) — سقفی که فقط در پرامپت است سقف نیست: اگر متنِ کاورِ مدل پرسشِ تا ۶ واژه نیست و سطرِ قلاب چنین پرسشی
+ * است، همان جای کاور می‌نشیند؛ وگرنه متنِ مدل می‌ماند (کاورِ بی‌متن بدتر از کاورِ خبری است). خاموش ⇒ دست نمی‌خورد.
+ */
+function ytCoverQ_(cover, hook) {
+  if (CFG.YT_COVER_QUESTION === false) return cover;
+  var isQ = function (t) { t = String(t || '').trim(); return /[؟?]$/.test(t) && t.split(/\s+/).filter(Boolean).length <= 6; };
+  if (isQ(cover)) return cover;
+  if (isQ(hook)) return String(hook).trim();
+  return cover;
+}
+
 /** ۱۱.۳: سطرهایی از نقشه که در متنِ نهاییِ عمومی نیامدند (بلوکِ گویندگان، نشانی‌های درونی) — برای پیامِ تلگرامِ همان ویدئو. */
 function ytDescRemoved_(planDesc, finalDesc) {
   var fin = {};
@@ -59703,7 +59727,7 @@ function ytPlan_(folder, ctx, redo) {
     title: ytTitleBuild_(mm, ctx),
     description: ytDescBuild_(mm, ctx, chapters),
     tags: ytTags_(mm, ctx),
-    coverTitle: ytScrub_(String(mm.coverTitle || '')).trim(),
+    coverTitle: ytCoverQ_(ytScrub_(String(mm.coverTitle || '')).trim(), ytScrub_(String(mm.hookLine || '')).trim()),
     coverKicker: ytScrub_(String(mm.coverKicker || '')).trim(),
     chapters: chapters.length,
     /* تصویرها همین‌جا و در همین فایل می‌نشینند — یعنی آدم و ناظر می‌توانند
@@ -78148,6 +78172,8 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   if (o.srcId) row.srcId = String(o.srcId);
   if (o.srcVoice) row.srcVoice = String(o.srcVoice);
   if (o.hx) row.hx = true;
+  /* ۱۱.۴: زیروبمِ هر تکه — آزمایشی. نمونه با پرچمِ بذر؛ قسمت‌ها فقط وقتی `VBR_SEG_PITCH` روشن شود (پیش‌فرض خاموش، تا او بشنود). */
+  if (o.segPitch || CFG.VBR_SEG_PITCH === true) row.segPitch = true;
   if (o.tagBase) row.tagBase = String(o.tagBase);
   if (o.markHave != null || o.markMiss != null) {
     row.markHave = String(o.markHave == null ? '' : o.markHave);
@@ -78487,6 +78513,7 @@ function vbrIngest_(hub) {
       if (hit.ab) it.abOut = hit.ab;
       if (hit.riseEnd) it.riseEnd = hit.riseEnd;  // ۹.۶۳
       if (hit.hx) it.hxOut = hit.hx;
+      if (hit.segPitch) it.segPOut = hit.segPitch;   // ۱۱.۴
       out.unshared += vbrUnshare_(it);
       /* ══ سدِ پایانِ بالارونده (۹.۶۳) ══ «جمله‌های خبری را جوری تموم می‌کرد که اصلاً مناسب نبود» — اندازه‌اش (۴۳٪ گلدوز)
          در رکورد بود و هیچ تصمیمی رویش نبود. نمونه‌ای که از `VBR_RISE_MAX` بیشتر دارد به او نمی‌رسد و از نو ساخته
@@ -78844,6 +78871,8 @@ function vbrTgMeasure_(item, who) {
   if (h.khOut != null) L.push('«خ»ِ افزوده از تبدیل: ' + h.khOut + (h.khAlt != null ? (item.hx ? ' (پیش از درمان ' + h.khAlt + ')' : ' · تبدیلِ دوم ' + h.khAlt) : '') +
                               (x.ok ? ' · درمان ' + x.frames + ' قاب (' + x.pct + '٪)' : (x.why ? ' · درمان نشد: ' + x.why : '')));
   if (item.srcVoice) L.push('صدای مبدأِ جمینای: ' + item.srcVoice);
+  if (item.segPOut) L.push('🎚 زیروبمِ هر تکه (آزمایشی): ' + item.segPOut.moved + ' از ' + item.segPOut.of + ' تکه برگردانده شد — بیشترین فاصلهٔ تکه با صدای گوینده ' +
+                          item.segPOut.maxDev + ' نیم‌پرده؛ تا ' + item.segPOut.tol + ' دست نخورد، بیشترش با سقفِ ' + item.segPOut.cap + ' جبران شد.');
   if (L.length) tgSend_('🔬 سنجشِ همین نمونه (' + who + ')\n' + L.join('\n'));
   if (item.srcId) {
     var b = null;
@@ -80109,7 +80138,7 @@ function vbrSoulPick_() {
     var seedNoSpans = {};
     var seedCalm = {};
     var seedVoice = {};
-    var seedHx = {};
+    var seedHx = {}, seedSegP = {};
     var seedBase = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
@@ -80128,6 +80157,7 @@ function vbrSoulPick_() {
       set[sk] = 1; seeded[sk] = 1;
       if (se.voice) seedVoice[sk] = String(se.voice);   // ۹.۶۳: صدای مبدأِ جمینای برای همین نمونه
       if (se.hx) seedHx[sk] = true;                     // ۹.۶۳: «خ»ی که تبدیل افزود، از ورودی
+      if (se.segPitch) seedSegP[sk] = true;             // ۱۱.۴: زیروبمِ هر تکه
       seedBase[sk] = String(se.tagBase == null ? (se.tag || '') : se.tagBase);
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
       if (se.colour) seedColour[sk] = String(se.colour);
@@ -80184,7 +80214,7 @@ function vbrSoulPick_() {
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
                seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k], calm: !!seedCalm[k],
-               voice: seedVoice[k] || '', hx: !!seedHx[k], tagBase: seedBase[k] || '' };
+               voice: seedVoice[k] || '', hx: !!seedHx[k], segPitch: !!seedSegP[k], tagBase: seedBase[k] || '' };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -80595,6 +80625,7 @@ function runVoiceSoulTest() {
     tagO.srcId = made.getId();                           // ۹.۶۳: صدای جمینای پیش از تبدیل — برای جدا کردنِ «آو»
     tagO.srcVoice = srcVoice;
     if (pick.hx) tagO.hx = true;
+    if (pick.segPitch) tagO.segPitch = true;            // ۱۱.۴
     if (pick.tagBase) tagO.tagBase = pick.tagBase;
     if (pick.colour) tagO.colour = pick.colour;          // ۹.۰۵
     if (pick.ab) tagO.ab = pick.ab;                      // ۹.۱۱

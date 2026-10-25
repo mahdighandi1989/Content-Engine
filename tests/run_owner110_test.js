@@ -361,4 +361,27 @@ ok('۲.۰ (۱۱.۱) پیش‌فرض: هیچ برنامه‌ای در یوتیو�
   ok('۹.۱۳ هر سه درِ انتشار حذف‌شده‌ها را می‌فرستند', /tgCaptionLog_\('اینستاگرام — ریلز'[^;]*rmI\)/.test(srcI) && /tgCaptionLog_\('یوتیوب — شورتز'[^;]*rmS\)/.test(srcI) && /ytDescRemoved_\(plan\.description, desc\)/.test(srcY));
 }
 
+
+/* ── ۱۰) ۱۱.۴: زیروبمِ هر تکه (آزمایشی) و کاورِ پرسشی ── */
+{
+  const py = require('child_process').execFileSync('python3', ['-c', 'import sys,json;sys.path.insert(0,"tools");import voicebridge as v\n' +
+    'vg={"groups":[{"hz":150.0,"pitch":-3,"secs":100}],"speech":[[0,1]]*6,"assign":[0]*6,"meds":[150,160,190,120,None,240]}\n' +
+    'print(json.dumps(v.segPitchPlan(vg)))']).toString();
+  const sp = JSON.parse(py);
+  ok('۱۰.۱ تکهٔ نزدیک به صدای گوینده دست نمی‌خورد (حالت سرِ جایش)؛ فقط بیرون‌زدگی بیش از ۲ نیم‌پرده', sp.pitch[0] === -3 && sp.pitch[1] === -3 && sp.pitch[4] === -3, py);
+  ok('۱۰.۲ بیرون‌زدگی برمی‌گردد، با سقفِ ۴', sp.pitch[2] === -5 && sp.pitch[3] === -1 && sp.pitch[5] === -7 && sp.moved === 3, py);
+  ok('۱۰.۳ بذرهای تازهٔ درسِ ۷۴ هر دو گوینده با پرچمِ segPitch و برچسبِ تازه', CFG.VOICE_SOUL_SEED.filter((x) => x.segPitch && x.ep === '74').length === 2 &&
+     CFG.VOICE_SOUL_SEED.filter((x) => x.segPitch).every((x) => /زیروبمِ هر تکه/.test(x.tag)));
+  ok('۱۰.۴ روی قسمت‌ها خاموش تا تأییدِ او', CFG.VBR_SEG_PITCH === false);
+  const src36 = require('fs').readFileSync('src/36_VoiceBridge.gs', 'utf8'), pyS = require('fs').readFileSync('tools/voicebridge.py', 'utf8');
+  ok('۱۰.۵ پرچم از بذر تا ردیفِ صف و تا رانر می‌رسد، و نتیجه به تلگرام', /if \(se\.segPitch\) seedSegP\[sk\] = true/.test(src36) && /segPitch: !!seedSegP\[k\]/.test(src36) &&
+     /if \(pick\.segPitch\) tagO\.segPitch = true/.test(src36) && /if \(o\.segPitch \|\| CFG\.VBR_SEG_PITCH === true\) row\.segPitch = true/.test(src36) &&
+     /if it\.get\("segPitch"\):/.test(pyS) && /rec\["segPitch"\] = segP/.test(pyS) && /زیروبمِ هر تکه \(آزمایشی\)/.test(src36));
+  ok('۱۰.۶ کاور: پرسشِ تا ۶ واژه می‌ماند؛ خبری ⇒ پرسشِ قلاب؛ هیچ‌کدام ⇒ متنِ مدل',
+     ytCoverQ_('از کجا می‌دانی راست می‌گوید؟', 'x') === 'از کجا می‌دانی راست می‌گوید؟' &&
+     ytCoverQ_('سه شرطِ معرفت', 'چرا شانس دانستن نیست؟') === 'چرا شانس دانستن نیست؟' &&
+     ytCoverQ_('سه شرطِ معرفت', 'این قسمت دربارهٔ معرفت است.') === 'سه شرطِ معرفت');
+  ok('۱۰.۷ پرامپتِ کاور قاعدهٔ پرسشی را دارد', /پرسشِ ملموس و روزمره، حداکثر ۶ واژه/.test(ytMetaPrompt_.toString()));
+}
+
 summary('owner110');

@@ -1,20 +1,19 @@
 {
-  "version": "11.3",
+  "version": "11.4",
   "codeFile": "engine.gs",
-  "sha256": "f91f0b1da3a8b948518520479eca55607dd9e1e3fe6f8b5970463ad652f4c78e",
-  "releasedAt": "2026-10-25T11:50:41Z",
-  "summary": "ویدئوی درس‌نامه فقط به‌خاطرِ سنجهٔ «جای صحنه» Unlisted نمی‌مانَد؛ پنلِ دسته‌های «از همه جا» در تختهٔ مجموعه‌ها وصل به قفل؛ حذف‌شده‌های کپشن در تلگرام",
+  "sha256": "ae260d1a2bf69234d7c2b450ae7c589a0de66cdd0a658ad71f90eef7db1d698c",
+  "releasedAt": "2026-10-25T12:24:47Z",
+  "summary": "زیروبمِ هر تکه در پلِ صدا (آزمایشی؛ دو نمونهٔ درسِ ۷۴، روی قسمت‌ها خاموش)؛ کاورِ ویدئوی بلند با پرسشِ ملموسِ تا ۶ واژه",
   "fixes": [
-    "ytQaSoft_: «فقط X از N صحنه سرِ جای خودش» به‌تنهایی با X/N ≥ YT_QA_MATCH_SOFT سد نیست (special:81)؛ ساختِ دوبارهٔ qa هم نه",
-    "catLockList_/catLockOn_/catLockSave_ + catPanelHtml_/uiCatLockSave: تیک‌های تخته همان قفلی است که pickCategory_ می‌خوانَد",
-    "tgCaptionLog_(…, removed): «✂️ حذف‌شده از نسخهٔ عمومی» زیرِ همان کپشن؛ ytDescRemoved_"
+    "voicebridge.segPitchPlan + assemble(lagSegs): فقط بیرون‌زدگیِ بیش از ۲ نیم‌پرده، با سقفِ ۴؛ پرچمِ segPitch روی ردیف",
+    "VOICE_SOUL_SEED: دو بذرِ تازهٔ درسِ ۷۴ با segPitch؛ VBR_SEG_PITCH: false برای قسمت‌ها",
+    "YT_COVER_QUESTION + ytCoverQ_: کاورِ پرسشیِ تا ۶ واژه"
   ],
   "sourceReportIds": [],
   "answers": [
-    "R-20261025-21",
-    "R-20261025-22",
-    "R-20261025-23",
-    "R-20261025-24"
+    "R-20261025-25",
+    "R-20261025-26",
+    "R-20261025-27"
   ],
   "promptImpact": [],
   "promptImpactKinds": []

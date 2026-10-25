@@ -986,7 +986,48 @@ def voiceGroups(segs, x, sr, targetHz):
     if len(groups) == 2 and groups[1]["secs"] > groups[0]["secs"]:
         groups = [groups[1], groups[0]]
         assign = [1 - a for a in assign]
-    return {"groups": groups, "speech": speech, "assign": assign}
+    return {"groups": groups, "speech": speech, "assign": assign, "meds": meds}
+
+
+# ══ زیروبمِ هر تکه (۱۱.۴، آزمایشی — فقط با `segPitch` روی ردیف) ══
+# صاحبِ کانال نمونهٔ درسِ ۷۴ِ گلدوز را شنید: «سرِ تغییرِ حالت از کانسپتِ صدایش بیرون می‌رفت». `voiceGroups` برای هر گوینده
+# **یک** گام می‌گذارد (میانهٔ وزنیِ کلِ فایل)، پس تکه‌ای که جمینای با حالتِ دیگری زیرتر یا بم‌تر خوانده همان گام را می‌گیرد
+# و از محدودهٔ طبیعیِ گوینده بیرون می‌افتد. این‌جا فقط **بیرون‌زدگی** برگردانده می‌شود: تکه‌ای که کمتر از `SEGP_TOL`
+# نیم‌پرده با میانهٔ گروهش فرق دارد دست نمی‌خورد (حالت و آهنگِ جمله سرِ جایش)، و بیش از آن، فقط مازاد — با سقفِ
+# `SEGP_CAP` — جبران می‌شود. هر گامِ تازه یک تبدیلِ کامل است، پس شمارشان سقف دارد (`SEGP_MAX`).
+SEGP_TOL = 2.0
+SEGP_CAP = 4
+SEGP_MAX = 4
+
+
+def segPitchPlan(vg, tol=SEGP_TOL, cap=SEGP_CAP, maxVar=SEGP_MAX):
+    """⇒ {"pitch":[گامِ هر تکه], "moved":n, "variants":[گام‌های تازه], "maxDev":نیم‌پرده} یا None."""
+    import math
+    if not vg or not vg.get("meds"):
+        return None
+    out, moved, maxDev = [], 0, 0.0
+    for i, g in enumerate(vg["assign"]):
+        G = vg["groups"][g]
+        m = vg["meds"][i]
+        p = int(G["pitch"])
+        if m and G["hz"]:
+            dev = 12.0 * math.log2(float(m) / float(G["hz"]))
+            maxDev = max(maxDev, abs(dev))
+            ex = max(0.0, abs(dev) - tol)
+            if ex >= 0.5:
+                corr = int(round(min(float(cap), ex)))
+                p = p - corr if dev > 0 else p + corr
+                moved += 1
+        out.append(p)
+    base = set(int(G["pitch"]) for G in vg["groups"])
+    extra = sorted(set(out) - base, key=lambda q: -sum(1 for x in out if x == q))
+    keep = set(extra[:maxVar])
+    for i, p in enumerate(out):                 # گامی که جا نشد ⇒ نزدیک‌ترین گامِ ساخته‌شده
+        if p not in base and p not in keep:
+            cand = sorted(base | keep, key=lambda q: abs(q - p))
+            out[i] = cand[0]
+    return {"pitch": out, "moved": moved, "variants": sorted(keep), "maxDev": round(maxDev, 1),
+            "tol": tol, "cap": cap}
 
 
 ALIGN_MAX_SEC = 3.0      # ۹.۴۴: بیشینهٔ جابه‌جاییِ کلِ تبدیل نسبت به ورودی که جست‌وجو می‌شود
@@ -1061,8 +1102,10 @@ def _segLag(x, v, sr, a, b, lag0, span=ALIGN_LOCAL_SEC):
     return best[0]
 
 
-def assemble(srcPath, outPaths, speech, assign, dst, fade=0.015):
-    """هر تکهٔ گفتار از تبدیلِ گروهِ خودش (با بلندیِ همان تکه در ورودی)؛ بقیه — موسیقی، آغاز، پایان — از خودِ ورودی."""
+def assemble(srcPath, outPaths, speech, assign, dst, fade=0.015, lagSegs=None):
+    """هر تکهٔ گفتار از تبدیلِ گروهِ خودش (با بلندیِ همان تکه در ورودی)؛ بقیه — موسیقی، آغاز، پایان — از خودِ ورودی.
+    `lagSegs[i]`: تکه‌هایی که هم‌ترازیِ خروجیِ i با آن‌ها سنجیده شود (۱۱.۴: تبدیل‌های گامِ دیگرِ همان گروه، که فقط چند تکه
+    از آن‌ها برداشته می‌شود، با همهٔ تکه‌های گروه هم‌تراز می‌شوند — چند تکه برای سنجشِ جابه‌جایی کم است)."""
     import numpy as np
     x, sr = readMono(srcPath)
     ys = []
@@ -1077,7 +1120,8 @@ def assemble(srcPath, outPaths, speech, assign, dst, fade=0.015):
     # ۹.۴۴: هر تبدیل اول با ورودی هم‌تراز می‌شود — کل، بعد هر تکه.
     lags, cors = [], []
     for gi, v in enumerate(ys):
-        sp = [speech[i] for i in range(len(speech)) if assign[i] == gi]
+        sp = (lagSegs[gi] if lagSegs and gi < len(lagSegs) and lagSegs[gi] else
+              [speech[i] for i in range(len(speech)) if assign[i] == gi])
         L, c = alignLag(x, v, sr, sp) if sp else (0, 0.0)
         lags.append(L)
         cors.append(c)
@@ -1527,6 +1571,7 @@ def runOne(it, mp):
     outs.sort(key=lambda p: -os.path.getsize(p))
     best = outs[0]
     mix = None
+    segP = None
     if vg:
         try:
             gOuts = [best]
@@ -1541,7 +1586,35 @@ def runOne(it, mp):
                 if not o3:
                     raise RuntimeError("تبدیلِ گروهِ %d فایلی نداد" % (gi + 1))
                 gOuts.append(sorted(o3, key=lambda p: -os.path.getsize(p))[0])
-            mix = assemble("vb/src.wav", gOuts, vg["speech"], vg["assign"], "vb/mixed.wav")
+            asg, lagS = vg["assign"], None
+            if it.get("segPitch"):
+                sp = segPitchPlan(vg)
+                if sp and sp["variants"]:
+                    pOut = {int(g["pitch"]): gi for gi, g in enumerate(vg["groups"])}
+                    lagS = [[vg["speech"][i] for i in range(len(vg["speech"])) if vg["assign"][i] == gi]
+                            for gi in range(len(vg["groups"]))]
+                    for vp in sp["variants"]:
+                        a4 = list(args)
+                        a4[a4.index("--out") + 1] = "vblab-p%+d" % vp
+                        a4[a4.index("--rvc-pitch") + 1] = str(vp)
+                        subprocess.check_call(a4)
+                        o4 = []
+                        for root, _dirs, files in os.walk("vblab-p%+d" % vp):
+                            o4 += [os.path.join(root, f) for f in files if f.startswith("rvc-") and f.endswith(".wav")]
+                        if not o4:
+                            raise RuntimeError("تبدیلِ گامِ %+d فایلی نداد" % vp)
+                        gOuts.append(sorted(o4, key=lambda q: -os.path.getsize(q))[0])
+                        pOut[vp] = len(gOuts) - 1
+                        # هم‌ترازی با همهٔ تکه‌های گروهی که بیشترِ تکه‌های این گام از آن‌اند
+                        gs = [vg["assign"][i] for i in range(len(sp["pitch"])) if sp["pitch"][i] == vp]
+                        lagS.append(lagS[max(set(gs), key=gs.count)] if gs else [])
+                    asg = [pOut.get(int(p), vg["assign"][i]) for i, p in enumerate(sp["pitch"])]
+                if sp:
+                    segP = {"moved": sp["moved"], "of": len(sp["pitch"]), "variants": sp["variants"],
+                            "maxDev": sp["maxDev"], "tol": sp["tol"], "cap": sp["cap"]}
+                    say("  زیروبمِ هر تکه: %d از %d تکه برگردانده شد (بیشترین فاصله %.1f نیم‌پرده؛ گام‌های تازه: %s)"
+                        % (sp["moved"], len(sp["pitch"]), sp["maxDev"], ", ".join("%+d" % v for v in sp["variants"]) or "هیچ"))
+            mix = assemble("vb/src.wav", gOuts, vg["speech"], asg, "vb/mixed.wav", lagSegs=lagS)
             best = "vb/mixed.wav"
             say("  چیدن: %.0f ثانیه گفتار از تبدیل، %.0f ثانیه (موسیقی و باقی) از خودِ ورودی"
                 % (mix["speechSec"], mix["keptSec"]))
@@ -1728,6 +1801,8 @@ def runOne(it, mp):
         rec["riseEnd"] = riseEnd
     if hxRes:
         rec["hx"] = hxRes
+    if segP:
+        rec["segPitch"] = segP
     if altOut and (abRate or abProt or abIt.get("nocolour") or abIt.get("uv") or (hxRes and hxRes.get("ok"))):
         try:
             nm = assetName(key + " · ab" + (abRate or "") + ("p" + abProt if abProt else "") + ("nc" if abIt.get("nocolour") else "") + ("uv" if abIt.get("uv") else ""), 0, 1)

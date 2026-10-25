@@ -1040,6 +1040,8 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   if (o.srcId) row.srcId = String(o.srcId);
   if (o.srcVoice) row.srcVoice = String(o.srcVoice);
   if (o.hx) row.hx = true;
+  /* ۱۱.۴: زیروبمِ هر تکه — آزمایشی. نمونه با پرچمِ بذر؛ قسمت‌ها فقط وقتی `VBR_SEG_PITCH` روشن شود (پیش‌فرض خاموش، تا او بشنود). */
+  if (o.segPitch || CFG.VBR_SEG_PITCH === true) row.segPitch = true;
   if (o.tagBase) row.tagBase = String(o.tagBase);
   if (o.markHave != null || o.markMiss != null) {
     row.markHave = String(o.markHave == null ? '' : o.markHave);
@@ -1379,6 +1381,7 @@ function vbrIngest_(hub) {
       if (hit.ab) it.abOut = hit.ab;
       if (hit.riseEnd) it.riseEnd = hit.riseEnd;  // ۹.۶۳
       if (hit.hx) it.hxOut = hit.hx;
+      if (hit.segPitch) it.segPOut = hit.segPitch;   // ۱۱.۴
       out.unshared += vbrUnshare_(it);
       /* ══ سدِ پایانِ بالارونده (۹.۶۳) ══ «جمله‌های خبری را جوری تموم می‌کرد که اصلاً مناسب نبود» — اندازه‌اش (۴۳٪ گلدوز)
          در رکورد بود و هیچ تصمیمی رویش نبود. نمونه‌ای که از `VBR_RISE_MAX` بیشتر دارد به او نمی‌رسد و از نو ساخته
@@ -1736,6 +1739,8 @@ function vbrTgMeasure_(item, who) {
   if (h.khOut != null) L.push('«خ»ِ افزوده از تبدیل: ' + h.khOut + (h.khAlt != null ? (item.hx ? ' (پیش از درمان ' + h.khAlt + ')' : ' · تبدیلِ دوم ' + h.khAlt) : '') +
                               (x.ok ? ' · درمان ' + x.frames + ' قاب (' + x.pct + '٪)' : (x.why ? ' · درمان نشد: ' + x.why : '')));
   if (item.srcVoice) L.push('صدای مبدأِ جمینای: ' + item.srcVoice);
+  if (item.segPOut) L.push('🎚 زیروبمِ هر تکه (آزمایشی): ' + item.segPOut.moved + ' از ' + item.segPOut.of + ' تکه برگردانده شد — بیشترین فاصلهٔ تکه با صدای گوینده ' +
+                          item.segPOut.maxDev + ' نیم‌پرده؛ تا ' + item.segPOut.tol + ' دست نخورد، بیشترش با سقفِ ' + item.segPOut.cap + ' جبران شد.');
   if (L.length) tgSend_('🔬 سنجشِ همین نمونه (' + who + ')\n' + L.join('\n'));
   if (item.srcId) {
     var b = null;
@@ -3001,7 +3006,7 @@ function vbrSoulPick_() {
     var seedNoSpans = {};
     var seedCalm = {};
     var seedVoice = {};
-    var seedHx = {};
+    var seedHx = {}, seedSegP = {};
     var seedBase = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
@@ -3020,6 +3025,7 @@ function vbrSoulPick_() {
       set[sk] = 1; seeded[sk] = 1;
       if (se.voice) seedVoice[sk] = String(se.voice);   // ۹.۶۳: صدای مبدأِ جمینای برای همین نمونه
       if (se.hx) seedHx[sk] = true;                     // ۹.۶۳: «خ»ی که تبدیل افزود، از ورودی
+      if (se.segPitch) seedSegP[sk] = true;             // ۱۱.۴: زیروبمِ هر تکه
       seedBase[sk] = String(se.tagBase == null ? (se.tag || '') : se.tagBase);
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
       if (se.colour) seedColour[sk] = String(se.colour);
@@ -3076,7 +3082,7 @@ function vbrSoulPick_() {
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
                seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k], calm: !!seedCalm[k],
-               voice: seedVoice[k] || '', hx: !!seedHx[k], tagBase: seedBase[k] || '' };
+               voice: seedVoice[k] || '', hx: !!seedHx[k], segPitch: !!seedSegP[k], tagBase: seedBase[k] || '' };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -3487,6 +3493,7 @@ function runVoiceSoulTest() {
     tagO.srcId = made.getId();                           // ۹.۶۳: صدای جمینای پیش از تبدیل — برای جدا کردنِ «آو»
     tagO.srcVoice = srcVoice;
     if (pick.hx) tagO.hx = true;
+    if (pick.segPitch) tagO.segPitch = true;            // ۱۱.۴
     if (pick.tagBase) tagO.tagBase = pick.tagBase;
     if (pick.colour) tagO.colour = pick.colour;          // ۹.۰۵
     if (pick.ab) tagO.ab = pick.ab;                      // ۹.۱۱
