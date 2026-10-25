@@ -1,22 +1,28 @@
 {
-  "version": "12.7",
+  "version": "12.8",
   "codeFile": "engine.gs",
-  "sha256": "9eb8476d1fe37bcd89fb8fa4c76b36f65fe30498735f1e4d8b70e185a5e3c74d",
-  "releasedAt": "2026-10-25T21:00:00Z",
-  "summary": "محتوای بیرونی (NotebookLM) فقط شمرده می‌شود: از فرضیهٔ ۷ و الگوهای اینستاگرام کنار، و بخشِ جدا در ایمیلِ ۱۰ — بی تغییر در تولید",
+  "sha256": "afe03c4f5c1a2badc2c9a0a963fc2ac68079da998183876d18453ba611ee522c",
+  "releasedAt": "2026-10-25T22:30:00Z",
+  "summary": "سبکِ تصویر فقط از محتوا، قفلِ پلی‌لیست در خطِ ۱۰، دو وارسیِ اجباریِ ناظر (پرامپتِ ۱۱۳)، ردِ گشتنِ شبانهٔ موسیقی، و جبرانِ مشخصات زیرِ سقفِ شش‌دقیقه — بی تغییر در تولید",
   "fixes": [
-    "igOwnSet_/igIsOwn_: مالِ موتور از دفترِ «انتشار در اینستاگرام» + st.media",
-    "igPattern_(…, own): بیرونی از byHour/byFormat/ف۷ کنار؛ PK.IG_EXT",
-    "igInsightsPosts_: ستونِ «قسمت» برای پستِ دستی «بیرونی»",
-    "ytExtScan_: آپلودها + تگِ ext-notebooklm، روزی ۲ واحد، فقط خواندن؛ PK.YT_EXT",
-    "ytaRun_: شورتزِ موتور «shorts»، بیرونی «ext»؛ avp و منحنی‌ها بی تغییر",
-    "extLine_ در ایمیلِ ۱۰"
+    "lvStyleInputs_: پیشنهادِ قاعده‌ایِ سبک از دستهٔ دستی + موضوع + شرحِ داوری؛ lvStyleInputsLegacy_ فقط برای تشخیصِ خانهٔ نوشتهٔ سوئیپِ قدیم",
+    "ytPlLockLine_ در ایمیلِ ۱۰",
+    "MONITOR_CHECKS: yt-growth، series-queue؛ _PROMPT-monitor-v113",
+    "PK.MUSIC_SEEK_LAST ⇒ _STATUS.music.seekLast و خطِ موسیقی",
+    "embSpecsBackfill_: مهلتِ سخت از RUN_T0_، نوشتن پس از مهلت نه؛ embSpecsApply_ خوشه‌ای؛ embStep_ ⇒ runStage_"
   ],
   "sourceReportIds": [],
   "answers": [
-    "R-20261025-67",
-    "R-20261025-68"
+    "R-20261025-69",
+    "R-20261025-70",
+    "R-20261025-71",
+    "R-20261025-72",
+    "R-20261025-73"
   ],
-  "promptImpact": [],
-  "promptImpactKinds": []
+  "promptImpact": [
+    "CFG.MONITOR_CHECKS: yt-growth و series-queue (وارسیِ اجباریِ روزانه) — _PROMPT-monitor-v113"
+  ],
+  "promptImpactKinds": [
+    "monitor"
+  ]
 }

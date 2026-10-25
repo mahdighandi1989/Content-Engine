@@ -2738,6 +2738,7 @@ function healthCheck() {
     }
   } catch (eSc) {}
   try { var daL = ytDescArchLine_(); if (daL) notes.push(daL); } catch (eDa) {}   // ۱۱.۶
+  try { var plL = ytPlLockLine_(); if (plL) notes.push(plL); } catch (ePl) {}   // ۱۲.۸: قفلِ پلی‌لیست، هر روز
   try { var hyp = ytHypoRun_(); if (hyp && hyp.line) notes.push(hyp.line); } catch (eHy) {}   // ۱۲.۰: فقط سنجش
   try { bioSuggest_(false); } catch (eBio) {}   // ۱۲.۲: پیشنهادِ بیوها، هفتگی به تلگرام
   try { var clL = ytClaimLine_(); if (clL) notes.push(clL); } catch (eCl) {}   // ۱۲.۵: فقط سنجش

@@ -441,8 +441,8 @@ console.log('=== ۶) موسیقی از اینترنت می‌آید، نه از 
   {
     const p21f = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
     ok('۶.۱۲ در کارِ شبانه پیش از پویش صدا زده می‌شود',
-       p21f.indexOf('musicFetch_();') > 0 &&
-       p21f.indexOf('musicFetch_();') < p21f.indexOf('musicScan_(); musicAutoTag_()'));
+       p21f.indexOf('musicFetch_()') > 0 &&     // ۱۲.۸: نتیجه‌اش هم ثبت می‌شود (`musicFetch_() || {}`)، ترتیب همان
+       p21f.indexOf('musicFetch_()') < p21f.indexOf('musicScan_(); musicAutoTag_()'));
   }
   ok('۶.۱۳ و از منو هم در دسترس است',
      /runMusicFetch/.test(fs.readFileSync('src/05_Setup.gs', 'utf8')));

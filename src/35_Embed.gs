@@ -879,9 +879,16 @@ function embSpecsBackfill_(cap, budgetMs, hubIn) {
   var out = { ok: false, scanned: 0, filled: 0, tabs: 0, done: false, commits: 0, notes: [] };
   var t0 = new Date().getTime();
   var deadline = t0 + Math.max(15000, budgetMs || Number(CFG.EMB_SPECS_MS) || 120000);
+  /* ══ سقفِ سخت از آغازِ **اجرا**، نه از آغازِ این تابع (۱۲.۸) ══ ۲۵ اکتبر ۰۳:۳۰ «جبرانِ مشخصات (اجرای جدا)» سرِ شش دقیقه کشته
+     شد: بودجهٔ ۱۸۰ ثانیه فقط خواندنِ تب‌های منبع را می‌پایید — پس از ۳۰ ثانیه انتظارِ قفل، ساختنِ نقشهٔ کلِ بانک (۵۱ هزار
+     ردیف)، و نوشتنِ پایانیِ هر تب که پس از مهلت هم انجام می‌شد. حالا مهلت از `RUN_T0_` حساب می‌شود و برای نوشتن جا می‌گذارد. */
+  var runT0 = (typeof RUN_T0_ === 'number' && RUN_T0_ > 0 && RUN_T0_ <= t0) ? RUN_T0_ : t0;
+  var hardEnd = runT0 + Math.max(60000, Number(CFG.EMB_SPECS_HARD_MS) || 270000);
+  deadline = Math.min(deadline, hardEnd - 60000);
   cap = Math.max(100, cap || Number(CFG.EMB_SPECS_PER_RUN) || 4000);
 
   var hub, map;
+  try { runStage_('مشخصات: نقشهٔ بانک'); } catch (eRs) {}
   try { hub = hubIn || getHub_(); map = embHubKeyMap_(hub); }
   catch (eM) { out.notes.push('نقشهٔ بانک ساخته نشد: ' + eM.message); return out; }
 
@@ -905,6 +912,7 @@ function embSpecsBackfill_(cap, budgetMs, hubIn) {
   for (var si = 0; si < list.length; si++) {
     if (new Date().getTime() > deadline || out.scanned >= cap) { allDone = false; break; }
     var src = list[si], ss = null;
+    try { runStage_('مشخصات: «' + String(src.title || src.key).slice(0, 40) + '»'); } catch (eRs2) {}
     try { ss = SpreadsheetApp.openById(src.id); }
     catch (eO) { out.notes.push('«' + src.title + '» باز نشد: ' + eO.message); allDone = false; continue; }
     var legacy = (src.schema === 'legacy-video' || src.schema === 'legacy-photo');
@@ -953,6 +961,9 @@ function embSpecsBackfill_(cap, budgetMs, hubIn) {
         cur += n;
         cursors[ck] = cur;
       }
+      /* نوشتن پس از مهلتِ سخت شروع نمی‌شود؛ مکان‌نما هم ثبت نمی‌شود، پس همین خواندن دورِ بعد تکرار می‌شود — نه گم. */
+      if (new Date().getTime() > hardEnd - 45000) { allDone = false; out.notes.push('مهلتِ سخت پیش از نوشتنِ «' + sh.getName() + '»'); break; }
+      try { runStage_('مشخصات: نوشتنِ «' + String(sh.getName()).slice(0, 30) + '»'); } catch (eRs3) {}
       commit_(patch);
       if (cur < last) allDone = false;
     }
@@ -995,30 +1006,40 @@ function embSpecsApply_(hub, patch) {
       if (rn >= 2 && rn <= last) rows.push(rn);
     }
     if (!rows.length) continue;
-    var lo = rows[0], hi = rows[0];
-    for (var q = 1; q < rows.length; q++) { if (rows[q] < lo) lo = rows[q]; if (rows[q] > hi) hi = rows[q]; }
-    var cur, st;
-    try {
-      cur = sh.getRange(lo, COL.SPECS, hi - lo + 1, 1).getValues();
-      st = sh.getRange(lo, COL.EMB_ST, hi - lo + 1, 1).getValues();
-    } catch (e) { continue; }
-    var changed = false;
-    for (var row in patch[tab]) {
-      if (!Object.prototype.hasOwnProperty.call(patch[tab], row)) continue;
-      var i = Number(row) - lo;
-      if (i < 0 || i >= cur.length) continue;
-      if (String(cur[i][0] || '') === String(patch[tab][row])) continue;
-      cur[i][0] = patch[tab][row];
-      /* متنِ بردار عوض شد، پس بردار باید از نو ساخته شود. پاک‌کردنِ
-         وضعیت کافی است: پویشِ شبانه خودش برش می‌دارد. */
-      st[i][0] = '';
-      changed = true; wrote++;
+    /* ۱۲.۸: خوشه‌به‌خوشه، نه یک بازهٔ پیوسته از کم‌ترین تا بیش‌ترین ردیف — ردیف‌های یک تبِ منبع در بانک پراکنده‌اند و بازهٔ
+       «lo..hi» گاهی هزاران خانهٔ ۷۰۰نویسه‌ای را برای چند ردیف می‌خواند و دوباره می‌نوشت — یکی از دو جای بی‌مهلتِ اجرای کشته‌شدهٔ ۲۵ اکتبر. */
+    rows.sort(function (a, b) { return a - b; });
+    var gap = Math.max(1, Number(CFG.EMB_SPECS_GAP) || 40), groups = [], g0 = [rows[0]];
+    for (var q = 1; q < rows.length; q++) {
+      if (rows[q] - g0[g0.length - 1] > gap) { groups.push(g0); g0 = []; }
+      g0.push(rows[q]);
     }
-    if (!changed) continue;
-    try {
-      sh.getRange(lo, COL.SPECS, cur.length, 1).setValues(cur);
-      sh.getRange(lo, COL.EMB_ST, st.length, 1).setValues(st);
-    } catch (eW) { logLine_('نوشتنِ مشخصات در «' + tab + '» ناموفق: ' + eW.message); }
+    groups.push(g0);
+    for (var gi = 0; gi < groups.length; gi++) {
+      var lo = groups[gi][0], hi = groups[gi][groups[gi].length - 1];
+      var cur, st;
+      try {
+        cur = sh.getRange(lo, COL.SPECS, hi - lo + 1, 1).getValues();
+        st = sh.getRange(lo, COL.EMB_ST, hi - lo + 1, 1).getValues();
+      } catch (e) { continue; }
+      var changed = false;
+      for (var gr = 0; gr < groups[gi].length; gr++) {
+        var rn2 = groups[gi][gr], i = rn2 - lo;
+        var want = patch[tab][String(rn2)] !== undefined ? patch[tab][String(rn2)] : patch[tab][rn2];
+        if (want === undefined || i < 0 || i >= cur.length) continue;
+        if (String(cur[i][0] || '') === String(want)) continue;
+        cur[i][0] = want;
+        /* متنِ بردار عوض شد، پس بردار باید از نو ساخته شود. پاک‌کردنِ
+           وضعیت کافی است: پویشِ شبانه خودش برش می‌دارد. */
+        st[i][0] = '';
+        changed = true; wrote++;
+      }
+      if (!changed) continue;
+      try {
+        sh.getRange(lo, COL.SPECS, cur.length, 1).setValues(cur);
+        sh.getRange(lo, COL.EMB_ST, st.length, 1).setValues(st);
+      } catch (eW) { logLine_('نوشتنِ مشخصات در «' + tab + '» ناموفق: ' + eW.message); }
+    }
   }
   return wrote;
 }
@@ -1639,6 +1660,8 @@ function embGates_(hub, st, self) {
 function embStep_(name) {
   try { props_().setProperty(PK.EMB_STEP, String(name || '') + ' @ ' + nowStr_()); }
   catch (e) {}
+  /* ۱۲.۸: همان مرحله روی مهرِ اجرا هم — «اجرای ناتمام: embSpecsLater … مرحله‌اش ثبت نشده» در حالی که مرحله در `embed.step` بود. */
+  try { runStage_(name); } catch (e2) {}
 }
 
 function embStepRead_() {

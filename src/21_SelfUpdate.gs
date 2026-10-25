@@ -1236,10 +1236,14 @@ function selfUpdateDaily() {
     if (wSk && Number(wSk.skipped) > 0) mUnheard = Math.max(0, mUnheard - Number(wSk.skipped));
   } catch (eSk) {}
   var mStop = Math.max(1, Number(CFG.MUSIC_UNHEARD_STOP) || 25);
+  /* ۱۲.۸: نتیجهٔ گشتنِ هر شب در `_STATUS.json` (`music.seekLast`) — «چرا چیزی نیامد» تا امروز هیچ ردی نداشت. */
+  var mLog = { at: nowStr_(), ran: false, skip: '', why: '', slots: [], looked: 0, added: 0, notes: [], fetch: null };
   if (mUnheard >= mStop) {
+    mLog.skip = mUnheard + ' قطعهٔ شنیده‌نشده (سقف ' + mStop + ')';
     logLine_('آوردنِ موسیقی امشب رد شد: ' + mUnheard + ' قطعهٔ شنیده‌نشده در بانک ' +
              '(سقف ' + mStop + '). اول همان‌ها شنیده می‌شوند.');
   } else if (nightHas_(90000, 'گشتن و آوردنِ موسیقی')) {
+    mLog.ran = true;
     try {
       var miss = musicThinSlots_();
       // کمبودی نبود یعنی «پوشش کامل است»، نه «کار تمام است». بانکی که همهٔ
@@ -1247,13 +1251,20 @@ function selfUpdateDaily() {
       // شبی که کمبودی نیست، سراغِ فرسوده‌ترین خانواده می‌رویم.
       var why = 'کمبود';
       if (!miss.length) { miss = musicRotateSlots_(); why = 'چرخش'; }
+      mLog.why = why; mLog.slots = miss.slice(0, 6);
       if (miss.length) {
         logLine_('گشتنِ موسیقی (' + why + '): ' + miss.join('، '));
-        musicSeek_(miss);
+        var sk = musicSeek_(miss) || {};
+        mLog.looked = Number(sk.looked) || 0; mLog.added = Number(sk.added) || 0;
+        mLog.notes = (sk.notes || []).slice(0, 4).map(function (x) { return String(x).slice(0, 140); });
       }
-    } catch (eMS) { logLine_('گشتنِ موسیقی انجام نشد: ' + eMS.message); }
-    try { musicFetch_(); } catch (eMF) { logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }
+    } catch (eMS) { mLog.notes.push('خطا: ' + String(eMS.message).slice(0, 140)); logLine_('گشتنِ موسیقی انجام نشد: ' + eMS.message); }
+    try { var fr = musicFetch_() || {}; mLog.fetch = { read: Number(fr.read) || 0, added: Number(fr.added) || 0, failed: Number(fr.failed) || 0 }; }
+    catch (eMF) { mLog.notes.push('آوردن: ' + String(eMF.message).slice(0, 140)); logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }
+  } else {
+    mLog.skip = 'وقتِ کارِ شبانه نماند (nightHas_)';
   }
+  try { props_().setProperty(PK.MUSIC_SEEK_LAST, JSON.stringify(mLog).slice(0, 4000)); } catch (eMl) {}
   // پویش جداست: ارزان‌تر از آوردن است و فایلی که کاربر دستی گذاشته را هم
   // می‌بیند، پس حتی در شبِ شلوغ هم ارزشِ تلاش دارد.
   if (nightHas_(30000, 'پویش و برچسبِ بانکِ موسیقی')) {

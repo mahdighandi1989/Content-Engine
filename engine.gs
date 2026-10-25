@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 12.7
+ *  موتور محتوا و پادکست — نسخهٔ 12.8
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -967,6 +967,9 @@ var CFG = {
        ریلزها هر روز می‌روند و صفحهٔ عمومیِ اوست؛ کد شکلِ فایل را می‌سنجد، نه اینکه گفتار درست خوانده شد یا کپشن به
        همان درس اشاره می‌کند. */
     { key: 'instagram', title: 'ریلزِ اینستاگرام دیده و شنیده شد؛ کپشن و پیوند درست (نسخهٔ ۱۰۵)' },
+    /* ۱۲.۸: «دو وارسیِ اجباریِ تازه برای ناظر: رشدِ یوتیوب و صفِ مجموعه‌ها» — هر کدام یک خطِ روزانه داشت و هیچ کلیدی نمی‌گفت دیده شد. */
+    { key: 'yt-growth', title: 'رشدِ یوتیوب: Analytics، فرضیه‌ها، بیرون از موتور و قفلِ پلی‌لیست دیده شد (نسخهٔ ۱۱۳)' },
+    { key: 'series-queue', title: 'صفِ مجموعه‌ها، «وضعِ داوری» و آمادگیِ موازی دیده شد (نسخهٔ ۱۱۳)' },
     { key: 'video-sync', title: 'هم‌زمانیِ گفتار و تصویر در سه نقطه سنجیده شد (§۴٫۱۲)' },
     { key: 'video-match', title: 'تصویرها با محتوای همان لحظه مقایسه شدند (§۴٫۱۲)' },
     /* ══ خواستهٔ صریحِ ۸.۰۵ ══
@@ -2317,7 +2320,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '12.7',
+  CODE_VERSION: '12.8',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3512,6 +3515,7 @@ var PK = {
   YT_DESC_ARCH: 'YT_DESC_ARCH',    // ۱۱.۰: بایگانیِ توضیحاتِ ویدئوهای بلند در تلگرام {rev, done[], at}
   YT_CLAIMS: 'YT_CLAIMS',         // ۱۲.۵: ویدئوهای محدودشده (rejectionReason/regionRestriction) — فقط سنجش
   BIO_TG_AT: 'BIO_TG_AT',         // ۱۲.۲: آخرین فرستادنِ هفتگیِ پیشنهادِ بیوها به تلگرام
+  MUSIC_SEEK_LAST: 'MUSIC_SEEK_LAST', // ۱۲.۸: نتیجهٔ گشتن و آوردنِ موسیقیِ آخرین شب — در _STATUS.music.seekLast
   IG_EXT: 'IG_EXT',                // ۱۲.۷: پست‌های بیرونیِ اینستاگرام (نه در دفترِ موتور) — فقط شمارش
   YT_EXT: 'YT_EXT',                // ۱۲.۷: ویدئوهای بیرونیِ یوتیوب (نه در دفترِ موتور، یا تگِ ext-notebooklm) — فقط شمارش
   IG_FMT: 'IG_FMT',                // ۱۲.۱: قالبِ هر ریلز (فقط غیرپیش‌فرض‌ها) — شناسهٔ ریلز ⇒ قالب، برای سنجشِ «جملهٔ کوتاه» در برابرِ «آموزشی»
@@ -20733,6 +20737,7 @@ function healthCheck() {
     }
   } catch (eSc) {}
   try { var daL = ytDescArchLine_(); if (daL) notes.push(daL); } catch (eDa) {}   // ۱۱.۶
+  try { var plL = ytPlLockLine_(); if (plL) notes.push(plL); } catch (ePl) {}   // ۱۲.۸: قفلِ پلی‌لیست، هر روز
   try { var hyp = ytHypoRun_(); if (hyp && hyp.line) notes.push(hyp.line); } catch (eHy) {}   // ۱۲.۰: فقط سنجش
   try { bioSuggest_(false); } catch (eBio) {}   // ۱۲.۲: پیشنهادِ بیوها، هفتگی به تلگرام
   try { var clL = ytClaimLine_(); if (clL) notes.push(clL); } catch (eCl) {}   // ۱۲.۵: فقط سنجش
@@ -38141,10 +38146,14 @@ function selfUpdateDaily() {
     if (wSk && Number(wSk.skipped) > 0) mUnheard = Math.max(0, mUnheard - Number(wSk.skipped));
   } catch (eSk) {}
   var mStop = Math.max(1, Number(CFG.MUSIC_UNHEARD_STOP) || 25);
+  /* ۱۲.۸: نتیجهٔ گشتنِ هر شب در `_STATUS.json` (`music.seekLast`) — «چرا چیزی نیامد» تا امروز هیچ ردی نداشت. */
+  var mLog = { at: nowStr_(), ran: false, skip: '', why: '', slots: [], looked: 0, added: 0, notes: [], fetch: null };
   if (mUnheard >= mStop) {
+    mLog.skip = mUnheard + ' قطعهٔ شنیده‌نشده (سقف ' + mStop + ')';
     logLine_('آوردنِ موسیقی امشب رد شد: ' + mUnheard + ' قطعهٔ شنیده‌نشده در بانک ' +
              '(سقف ' + mStop + '). اول همان‌ها شنیده می‌شوند.');
   } else if (nightHas_(90000, 'گشتن و آوردنِ موسیقی')) {
+    mLog.ran = true;
     try {
       var miss = musicThinSlots_();
       // کمبودی نبود یعنی «پوشش کامل است»، نه «کار تمام است». بانکی که همهٔ
@@ -38152,13 +38161,20 @@ function selfUpdateDaily() {
       // شبی که کمبودی نیست، سراغِ فرسوده‌ترین خانواده می‌رویم.
       var why = 'کمبود';
       if (!miss.length) { miss = musicRotateSlots_(); why = 'چرخش'; }
+      mLog.why = why; mLog.slots = miss.slice(0, 6);
       if (miss.length) {
         logLine_('گشتنِ موسیقی (' + why + '): ' + miss.join('، '));
-        musicSeek_(miss);
+        var sk = musicSeek_(miss) || {};
+        mLog.looked = Number(sk.looked) || 0; mLog.added = Number(sk.added) || 0;
+        mLog.notes = (sk.notes || []).slice(0, 4).map(function (x) { return String(x).slice(0, 140); });
       }
-    } catch (eMS) { logLine_('گشتنِ موسیقی انجام نشد: ' + eMS.message); }
-    try { musicFetch_(); } catch (eMF) { logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }
+    } catch (eMS) { mLog.notes.push('خطا: ' + String(eMS.message).slice(0, 140)); logLine_('گشتنِ موسیقی انجام نشد: ' + eMS.message); }
+    try { var fr = musicFetch_() || {}; mLog.fetch = { read: Number(fr.read) || 0, added: Number(fr.added) || 0, failed: Number(fr.failed) || 0 }; }
+    catch (eMF) { mLog.notes.push('آوردن: ' + String(eMF.message).slice(0, 140)); logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }
+  } else {
+    mLog.skip = 'وقتِ کارِ شبانه نماند (nightHas_)';
   }
+  try { props_().setProperty(PK.MUSIC_SEEK_LAST, JSON.stringify(mLog).slice(0, 4000)); } catch (eMl) {}
   // پویش جداست: ارزان‌تر از آوردن است و فایلی که کاربر دستی گذاشته را هم
   // می‌بیند، پس حتی در شبِ شلوغ هم ارزشِ تلاش دارد.
   if (nightHas_(30000, 'پویش و برچسبِ بانکِ موسیقی')) {
@@ -42972,6 +42988,17 @@ function musicRemember_(mw, epLabel) {
 }
 
 /** وضعیتِ بانک و آخرین استفاده — بی‌شبکه، برای _STATUS.json. */
+/** ۱۲.۸: یک تکه برای خطِ موسیقی — دیشب چه گشته شد و چه آمد، یا چرا گشتن اجرا نشد. */
+function musicSeekLine_(sl) {
+  if (!sl || !sl.at) return ' · گشتنِ شبانه: هنوز ثبتی نیست (از ۱۲.۸)';
+  if (!sl.ran) return ' · گشتنِ شبانه (' + sl.at + '): اجرا نشد — ' + (sl.skip || 'بی علت');
+  var f = sl.fetch || {};
+  return ' · گشتنِ شبانه (' + sl.at + '، ' + (sl.why || '') + (sl.slots && sl.slots.length ? ': ' + sl.slots.join('، ') : '') + '): ' +
+         faDigitsOut_(String(sl.looked || 0)) + ' نامزدِ وارسی‌شده، ' + faDigitsOut_(String(sl.added || 0)) + ' به فهرست؛ آوردن: ' +
+         faDigitsOut_(String(f.added || 0)) + ' آمد، ' + faDigitsOut_(String(f.failed || 0)) + ' رد' +
+         (!(sl.added || f.added) && sl.notes && sl.notes.length ? ' — ' + sl.notes.join(' · ').slice(0, 200) : '');
+}
+
 function musicStatus_() {
   var out = { enabled: CFG.MUSIC_ENABLED !== false, auto: CFG.MUSIC_AUTO !== false,
               tracks: 0, last: null };
@@ -43042,7 +43069,8 @@ function musicStatus_() {
     out.sfx = null; out.sfxTarget = null;
   }
   try { out.edgeMiss = musicEdgeMissState_(); } catch (eEm) { out.edgeMiss = null; }
-  out.line = musicLine_(out);
+  try { out.seekLast = JSON.parse(props_().getProperty(PK.MUSIC_SEEK_LAST) || 'null'); } catch (eSl) { out.seekLast = null; }
+  out.line = musicLine_(out) + musicSeekLine_(out.seekLast);
   return out;
 }
 
@@ -54363,6 +54391,22 @@ function lvStyleSuggest_(cat, topic, name) {
  * سبکِ این مجموعه: خانهٔ خودش، وگرنه پیشنهاد.
  * @return {{style:object, key:string, src:string, bad:string}}
  */
+/* ══ ورودیِ پیشنهادِ قاعده‌ای، فقط از محتوا (۱۲.۸) ══ تا ۱۲.۷ دستهٔ **خودکار** (SC.CAT) و نامِ فایل بود — «سیاسی و خبری»ِ
+ * خودکارِ مصباح با regexِ «سیاس» به «چاپِ قدیمی» می‌رسید. حالا: دستهٔ دستی (اگر هست)، موضوع و شرحِ داوری (هر دو از متنِ خودِ
+ * مجموعه). خانهٔ دست‌نویسِ سبک دست نمی‌خورد؛ در حالتِ «خودکار» هم انتخابِ مدل از متنِ همان درس جلوتر از این پیشنهاد است. */
+/** همان ورودی‌ای که سوئیپِ پیش از ۸.۱۸ با آن می‌نوشت — فقط برای پاسخ به «این خانه را ما نوشتیم؟»؛ عوض کردنش خانهٔ نوشتهٔ ما را
+ *  «انتخابِ او» می‌خواند و قفلش می‌کرد. */
+function lvStyleInputsLegacy_(vals) {
+  var v = vals || [];
+  return [String(v[SC.CAT - 1] || ''), String(v[SC.TOPIC - 1] || ''), String(v[SC.NAME - 1] || '')];
+}
+function lvStyleInputs_(vals) {
+  var v = vals || [];
+  var cat = '';
+  try { cat = seriesCatTrusted_(v); } catch (e) { cat = ''; }
+  return [cat, String(v[SC.TOPIC - 1] || ''), String(v[SC.ABOUT - 1] || '')];
+}
+
 function lvStyleOf_(vals) {
   var out = { style: lvStyleDefault_(), key: '', src: 'پیش‌فرض', bad: '' };
   try {
@@ -54378,9 +54422,7 @@ function lvStyleOf_(vals) {
          یعنی «خودکار» حداکثر یک شب دوام می‌آورد و بعد بی‌صدا به یک مقدارِ
          ثابت تبدیل می‌شد. انتخابی که خودش را نگه ندارد، انتخاب نیست. */
       if (lvStyleNorm_(raw) === lvStyleNorm_('خودکار')) {
-        var sa = lvStyleSuggest_(String((vals || [])[SC.CAT - 1] || ''),
-                                 String((vals || [])[SC.TOPIC - 1] || ''),
-                                 String((vals || [])[SC.NAME - 1] || ''));
+        var sa = lvStyleSuggest_.apply(null, lvStyleInputs_(vals));
         out.style = lvStyleFind_(sa) || lvStyleDefault_();
         out.key = out.style.key; out.src = 'خودکار';
         return out;
@@ -54407,9 +54449,7 @@ function lvStyleOf_(vals) {
                   LV_STYLES.map(function (x) { return x.key; }).join(' / ');
       }
     }
-    var sug = lvStyleSuggest_(String((vals || [])[SC.CAT - 1] || ''),
-                              String((vals || [])[SC.TOPIC - 1] || ''),
-                              String((vals || [])[SC.NAME - 1] || ''));
+    var sug = lvStyleSuggest_.apply(null, lvStyleInputs_(vals));
     out.style = lvStyleFind_(sug) || lvStyleDefault_();
     out.key = out.style.key;
     out.src = out.bad ? 'پیشنهاد (خانه خوانده نشد)' : 'پیشنهاد';
@@ -54542,9 +54582,7 @@ function lvStyleOurs_(vals, raw) {
     if (!raw) return false;
     if (lvStyleNorm_(raw) === lvStyleNorm_('خودکار')) return false;
     if (lvStyleSplit_(raw)) return false;           // ترکیبِ خودش
-    var sug = lvStyleSuggest_(String((vals || [])[SC.CAT - 1] || ''),
-                              String((vals || [])[SC.TOPIC - 1] || ''),
-                              String((vals || [])[SC.NAME - 1] || ''));
+    var sug = lvStyleSuggest_.apply(null, lvStyleInputsLegacy_(vals))   // تشخیصِ نوشتهٔ سوئیپِ قدیم: همان ورودیِ قدیم;
     return lvStyleNorm_(raw) === lvStyleNorm_(sug);
   } catch (e) { return false; }
 }
@@ -54561,9 +54599,7 @@ function lvThawable_(vals, raw) {
        عوض شد نه نگه‌داشته‌شدنش به‌عنوانِ سد (۷٫۷۱/۸٫۱۲): خطی که شبیهِ سد
        باشد و نباشد، خوانندهٔ بعدی را گمراه می‌کند. */
     if (lvStyleSplit_(raw)) return false;           // میان‌بُر: ترکیب هرگز پیشنهادِ ما نبوده
-    var sug = lvStyleSuggest_(String((vals || [])[SC.CAT - 1] || ''),
-                              String((vals || [])[SC.TOPIC - 1] || ''),
-                              String((vals || [])[SC.NAME - 1] || ''));
+    var sug = lvStyleSuggest_.apply(null, lvStyleInputsLegacy_(vals))   // تشخیصِ نوشتهٔ سوئیپِ قدیم: همان ورودیِ قدیم;
     return lvStyleNorm_(raw) === lvStyleNorm_(sug);
   } catch (e) { return false; }
 }
@@ -65673,6 +65709,21 @@ function ytPlDescVariety_(pub, today) {
            'تا امروز: ' + faDigitsOut_(String(eps.length)) + ' قسمت' + (today ? ' · به‌روزشده: ' + today : ''), '', 'تازه‌ترین‌ها:'];
   eps.slice(0, 15).forEach(function (x) { L.push('قسمتِ ' + faDigitsOut_(String(x.ep)) + ' — ' + x.t.slice(0, 90)); });
   return { text: L.join('\n').slice(0, 4500), n: eps.length, last: eps.length ? 'قسمتِ ' + faDigitsOut_(String(eps[0].ep)) + ' — ' + eps[0].t.slice(0, 60) : '' };
+}
+
+/** ۱۲.۸: قفلِ پلی‌لیست در خطِ ۱۰ صبح — تا ۱۲.۷ فقط در لاگِ اجرا بود. فقط حافظهٔ موتور (Properties)، بی هیچ فراخوانِ یوتیوب. */
+function ytPlLockLine_() {
+  var map = ytPlMap_(), n = 0, names = [];
+  Object.keys(map).forEach(function (k) {
+    var r = map[k] || {};
+    if (!r.id) return;
+    n++;
+    if (r.descHuman) names.push('«' + String(r.title || k).slice(0, 40) + '» (از ' + String(r.descHuman).slice(0, 10) + ')');
+  });
+  if (!n) return '';
+  return '🔒 قفلِ پلی‌لیست: ' + faDigitsOut_(String(names.length)) + ' از ' + faDigitsOut_(String(n)) +
+         ' پلی‌لیست توضیحِ دست‌نوشتهٔ Studio دارند و موتور دست نمی‌زند' + (names.length ? ': ' + names.slice(0, 8).join('، ') : '') +
+         '. نامِ زندهٔ همهٔ پلی‌لیست‌ها همیشه می‌ماند.';
 }
 
 /** شبانه: توضیحِ هر پلی‌لیست از روی محتوای واقعی، فقط وقتی عوض شده. ⇒ {checked, updated, why[]} */
@@ -77417,9 +77468,16 @@ function embSpecsBackfill_(cap, budgetMs, hubIn) {
   var out = { ok: false, scanned: 0, filled: 0, tabs: 0, done: false, commits: 0, notes: [] };
   var t0 = new Date().getTime();
   var deadline = t0 + Math.max(15000, budgetMs || Number(CFG.EMB_SPECS_MS) || 120000);
+  /* ══ سقفِ سخت از آغازِ **اجرا**، نه از آغازِ این تابع (۱۲.۸) ══ ۲۵ اکتبر ۰۳:۳۰ «جبرانِ مشخصات (اجرای جدا)» سرِ شش دقیقه کشته
+     شد: بودجهٔ ۱۸۰ ثانیه فقط خواندنِ تب‌های منبع را می‌پایید — پس از ۳۰ ثانیه انتظارِ قفل، ساختنِ نقشهٔ کلِ بانک (۵۱ هزار
+     ردیف)، و نوشتنِ پایانیِ هر تب که پس از مهلت هم انجام می‌شد. حالا مهلت از `RUN_T0_` حساب می‌شود و برای نوشتن جا می‌گذارد. */
+  var runT0 = (typeof RUN_T0_ === 'number' && RUN_T0_ > 0 && RUN_T0_ <= t0) ? RUN_T0_ : t0;
+  var hardEnd = runT0 + Math.max(60000, Number(CFG.EMB_SPECS_HARD_MS) || 270000);
+  deadline = Math.min(deadline, hardEnd - 60000);
   cap = Math.max(100, cap || Number(CFG.EMB_SPECS_PER_RUN) || 4000);
 
   var hub, map;
+  try { runStage_('مشخصات: نقشهٔ بانک'); } catch (eRs) {}
   try { hub = hubIn || getHub_(); map = embHubKeyMap_(hub); }
   catch (eM) { out.notes.push('نقشهٔ بانک ساخته نشد: ' + eM.message); return out; }
 
@@ -77443,6 +77501,7 @@ function embSpecsBackfill_(cap, budgetMs, hubIn) {
   for (var si = 0; si < list.length; si++) {
     if (new Date().getTime() > deadline || out.scanned >= cap) { allDone = false; break; }
     var src = list[si], ss = null;
+    try { runStage_('مشخصات: «' + String(src.title || src.key).slice(0, 40) + '»'); } catch (eRs2) {}
     try { ss = SpreadsheetApp.openById(src.id); }
     catch (eO) { out.notes.push('«' + src.title + '» باز نشد: ' + eO.message); allDone = false; continue; }
     var legacy = (src.schema === 'legacy-video' || src.schema === 'legacy-photo');
@@ -77491,6 +77550,9 @@ function embSpecsBackfill_(cap, budgetMs, hubIn) {
         cur += n;
         cursors[ck] = cur;
       }
+      /* نوشتن پس از مهلتِ سخت شروع نمی‌شود؛ مکان‌نما هم ثبت نمی‌شود، پس همین خواندن دورِ بعد تکرار می‌شود — نه گم. */
+      if (new Date().getTime() > hardEnd - 45000) { allDone = false; out.notes.push('مهلتِ سخت پیش از نوشتنِ «' + sh.getName() + '»'); break; }
+      try { runStage_('مشخصات: نوشتنِ «' + String(sh.getName()).slice(0, 30) + '»'); } catch (eRs3) {}
       commit_(patch);
       if (cur < last) allDone = false;
     }
@@ -77533,30 +77595,40 @@ function embSpecsApply_(hub, patch) {
       if (rn >= 2 && rn <= last) rows.push(rn);
     }
     if (!rows.length) continue;
-    var lo = rows[0], hi = rows[0];
-    for (var q = 1; q < rows.length; q++) { if (rows[q] < lo) lo = rows[q]; if (rows[q] > hi) hi = rows[q]; }
-    var cur, st;
-    try {
-      cur = sh.getRange(lo, COL.SPECS, hi - lo + 1, 1).getValues();
-      st = sh.getRange(lo, COL.EMB_ST, hi - lo + 1, 1).getValues();
-    } catch (e) { continue; }
-    var changed = false;
-    for (var row in patch[tab]) {
-      if (!Object.prototype.hasOwnProperty.call(patch[tab], row)) continue;
-      var i = Number(row) - lo;
-      if (i < 0 || i >= cur.length) continue;
-      if (String(cur[i][0] || '') === String(patch[tab][row])) continue;
-      cur[i][0] = patch[tab][row];
-      /* متنِ بردار عوض شد، پس بردار باید از نو ساخته شود. پاک‌کردنِ
-         وضعیت کافی است: پویشِ شبانه خودش برش می‌دارد. */
-      st[i][0] = '';
-      changed = true; wrote++;
+    /* ۱۲.۸: خوشه‌به‌خوشه، نه یک بازهٔ پیوسته از کم‌ترین تا بیش‌ترین ردیف — ردیف‌های یک تبِ منبع در بانک پراکنده‌اند و بازهٔ
+       «lo..hi» گاهی هزاران خانهٔ ۷۰۰نویسه‌ای را برای چند ردیف می‌خواند و دوباره می‌نوشت — یکی از دو جای بی‌مهلتِ اجرای کشته‌شدهٔ ۲۵ اکتبر. */
+    rows.sort(function (a, b) { return a - b; });
+    var gap = Math.max(1, Number(CFG.EMB_SPECS_GAP) || 40), groups = [], g0 = [rows[0]];
+    for (var q = 1; q < rows.length; q++) {
+      if (rows[q] - g0[g0.length - 1] > gap) { groups.push(g0); g0 = []; }
+      g0.push(rows[q]);
     }
-    if (!changed) continue;
-    try {
-      sh.getRange(lo, COL.SPECS, cur.length, 1).setValues(cur);
-      sh.getRange(lo, COL.EMB_ST, st.length, 1).setValues(st);
-    } catch (eW) { logLine_('نوشتنِ مشخصات در «' + tab + '» ناموفق: ' + eW.message); }
+    groups.push(g0);
+    for (var gi = 0; gi < groups.length; gi++) {
+      var lo = groups[gi][0], hi = groups[gi][groups[gi].length - 1];
+      var cur, st;
+      try {
+        cur = sh.getRange(lo, COL.SPECS, hi - lo + 1, 1).getValues();
+        st = sh.getRange(lo, COL.EMB_ST, hi - lo + 1, 1).getValues();
+      } catch (e) { continue; }
+      var changed = false;
+      for (var gr = 0; gr < groups[gi].length; gr++) {
+        var rn2 = groups[gi][gr], i = rn2 - lo;
+        var want = patch[tab][String(rn2)] !== undefined ? patch[tab][String(rn2)] : patch[tab][rn2];
+        if (want === undefined || i < 0 || i >= cur.length) continue;
+        if (String(cur[i][0] || '') === String(want)) continue;
+        cur[i][0] = want;
+        /* متنِ بردار عوض شد، پس بردار باید از نو ساخته شود. پاک‌کردنِ
+           وضعیت کافی است: پویشِ شبانه خودش برش می‌دارد. */
+        st[i][0] = '';
+        changed = true; wrote++;
+      }
+      if (!changed) continue;
+      try {
+        sh.getRange(lo, COL.SPECS, cur.length, 1).setValues(cur);
+        sh.getRange(lo, COL.EMB_ST, st.length, 1).setValues(st);
+      } catch (eW) { logLine_('نوشتنِ مشخصات در «' + tab + '» ناموفق: ' + eW.message); }
+    }
   }
   return wrote;
 }
@@ -78177,6 +78249,8 @@ function embGates_(hub, st, self) {
 function embStep_(name) {
   try { props_().setProperty(PK.EMB_STEP, String(name || '') + ' @ ' + nowStr_()); }
   catch (e) {}
+  /* ۱۲.۸: همان مرحله روی مهرِ اجرا هم — «اجرای ناتمام: embSpecsLater … مرحله‌اش ثبت نشده» در حالی که مرحله در `embed.step` بود. */
+  try { runStage_(name); } catch (e2) {}
 }
 
 function embStepRead_() {

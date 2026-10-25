@@ -3022,6 +3022,7 @@ console.log('=== ۵۵) سبکِ تصویرِ هر مجموعه — و اینکه
     const v = new Array(SERIES_HEADERS.length).fill('');
     v[SC.KEY - 1] = o.key || 'k'; v[SC.NAME - 1] = o.name || 'م';
     v[SC.CAT - 1] = o.cat || ''; v[SC.TOPIC - 1] = o.topic || '';
+    if (o.mcat) v[SC.MCAT - 1] = o.mcat;   // ۱۲.۸: پیشنهادِ سبک فقط از دستهٔ دستی
     if (o.style !== undefined) v[SC.LVSTYLE - 1] = o.style;
     return v;
   };
@@ -3043,7 +3044,9 @@ console.log('=== ۵۵) سبکِ تصویرِ هر مجموعه — و اینکه
      SERIES_HEADERS.length + ' ستون، بزرگ‌ترین شاخص ' + Math.max.apply(null, idx));
 
   /* ۵۵.۲ — خانهٔ خالی ⇒ پیشنهادِ موتور، و خانهٔ پرشده ⇒ انتخابِ آدم. */
-  const sugg = lvStyleOf_(row({ cat: 'تاریخ اسلام', name: 'سیرهٔ نبوی' }));
+  const sugg = lvStyleOf_(row({ mcat: 'تاریخ اسلام', name: 'سیرهٔ نبوی' }));
+  const autoOnly = lvStyleOf_(row({ cat: 'تاریخ اسلام', name: 'سیرهٔ نبوی' }));
+  ok('۵۵.۲-الف ۱۲.۸: دستهٔ خودکار به پیشنهادِ سبک نمی‌رسد', autoOnly.key === lvStyleDefault_().key, autoOnly.key);
   const mine = lvStyleOf_(row({ cat: 'تاریخ اسلام', style: 'تخته‌سفید' }));
   ok('۵۵.۲ خانهٔ خالی پیشنهاد می‌گیرد، خانهٔ پرشده انتخابِ آدم است',
      sugg.key === 'نقشِ ایرانی' && sugg.src === 'پیشنهاد' &&
@@ -3191,6 +3194,7 @@ console.log('=== ۵۵-ب) پیشنهاد در شیت نوشته می‌شود، 
   const mk = (r, key, name, cat, style) => {
     const v = new Array(SERIES_HEADERS.length).fill('');
     v[SC.KEY - 1] = key; v[SC.NAME - 1] = name; v[SC.CAT - 1] = cat;
+    v[SC.MCAT - 1] = cat;   // ۱۲.۸: پیشنهادِ سبک فقط از دستهٔ دستی
     if (style) v[SC.LVSTYLE - 1] = style;
     reg.getRange(r, 1, 1, SERIES_HEADERS.length).setValues([v]);
   };
@@ -3366,7 +3370,7 @@ console.log('=== ۵۶-پ) وارسیِ اجباریِ ناظر: فهرستِ م�
   /* ۸.۴۰ به خانهٔ یازدهم رسید؛ فهرست تا جایی ادامه دارد که سقفِ `keys.length <
      NUM.length` هنوز معنا داشته باشد — شمارِ واژه‌ای، نه رقمی که مدل بخوانَد. */
   const NUM = ['', 'یک', 'دو', 'سه', 'چهار', 'پنج', 'شش', 'هفت', 'هشت', 'نُه', 'ده',
-               'یازده', 'دوازده', 'سیزده', 'چهارده', 'پانزده'];
+               'یازده', 'دوازده', 'سیزده', 'چهارده', 'پانزده', 'شانزده', 'هفده', 'هجده'];
   const want = 'هر ' + (NUM[keys.length] || String(keys.length)) + ' ردیفش';
   ok('۵۶-پ.۳ و شمارِ ردیف‌های اجباری در پرامپت با فهرستِ موتور می‌خواند',
      keys.length >= 1 && keys.length < NUM.length && newest.indexOf(want) !== -1,

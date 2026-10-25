@@ -3244,6 +3244,22 @@ function lvStyleSuggest_(cat, topic, name) {
  * سبکِ این مجموعه: خانهٔ خودش، وگرنه پیشنهاد.
  * @return {{style:object, key:string, src:string, bad:string}}
  */
+/* ══ ورودیِ پیشنهادِ قاعده‌ای، فقط از محتوا (۱۲.۸) ══ تا ۱۲.۷ دستهٔ **خودکار** (SC.CAT) و نامِ فایل بود — «سیاسی و خبری»ِ
+ * خودکارِ مصباح با regexِ «سیاس» به «چاپِ قدیمی» می‌رسید. حالا: دستهٔ دستی (اگر هست)، موضوع و شرحِ داوری (هر دو از متنِ خودِ
+ * مجموعه). خانهٔ دست‌نویسِ سبک دست نمی‌خورد؛ در حالتِ «خودکار» هم انتخابِ مدل از متنِ همان درس جلوتر از این پیشنهاد است. */
+/** همان ورودی‌ای که سوئیپِ پیش از ۸.۱۸ با آن می‌نوشت — فقط برای پاسخ به «این خانه را ما نوشتیم؟»؛ عوض کردنش خانهٔ نوشتهٔ ما را
+ *  «انتخابِ او» می‌خواند و قفلش می‌کرد. */
+function lvStyleInputsLegacy_(vals) {
+  var v = vals || [];
+  return [String(v[SC.CAT - 1] || ''), String(v[SC.TOPIC - 1] || ''), String(v[SC.NAME - 1] || '')];
+}
+function lvStyleInputs_(vals) {
+  var v = vals || [];
+  var cat = '';
+  try { cat = seriesCatTrusted_(v); } catch (e) { cat = ''; }
+  return [cat, String(v[SC.TOPIC - 1] || ''), String(v[SC.ABOUT - 1] || '')];
+}
+
 function lvStyleOf_(vals) {
   var out = { style: lvStyleDefault_(), key: '', src: 'پیش‌فرض', bad: '' };
   try {
@@ -3259,9 +3275,7 @@ function lvStyleOf_(vals) {
          یعنی «خودکار» حداکثر یک شب دوام می‌آورد و بعد بی‌صدا به یک مقدارِ
          ثابت تبدیل می‌شد. انتخابی که خودش را نگه ندارد، انتخاب نیست. */
       if (lvStyleNorm_(raw) === lvStyleNorm_('خودکار')) {
-        var sa = lvStyleSuggest_(String((vals || [])[SC.CAT - 1] || ''),
-                                 String((vals || [])[SC.TOPIC - 1] || ''),
-                                 String((vals || [])[SC.NAME - 1] || ''));
+        var sa = lvStyleSuggest_.apply(null, lvStyleInputs_(vals));
         out.style = lvStyleFind_(sa) || lvStyleDefault_();
         out.key = out.style.key; out.src = 'خودکار';
         return out;
@@ -3288,9 +3302,7 @@ function lvStyleOf_(vals) {
                   LV_STYLES.map(function (x) { return x.key; }).join(' / ');
       }
     }
-    var sug = lvStyleSuggest_(String((vals || [])[SC.CAT - 1] || ''),
-                              String((vals || [])[SC.TOPIC - 1] || ''),
-                              String((vals || [])[SC.NAME - 1] || ''));
+    var sug = lvStyleSuggest_.apply(null, lvStyleInputs_(vals));
     out.style = lvStyleFind_(sug) || lvStyleDefault_();
     out.key = out.style.key;
     out.src = out.bad ? 'پیشنهاد (خانه خوانده نشد)' : 'پیشنهاد';
@@ -3423,9 +3435,7 @@ function lvStyleOurs_(vals, raw) {
     if (!raw) return false;
     if (lvStyleNorm_(raw) === lvStyleNorm_('خودکار')) return false;
     if (lvStyleSplit_(raw)) return false;           // ترکیبِ خودش
-    var sug = lvStyleSuggest_(String((vals || [])[SC.CAT - 1] || ''),
-                              String((vals || [])[SC.TOPIC - 1] || ''),
-                              String((vals || [])[SC.NAME - 1] || ''));
+    var sug = lvStyleSuggest_.apply(null, lvStyleInputsLegacy_(vals))   // تشخیصِ نوشتهٔ سوئیپِ قدیم: همان ورودیِ قدیم;
     return lvStyleNorm_(raw) === lvStyleNorm_(sug);
   } catch (e) { return false; }
 }
@@ -3442,9 +3452,7 @@ function lvThawable_(vals, raw) {
        عوض شد نه نگه‌داشته‌شدنش به‌عنوانِ سد (۷٫۷۱/۸٫۱۲): خطی که شبیهِ سد
        باشد و نباشد، خوانندهٔ بعدی را گمراه می‌کند. */
     if (lvStyleSplit_(raw)) return false;           // میان‌بُر: ترکیب هرگز پیشنهادِ ما نبوده
-    var sug = lvStyleSuggest_(String((vals || [])[SC.CAT - 1] || ''),
-                              String((vals || [])[SC.TOPIC - 1] || ''),
-                              String((vals || [])[SC.NAME - 1] || ''));
+    var sug = lvStyleSuggest_.apply(null, lvStyleInputsLegacy_(vals))   // تشخیصِ نوشتهٔ سوئیپِ قدیم: همان ورودیِ قدیم;
     return lvStyleNorm_(raw) === lvStyleNorm_(sug);
   } catch (e) { return false; }
 }
@@ -14554,6 +14562,21 @@ function ytPlDescVariety_(pub, today) {
            'تا امروز: ' + faDigitsOut_(String(eps.length)) + ' قسمت' + (today ? ' · به‌روزشده: ' + today : ''), '', 'تازه‌ترین‌ها:'];
   eps.slice(0, 15).forEach(function (x) { L.push('قسمتِ ' + faDigitsOut_(String(x.ep)) + ' — ' + x.t.slice(0, 90)); });
   return { text: L.join('\n').slice(0, 4500), n: eps.length, last: eps.length ? 'قسمتِ ' + faDigitsOut_(String(eps[0].ep)) + ' — ' + eps[0].t.slice(0, 60) : '' };
+}
+
+/** ۱۲.۸: قفلِ پلی‌لیست در خطِ ۱۰ صبح — تا ۱۲.۷ فقط در لاگِ اجرا بود. فقط حافظهٔ موتور (Properties)، بی هیچ فراخوانِ یوتیوب. */
+function ytPlLockLine_() {
+  var map = ytPlMap_(), n = 0, names = [];
+  Object.keys(map).forEach(function (k) {
+    var r = map[k] || {};
+    if (!r.id) return;
+    n++;
+    if (r.descHuman) names.push('«' + String(r.title || k).slice(0, 40) + '» (از ' + String(r.descHuman).slice(0, 10) + ')');
+  });
+  if (!n) return '';
+  return '🔒 قفلِ پلی‌لیست: ' + faDigitsOut_(String(names.length)) + ' از ' + faDigitsOut_(String(n)) +
+         ' پلی‌لیست توضیحِ دست‌نوشتهٔ Studio دارند و موتور دست نمی‌زند' + (names.length ? ': ' + names.slice(0, 8).join('، ') : '') +
+         '. نامِ زندهٔ همهٔ پلی‌لیست‌ها همیشه می‌ماند.';
 }
 
 /** شبانه: توضیحِ هر پلی‌لیست از روی محتوای واقعی، فقط وقتی عوض شده. ⇒ {checked, updated, why[]} */

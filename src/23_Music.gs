@@ -2075,6 +2075,17 @@ function musicRemember_(mw, epLabel) {
 }
 
 /** وضعیتِ بانک و آخرین استفاده — بی‌شبکه، برای _STATUS.json. */
+/** ۱۲.۸: یک تکه برای خطِ موسیقی — دیشب چه گشته شد و چه آمد، یا چرا گشتن اجرا نشد. */
+function musicSeekLine_(sl) {
+  if (!sl || !sl.at) return ' · گشتنِ شبانه: هنوز ثبتی نیست (از ۱۲.۸)';
+  if (!sl.ran) return ' · گشتنِ شبانه (' + sl.at + '): اجرا نشد — ' + (sl.skip || 'بی علت');
+  var f = sl.fetch || {};
+  return ' · گشتنِ شبانه (' + sl.at + '، ' + (sl.why || '') + (sl.slots && sl.slots.length ? ': ' + sl.slots.join('، ') : '') + '): ' +
+         faDigitsOut_(String(sl.looked || 0)) + ' نامزدِ وارسی‌شده، ' + faDigitsOut_(String(sl.added || 0)) + ' به فهرست؛ آوردن: ' +
+         faDigitsOut_(String(f.added || 0)) + ' آمد، ' + faDigitsOut_(String(f.failed || 0)) + ' رد' +
+         (!(sl.added || f.added) && sl.notes && sl.notes.length ? ' — ' + sl.notes.join(' · ').slice(0, 200) : '');
+}
+
 function musicStatus_() {
   var out = { enabled: CFG.MUSIC_ENABLED !== false, auto: CFG.MUSIC_AUTO !== false,
               tracks: 0, last: null };
@@ -2145,7 +2156,8 @@ function musicStatus_() {
     out.sfx = null; out.sfxTarget = null;
   }
   try { out.edgeMiss = musicEdgeMissState_(); } catch (eEm) { out.edgeMiss = null; }
-  out.line = musicLine_(out);
+  try { out.seekLast = JSON.parse(props_().getProperty(PK.MUSIC_SEEK_LAST) || 'null'); } catch (eSl) { out.seekLast = null; }
+  out.line = musicLine_(out) + musicSeekLine_(out.seekLast);
   return out;
 }
 
