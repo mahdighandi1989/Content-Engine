@@ -833,4 +833,15 @@ console.log('\n══ ۳۷) ساده، تب به تب (۹.۵۵) ══');
   ok('۳۷.۵ تبی که دیگر نیست ⇒ رد با یادداشت، نه گیر', gone.ok && gone.next === 1 && /دیگر نیست/.test(gone.notes.join(' ')));
 }
 
+/* ══ ۱۰.۷ ══ داور هیچ‌کدام را نگه ندارد ⇒ ۵ نزدیک‌ترینِ معنایی همان دسته، نه هیچ‌چیز؛ و امتیازِ تقریبی با کامل مخلوط نمی‌شود */
+{
+  const js = fs.readFileSync('src/34_Search.gs', 'utf8');
+  ok('۳۸.۱ داورِ «هیچ‌کدام» ⇒ ۵ نزدیک‌ترِ معنایی نشان داده می‌شود، نه همه پنهان (الف: کد)',
+     /var none=r\.keep\.length===0;/.test(js) && /\(none&&top\.indexOf\(sid\)!==-1\)/.test(js) && /NFB\+\+/.test(js));
+  ok('۳۸.۲ نوار می‌گوید چند دسته این‌طور شد (ب: پیام در واسط)', /NFB\+" دسته را داور/.test(js));
+  const ev = fs.readFileSync('src/35_Embed.gs', 'utf8');
+  ok('۳۸.۳ نامزدِ بی‌بردارِ کامل کنار گذاشته می‌شود، نه با امتیازِ تقریبی مقایسه (پ)',
+     /var exact = best\.filter\(function \(x\) \{ return x\.exact; \}\);/.test(ev) && /if \(exact\.length\) \{ out\.unscored/.test(ev));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

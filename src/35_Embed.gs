@@ -1200,6 +1200,10 @@ function embCore_(vecs, opts) {
         out.rescored++;
       }
     }
+    /* ۱۰.۷: امتیازِ تقریبی (۲۵۶ بُعد) و امتیازِ کامل (۱۵۳۶ بُعد) دو مقیاسِ جدا‌اند؛ اگر بعضی نامزدها سنجیده نشدند
+       (سقفِ قطعه‌های سنجش)، آن‌ها با امتیازِ تقریبی کنار نمی‌روند، کنار گذاشته می‌شوند و شمارشان می‌ماند. */
+    var exact = best.filter(function (x) { return x.exact; });
+    if (exact.length) { out.unscored = best.length - exact.length; best = exact; }
     best.sort(function (a, b) { return b.score - a.score; });
     if (out.want) {
       out.want.best = best.length ? best[0].score : null;

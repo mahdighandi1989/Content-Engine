@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 10.6
+ *  موتور محتوا و پادکست — نسخهٔ 10.7
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2226,7 +2226,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '10.6',
+  CODE_VERSION: '10.7',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2876,8 +2876,8 @@ var CFG = {
      را خورد» در ۷٫۲۴. */
   EMB_MIN_SCORE: 0.2,
   EMB_SCORE_GAP: 0.25,
-  EMB_RESCORE: 120,             // چند نامزد با بردارِ کامل دوباره سنجیده شوند
-  EMB_RESCORE_SHARDS: 4,
+  EMB_RESCORE: 200,             // چند نامزد با بردارِ کامل دوباره سنجیده شوند
+  EMB_RESCORE_SHARDS: 12,
   /* ══ و چرا همهٔ قطعه‌ها خوانده نمی‌شوند (۷٫۲۸) ══
      با ۵۰ هزار ردیف، ایندکسِ کوتاه ~۳۰ مگابایت در ۳۴ قطعه می‌شود. خواندنِ
      همه‌اش در هر جست‌وجو شدنی نیست — و این را ۷٫۲۶ به‌عنوانِ «اگر روزی
@@ -74162,7 +74162,7 @@ function srchHtml_() {
      (`srchSemStart` + گام‌های `srchSemStep` تا آخرین قطعه). دومی دیگر داخلِ اولی نیست، چون
      باید یافته‌هایش همان لحظه دیده شوند و سقفِ ۹۰ ثانیه‌ای نداشته باشد. `RUN` جست‌وجوی تازه را
      از جوابِ دیرِ جست‌وجوی قبلی جدا می‌کند. */
-  H.push('var RUN=0,LEX={},SEM=[],SEEN={},NUM=0,NO={},ALL=[],DQ=[],DBUSY=false,ENT={},EORD=[],DONE={},DIG=null,DFAIL=0,Q="",MODE="",OFF={},NOFF=0;');
+  H.push('var RUN=0,LEX={},SEM=[],SEEN={},NUM=0,NO={},ALL=[],DQ=[],DBUSY=false,ENT={},EORD=[],DONE={},DIG=null,DFAIL=0,Q="",MODE="",OFF={},NOFF=0,NFB=0;');
   /* ══ شمارهٔ ثابت (۹.۴۸) ══ هر یافته یک بار، به ترتیبِ رسیدن، شماره می‌گیرد — جمع‌بندی و خروجی به همین شماره
      اشاره می‌کنند، نه به جای یافته در فهرست (که با هر گام عوض می‌شود). */
   H.push('function rkey(t){return t.where==="بانک"?t.tab+"§"+t.row:t.where+"§"+t.tab+"§"+t.row+"§"+t.title;}');
@@ -74170,7 +74170,7 @@ function srchHtml_() {
          'if(MODE==="هوشمند"){DQ.push(t);}return t.n;}');
   H.push('function go(m){var q=document.getElementById("q").value;' +
          'if(!q.trim()){return;}RUN++;var my=RUN;LEX={};SEM=[];SEEN={};NUM=0;NO={};ALL=[];DQ=[];DBUSY=false;ENT={};' +
-         'EORD=[];DIG=null;DFAIL=0;OFF={};NOFF=0;Q=q;MODE=m;DONE={lex:false,sem:m!=="هوشمند"};' +
+         'EORD=[];DIG=null;DFAIL=0;OFF={};NOFF=0;NFB=0;Q=q;MODE=m;DONE={lex:false,sem:m!=="هوشمند"};' +
          'document.getElementById("lex").innerHTML="<p>در حالِ گشتنِ واژه‌ها… ' +
          'برای جست‌وجوی کامل تا چند دقیقه طول می‌کشد.</p>";' +
          'document.getElementById("semh").innerHTML="";document.getElementById("sem").innerHTML="";' +
@@ -74263,6 +74263,7 @@ function srchHtml_() {
   H.push('function semDraw(){var el=document.getElementById("sem");if(!el){return;}var o=semList();' +
          'var H=[];if(o.length){H.push("<h4>یافته‌های معنایی — همان معنا، با واژه‌های دیگر ("+o.length+")</h4>");}' +
          'if(NOFF){H.push("<div class=m>"+NOFF+" یافته را داور با خواستهٔ شما نامربوط دانست و نشان داده نشد.</div>");}' +
+         'if(NFB){H.push("<div class=m>"+NFB+" دسته را داور هیچ‌کدام را نگه نداشت؛ از هر دسته ۵ نزدیک‌ترینِ معنایی نشان داده شد.</div>");}' +
          'for(var i=0;i<o.length;i++){H.push(card(o[i],i));}' +
          'el.innerHTML=H.join("");}');
   /* ══ جمع‌بندی، حینِ جست‌وجو (۹.۴۸) ══ هر یافتهٔ تازه در صفِ `DQ` می‌نشیند و دسته‌دسته (یکی در پرواز) خوانده
@@ -74274,7 +74275,9 @@ function srchHtml_() {
          'for(var i=0;i<f.length;i++){var k=String(f[i].name).replace(/\\s+/g," ").trim().toLowerCase();if(!k){continue;}' +
          'if(!ENT[k]){ENT[k]={name:f[i].name,note:f[i].note||"",refs:[]};EORD.push(k);}' +
          'for(var z=0;z<f[i].refs.length;z++){if(ENT[k].refs.indexOf(f[i].refs[z])===-1){ENT[k].refs.push(f[i].refs[z]);}}}' +
-         'if(r&&r.ok&&r.keep){for(var y=0;y<b.length;y++){if(r.keep.indexOf(String(b[y].n))===-1){OFF[b[y].n]=1;NOFF++;}}' +
+         'if(r&&r.ok&&r.keep){var top=b.slice().sort(function(a,c){return (c.sem||0)-(a.sem||0);}).slice(0,5).map(function(t){return String(t.n);});' +
+         'var none=r.keep.length===0;if(none){NFB++;}' +
+         'for(var y=0;y<b.length;y++){var sid=String(b[y].n);var show=r.keep.indexOf(sid)!==-1||(none&&top.indexOf(sid)!==-1);if(!show){OFF[b[y].n]=1;NOFF++;}}' +
          'redraw();}' +
          'digDraw();digPump();maybeFinal();})' +
          '.withFailureHandler(function(e){if(my!==RUN){return;}DBUSY=false;DFAIL+=b.length;digDraw();digPump();maybeFinal();})' +
@@ -75649,6 +75652,10 @@ function embCore_(vecs, opts) {
         out.rescored++;
       }
     }
+    /* ۱۰.۷: امتیازِ تقریبی (۲۵۶ بُعد) و امتیازِ کامل (۱۵۳۶ بُعد) دو مقیاسِ جدا‌اند؛ اگر بعضی نامزدها سنجیده نشدند
+       (سقفِ قطعه‌های سنجش)، آن‌ها با امتیازِ تقریبی کنار نمی‌روند، کنار گذاشته می‌شوند و شمارشان می‌ماند. */
+    var exact = best.filter(function (x) { return x.exact; });
+    if (exact.length) { out.unscored = best.length - exact.length; best = exact; }
     best.sort(function (a, b) { return b.score - a.score; });
     if (out.want) {
       out.want.best = best.length ? best[0].score : null;
