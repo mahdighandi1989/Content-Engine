@@ -60,8 +60,11 @@ const resetProps = (keys) => keys.forEach((k) => { delete global.__PROPS[k]; });
   delete global.__PROPS[PK.LAST_CATS];
 }
 
-/* ── ۲) «از همه جا» در یوتیوب متوقف ── */
+/* ── ۲) سازوکارِ خاموش‌کردنِ یک برنامه در یوتیوب ──
+   ۱۱.۱: پیش‌فرض خالی است («از همه جا» متوقف نشود، فقط علمی)؛ سازوکار با فهرستِ پُر سنجیده می‌شود. */
+ok('۲.۰ (۱۱.۱) پیش‌فرض: هیچ برنامه‌ای در یوتیوب خاموش نیست', Array.isArray(CFG.YT_SHOWS_OFF) && CFG.YT_SHOWS_OFF.length === 0 && ytShowsOffLine_() === '');
 {
+  CFG.YT_SHOWS_OFF = ['variety'];
   resetProps([PK.YT_DUE, PK.YT_DUE_PARKED]);
   global.__PROPS[PK.YT_DUE] = JSON.stringify([
     { key: 'variety:80', show: 'variety', ep: '80', folderId: 'F80' },
@@ -80,6 +83,11 @@ const resetProps = (keys) => keys.forEach((k) => { delete global.__PROPS[k]; });
   ok('۲.۷ روشن‌کردنِ دوباره ⇒ کنارگذاشته‌ها خودشان برمی‌گردند', back.some((x) => x.key === 'variety:80') && !ytDueParked_().length);
   CFG.YT_SHOWS_OFF = keepOff;
   ok('۲.۸ تنظیماتِ پادکست دست نخورده (VM و دستهٔ یوتیوب سرِ جایشان)', CFG.YT_CATEGORY_VARIETY === '22' && typeof CFG.VM_MAX_MB !== 'undefined');
+  resetProps([PK.YT_DUE, PK.YT_DUE_PARKED]);
+  CFG.YT_SHOWS_OFF = [];
+  /* ۱۱.۱: نصبِ ۱۱.۰ ردیف‌ها را کنار گذاشته باشد ⇒ با پیش‌فرضِ تازه خودشان برمی‌گردند. */
+  global.__PROPS[PK.YT_DUE_PARKED] = JSON.stringify([{ key: 'variety:81', show: 'variety', ep: '81', folderId: 'F81' }]);
+  ok('۲.۹ (۱۱.۱) کنارگذاشته‌های ۱۱.۰ با پیش‌فرضِ تازه به صف برمی‌گردند', ytDueList_().some((x) => x.key === 'variety:81') && !ytDueParked_().length);
   resetProps([PK.YT_DUE, PK.YT_DUE_PARKED]);
 }
 
@@ -183,9 +191,13 @@ const resetProps = (keys) => keys.forEach((k) => { delete global.__PROPS[k]; });
   const sm2 = igShortMeta_({ plan: { ytDesc: 'یک.', tags: [] }, series: 'م', yt: '', lesson: 3 }, '');
   ok('۵.۸ شورتز: نشانیِ خالی ⇒ سطرِ «نسخهٔ کامل» نمی‌آید', !/نسخهٔ کامل/.test(sm2.desc), sm2.desc);
   delete global.__PROPS[PK.YT_OWNER_PRIVATE];
-  // توضیحِ ویدئوی کامل: بلوکِ گویندگان نیست
+  // توضیحِ ویدئوی کامل — ۱۱.۱: پیش‌فرض «مثلِ قبل» (بلوک می‌ماند)؛ برداشتن فقط با کلید
+  const dKeep = ytDescFinal_('special:9', 'خلاصه\n\nگویندگانِ این قسمت:\nگویندهٔ Charon — ۰۰:۰۰–۱۰:۰۰\n\nدربارهٔ «درس‌نامه»');
+  ok('۵.۹-الف (۱۱.۱) پیش‌فرض: توضیحِ ویدئوی بلند دست نمی‌خورد', CFG.YT_DESC_CAST === true && /گویندگانِ این قسمت/.test(dKeep));
+  CFG.YT_DESC_CAST = false;
   const d = ytDescFinal_('special:9', 'خلاصه\n\nگویندگانِ این قسمت:\nگویندهٔ Charon — ۰۰:۰۰–۱۰:۰۰\nگویندهٔ Kore — ۱۰:۰۰–۱۲:۰۰\n\nدربارهٔ «درس‌نامه»');
-  ok('۵.۹ «گویندگانِ این قسمت» از توضیح بیرون رفت، بقیه ماند', !/گوینده/.test(d) && /خلاصه/.test(d) && /دربارهٔ «درس‌نامه»/.test(d), d);
+  CFG.YT_DESC_CAST = true;
+  ok('۵.۹ با کلیدِ خاموش «گویندگانِ این قسمت» بیرون می‌رود، بقیه می‌ماند', !/گوینده/.test(d) && /خلاصه/.test(d) && /دربارهٔ «درس‌نامه»/.test(d), d);
 }
 
 /* ── ۶) کپشن در تلگرام ── */
