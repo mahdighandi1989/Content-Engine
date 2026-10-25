@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-24 19:05",
+ "updatedAt": "2026-10-25 05:27",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -5358,6 +5358,121 @@
     "fade": 20
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-82-cover.jpg"
+  },
+  "variety:83": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-83.mp4",
+   "bytes": 28529279,
+   "parts": 1,
+   "at": "2026-10-25 05:27",
+   "mode": "media",
+   "media": {
+    "clips": 0,
+    "photos": 28,
+    "found": 0,
+    "notFound": 0,
+    "failed": 0,
+    "why": [],
+    "layouts": {
+     "fill": 13,
+     "scroll": 15
+    },
+    "teaserTiles": 5,
+    "teaserSec": 45.4,
+    "teaser": 4,
+    "cropped": 26,
+    "cardOwn": 11,
+    "cards": 11,
+    "moments": {
+     "asked": 0,
+     "placed": 0,
+     "made": 0
+    },
+    "fit": {
+     "mb": 27.2,
+     "how": "زیرِ سقف"
+    }
+   },
+   "scenes": 32,
+   "want": 32,
+   "snapped": 27,
+   "seconds": 633,
+   "qa": {
+    "n": 32,
+    "matched": 27,
+    "miss": [
+     30
+    ],
+    "blank": [
+     16,
+     18,
+     21,
+     23
+    ],
+    "ok": false,
+    "why": "4 قابِ خالی (صحنهٔ 16، 18، 21، 23) · فقط 27 از 32 صحنه سرِ جای خودش دیده شد",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 15,
+       "t": 233.5,
+       "own": 0.61,
+       "nb": 0.39,
+       "ok": true,
+       "heard": "از بخش نظرات یک شبکی اجتمایی است, کساعت چهارده و سی دقیق سبت شده.  در این اکس, کاربری بستو دو ساعت پیش نظرین ویش..."
+      },
+      {
+       "n": 20,
+       "t": 324.5,
+       "own": 0.4,
+       "nb": 0.25,
+       "ok": true,
+       "heard": "و سیخ کباب.  در اکس بادی که ادامی کامل همان صفیی نظرات در سواته چهارده و سیدقی غست،  ساال و جواب این دونفر رو..."
+      },
+      {
+       "n": 25,
+       "t": 429.5,
+       "own": 0.74,
+       "nb": 0.32,
+       "ok": true,
+       "heard": "از این اکس جدید همان کاربری که در بخش اول از دیدبانی فراه سی گفته بود استوری دیگری منتشر کردست."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    },
+    "freeze": []
+   },
+   "ov": {
+    "asked": 12,
+    "placed": 12,
+    "busy": 0,
+    "failed": 0,
+    "kinds": {
+     "points": 11,
+     "headline": 1
+    },
+    "forced": 2
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 32,
+    "used": 32,
+    "why": []
+   },
+   "xf": {
+    "circleopen": 4,
+    "fade": 3,
+    "wiperight": 4,
+    "zoomin": 3,
+    "slideright": 4,
+    "radial": 3,
+    "dissolve": 4,
+    "smoothright": 3
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-83-cover.jpg"
   }
  },
  "art": {
