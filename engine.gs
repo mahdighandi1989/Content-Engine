@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 12.8
+ *  موتور محتوا و پادکست — نسخهٔ 12.9
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -24,6 +24,9 @@
  * هیچ سلولی در آن دو شیت نوشته یا تغییر داده نمی‌شود.
  * همه نوشتن‌ها در یک شیت جدید به نام CONTENT-HUB داخل فولدر OUTPUT انجام می‌شود.
  */
+
+/* ۱۲.۹: دستورِ سبکِ نمونه‌های «بی پردازش»ِ گلدوز — عینِ خواستهٔ صاحبِ کانال. پیش از CFG، چون بذرها درونِ CFG‌اند. */
+var GOLDUZ_STEADY_CUE = 'آرام، روشن، بدونِ لرزش، لحنِ گرم و ثابت';
 
 var CFG = {
   // ---- منابع (همه فقط خواندنی) ----
@@ -2320,7 +2323,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '12.8',
+  CODE_VERSION: '12.9',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2721,7 +2724,14 @@ var CFG = {
        شنیده شود. سقف: جاهایی که زیروبمِ خروجی بیش از ۳ نیم‌پرده بالای هدفِ گوینده است، از تبدیلِ دومی با گامِ پایین‌تر برداشته
        می‌شود. Alnilam (۱۵۸ هرتز) نزدیک‌ترین بود ولی او در آزمونِ شنیداری کنارش گذاشته. */
     { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · آزمایشِ زیروبم · مبدأ Puck · سقفِ اوج ۳ نیم‌پرده · مکث به اندازهٔ خودش', nospans: true, calm: true, colour: 'prev', voice: 'Puck', f0cap: 3 },
-    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · آزمایشِ زیروبم · مبدأ Charon · سقفِ اوج ۳ نیم‌پرده · مکث به اندازهٔ خودش', nospans: true, calm: true, colour: 'prev', f0cap: 3 }
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · آزمایشِ زیروبم · مبدأ Charon · سقفِ اوج ۳ نیم‌پرده · مکث به اندازهٔ خودش', nospans: true, calm: true, colour: 'prev', f0cap: 3 },
+    /* ۱۲.۹: او هر دو را شنید — «مثلِ پیرمرد/پیرزنِ بغض‌کرده، لرزشِ زیاد، افتضاح». مشترکِ هر دو `f0cap` بود: در نمونهٔ Puck
+       ۲۸۱ تکه در ۲۹۶ ثانیه (۷۹ ثانیه) از تبدیلِ دومی با گامِ ۵ نیم‌پرده پایین‌تر جایگزین شد — تقریباً هر ثانیه یک پرشِ زیروبم
+       با محوِ ۲۰ میلی‌ثانیه‌ای، که به گوش لرزش و بغض است. سه نمونهٔ مقایسه، **بی هیچ پردازش**: گامِ ۰ (بی بالا بردن)، بی سقف،
+       بی رنگ، بی زیروبمِ هر تکه، بی حالت‌ها و بی کششِ مکث، با دستورِ سبکِ خودِ او؛ سه صدای مردانهٔ پایدارِ جمینای. */
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · بی پردازش · گامِ ۰ · مبدأ Charon · آرام و ثابت', nospans: true, voice: 'Charon', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE },
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · بی پردازش · گامِ ۰ · مبدأ Iapetus · آرام و ثابت', nospans: true, voice: 'Iapetus', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE },
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · بی پردازش · گامِ ۰ · مبدأ Rasalgethi · آرام و ثابت', nospans: true, voice: 'Rasalgethi', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE }
   ],
   VBR_SEG_PITCH: false,          // ۱۱.۴: زیروبمِ هر تکه روی قسمت‌ها — آزمایشی، خاموش تا صاحبِ کانال نمونهٔ درسِ ۷۴ را بشنود و تأیید کند
   /* ══ سقف، شمارندهٔ **زمان‌بندی** است نه شمارندهٔ موفقیت (۷٫۹۱) ══
@@ -79614,6 +79624,14 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   row.shared = true;
   try { var sg = vbrSegs_(folderId); if (sg.length) row.segs = sg; } catch (eSg) {}
   var o = opts || {};
+  /* ۱۲.۹: گامِ ثابتِ نمونه — گامِ خودکار (و هدفِ هرتز) کنار می‌رود، پس سدِ «خروجی دور از هدف» هم نیست؛ فقط از بذرِ نمونه. */
+  if (o.pitchFix != null && String(o.pitchFix) !== '') {
+    row.params.pitch = String(o.pitchFix);
+    delete row.params.targetHz;
+    row.pitchSrc = 'ثابتِ نمونه: ' + String(o.pitchFix) + ' نیم‌پرده (بی گامِ خودکار)';
+    row.pitchFix = String(o.pitchFix);
+  }
+  if (o.cueFix) row.cueFix = String(o.cueFix).slice(0, 160);
   /* برچسبِ نمایشی، وقتی این ردیف «خودِ قسمت» نیست بلکه نمونه‌ای از آن است
      (۷٫۷۴). بی آن، فایل و کپشنِ تلگرام «قسمت ۴۹ با صدای …» می‌شدند برای
      چیزی که چهار دقیقه از آن قسمت است — همان ادعای نیمه‌ای که این نسخه و
@@ -81646,7 +81664,7 @@ function vbrSoulPick_() {
     var seedNoSpans = {};
     var seedCalm = {};
     var seedVoice = {};
-    var seedHx = {}, seedSegP = {}, seedF0cap = {};
+    var seedHx = {}, seedSegP = {}, seedF0cap = {}, seedPitchFix = {}, seedCueFix = {};
     var seedBase = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
@@ -81667,6 +81685,8 @@ function vbrSoulPick_() {
       if (se.hx) seedHx[sk] = true;                     // ۹.۶۳: «خ»ی که تبدیل افزود، از ورودی
       if (se.segPitch) seedSegP[sk] = true;             // ۱۱.۴: زیروبمِ هر تکه
       if (se.f0cap) seedF0cap[sk] = Number(se.f0cap) || 3;   // ۱۲.۵: سقفِ اوجِ زیروبم، فقط نمونه
+      if (se.pitchFix != null && se.pitchFix !== '') seedPitchFix[sk] = String(se.pitchFix);   // ۱۲.۹: گامِ ثابت (مثلاً «0»)، بی گامِ خودکار — فقط نمونه
+      if (se.cueFix) seedCueFix[sk] = String(se.cueFix);   // ۱۲.۹: دستورِ سبکِ آماده، به‌جای کارتِ سبکِ گوینده — فقط نمونه
       seedBase[sk] = String(se.tagBase == null ? (se.tag || '') : se.tagBase);
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
       if (se.colour) seedColour[sk] = String(se.colour);
@@ -81723,7 +81743,8 @@ function vbrSoulPick_() {
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
                seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k], calm: !!seedCalm[k],
-               voice: seedVoice[k] || '', hx: !!seedHx[k], segPitch: !!seedSegP[k], f0cap: seedF0cap[k] || 0, tagBase: seedBase[k] || '' };
+               voice: seedVoice[k] || '', hx: !!seedHx[k], segPitch: !!seedSegP[k], f0cap: seedF0cap[k] || 0, tagBase: seedBase[k] || '',
+               pitchFix: seedPitchFix[k] != null ? seedPitchFix[k] : '', cueFix: seedCueFix[k] || '' };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -82005,8 +82026,9 @@ function runVoiceSoulTest() {
        گذاشت، کشیده. تا او همان چیزی را بشنود که قسمتِ واقعی خواهد داشت. */
     var perS = { cue: pick.cue, name: pick.name, key: pick.key };
     var pzS = null, gapsS = null;
-    var cueUse = pick.plain ? '' : (pick.calm ? vbrCalmCue_(pick.cue) : pick.cue);
-    if (!pick.plain) {
+    var cueUse = pick.cueFix ? pick.cueFix : (pick.plain ? '' : (pick.calm ? vbrCalmCue_(pick.cue) : pick.cue));
+    /* ۱۲.۹: «بی پردازشِ اضافه» — با دستورِ آماده، کششِ مکث و مکثِ حالتِ کارتِ سبک هم نیست. */
+    if (!pick.plain && !pick.cueFix) {
       try { pzS = speakMoodPause_(perS); } catch (ePz) { pzS = null; }
       try { gapsS = speakStyleGaps_(perS); } catch (eGp) { gapsS = null; }
       if (pick.calm && gapsS) gapsS.inS = 0;          // ۹.۵۴: مکثِ درونِ جمله کش نمی‌آید
@@ -82136,6 +82158,8 @@ function runVoiceSoulTest() {
     if (pick.hx) tagO.hx = true;
     if (pick.segPitch) tagO.segPitch = true;            // ۱۱.۴
     if (pick.f0cap) tagO.f0cap = pick.f0cap;            // ۱۲.۵
+    if (pick.pitchFix !== '' && pick.pitchFix != null) tagO.pitchFix = pick.pitchFix;   // ۱۲.۹
+    if (pick.cueFix) tagO.cueFix = pick.cueFix;          // ۱۲.۹: برای کپشن
     if (pick.tagBase) tagO.tagBase = pick.tagBase;
     if (pick.colour) tagO.colour = pick.colour;          // ۹.۰۵
     if (pick.ab) tagO.ab = pick.ab;                      // ۹.۱۱

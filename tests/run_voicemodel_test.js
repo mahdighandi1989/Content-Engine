@@ -269,7 +269,9 @@ console.log('\n=== ۸) شبانه: مدلی که **دستی** گذاشته شد 
   const nCfg = (CFG.VOICE_SOUL_SEED || []).filter(s => s.speaker === 'spk-1g0r95d').length;   // ۹.۴۵: دو بذرِ دستی (ساعت‌ساز و درسِ ۷۴)
   ok('۸.۳ بذرِ دستی برنده است: بذرهای گلدوز همان بذرهای CFG‌اند، هیچ‌کدام خودکار', nCfg >= 1 && s1.length === nCfg && s1.every(x => !x.auto));
   ok('۸.۴ برچسبِ بذرهای دستی «مکث به اندازهٔ خودش» را دارد — نمونهٔ تازه ساخته می‌شود (۷٫۸۶)',
-     (CFG.VOICE_SOUL_SEED || []).every(s => /مکث به اندازهٔ خودش/.test(String(s.tag || ''))));
+     (CFG.VOICE_SOUL_SEED || []).every(s => /مکث به اندازهٔ خودش/.test(String(s.tag || '')) ||
+       /* ۱۲.۹: «بی پردازش» عمداً کششِ مکث ندارد (cueFix)، و برچسبش همین را می‌گوید — نه ادعای مکثی که نیست */
+       (s.cueFix && /بی پردازش/.test(String(s.tag || '')))));
   const k0 = CFG.VOICE_SOUL_AUTO; CFG.VOICE_SOUL_AUTO = false;
   try { ok('۸.۵ کلیدِ خاموش یعنی فقط بذرهای دستی', vbrSoulSeeds_().every(s => !s.auto)); }
   finally { CFG.VOICE_SOUL_AUTO = k0; }

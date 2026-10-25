@@ -1,28 +1,18 @@
 {
-  "version": "12.8",
+  "version": "12.9",
   "codeFile": "engine.gs",
-  "sha256": "afe03c4f5c1a2badc2c9a0a963fc2ac68079da998183876d18453ba611ee522c",
-  "releasedAt": "2026-10-25T22:30:00Z",
-  "summary": "سبکِ تصویر فقط از محتوا، قفلِ پلی‌لیست در خطِ ۱۰، دو وارسیِ اجباریِ ناظر (پرامپتِ ۱۱۳)، ردِ گشتنِ شبانهٔ موسیقی، و جبرانِ مشخصات زیرِ سقفِ شش‌دقیقه — بی تغییر در تولید",
+  "sha256": "9bfd97f2988bc05ef9cb034e8f1ed3e958e25985b8ecac544e5935152bc28104",
+  "releasedAt": "2026-10-25T23:30:00Z",
+  "summary": "گلدوز: سه نمونهٔ «بی پردازش · گامِ ۰» با دستورِ سبکِ صاحبِ کانال پس از «بغض و لرزش»ِ نمونه‌های سقفِ اوج — فقط نمونه، تولید بی تغییر",
   "fixes": [
-    "lvStyleInputs_: پیشنهادِ قاعده‌ایِ سبک از دستهٔ دستی + موضوع + شرحِ داوری؛ lvStyleInputsLegacy_ فقط برای تشخیصِ خانهٔ نوشتهٔ سوئیپِ قدیم",
-    "ytPlLockLine_ در ایمیلِ ۱۰",
-    "MONITOR_CHECKS: yt-growth، series-queue؛ _PROMPT-monitor-v113",
-    "PK.MUSIC_SEEK_LAST ⇒ _STATUS.music.seekLast و خطِ موسیقی",
-    "embSpecsBackfill_: مهلتِ سخت از RUN_T0_، نوشتن پس از مهلت نه؛ embSpecsApply_ خوشه‌ای؛ embStep_ ⇒ runStage_"
+    "VOICE_SOUL_SEED: سه بذرِ Charon/Iapetus/Rasalgethi با pitchFix «0» و cueFix (GOLDUZ_STEADY_CUE)",
+    "vbrAsk_: pitchFix ⇒ params.pitch ثابت و بی targetHz؛ cueFix در ردیف",
+    "نمونه با cueFix: بی کارتِ سبک و بی کششِ مکث"
   ],
   "sourceReportIds": [],
   "answers": [
-    "R-20261025-69",
-    "R-20261025-70",
-    "R-20261025-71",
-    "R-20261025-72",
-    "R-20261025-73"
+    "R-20261025-74"
   ],
-  "promptImpact": [
-    "CFG.MONITOR_CHECKS: yt-growth و series-queue (وارسیِ اجباریِ روزانه) — _PROMPT-monitor-v113"
-  ],
-  "promptImpactKinds": [
-    "monitor"
-  ]
+  "promptImpact": [],
+  "promptImpactKinds": []
 }

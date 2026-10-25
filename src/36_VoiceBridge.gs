@@ -995,6 +995,14 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   row.shared = true;
   try { var sg = vbrSegs_(folderId); if (sg.length) row.segs = sg; } catch (eSg) {}
   var o = opts || {};
+  /* ۱۲.۹: گامِ ثابتِ نمونه — گامِ خودکار (و هدفِ هرتز) کنار می‌رود، پس سدِ «خروجی دور از هدف» هم نیست؛ فقط از بذرِ نمونه. */
+  if (o.pitchFix != null && String(o.pitchFix) !== '') {
+    row.params.pitch = String(o.pitchFix);
+    delete row.params.targetHz;
+    row.pitchSrc = 'ثابتِ نمونه: ' + String(o.pitchFix) + ' نیم‌پرده (بی گامِ خودکار)';
+    row.pitchFix = String(o.pitchFix);
+  }
+  if (o.cueFix) row.cueFix = String(o.cueFix).slice(0, 160);
   /* برچسبِ نمایشی، وقتی این ردیف «خودِ قسمت» نیست بلکه نمونه‌ای از آن است
      (۷٫۷۴). بی آن، فایل و کپشنِ تلگرام «قسمت ۴۹ با صدای …» می‌شدند برای
      چیزی که چهار دقیقه از آن قسمت است — همان ادعای نیمه‌ای که این نسخه و
@@ -3027,7 +3035,7 @@ function vbrSoulPick_() {
     var seedNoSpans = {};
     var seedCalm = {};
     var seedVoice = {};
-    var seedHx = {}, seedSegP = {}, seedF0cap = {};
+    var seedHx = {}, seedSegP = {}, seedF0cap = {}, seedPitchFix = {}, seedCueFix = {};
     var seedBase = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
@@ -3048,6 +3056,8 @@ function vbrSoulPick_() {
       if (se.hx) seedHx[sk] = true;                     // ۹.۶۳: «خ»ی که تبدیل افزود، از ورودی
       if (se.segPitch) seedSegP[sk] = true;             // ۱۱.۴: زیروبمِ هر تکه
       if (se.f0cap) seedF0cap[sk] = Number(se.f0cap) || 3;   // ۱۲.۵: سقفِ اوجِ زیروبم، فقط نمونه
+      if (se.pitchFix != null && se.pitchFix !== '') seedPitchFix[sk] = String(se.pitchFix);   // ۱۲.۹: گامِ ثابت (مثلاً «0»)، بی گامِ خودکار — فقط نمونه
+      if (se.cueFix) seedCueFix[sk] = String(se.cueFix);   // ۱۲.۹: دستورِ سبکِ آماده، به‌جای کارتِ سبکِ گوینده — فقط نمونه
       seedBase[sk] = String(se.tagBase == null ? (se.tag || '') : se.tagBase);
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
       if (se.colour) seedColour[sk] = String(se.colour);
@@ -3104,7 +3114,8 @@ function vbrSoulPick_() {
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
                seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k], calm: !!seedCalm[k],
-               voice: seedVoice[k] || '', hx: !!seedHx[k], segPitch: !!seedSegP[k], f0cap: seedF0cap[k] || 0, tagBase: seedBase[k] || '' };
+               voice: seedVoice[k] || '', hx: !!seedHx[k], segPitch: !!seedSegP[k], f0cap: seedF0cap[k] || 0, tagBase: seedBase[k] || '',
+               pitchFix: seedPitchFix[k] != null ? seedPitchFix[k] : '', cueFix: seedCueFix[k] || '' };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -3386,8 +3397,9 @@ function runVoiceSoulTest() {
        گذاشت، کشیده. تا او همان چیزی را بشنود که قسمتِ واقعی خواهد داشت. */
     var perS = { cue: pick.cue, name: pick.name, key: pick.key };
     var pzS = null, gapsS = null;
-    var cueUse = pick.plain ? '' : (pick.calm ? vbrCalmCue_(pick.cue) : pick.cue);
-    if (!pick.plain) {
+    var cueUse = pick.cueFix ? pick.cueFix : (pick.plain ? '' : (pick.calm ? vbrCalmCue_(pick.cue) : pick.cue));
+    /* ۱۲.۹: «بی پردازشِ اضافه» — با دستورِ آماده، کششِ مکث و مکثِ حالتِ کارتِ سبک هم نیست. */
+    if (!pick.plain && !pick.cueFix) {
       try { pzS = speakMoodPause_(perS); } catch (ePz) { pzS = null; }
       try { gapsS = speakStyleGaps_(perS); } catch (eGp) { gapsS = null; }
       if (pick.calm && gapsS) gapsS.inS = 0;          // ۹.۵۴: مکثِ درونِ جمله کش نمی‌آید
@@ -3517,6 +3529,8 @@ function runVoiceSoulTest() {
     if (pick.hx) tagO.hx = true;
     if (pick.segPitch) tagO.segPitch = true;            // ۱۱.۴
     if (pick.f0cap) tagO.f0cap = pick.f0cap;            // ۱۲.۵
+    if (pick.pitchFix !== '' && pick.pitchFix != null) tagO.pitchFix = pick.pitchFix;   // ۱۲.۹
+    if (pick.cueFix) tagO.cueFix = pick.cueFix;          // ۱۲.۹: برای کپشن
     if (pick.tagBase) tagO.tagBase = pick.tagBase;
     if (pick.colour) tagO.colour = pick.colour;          // ۹.۰۵
     if (pick.ab) tagO.ab = pick.ab;                      // ۹.۱۱
