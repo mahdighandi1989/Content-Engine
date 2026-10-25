@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-25 05:36",
+ "updatedAt": "2026-10-25 06:24",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -5361,9 +5361,10 @@
   },
   "variety:83": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-83.mp4",
-   "bytes": 28529279,
+   "bytes": 28558981,
    "parts": 1,
-   "at": "2026-10-25 05:27",
+   "at": "2026-10-25 06:09",
+   "replace": "qa-10.6",
    "mode": "media",
    "media": {
     "clips": 0,
@@ -5421,7 +5422,7 @@
        "own": 0.61,
        "nb": 0.39,
        "ok": true,
-       "heard": "از بخش نظرات یک شبکی اجتمایی است, کساعت چهارده و سی دقیق سبت شده.  در این اکس, کاربری بستو دو ساعت پیش نظرین ویش..."
+       "heard": "از بخش نظرات یک شبکی ایجتمایی است, کساعت چهارده و سی دقیق سبت شده.  در این اکس, کاربری بستو دو ساعت پیش نظرین ویش..."
       },
       {
        "n": 20,
@@ -5437,7 +5438,7 @@
        "own": 0.74,
        "nb": 0.32,
        "ok": true,
-       "heard": "از این اکس جدید همان کاربری که در بخش اول از دیدبانی فراه سی گفته بود استوری دیگری منتشر کردست."
+       "heard": "این اکس جدید همان کاربری که در بخش اول از دیدبانی فراه سی گفته بود استوری دیگری منتشر کردست."
       }
      ],
      "why": "",
@@ -5473,6 +5474,79 @@
     "smoothright": 3
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-83-cover.jpg"
+  },
+  "special:83": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-83.mp4",
+   "bytes": 46404923,
+   "parts": 2,
+   "at": "2026-10-25 06:24",
+   "mode": "scenes",
+   "scenes": 55,
+   "want": 55,
+   "snapped": 44,
+   "seconds": 1312,
+   "qa": {
+    "n": 55,
+    "matched": 54,
+    "miss": [
+     12
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 14,
+       "t": 358.1,
+       "own": 0.55,
+       "nb": 0.25,
+       "ok": true,
+       "heard": "رسکن میری نانوائی و میبینی یکی بدون نوبت میری جلو  تو درجا اصبی میشی و میگی کارش قلته  از نظر میل این حسم..."
+      },
+      {
+       "n": 28,
+       "t": 690.9,
+       "own": 0.53,
+       "nb": 0.24,
+       "ok": true,
+       "heard": "ایک نکته یه تکمیلی که بیرون از محتوى عصلی این آرشی و از جستو جو یه انترنتی آمده  ایک نکته یه تاریخی هم از بیرون"
+      },
+      {
+       "n": 42,
+       "t": 974.7,
+       "own": 0.52,
+       "nb": 0.2,
+       "ok": true,
+       "heard": "نسفشه بس خاب می پری و به دل اتبرات میشه که گوشی داره تو پذیرای رو حالت بیسده زنگ میخوره.  خود اون دل شوره و حالی که داری"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 23,
+    "placed": 14,
+    "busy": 9,
+    "failed": 0,
+    "kinds": {
+     "points": 8,
+     "headline": 4,
+     "compare": 1,
+     "quote": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 48,
+   "xf": {
+    "smoothright": 27,
+    "fade": 22
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-83-cover.jpg"
   }
  },
  "art": {
