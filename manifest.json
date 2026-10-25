@@ -1,20 +1,29 @@
 {
-  "version": "11.4",
+  "version": "11.5",
   "codeFile": "engine.gs",
-  "sha256": "ae260d1a2bf69234d7c2b450ae7c589a0de66cdd0a658ad71f90eef7db1d698c",
-  "releasedAt": "2026-10-25T12:24:47Z",
-  "summary": "زیروبمِ هر تکه در پلِ صدا (آزمایشی؛ دو نمونهٔ درسِ ۷۴، روی قسمت‌ها خاموش)؛ کاورِ ویدئوی بلند با پرسشِ ملموسِ تا ۶ واژه",
+  "sha256": "2c96c1a637be4c7aba25a3434e54d4475886ed89367ab5ff5ccbace785220999",
+  "releasedAt": "2026-10-25T12:46:20Z",
+  "summary": "تبِ «مقصدها» وصل به انتشارِ واقعی، فیسبوک (خاموش تا تیک)، نمای چهارحالته، زیرساختِ تولیدِ موازی (خاموش تا تیک)، آزمونِ کنترل‌های تخته",
   "fixes": [
-    "voicebridge.segPitchPlan + assemble(lagSegs): فقط بیرون‌زدگیِ بیش از ۲ نیم‌پرده، با سقفِ ۴؛ پرچمِ segPitch روی ردیف",
-    "VOICE_SOUL_SEED: دو بذرِ تازهٔ درسِ ۷۴ با segPitch؛ VBR_SEG_PITCH: false برای قسمت‌ها",
-    "YT_COVER_QUESTION + ytCoverQ_: کاورِ پرسشیِ تا ۶ واژه"
+    "destGate_/destCap_/destNote_ (بخشِ ۲۵) در ytShowOff_، ytQuotaTake_، igStepPub_، igShortPub_",
+    "fbCross_/fbAfterReel_/fbQueueRun_: بازنشرِ ریلز روی صفحهٔ فیسبوک از Reels Publishing API",
+    "SC.PAR + seriesParPick_: گردشِ مجموعه‌های تیک‌خورده؛ بی تیک همان مسیرِ پیشین",
+    "BOARD_CONTROLS_ + run_owner115_test §۸: هر کنترلِ تخته خواننده‌ای در تولید دارد",
+    "پنل‌های «🎯 مقصدها» و «🧭 وضعِ مجموعه‌ها» در تخته"
   ],
   "sourceReportIds": [],
   "answers": [
-    "R-20261025-25",
-    "R-20261025-26",
-    "R-20261025-27"
+    "R-20261025-28",
+    "R-20261025-29",
+    "R-20261025-30",
+    "R-20261025-31",
+    "R-20261025-32"
   ],
-  "promptImpact": [],
-  "promptImpactKinds": []
+  "promptImpact": [
+    "_STATUS.json: کلیدهای تازهٔ destinations، facebook، seriesPar",
+    "تبِ تازهٔ «مقصدها» در هاب"
+  ],
+  "promptImpactKinds": [
+    "monitor"
+  ]
 }

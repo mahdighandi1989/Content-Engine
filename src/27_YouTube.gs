@@ -104,6 +104,8 @@ function ytQuotaTake_(units, isUpload) {
   var q = ytQuota_();
   var capU = Math.max(100, Number(CFG.YT_QUOTA_UNITS) || 9000);
   var capUp = Math.max(1, Number(CFG.YT_QUOTA_UPLOADS) || 90);
+  /* ۱۱.۵: «سقفِ روزانه»ِ ردیفِ یوتیوب در تبِ «مقصدها» — کوچک‌ترِ دو */
+  try { capUp = Math.max(1, destCap_('yt', capUp)); } catch (eD) {}
   if (isUpload && q.uploads + 1 > capUp) { q.blocked = 'آپلود'; ytQuotaSave_(q); return false; }
   if (q.units + (Number(units) || 0) > capU) { q.blocked = 'واحد'; ytQuotaSave_(q); return false; }
   q.units += (Number(units) || 0);
@@ -2516,7 +2518,10 @@ function ytDueList_() {
 /** ۱۱.۰: آیا انتشارِ این برنامه در یوتیوب خاموش است؟ («variety» | «special») */
 function ytShowOff_(show) {
   var off = CFG.YT_SHOWS_OFF || [];
-  return !!show && off.indexOf(String(show)) !== -1;
+  if (!!show && off.indexOf(String(show)) !== -1) return true;
+  /* ۱۱.۵: ردیفِ «یوتیوب» در تبِ «مقصدها» — «فعال» و «برنامه‌ها». همان سازوکارِ کنارگذاشتن (پاک نه، برمی‌گردد). */
+  if (show) { try { if (!destGate_('yt', String(show)).ok) return true; } catch (eD) {} }
+  return false;
 }
 
 /**
@@ -2547,7 +2552,13 @@ function ytShowsOffLine_() {
   var flLine = flK.length ? '🔒 قسمت‌های قدیمی بیرون از انتشارِ یوتیوب: ' + flK.map(function (k) {
       return (k === ENRICH_SHOW_VARIETY ? '«' + CFG.SHOW_NAME + '»' : k) + ' زیرِ ' + faDigitsOut_(String(fl[k]));
     }).join('، ') + ' — نه آپلودِ تازه، نه جایگزینی، نه ساختِ دوباره؛ قسمت‌های بعد عادی منتشر می‌شوند.' : '';
-  if (!off.length) return flLine;
+  /* ۱۱.۵: خاموش از تبِ «مقصدها» */
+  var dOff = [], dWhy = '';
+  try {
+    knownShows_().forEach(function (s) { var g = destGate_('yt', s.key); if (!g.ok && off.indexOf(s.key) === -1) { dOff.push('«' + s.name + '»'); dWhy = g.why; } });
+  } catch (eD) {}
+  var dLine = dOff.length ? '⏸ یوتیوب برای ' + dOff.join(' و ') + ': منتظر — ' + dWhy + '. قسمت‌های صف کنار گذاشته شده‌اند (پاک نشده) و با تیک برمی‌گردند.' : '';
+  if (!off.length) return [flLine, dLine].filter(Boolean).join(' ');
   var names = off.map(function (k) { return k === ENRICH_SHOW_VARIETY ? '«' + CFG.SHOW_NAME + '»' : k === ENRICH_SHOW_SPECIAL ? '«' + CFG.SPECIAL_SHOW_NAME + '»' : k; });
   var n = ytDueParked_().length;
   return '⏸ انتشار در یوتیوب برای ' + names.join(' و ') + ': متوقف — ' + (CFG.YT_SHOWS_OFF_WHY || 'به خواستِ شما') +
@@ -10385,6 +10396,7 @@ function ytUploadOne_(item, hub, pub) {
   if (!vid && !(chunkSt && chunkSt.url) && !ytQuotaTake_(YT_COST.videosInsert, true)) {
     res.why = 'سهمیهٔ آپلودِ امروز تمام شد؛ فردا ادامه می‌یابد';
     res.quota = true;
+    try { destNote_('yt', '⏳ سقفِ آپلودِ امروز پر شد — صف فردا ادامه می‌یابد'); } catch (eDq) {}
     return res;
   }
   if (!vid && !chunked) try {
@@ -10543,6 +10555,7 @@ function ytUploadOne_(item, hub, pub) {
                     : (!gate.ok ? gate.why + '؛ در ' + privacy + ' ماند' : '') });
   ytUpPendingClear_(upKey);
   try { tgCaptionLog_('یوتیوب — ویدئوی کامل', title, url, desc, ytDescRemoved_(plan.description, desc)); } catch (eTc) {}   // ۱۱.۰/۱۱.۳
+  try { destNote_('yt', 'بالا رفت: ' + title + ' — ' + url + ' (امروز ' + ytQuota_().uploads + ' آپلود)'); } catch (eDn) {}   // ۱۱.۵
   logLine_('یوتیوب: «' + title + '» ' +
            (privacy === 'public' ? 'منتشر شد' : 'در ' + privacy + ' ماند') + ' — ' + url);
   res.ok = !leaks.length && gate.ok; res.url = url; res.privacy = privacy; res.title = title;

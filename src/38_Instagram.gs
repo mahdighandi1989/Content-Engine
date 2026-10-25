@@ -1241,7 +1241,13 @@ function igStepPub_(it, plan, st, deadline) {
   var day = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
   st.stats = st.stats || {};
   if (st.stats.day !== day) { st.stats.day = day; st.stats.dayN = 0; }
-  if ((Number(st.stats.dayN) || 0) >= Math.max(1, Number(CFG.IG_PER_DAY) || 4)) return { wait: 'سهمِ امروز پر شد' };
+  /* ۱۱.۵: ردیفِ «اینستاگرام» در تبِ «مقصدها» — «فعال» و «سقفِ روزانه». ریلزِ آماده همین‌جا می‌ایستد؛ چیزی دور ریخته نمی‌شود. */
+  var dg = null;
+  try { dg = destGate_('ig', ENRICH_SHOW_SPECIAL); } catch (eDg) { dg = null; }
+  if (dg && !dg.ok) { try { destNote_('ig', '⏸ ' + dg.why + ' — ریلزِ آماده منتظر است'); } catch (eDn) {} return { wait: dg.why }; }
+  var igCap = Math.max(1, Number(CFG.IG_PER_DAY) || 4);
+  try { igCap = Math.max(1, destCap_('ig', igCap)); } catch (eDc) {}
+  if ((Number(st.stats.dayN) || 0) >= igCap) return { wait: 'سهمِ امروز (' + igCap + ') پر شد' };
   if (!plan.reelCid) {
     /* ۱۱.۰: کپشن همین لحظه از نو — برنامه‌هایی که پیش از ۱۱.۰ نوشته شدند هم با قالبِ تازه («لینک در بیو») می‌روند. */
     try {
@@ -1281,6 +1287,9 @@ function igStepPub_(it, plan, st, deadline) {
       } else if (ws !== 'wait') plan.storyWhy = ws;
     } else plan.storyWhy = igErr_(s);
   }
+  try { destNote_('ig', 'منتشر شد: ' + (plan.permalink || plan.reelId) + ' (امروز ' + st.stats.dayN + ')'); } catch (eDn2) {}
+  /* ۱۱.۵: بازنشر روی صفحهٔ فیسبوک — فقط اگر ردیفِ فیسبوک روشن است؛ شکستش ریلز را نمی‌شکند. */
+  try { fbAfterReel_(it, plan); } catch (eFb) { plan.fbWhy = String(eFb.message || eFb).slice(0, 140); }
   plan.phase = 'yts';
   try { tgSend_('✅ ریلزِ اینستاگرام منتشر شد: ' + (plan.permalink || plan.reelId) + '\n«' + tgEsc_(plan.plan.hook) + '»'); } catch (eT) {}
   try {
@@ -1305,6 +1314,8 @@ function igShortPub_(it, plan) {
   if (plan.shortId) { igShortThumb_(plan); return { ok: true }; }
   var yt = ytSvc_();
   if (!yt) { plan.shortWhy = ytOffWhy_(); return { ok: true }; }
+  /* ۱۱.۵: شورتز یعنی یوتیوب — همان ردیفِ «یوتیوب» در تبِ «مقصدها». خاموش ⇒ صف، نه دور ریختن. */
+  try { var dgY = destGate_('yt', ENRICH_SHOW_SPECIAL); if (!dgY.ok) return { wait: dgY.why }; } catch (eDy) {}
   var plUrl = '';
   try {
     var pl = ytPlFor_({ show: ENRICH_SHOW_SPECIAL, seriesKey: plan.seriesKey || '' }, plan.series, CFG.SPECIAL_SHOW_NAME);
@@ -1619,6 +1630,8 @@ function igTick() {
       keep.push(it);
     }
     st.inflight = keep;
+    /* ۱۱.۵: بازنشرهای فیسبوکی که بارِ اول نشدند */
+    try { fbQueueRun_(deadline); } catch (eFq) {}
     if ((st.shortQ || []).length) { try { igShortQueueRun_(st, deadline); } catch (eSq) { st.shortWhy = String(eSq.message || eSq).slice(0, 120); } }
     if (deadline - Date.now() > 40000) { try { igShortThumbRetro_(st, deadline); } catch (eTr) { st.thumbWhy = String(eTr.message || eTr).slice(0, 120); } }
     if (deadline - Date.now() > 60000) { try { igInsights_(st, deadline); } catch (eIn) { st.lastWhy = 'آمار: ' + String(eIn.message || eIn).slice(0, 120); } }
@@ -2310,4 +2323,154 @@ function igPattern_(rows, nowMs) {
                      'روزهای پرانتشار بازدیدِ هر ریلز را میان خودشان پخش می‌کنند.' : '') +
              (nTop ? '\n🔝 پربازدیدترین‌ها:\n' + top.map(row1).join('\n') + '\n🔻 کم‌بازدیدترین‌ها:\n' + low.map(row1).join('\n') : '');
   return { top: top.map(row1), low: low.map(row1), n: old.length, all: posts.length, median: m0, byHour: byHour, byHook: byHook, byDay: byDay, peak: peak ? peak.k : '', text: text };
+}
+
+/* ═══════ فیسبوک — بازنشرِ همان ریلز روی صفحه (۱۱.۵) ═══════
+
+   ══ چه چیزی، و چه چیزی نه ══
+   همان ویدئوی ریلزِ اینستاگرام، همان نشانیِ عمومی (`plan.video`) که متا یک بار پذیرفته، روی صفحهٔ فیسبوکِ وصل به همان
+   حساب (`igAcct_().page`)، از راهِ Reels Publishing API: `/{page}/video_reels` (start ⇒ upload با `file_url` ⇒ finish).
+   هیچ ساختنِ تازه‌ای ندارد — نه صدا، نه تصویر، نه مدل.
+
+   ══ دو در، هر دو لازم ══
+   ۱) تیکِ «فعال» در ردیفِ فیسبوکِ تبِ «مقصدها» (پیش‌فرض: خاموش)؛ ۲) کلیدِ متایی که صفحه را با اجازهٔ انتشار ببیند.
+   کلیدِ امروز («engine-bot») برای اینستاگرام ساخته شده؛ اگر اجازهٔ `pages_manage_posts` نداشته باشد، متا کلیدِ صفحه را
+   نمی‌دهد — و همین علت، به همین زبان، در «آخرین وضعیت» و تلگرام می‌نشیند. تیکی که بی‌صدا هیچ کاری نکند، دروغ است.
+
+   ══ شکستِ فیسبوک ریلز را نمی‌شکند ══
+   ریلز منتشر شده و برنمی‌گردد. فیسبوکِ ناموفق (یا سقفِ روزِ پر) به صفِ کوچکِ خودش می‌رود (`PK.FB_Q`) و در دورهای بعدی
+   تا `FB_TRY_MAX` بار دوباره امتحان می‌شود؛ بعد از آن علتش در برنامهٔ همان ریلز می‌ماند.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/** کلیدِ صفحه، از کلیدِ سامانه. ⇒ {tok} | {why} */
+function fbPageToken_(page) {
+  if (!page) return { why: 'صفحهٔ فیسبوکِ وصل به اینستاگرام ثبت نیست (منوی «۴) کلیدِ اینستاگرام (متا)» را دوباره بزنید)' };
+  var r = igApi_('get', '/' + page, { fields: 'access_token,name' });
+  var t = String((r.j && r.j.access_token) || '');
+  if (!t) return { why: 'متا کلیدِ صفحه را نداد — کلیدِ engine-bot اجازهٔ pages_manage_posts و pages_read_engagement ندارد (' + igErr_(r) + ')' };
+  return { tok: t };
+}
+
+function fbRupload_(videoId) {
+  var m = String(CFG.IG_GRAPH || 'https://graph.facebook.com/v23.0').match(/v\d+\.\d+/);
+  return 'https://rupload.facebook.com/video-upload/' + (m ? m[0] : 'v23.0') + '/' + videoId;
+}
+
+/** متنِ فیسبوک: همان کپشن، ولی «لینک در بیو» جایش را به پیوندِ خودِ درس می‌دهد — در فیسبوک پیوند کلیک می‌خورد. */
+function fbCaption_(plan) {
+  var c = igCapClean_(plan.caption || '');
+  var w = String(CFG.IG_LINK_WORD || 'لینک در بیو');
+  if (plan.yt && c.indexOf(w) !== -1) c = c.split(w).join(plan.yt);
+  return c;
+}
+
+/**
+ * یک بار بازنشر. ⇒ {ok} | {off} (مقصد خاموش — هیچ کاری) | {wait, why} (دوباره امتحان شود) | {fail, why}
+ * `plan.fbId`/`plan.fbUrl`/`plan.fbWhy`/`plan.fbAt` در برنامهٔ همان ریلز.
+ */
+function fbCross_(plan) {
+  if (plan.fbId) return { ok: true };
+  var g = destGate_('fb', ENRICH_SHOW_SPECIAL);
+  if (!g.ok) return { off: true, why: g.why };
+  if (!plan.video) { plan.fbWhy = 'ویدئوی ریلز نشانی ندارد'; return { fail: true, why: plan.fbWhy }; }
+  var day = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'), q = {};
+  try { q = JSON.parse(props_().getProperty(PK.FB_DAY) || '{}') || {}; } catch (eQ) { q = {}; }
+  if (q.day !== day) q = { day: day, n: 0 };
+  var cap = destCap_('fb', Math.max(1, Number(CFG.FB_PER_DAY) || 6));
+  if (q.n >= cap) return { wait: true, why: 'سهمِ امروزِ فیسبوک (' + cap + ') پر شد' };
+  var a = igAcct_() || {};
+  var page = String(a.page || '');
+  var pt = fbPageToken_(page);
+  if (!pt.tok) { plan.fbWhy = pt.why; return { wait: true, why: pt.why }; }
+  var G = String(CFG.IG_GRAPH || 'https://graph.facebook.com/v23.0');
+  var call = function (params) {
+    var res = UrlFetchApp.fetch(G + '/' + page + '/video_reels', { method: 'post', muteHttpExceptions: true, payload: params,
+                                                                  headers: { Authorization: 'Bearer ' + pt.tok } });
+    var j = {};
+    try { j = JSON.parse(res.getContentText() || '{}'); } catch (e) { j = {}; }
+    return { code: res.getResponseCode(), j: j };
+  };
+  var s = call({ upload_phase: 'start' });
+  var vid = String((s.j && s.j.video_id) || '');
+  if (!vid) { plan.fbWhy = 'آغازِ بارگذاری: ' + igErr_(s); return { wait: true, why: plan.fbWhy }; }
+  var up = UrlFetchApp.fetch(fbRupload_(vid), { method: 'post', muteHttpExceptions: true,
+                                               headers: { Authorization: 'OAuth ' + pt.tok, file_url: String(plan.video) } });
+  var uj = {};
+  try { uj = JSON.parse(up.getContentText() || '{}'); } catch (eU) { uj = {}; }
+  if (up.getResponseCode() !== 200 || uj.success === false) {
+    plan.fbWhy = 'بارگذاریِ ویدئو: ' + igErr_({ code: up.getResponseCode(), j: uj }); return { wait: true, why: plan.fbWhy };
+  }
+  var f = call({ upload_phase: 'finish', video_id: vid, video_state: 'PUBLISHED', description: fbCaption_(plan) });
+  if (!(f.j && (f.j.success === true || f.j.success === 'true'))) {
+    plan.fbWhy = 'پایانِ انتشار: ' + igErr_(f); return { wait: true, why: plan.fbWhy };
+  }
+  plan.fbId = vid;
+  plan.fbAt = nowStr_();
+  plan.fbWhy = '';
+  try { plan.fbUrl = String((igApi_('get', '/' + vid, { fields: 'permalink_url' }).j || {}).permalink_url || ''); } catch (eP) {}
+  if (plan.fbUrl && !/^https?:/.test(plan.fbUrl)) plan.fbUrl = 'https://www.facebook.com' + plan.fbUrl;
+  q.n = (Number(q.n) || 0) + 1;
+  try { props_().setProperty(PK.FB_DAY, JSON.stringify(q)); } catch (eS) {}
+  try { destNote_('fb', 'منتشر شد: ' + (plan.fbUrl || vid) + ' (امروز ' + q.n + ')'); } catch (eN) {}
+  try { tgCaptionLog_('فیسبوک — ریلز', igLessonLabel_(plan) + ' · ' + String(plan.series || ''), plan.fbUrl || '', fbCaption_(plan), []); } catch (eT) {}
+  return { ok: true };
+}
+
+/** صفِ تلاشِ دوباره — فقط کلید و پوشه؛ برنامه از پوشه خوانده می‌شود. */
+function fbQueue_() {
+  try { var q = JSON.parse(props_().getProperty(PK.FB_Q) || '[]'); return Object.prototype.toString.call(q) === '[object Array]' ? q : []; }
+  catch (e) { return []; }
+}
+function fbQueueSave_(q) { try { props_().setProperty(PK.FB_Q, JSON.stringify((q || []).slice(-30))); } catch (e) {} }
+
+/** پس از انتشارِ ریلز: یک بار همین‌جا، و اگر نشد به صف. هرگز پرتاب نمی‌کند. */
+function fbAfterReel_(it, plan) {
+  var r;
+  try { r = fbCross_(plan); } catch (e) { r = { wait: true, why: String(e.message || e).slice(0, 140) }; plan.fbWhy = r.why; }
+  if (r.off || r.ok) return r;
+  try { destNote_('fb', '⏳ ' + r.why); } catch (eN) {}
+  if (r.wait) {
+    var q = fbQueue_();
+    if (!q.some(function (x) { return x && x.k === it.key; })) q.push({ k: it.key, f: it.folderId, p: it.part || 1, n: 0 });
+    fbQueueSave_(q);
+  }
+  return r;
+}
+
+/** دورِ صف — از `igTick`. */
+function fbQueueRun_(deadline) {
+  var q = fbQueue_(), keep = [], out = { tried: 0, ok: 0 };
+  if (!q.length) return out;
+  try { if (!destGate_('fb', ENRICH_SHOW_SPECIAL).ok) return out; } catch (eG) { return out; }
+  var max = Math.max(1, Number(CFG.FB_TRY_MAX) || 5);
+  for (var i = 0; i < q.length; i++) {
+    var x = q[i];
+    if (!x || Date.now() > deadline - 30000) { if (x) keep.push(x); continue; }
+    var fo = null, plan = null;
+    try { fo = igFolder_(DriveApp.getFolderById(x.f), x.p); plan = igPlanRead_(fo); } catch (eF) { plan = null; }
+    if (!plan || plan.fbId) continue;
+    out.tried++;
+    var r;
+    try { r = fbCross_(plan); } catch (e) { r = { wait: true, why: String(e.message || e).slice(0, 140) }; plan.fbWhy = r.why; }
+    try { igPlanWrite_(fo, plan); } catch (eW) {}
+    if (r.ok) { out.ok++; continue; }
+    if (r.off) { keep.push(x); continue; }
+    x.n = (Number(x.n) || 0) + 1;
+    if (x.n < max) keep.push(x);
+    else { try { tgSend_('⚠️ بازنشرِ فیسبوکِ ' + igLessonLabel_(plan) + ' پس از ' + max + ' تلاش کنار رفت: ' + tgEsc_(r.why || '')); } catch (eT) {} }
+    if (/سهمِ امروز/.test(String(r.why || ''))) { for (var j = i + 1; j < q.length; j++) if (q[j]) keep.push(q[j]); break; }
+  }
+  fbQueueSave_(keep);
+  return out;
+}
+
+function fbStatus_() {
+  var q = fbQueue_(), d = {};
+  try { d = JSON.parse(props_().getProperty(PK.FB_DAY) || '{}') || {}; } catch (e) { d = {}; }
+  var g = { ok: false, why: '' };
+  try { g = destGate_('fb', ENRICH_SHOW_SPECIAL); } catch (eG) {}
+  var today = d.day === Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd') ? Number(d.n) || 0 : 0;
+  return { on: !!g.ok, why: g.ok ? '' : g.why, today: today, queued: q.length,
+           line: g.ok ? '📘 فیسبوک: روشن، امروز ' + today + ' ریلز' + (q.length ? '، ' + q.length + ' در صفِ تلاشِ دوباره' : '') + '.'
+                      : '📘 فیسبوک: خاموش (' + g.why + ').' };
 }

@@ -1557,11 +1557,21 @@ function lastEpNo_(cell) {
   return mx;
 }
 
-function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt) {
+function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt, optsOpt) {
   var out = { rec: null, pinExhausted: false, pinBlocked: false, spent: [] };
   var reg = regOpt || readSeriesReg_(hub);
   if (!reg.rows.length) return out;
   var parts = partsOpt || readSeriesParts_(hub);
+  /* ۱۱.۵: تولیدِ موازی — فقط وقتی دست‌کم یک تیک هست؛ وگرنه این شاخه هیچ کاری نمی‌کند و مسیرِ پیشین عیناً می‌رود.
+     سنجاقِ دستی بالاتر از گردش است. */
+  if (!(optsOpt && optsOpt.noPar) && seriesParList_(reg).length) {
+    var basePlan = pickSeriesPlan_(hub, reg, parts, skipOpt, { noPar: true });
+    if (seriesPin_() && basePlan.rec) return basePlan;
+    var skP = skipOpt || null;
+    return seriesParPick_(hub, reg, parts, basePlan, function (k) {
+      return !!(skP && Object.prototype.hasOwnProperty.call(skP, k) && skP[k]);
+    });
+  }
   // مجموعه‌هایی که در همین اجرا خوانده نشدند. «تمام‌شده» نیستند؛ فقط امروز
   // نوبتشان نیست. پس نه بسته می‌شوند و نه دوباره انتخاب.
   var skip = skipOpt || null;
@@ -1690,4 +1700,115 @@ function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt) {
   });
   out.rec = queue[0];
   return out;
+}
+
+/* ═══════ تولیدِ موازی — زیرساخت، خاموش تا تیکِ او (۱۱.۵) ═══════
+
+   ══ خواسته، عیناً ══
+   «در تابلوی مجموعه‌ها ستون/تیکِ «فعال» برای هر مجموعه باشد، به‌صورتِ پیش‌فرض
+   غیرفعال، و خودش هر وقت خواست فعال می‌کند. تا او فعال نکرده هیچ مجموعهٔ تازه‌ای
+   تولید نشود و رفتارِ فعلی بدون تغییر بماند.»
+
+   ══ چه می‌کند ══
+   هیچ تیکی ⇒ `pickSeriesPlan_` **دقیقاً** همان مسیرِ پیشین را می‌رود؛ این تابع
+   حتی صدا زده نمی‌شود که چیزی تصمیم بگیرد (`run_owner110_test` ۱۴ همین را با
+   مقایسهٔ خروجی می‌سنجد).
+   با تیک ⇒ هر روز یکی از این‌ها نوبت می‌گیرد: مجموعه‌ای که موتور به‌هرحال
+   می‌ساخت + هر مجموعهٔ «در حال تولید» که کار دارد + مجموعه‌های تیک‌خورده. نوبت با
+   «آخرین قسمت»: آنکه دیرتر از همه قسمت گرفته (یا هرگز)، امروز. هر مجموعه
+   پلی‌لیستِ خودش را از قبل دارد (بخشِ ۲۷)، پس جدا منتشر می‌شوند.
+
+   ══ چرا «در حال تولید»ها هم در گردش‌اند ══
+   ردیفِ تیک‌خورده پس از نخستین قسمت «در حال تولید» می‌شود، و مسیرِ پیشین از میانِ
+   چند «در حال تولید» تازه‌ترین را برمی‌دارد. بی این، فردا همان تیک‌خورده «مجموعهٔ
+   پیشفرض» می‌شد و مجموعهٔ اصلی بی‌صدا از گردش بیرون می‌افتاد.
+
+   ══ آنچه عمداً عوض نشد ══
+   سنجاقِ دستی بالاتر از همه است (گردش در آن حال خاموش). ریلز همان «مجموعه به
+   مجموعه» می‌ماند — تصمیمِ صاحبِ کانال. روزی یک قسمت می‌ماند؛ «موازی» یعنی
+   یک‌درمیان، نه دو قسمت در روز — آن دومی سقفِ شش‌دقیقه و سهمیهٔ یوتیوب را می‌شکند و
+   تصمیمش با اوست.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+var SERIES_PAR_YES = 'بله';
+
+function seriesParOn_(vals) {
+  var t = String((vals || [])[SC.PAR - 1] == null ? '' : vals[SC.PAR - 1]).trim().toLowerCase();
+  return t === 'بله' || t === 'فعال' || t === 'true' || t === 'yes' || t === '✓' || t === '1';
+}
+
+/** ردیف‌های تیک‌خورده، به ترتیبِ اولویتِ درسی. ⇒ [rec] */
+function seriesParList_(reg) {
+  var out = [];
+  for (var i = 0; i < ((reg && reg.rows) || []).length; i++) {
+    if (seriesParOn_(reg.rows[i].vals)) out.push(reg.rows[i]);
+  }
+  out.sort(function (a, b) {
+    var oa = seriesEffOrder_(a.vals), ob = seriesEffOrder_(b.vals);
+    return oa !== ob ? oa - ob : a.row - b.row;
+  });
+  var mx = Math.max(1, Number(CFG.SERIES_PAR_MAX) || 3);
+  return out.slice(0, mx);
+}
+
+/**
+ * گردش. `base` همان خروجیِ مسیرِ پیشین است. ⇒ همان شکل، با `rec` شاید عوض‌شده و `par` برای نمایش.
+ */
+function seriesParPick_(hub, reg, parts, base, isSkipped) {
+  var ticked = seriesParList_(reg);
+  if (!ticked.length) return base;
+  var pool = [], seen = {};
+  var add = function (r, why) {
+    if (!r || seen[r.key]) return;
+    var st = String(r.vals[SC.STATUS - 1] || '');
+    if (st === SST.SKIPPED || isSkipped(r.key)) return;
+    if (!seriesEligible_(r.vals, r.key, null)) return;
+    if (!seriesHasWork_(hub, r.key, parts)) return;
+    seen[r.key] = 1;
+    pool.push({ rec: r, why: why });
+  };
+  if (base.rec) add(base.rec, 'نوبتِ عادی');
+  for (var i = 0; i < reg.rows.length; i++) {
+    if (String(reg.rows[i].vals[SC.STATUS - 1] || '') === SST.ACTIVE) add(reg.rows[i], 'در حال تولید');
+  }
+  for (var j = 0; j < ticked.length; j++) add(ticked[j], 'تیکِ موازی');
+  if (!pool.length) return base;
+  var at = function (r) { var t = parseWhen_(String(r.vals[SC.LAST_EP_AT - 1] || '')); return isNaN(t) ? 0 : t; };
+  pool.sort(function (a, b) {
+    var ta = at(a.rec), tb = at(b.rec);
+    if (ta !== tb) return ta - tb;
+    var oa = seriesEffOrder_(a.rec.vals), ob = seriesEffOrder_(b.rec.vals);
+    return oa !== ob ? oa - ob : a.rec.row - b.rec.row;
+  });
+  base.rec = pool[0].rec;
+  base.par = { pick: pool[0].rec.key, why: pool[0].why,
+               pool: pool.map(function (p) { return p.rec.key; }),
+               ticked: ticked.map(function (t) { return t.key; }) };
+  return base;
+}
+
+/** تیک از تخته ⇒ همان ستونی که `seriesParList_` می‌خوانَد. */
+function seriesParSave_(hub, key, on) {
+  var reg = readSeriesReg_(hub), rec = reg.byKey[String(key || '').trim()];
+  if (!rec) return { ok: false, message: 'مجموعه پیدا نشد.' };
+  if (on) {
+    var n = seriesParList_(reg).filter(function (r) { return r.key !== rec.key; }).length;
+    var mx = Math.max(1, Number(CFG.SERIES_PAR_MAX) || 3);
+    if (n >= mx) return { ok: false, message: 'سقفِ تولیدِ موازی ' + mx + ' مجموعه است؛ اول تیکِ یکی دیگر را بردارید.' };
+  }
+  reg.sheet.getRange(rec.row, SC.PAR).setValue(on ? SERIES_PAR_YES : '');
+  rec.vals[SC.PAR - 1] = on ? SERIES_PAR_YES : '';
+  return { ok: true, name: String(rec.vals[SC.NAME - 1] || rec.key), on: !!on,
+           ticked: seriesParList_(reg).map(function (r) { return String(r.vals[SC.NAME - 1] || r.key); }) };
+}
+
+/** برای `_STATUS.json`: فقط خواندن. */
+function seriesParStatus_(hub, reg) {
+  try {
+    reg = reg || readSeriesReg_(hub || getHub_());
+    var t = seriesParList_(reg);
+    return { on: t.length > 0, ticked: t.map(function (r) { return r.key; }),
+             line: t.length ? '⇄ تولیدِ موازیِ درس‌نامه روشن: ' + t.map(function (r) { return '«' + String(r.vals[SC.NAME - 1] || r.key) + '»'; }).join('، ') +
+                              ' + مجموعهٔ جاری، یک‌درمیان (هر روز آنکه دیرتر قسمت گرفته).' : '' };
+  } catch (e) { return { on: false, ticked: [], line: '' }; }
 }

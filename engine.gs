@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 11.4
+ *  موتور محتوا و پادکست — نسخهٔ 11.5
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2102,6 +2102,13 @@ var CFG = {
   TAB_LOG: '_گزارش',
   TAB_PRON: 'تلفظ',
   TAB_AUDIT: 'سنجهٔ محتوا',     // نتیجهٔ مقایسهٔ متنِ نهایی با متن‌های خام
+  /* ۱۱.۵ — «جدولِ مقصدها … متصل به قفل و سوییچِ واقعی»: یک ردیف برای یوتیوب، اینستاگرام و فیسبوک (بخشِ ۲۵).
+     بذرش همان رفتارِ پیش از این تب است؛ فیسبوک خاموش تا تیکِ صاحبِ کانال. */
+  DEST_TAB: 'مقصدها',
+  FB_PER_DAY: 6,                 // سقفِ کدِ بازنشرِ فیسبوک در روز؛ ستونِ «سقفِ روزانه»ِ تب می‌تواند کمترش کند
+  FB_TRY_MAX: 5,                 // تلاشِ دوبارهٔ یک بازنشرِ ناموفق، بعد کنار (علتش در برنامهٔ همان ریلز)
+  /* ۱۱.۵ — تولیدِ موازیِ درس‌نامه: حداکثر چند مجموعهٔ تیک‌خورده کنارِ مجموعهٔ جاری. هیچ تیکی ⇒ رفتارِ پیشین. */
+  SERIES_PAR_MAX: 3,
   CAL_TAB: 'تقویمِ تولید',      // روزهای تولیدِ هر برنامه و استثناها
   // ══ بخشِ ۳۲ — «صداها» ══
   // شخصیتِ خواندن (مکث و کشش و دامنه)، نه رنگِ صدا. جدولش در هاب است و
@@ -2268,7 +2275,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '11.4',
+  CODE_VERSION: '11.5',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3209,7 +3216,10 @@ var SERIES_HEADERS = [
      آرام (فقط حرکتِ آرامِ قدیم). او پرسید «تنظیماتِ هر درس و تخته قابلیتِ تغییر و
      ارتقا و کم کردن دارد؟» — برای کلیپ و حرکت جوابِ راست «نه، سراسری است» بود.
      در **انتها**، به همان دلیلِ ستون‌های بالا. */
-  'جان‌بخشیِ تصویر'
+  'جان‌بخشیِ تصویر',
+  /* ══ تولیدِ موازی (۱۱.۵) ══ «ستون/تیکِ «فعال» برای هر مجموعه … پیش‌فرض غیرفعال … تا او فعال نکرده هیچ مجموعهٔ تازه‌ای
+     تولید نشود». خالی = بیرون از گردش؛ «بله» = هر روز نوبتی کنارِ مجموعهٔ جاری (`seriesParPick_`). در **انتها**. */
+  'فعال (تولیدِ موازی)'
 ];
 var SC = { KEY: 1, NAME: 2, SRC: 3, TAB: 4, KIND: 5, PARTS: 6, CHUNKS: 7,
            LEVEL: 8, TOPIC: 9, ORDER: 10, STATUS: 11, CUR_PART: 12, CUR_CHUNK: 13,
@@ -3217,7 +3227,7 @@ var SC = { KEY: 1, NAME: 2, SRC: 3, TAB: 4, KIND: 5, PARTS: 6, CHUNKS: 7,
            STORY: 18, RELATED: 19, FOLDER: 20, NOTE: 21, CAT: 22,
            IS_COURSE: 23, CSCORE: 24, ABOUT: 25, WHY: 26, JUDGED: 27, MANUAL: 28,
            MORDER: 29, MCAT: 30, MSUB: 31, HANDOUT: 32, YT: 33, XREF: 34,
-           LVSTYLE: 35, LVLEVEL: 36, RECAP_EVERY: 37, LVTEXT: 38, LVMOTION: 39 };
+           LVSTYLE: 35, LVLEVEL: 36, RECAP_EVERY: 37, LVTEXT: 38, LVMOTION: 39, PAR: 40 };
 
 var SST = { NEW: 'در نوبت', ACTIVE: 'در حال تولید', DONE: 'تمام‌شده',
             REOPENED: 'قسمت تازه اضافه شد', SKIPPED: 'نادیده گرفته شد' };
@@ -3448,6 +3458,9 @@ var PK = {
   YT_DESC_ARCH: 'YT_DESC_ARCH',    // ۱۱.۰: بایگانیِ توضیحاتِ ویدئوهای بلند در تلگرام {rev, done[], at}
   IG_PATTERN: 'IG_PATTERN',        // ۱۱.۰: الگوی ساعت/قالبِ ریلزها (igPattern_) — کلیدِ جدا از IG_STATE
   CAT_LOCK_LAST: 'CAT_LOCK_LAST',
+  DEST_CACHE: 'DEST_CACHE',        // ۱۱.۵: آخرین خواندنِ سالمِ تبِ «مقصدها» — اگر تب خوانده نشود
+  FB_DAY: 'FB_DAY',                // ۱۱.۵: شمارِ بازنشرِ فیسبوکِ امروز
+  FB_Q: 'FB_Q',                    // ۱۱.۵: صفِ تلاشِ دوبارهٔ فیسبوک — فقط کلید و پوشه
   CAT_LOCK_UI: 'CAT_LOCK_UI',      // ۱۱.۳: تیک‌های پنلِ «دسته‌های از همه جا» در تخته {on, list[], at} — بر CFG.CAT_LOCK مقدم  // ۱۱.۰: آخرین تصمیمِ قفلِ دسته {cat, why, at}
   YT_PL: 'YT_PLAYLIST_MAP',        // نگاشتِ کلیدِ مجموعه → شناسهٔ پلی‌لیست
   YT_STATS: 'YT_STATS_AT',
@@ -3577,7 +3590,7 @@ var PK = {
  * نخوانَد سرخ می‌شود.
  */
 var BUILD_MENU_ = { total: 63, debt: 33 };   /* ⚙ BUILD-MENU */
-var BUILD_MENU_ITEMS_ = [["setApiKey","۱) ثبت کلید Gemini",0,"منو",1],["installTriggers","۲) نصب زمان‌بندی خودکار",1,"منو",1],["setGitHubToken","۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو",1,"منو",1],["setInstagramToken","۴) کلیدِ اینستاگرام (متا)",1,"منو",1],["runSyncNow","اجرای همگام‌سازی همین حالا",0,"منو",1],["runProduceVariety","فقط «از همه جا از همه رنگ»",1,"منو",1],["runProduceSpecial","فقط «درس‌نامه» (تخصصی)",1,"منو",1],["runProduceBoth","هر دو، پشت سر هم",1,"منو",1],["runProduceVarietyEnriched","🌐 «از همه جا از همه رنگ» با غنی‌سازیِ اینترنتی",0,"منو",1],["runProduceSpecialEnriched","🌐 «درس‌نامه» با غنی‌سازیِ اینترنتی",0,"منو",1],["runContentSearch","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)",0,"منو",1],["runEmbedBuild","🧠 اثر انگشتِ معنایی — ساخت و ادامه",0,"منو",1],["runEmbedSelfTest","🧪 خودآزمونِ اثر انگشت",0,"منو",1],["runEmbedRebuild","♻️ بازسازیِ کاملِ اثر انگشت‌ها",0,"منو",1],["showSeriesBoard","📊 مجموعه‌های آموزشی و پیشرفت",1,"منو",1],["runScanSeries","اسکن مجموعه‌های آموزشی",1,"منو",1],["runJudgeSeries","داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)",0,"منو",1],["runLocalJudgeAll","⚡ مرتب‌سازیِ سریعِ فهرست (بی‌مدل)",0,"منو",1],["runRejudgeAll","داوریِ همهٔ مجموعه‌ها از نو (با مدل)",0,"منو",1],["showEnrichStatus","🌐 وضعیتِ غنی‌سازیِ اینترنتی",0,"منو",1],["runMusicAuto","🎵 بانکِ موسیقی — پویش و برچسبِ خودکار",0,"منو",1],["runMusicFetch","⬇️ موسیقی — گشتن در اینترنت و آوردن",1,"منو",1],["runMusicRecheck","🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»",1,"منو",1],["runMusicScan","🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)",0,"منو",1],["runVoiceAudition","🎙 آزمونِ شنیداریِ گویندگان",0,"منو",1],["runStyleProbe","🎚 نمونهٔ روحِ خواندن (با و بی کارت)",1,"منو",1],["showPersonaBoard","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست",0,"منو",1],["runVoiceBridge","🌉 پلِ رنگِ صدا — تبدیلِ صوتِ قسمت",1,"منو",1],["runVoiceSoulTest","🎨 نمونهٔ بلند با رنگ و روح (قسمتِ تیک‌خورده)",1,"منو",1],["runBlockVoice","کنار گذاشتنِ یک گوینده",0,"منو",1],["runVoiceIntake","🎤 گویندهٔ تازه — وارسیِ پوشه و صف",0,"منو",1],["runHandoutBuild","📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته",1,"منو",1],["runContentAudit","🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام",0,"منو",1],["runYouTubePublish","▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست",1,"منو",1],["runYouTubeRedo","🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)",1,"منو",1],["runLessonVisualsRebuild","🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)",1,"منو",1],["runLvGenToggle","🎨 تصویرِ ساخته‌شده: روشن/خاموش",1,"منو",1],["runLvStyleAllAuto","🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار",1,"منو",1],["runYouTubeChannel","📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل",1,"منو",1],["runYouTubeStats","📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت",0,"منو",1],["runYouTubeGrowth","📈 رشدِ کانال — آمار و تشخیص",1,"منو",1],["runSourceQuality","🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها",1,"منو",1],["runRecapNow","📚 قسمتِ مرورِ بزرگ — همهٔ مفاهیمِ یک مجموعه، ساده",0,"منو",1],["runYouTubeFix","🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب",1,"منو",1],["runBackupNow","🗄️ پشتیبان‌گیری از شیت‌ها همین حالا",0,"منو",1],["runOrganizeFolders","سامان‌دهیِ پوشهٔ قسمت‌ها",0,"منو",1],["runSelfUpdateNow","⬆️ بررسی و نصبِ کدِ تازه (همین حالا)",1,"منو",1],["runSelfUpdateDiagnose","🔎 عیب‌یابیِ نصبِ خودکار",0,"منو",1],["runAuditSourceScripts","🔍 وارسیِ اسکریپت‌های منبع (فقط تشخیص)",0,"منو",1],["runShowSourceUpdates","🔄 کدِ تازهٔ تحلیلگرهای منبع — چه آماده است؟",1,"منو",1],["runInstallSourceUpdates","⬆️ نصبِ کدِ تحلیلگرهای منبع",0,"منو",1],["runSourceCycleNow","▶️ چرخهٔ تحلیلگرها را همین حالا بدوان",1,"منو",1],["runShowSourceVerdict","📊 چرخهٔ کدِ تحلیلگرها — نتیجهٔ نصب‌ها",0,"منو",1],["installCodeRollback","بازگشت به نسخهٔ پشتیبانِ کد",1,"منو",1],["healthCheck","وارسی سلامت",1,"منو",1],["checkSources","وارسی شیت‌های منبع",0,"منو",1],["runIngestReports","خواندن گزارش‌های نظارت",0,"منو",1],["testGemini","آزمون اتصال Gemini",0,"منو",1],["testTelegram","آزمون ربات تلگرام",1,"منو",1],["refreshModels","به‌روزرسانی فهرست مدل‌ها",0,"منو",1],["showStatus","نمایش وضعیت",0,"منو",1],["removeTriggers","حذف زمان‌بندی",1,"منو",1],["fullRebuild","ساخت دوبارهٔ کامل بانک",0,"منو",1],["uiBoardHtml","📊 مجموعه‌های آموزشی و پیشرفت › uiBoardHtml",1,"پنجره",1],["uiHandoutSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutSeries",1,"پنجره",1],["uiBridgeSave","📊 مجموعه‌های آموزشی و پیشرفت › uiBridgeSave",1,"پنجره",1],["uiRecapQueue","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapQueue",1,"پنجره",1],["uiHandoutAll","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutAll",1,"پنجره",1],["uiCatLockSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCatLockSave",1,"پنجره",1],["uiCalSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCalSave",1,"پنجره",1],["uiLvMotionSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvMotionSave",1,"پنجره",1],["uiLvTextSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvTextSave",1,"پنجره",1],["uiLvStyleSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvStyleSave",1,"پنجره",1],["uiLvLevelSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvLevelSave",1,"پنجره",1],["uiRecapEverySave","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapEverySave",1,"پنجره",1],["uiPinSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiPinSeries",1,"پنجره",1],["uiPinCategory","📊 مجموعه‌های آموزشی و پیشرفت › uiPinCategory",1,"پنجره",1],["uiSetCourse","📊 مجموعه‌های آموزشی و پیشرفت › uiSetCourse",1,"پنجره",1],["uiSetManual","📊 مجموعه‌های آموزشی و پیشرفت › uiSetManual",1,"پنجره",1],["uiClearManual","📊 مجموعه‌های آموزشی و پیشرفت › uiClearManual",1,"پنجره",1],["uiJudgeNow","📊 مجموعه‌های آموزشی و پیشرفت › uiJudgeNow",1,"پنجره",1],["uiClearPin","📊 مجموعه‌های آموزشی و پیشرفت › uiClearPin",1,"پنجره",1],["personaEpisodeLists","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaEpisodeLists",1,"پنجره",1],["personaBoardData","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardData",1,"پنجره",1],["personaBoardSave","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardSave",1,"پنجره",1],["srchRun","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchRun",1,"پنجره",1],["srchLexStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchLexStart",1,"پنجره",1],["srchLexStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchLexStep",1,"پنجره",1],["srchSemStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStart",1,"پنجره",1],["srchSemStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStep",1,"پنجره",1],["srchDigestStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestStep",1,"پنجره",1],["srchDigestFinal","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestFinal",1,"پنجره",1],["srchExport","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchExport",1,"پنجره",1]];   /* ⚙ BUILD-MENU-ITEMS */
+var BUILD_MENU_ITEMS_ = [["setApiKey","۱) ثبت کلید Gemini",0,"منو",1],["installTriggers","۲) نصب زمان‌بندی خودکار",1,"منو",1],["setGitHubToken","۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو",1,"منو",1],["setInstagramToken","۴) کلیدِ اینستاگرام (متا)",1,"منو",1],["runSyncNow","اجرای همگام‌سازی همین حالا",0,"منو",1],["runProduceVariety","فقط «از همه جا از همه رنگ»",1,"منو",1],["runProduceSpecial","فقط «درس‌نامه» (تخصصی)",1,"منو",1],["runProduceBoth","هر دو، پشت سر هم",1,"منو",1],["runProduceVarietyEnriched","🌐 «از همه جا از همه رنگ» با غنی‌سازیِ اینترنتی",0,"منو",1],["runProduceSpecialEnriched","🌐 «درس‌نامه» با غنی‌سازیِ اینترنتی",0,"منو",1],["runContentSearch","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)",0,"منو",1],["runEmbedBuild","🧠 اثر انگشتِ معنایی — ساخت و ادامه",0,"منو",1],["runEmbedSelfTest","🧪 خودآزمونِ اثر انگشت",0,"منو",1],["runEmbedRebuild","♻️ بازسازیِ کاملِ اثر انگشت‌ها",0,"منو",1],["showSeriesBoard","📊 مجموعه‌های آموزشی و پیشرفت",1,"منو",1],["runScanSeries","اسکن مجموعه‌های آموزشی",1,"منو",1],["runJudgeSeries","داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)",0,"منو",1],["runLocalJudgeAll","⚡ مرتب‌سازیِ سریعِ فهرست (بی‌مدل)",0,"منو",1],["runRejudgeAll","داوریِ همهٔ مجموعه‌ها از نو (با مدل)",0,"منو",1],["showEnrichStatus","🌐 وضعیتِ غنی‌سازیِ اینترنتی",0,"منو",1],["runMusicAuto","🎵 بانکِ موسیقی — پویش و برچسبِ خودکار",0,"منو",1],["runMusicFetch","⬇️ موسیقی — گشتن در اینترنت و آوردن",1,"منو",1],["runMusicRecheck","🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»",1,"منو",1],["runMusicScan","🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)",0,"منو",1],["runVoiceAudition","🎙 آزمونِ شنیداریِ گویندگان",0,"منو",1],["runStyleProbe","🎚 نمونهٔ روحِ خواندن (با و بی کارت)",1,"منو",1],["showPersonaBoard","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست",0,"منو",1],["runVoiceBridge","🌉 پلِ رنگِ صدا — تبدیلِ صوتِ قسمت",1,"منو",1],["runVoiceSoulTest","🎨 نمونهٔ بلند با رنگ و روح (قسمتِ تیک‌خورده)",1,"منو",1],["runBlockVoice","کنار گذاشتنِ یک گوینده",0,"منو",1],["runVoiceIntake","🎤 گویندهٔ تازه — وارسیِ پوشه و صف",0,"منو",1],["runHandoutBuild","📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته",1,"منو",1],["runContentAudit","🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام",0,"منو",1],["runYouTubePublish","▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست",1,"منو",1],["runYouTubeRedo","🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)",1,"منو",1],["runLessonVisualsRebuild","🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)",1,"منو",1],["runLvGenToggle","🎨 تصویرِ ساخته‌شده: روشن/خاموش",1,"منو",1],["runLvStyleAllAuto","🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار",1,"منو",1],["runYouTubeChannel","📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل",1,"منو",1],["runYouTubeStats","📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت",0,"منو",1],["runYouTubeGrowth","📈 رشدِ کانال — آمار و تشخیص",1,"منو",1],["runSourceQuality","🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها",1,"منو",1],["runRecapNow","📚 قسمتِ مرورِ بزرگ — همهٔ مفاهیمِ یک مجموعه، ساده",0,"منو",1],["runYouTubeFix","🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب",1,"منو",1],["runBackupNow","🗄️ پشتیبان‌گیری از شیت‌ها همین حالا",0,"منو",1],["runOrganizeFolders","سامان‌دهیِ پوشهٔ قسمت‌ها",0,"منو",1],["runSelfUpdateNow","⬆️ بررسی و نصبِ کدِ تازه (همین حالا)",1,"منو",1],["runSelfUpdateDiagnose","🔎 عیب‌یابیِ نصبِ خودکار",0,"منو",1],["runAuditSourceScripts","🔍 وارسیِ اسکریپت‌های منبع (فقط تشخیص)",0,"منو",1],["runShowSourceUpdates","🔄 کدِ تازهٔ تحلیلگرهای منبع — چه آماده است؟",1,"منو",1],["runInstallSourceUpdates","⬆️ نصبِ کدِ تحلیلگرهای منبع",0,"منو",1],["runSourceCycleNow","▶️ چرخهٔ تحلیلگرها را همین حالا بدوان",1,"منو",1],["runShowSourceVerdict","📊 چرخهٔ کدِ تحلیلگرها — نتیجهٔ نصب‌ها",0,"منو",1],["installCodeRollback","بازگشت به نسخهٔ پشتیبانِ کد",1,"منو",1],["healthCheck","وارسی سلامت",1,"منو",1],["checkSources","وارسی شیت‌های منبع",0,"منو",1],["runIngestReports","خواندن گزارش‌های نظارت",0,"منو",1],["testGemini","آزمون اتصال Gemini",0,"منو",1],["testTelegram","آزمون ربات تلگرام",1,"منو",1],["refreshModels","به‌روزرسانی فهرست مدل‌ها",0,"منو",1],["showStatus","نمایش وضعیت",0,"منو",1],["removeTriggers","حذف زمان‌بندی",1,"منو",1],["fullRebuild","ساخت دوبارهٔ کامل بانک",0,"منو",1],["uiBoardHtml","📊 مجموعه‌های آموزشی و پیشرفت › uiBoardHtml",1,"پنجره",1],["uiHandoutSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutSeries",1,"پنجره",1],["uiBridgeSave","📊 مجموعه‌های آموزشی و پیشرفت › uiBridgeSave",1,"پنجره",1],["uiRecapQueue","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapQueue",1,"پنجره",1],["uiHandoutAll","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutAll",1,"پنجره",1],["uiCatLockSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCatLockSave",1,"پنجره",1],["uiCalSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCalSave",1,"پنجره",1],["uiLvMotionSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvMotionSave",1,"پنجره",1],["uiLvTextSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvTextSave",1,"پنجره",1],["uiLvStyleSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvStyleSave",1,"پنجره",1],["uiLvLevelSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvLevelSave",1,"پنجره",1],["uiRecapEverySave","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapEverySave",1,"پنجره",1],["uiPinSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiPinSeries",1,"پنجره",1],["uiPinCategory","📊 مجموعه‌های آموزشی و پیشرفت › uiPinCategory",1,"پنجره",1],["uiSetCourse","📊 مجموعه‌های آموزشی و پیشرفت › uiSetCourse",1,"پنجره",1],["uiSetManual","📊 مجموعه‌های آموزشی و پیشرفت › uiSetManual",1,"پنجره",1],["uiClearManual","📊 مجموعه‌های آموزشی و پیشرفت › uiClearManual",1,"پنجره",1],["uiJudgeNow","📊 مجموعه‌های آموزشی و پیشرفت › uiJudgeNow",1,"پنجره",1],["uiClearPin","📊 مجموعه‌های آموزشی و پیشرفت › uiClearPin",1,"پنجره",1],["uiDestSave","📊 مجموعه‌های آموزشی و پیشرفت › uiDestSave",1,"پنجره",1],["uiParSave","📊 مجموعه‌های آموزشی و پیشرفت › uiParSave",1,"پنجره",1],["personaEpisodeLists","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaEpisodeLists",1,"پنجره",1],["personaBoardData","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardData",1,"پنجره",1],["personaBoardSave","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardSave",1,"پنجره",1],["srchRun","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchRun",1,"پنجره",1],["srchLexStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchLexStart",1,"پنجره",1],["srchLexStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchLexStep",1,"پنجره",1],["srchSemStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStart",1,"پنجره",1],["srchSemStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStep",1,"پنجره",1],["srchDigestStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestStep",1,"پنجره",1],["srchDigestFinal","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestFinal",1,"پنجره",1],["srchExport","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchExport",1,"پنجره",1]];   /* ⚙ BUILD-MENU-ITEMS */
 
 function props_() { return PropertiesService.getScriptProperties(); }
 
@@ -18604,6 +18617,10 @@ function writeStatus_(hub, note) {
     igPattern: (function () { try { var x = JSON.parse(props_().getProperty(PK.IG_PATTERN) || 'null'); if (x) delete x.byDay; return x; } catch (e) { return null; } })(),
     catLock: (function () { try { return { on: catLockOn_(), order: catLockList_(), fromBoard: !!catLockUi_(), line: catLockLine_() }; } catch (e) { return null; } })(),
     ytShowsOff: (function () { try { return { shows: CFG.YT_SHOWS_OFF || [], line: ytShowsOffLine_(), parked: ytDueParked_().length }; } catch (e) { return null; } })(),
+    /* ۱۱.۵: مقصدها، فیسبوک و تولیدِ موازی — فراخوانِ رو به جلو (۸ → ۲۵/۱۳/۳۸) در try. */
+    destinations: (function () { try { return destStatus_(); } catch (e) { return null; } })(),
+    facebook: (function () { try { return fbStatus_(); } catch (e) { return null; } })(),
+    seriesPar: (function () { try { return seriesParStatus_(); } catch (e) { return null; } })(),
     ytOwnerPrivate: (function () { try { return { ids: ytOwnerPrivList_().length, line: ytOwnerPrivLine_() }; } catch (e) { return null; } })(),
     lessonMotion: (function () { try { return lvMotionStatus_(); } catch (e) { return null; } })(),
     lessonCards: (function () { try { return lvOvStatus_(); } catch (e) { return null; } })(),
@@ -20641,6 +20658,9 @@ function healthCheck() {
      تشخیص داد. */
   try { lvHealth_(problems, notes); } catch (eLv) {}
   try { notes.push(catLockLine_()); } catch (eCl) {}    // ۱۱.۰: قفلِ دسته‌های علمی — هر روز، حتی سالم
+  try { notes.push(destStatus_().line); } catch (eDs) {}   // ۱۱.۵: مقصدها — هر روز، حتی سالم
+  try { var fbS = fbStatus_(); if (fbS.on || fbS.queued) notes.push(fbS.line); } catch (eFs) {}
+  try { var spS = seriesParStatus_(); if (spS.line) notes.push(spS.line); } catch (eSp) {}
   try { var ytOffL = ytShowsOffLine_(); if (ytOffL) notes.push(ytOffL); } catch (eYo) {}
   try { var ytPrivL = ytOwnerPrivLine_(); if (ytPrivL) notes.push(ytPrivL); } catch (eYp) {}
   try { vmHealth_(problems, notes); } catch (eVmH) {}    // بخشِ ۳۷ پس از این بخش است ⇒ درونِ try
@@ -26131,11 +26151,21 @@ function lastEpNo_(cell) {
   return mx;
 }
 
-function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt) {
+function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt, optsOpt) {
   var out = { rec: null, pinExhausted: false, pinBlocked: false, spent: [] };
   var reg = regOpt || readSeriesReg_(hub);
   if (!reg.rows.length) return out;
   var parts = partsOpt || readSeriesParts_(hub);
+  /* ۱۱.۵: تولیدِ موازی — فقط وقتی دست‌کم یک تیک هست؛ وگرنه این شاخه هیچ کاری نمی‌کند و مسیرِ پیشین عیناً می‌رود.
+     سنجاقِ دستی بالاتر از گردش است. */
+  if (!(optsOpt && optsOpt.noPar) && seriesParList_(reg).length) {
+    var basePlan = pickSeriesPlan_(hub, reg, parts, skipOpt, { noPar: true });
+    if (seriesPin_() && basePlan.rec) return basePlan;
+    var skP = skipOpt || null;
+    return seriesParPick_(hub, reg, parts, basePlan, function (k) {
+      return !!(skP && Object.prototype.hasOwnProperty.call(skP, k) && skP[k]);
+    });
+  }
   // مجموعه‌هایی که در همین اجرا خوانده نشدند. «تمام‌شده» نیستند؛ فقط امروز
   // نوبتشان نیست. پس نه بسته می‌شوند و نه دوباره انتخاب.
   var skip = skipOpt || null;
@@ -26264,6 +26294,117 @@ function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt) {
   });
   out.rec = queue[0];
   return out;
+}
+
+/* ═══════ تولیدِ موازی — زیرساخت، خاموش تا تیکِ او (۱۱.۵) ═══════
+
+   ══ خواسته، عیناً ══
+   «در تابلوی مجموعه‌ها ستون/تیکِ «فعال» برای هر مجموعه باشد، به‌صورتِ پیش‌فرض
+   غیرفعال، و خودش هر وقت خواست فعال می‌کند. تا او فعال نکرده هیچ مجموعهٔ تازه‌ای
+   تولید نشود و رفتارِ فعلی بدون تغییر بماند.»
+
+   ══ چه می‌کند ══
+   هیچ تیکی ⇒ `pickSeriesPlan_` **دقیقاً** همان مسیرِ پیشین را می‌رود؛ این تابع
+   حتی صدا زده نمی‌شود که چیزی تصمیم بگیرد (`run_owner110_test` ۱۴ همین را با
+   مقایسهٔ خروجی می‌سنجد).
+   با تیک ⇒ هر روز یکی از این‌ها نوبت می‌گیرد: مجموعه‌ای که موتور به‌هرحال
+   می‌ساخت + هر مجموعهٔ «در حال تولید» که کار دارد + مجموعه‌های تیک‌خورده. نوبت با
+   «آخرین قسمت»: آنکه دیرتر از همه قسمت گرفته (یا هرگز)، امروز. هر مجموعه
+   پلی‌لیستِ خودش را از قبل دارد (بخشِ ۲۷)، پس جدا منتشر می‌شوند.
+
+   ══ چرا «در حال تولید»ها هم در گردش‌اند ══
+   ردیفِ تیک‌خورده پس از نخستین قسمت «در حال تولید» می‌شود، و مسیرِ پیشین از میانِ
+   چند «در حال تولید» تازه‌ترین را برمی‌دارد. بی این، فردا همان تیک‌خورده «مجموعهٔ
+   پیشفرض» می‌شد و مجموعهٔ اصلی بی‌صدا از گردش بیرون می‌افتاد.
+
+   ══ آنچه عمداً عوض نشد ══
+   سنجاقِ دستی بالاتر از همه است (گردش در آن حال خاموش). ریلز همان «مجموعه به
+   مجموعه» می‌ماند — تصمیمِ صاحبِ کانال. روزی یک قسمت می‌ماند؛ «موازی» یعنی
+   یک‌درمیان، نه دو قسمت در روز — آن دومی سقفِ شش‌دقیقه و سهمیهٔ یوتیوب را می‌شکند و
+   تصمیمش با اوست.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+var SERIES_PAR_YES = 'بله';
+
+function seriesParOn_(vals) {
+  var t = String((vals || [])[SC.PAR - 1] == null ? '' : vals[SC.PAR - 1]).trim().toLowerCase();
+  return t === 'بله' || t === 'فعال' || t === 'true' || t === 'yes' || t === '✓' || t === '1';
+}
+
+/** ردیف‌های تیک‌خورده، به ترتیبِ اولویتِ درسی. ⇒ [rec] */
+function seriesParList_(reg) {
+  var out = [];
+  for (var i = 0; i < ((reg && reg.rows) || []).length; i++) {
+    if (seriesParOn_(reg.rows[i].vals)) out.push(reg.rows[i]);
+  }
+  out.sort(function (a, b) {
+    var oa = seriesEffOrder_(a.vals), ob = seriesEffOrder_(b.vals);
+    return oa !== ob ? oa - ob : a.row - b.row;
+  });
+  var mx = Math.max(1, Number(CFG.SERIES_PAR_MAX) || 3);
+  return out.slice(0, mx);
+}
+
+/**
+ * گردش. `base` همان خروجیِ مسیرِ پیشین است. ⇒ همان شکل، با `rec` شاید عوض‌شده و `par` برای نمایش.
+ */
+function seriesParPick_(hub, reg, parts, base, isSkipped) {
+  var ticked = seriesParList_(reg);
+  if (!ticked.length) return base;
+  var pool = [], seen = {};
+  var add = function (r, why) {
+    if (!r || seen[r.key]) return;
+    var st = String(r.vals[SC.STATUS - 1] || '');
+    if (st === SST.SKIPPED || isSkipped(r.key)) return;
+    if (!seriesEligible_(r.vals, r.key, null)) return;
+    if (!seriesHasWork_(hub, r.key, parts)) return;
+    seen[r.key] = 1;
+    pool.push({ rec: r, why: why });
+  };
+  if (base.rec) add(base.rec, 'نوبتِ عادی');
+  for (var i = 0; i < reg.rows.length; i++) {
+    if (String(reg.rows[i].vals[SC.STATUS - 1] || '') === SST.ACTIVE) add(reg.rows[i], 'در حال تولید');
+  }
+  for (var j = 0; j < ticked.length; j++) add(ticked[j], 'تیکِ موازی');
+  if (!pool.length) return base;
+  var at = function (r) { var t = parseWhen_(String(r.vals[SC.LAST_EP_AT - 1] || '')); return isNaN(t) ? 0 : t; };
+  pool.sort(function (a, b) {
+    var ta = at(a.rec), tb = at(b.rec);
+    if (ta !== tb) return ta - tb;
+    var oa = seriesEffOrder_(a.rec.vals), ob = seriesEffOrder_(b.rec.vals);
+    return oa !== ob ? oa - ob : a.rec.row - b.rec.row;
+  });
+  base.rec = pool[0].rec;
+  base.par = { pick: pool[0].rec.key, why: pool[0].why,
+               pool: pool.map(function (p) { return p.rec.key; }),
+               ticked: ticked.map(function (t) { return t.key; }) };
+  return base;
+}
+
+/** تیک از تخته ⇒ همان ستونی که `seriesParList_` می‌خوانَد. */
+function seriesParSave_(hub, key, on) {
+  var reg = readSeriesReg_(hub), rec = reg.byKey[String(key || '').trim()];
+  if (!rec) return { ok: false, message: 'مجموعه پیدا نشد.' };
+  if (on) {
+    var n = seriesParList_(reg).filter(function (r) { return r.key !== rec.key; }).length;
+    var mx = Math.max(1, Number(CFG.SERIES_PAR_MAX) || 3);
+    if (n >= mx) return { ok: false, message: 'سقفِ تولیدِ موازی ' + mx + ' مجموعه است؛ اول تیکِ یکی دیگر را بردارید.' };
+  }
+  reg.sheet.getRange(rec.row, SC.PAR).setValue(on ? SERIES_PAR_YES : '');
+  rec.vals[SC.PAR - 1] = on ? SERIES_PAR_YES : '';
+  return { ok: true, name: String(rec.vals[SC.NAME - 1] || rec.key), on: !!on,
+           ticked: seriesParList_(reg).map(function (r) { return String(r.vals[SC.NAME - 1] || r.key); }) };
+}
+
+/** برای `_STATUS.json`: فقط خواندن. */
+function seriesParStatus_(hub, reg) {
+  try {
+    reg = reg || readSeriesReg_(hub || getHub_());
+    var t = seriesParList_(reg);
+    return { on: t.length > 0, ticked: t.map(function (r) { return r.key; }),
+             line: t.length ? '⇄ تولیدِ موازیِ درس‌نامه روشن: ' + t.map(function (r) { return '«' + String(r.vals[SC.NAME - 1] || r.key) + '»'; }).join('، ') +
+                              ' + مجموعهٔ جاری، یک‌درمیان (هر روز آنکه دیرتر قسمت گرفته).' : '' };
+  } catch (e) { return { on: false, ticked: [], line: '' }; }
 }
 
 /* ═══════════════════════════ 14_Special.gs ═══════════════════════════ */
@@ -29208,6 +29349,8 @@ function seriesBoardData_(hub) {
       lvText: String(v[SC.LVTEXT - 1] || '').trim(),
       /* «جان‌بخشیِ تصویر» (۸.۵۴) — همان خانه؛ خالی یعنی پیش‌فرض. */
       lvMotion: String(v[SC.LVMOTION - 1] || '').trim(),
+      /* «فعال (تولیدِ موازی)» (۱۱.۵) — همان تابعی که انتخاب‌کننده می‌خوانَد. */
+      par: seriesParOn_(v),
       /* «مرورِ هر چند درس» (۸.۳۶) — خامِ خانه؛ خالی یعنی پیش‌فرض. */
       recapEvery: String(v[SC.RECAP_EVERY - 1] == null ? '' : v[SC.RECAP_EVERY - 1]).trim(),
       order: Number(v[SC.ORDER - 1]) || 999,
@@ -29678,6 +29821,9 @@ function seriesBoardHtml_(d) {
   // این فقط سطحِ نمایش است. پس اگر این پنل بشکند، تولید نمی‌شکند.
   H.push(calPanelHtml_());
   H.push(catPanelHtml_());
+  /* ۱۱.۵: مقصدها و نمای چهارحالته — هر دو فقط می‌خوانند/می‌نویسند همان جایی که تولید می‌خوانَد؛ شکستشان تخته را نمی‌خواباند. */
+  try { H.push(destPanelHtml_()); } catch (eDp) {}
+  try { H.push(seriesStatesHtml_(d)); } catch (eSs) {}
   H.push(handoutPanelHtml_(d));
   H.push(recapPanelHtml_(d));
 
@@ -29793,6 +29939,7 @@ function seriesBoardHtml_(d) {
            '<th>پیشرفت</th><th>وضعیت</th><th>قسمت‌های ساخته‌شده</th>' +
            '<th>جزوه</th><th>مرورِ بزرگ</th><th>سبکِ تصویر</th><th>تصویرسازی</th>' +
            '<th>مجموعه‌های مرجع</th>' +
+           '<th>فعال (موازی)</th>' +
            '<th></th></tr>');
     for (var i = 0; i < grp.series.length; i++) {
       var x = grp.series[i];
@@ -29835,6 +29982,7 @@ function seriesBoardHtml_(d) {
          یک ستونِ خالی از یک پنجرهٔ سفید بی‌نهایت بهتر است. */
       try { H.push(bridgeCell_(x, d)); }
       catch (eBc) { H.push('<td class="sub">—</td>'); }
+      H.push(parCell_(x));
       H.push('<td class="act"><button ' + (x.isPinned ? 'class="pin" ' : '') +
              'data-key="' + bEsc_(x.key) + '" ' +
              'data-act="' + (x.isPinned ? 'unpin' : 'pin') + '" ' +
@@ -29857,7 +30005,7 @@ function seriesBoardHtml_(d) {
       // قسمت‌های همان مجموعه، به ترتیب، با جای ایستادن
       if (x.partRows.length) {
         H.push('<tr class="' + clsName.replace('srow', 'sdetail') + '"><td></td>' +
-               '<td colspan="12"><table style="font-size:11px">');
+               '<td colspan="13"><table style="font-size:11px">');
         for (var p = 0; p < x.partRows.length; p++) {
           var pr = x.partRows[p];
           H.push('<tr><td style="width:34px">' + faNum_(pr.seq || (p + 1)) + '</td>' +
@@ -30227,6 +30375,18 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبتِ دسته‌ها…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiCatLockSave(on,list.map(function(x){return x.n;}));}');
+  // ── مقصدها و تولیدِ موازی (۱۱.۵) ──
+  H.push('function destSave(b){var box=document.getElementById("destBox");var list=[];' +
+         'box.querySelectorAll(".destRow").forEach(function(r){var sh=[];' +
+         'r.querySelectorAll(".destShow").forEach(function(c){if(c.checked)sh.push(c.dataset.show);});' +
+         'list.push({kind:r.dataset.kind,on:r.querySelector(".destOn").checked,shows:sh,cap:r.querySelector(".destCap").value});});' +
+         'busy();say("ثبتِ مقصدها…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiDestSave(list);}');
+  H.push('function parTick(c){var k=c.dataset.key,on=c.checked;' +
+         'busy();say("ثبتِ تولیدِ موازی…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiParSave(k,on);}');
   H.push('</script></body></html>');
   return H.join('\n');
 }
@@ -31808,6 +31968,144 @@ function uiClearPin() {
   clearSeriesPin_();
   logLine_('انتخاب دستی برداشته شد.');
   return { ok: true, message: 'انتخاب دستی برداشته شد. موتور به ترتیبِ خودکار برمی‌گردد.' };
+}
+
+/* ══ کنترل‌های تخته و جایی که بک‌اند می‌خوانَدشان (۱۱.۵) ══
+   «تنظیماتِ ظاهریِ شیت با رفتارِ واقعیِ بک‌اند مغایرت نداشته باشد.» هر تابعی که پنجره صدا می‌زند این‌جا یک ردیف دارد:
+   `store` = جایی که می‌نشیند (ستونِ رجیستری، کلیدِ Properties یا نامِ تب)، `writer` = تابعی که می‌نویسد، `reader` = تابعی
+   که **تولید** با آن می‌خوانَد. `run_owner110_test` §۱۲ برای هر ردیف می‌سنجد که نویسنده و خواننده هر دو همان `store` را
+   لمس می‌کنند و خواننده از بیرونِ تخته صدا زده می‌شود — و هر `google.script.run`ِ تازه‌ای که این‌جا ردیف نداشته باشد، می‌افتد.
+   `kind:'action'` یعنی دکمه‌ای که کاری را همان لحظه انجام می‌دهد و تنظیمی نمی‌گذارد. */
+var BOARD_CONTROLS_ = [
+  { ui: 'uiCalSave', kind: 'setting', writer: 'calBoardSave_', store: 'calTab_', reader: 'calGate_' },
+  { ui: 'uiCatLockSave', kind: 'setting', writer: 'catLockSave_', store: 'PK.CAT_LOCK_UI', reader: 'catLockUi_' },
+  { ui: 'uiDestSave', kind: 'setting', writer: 'destBoardSave_', store: 'destTab_', reader: 'destRead_' },
+  { ui: 'uiParSave', kind: 'setting', writer: 'seriesParSave_', store: 'SC.PAR', reader: 'seriesParOn_' },
+  { ui: 'uiPinSeries', kind: 'setting', writer: 'setSeriesPin_', store: 'PK.SP_PIN', reader: 'seriesPin_' },
+  { ui: 'uiPinCategory', kind: 'setting', writer: 'setSeriesPin_', store: 'PK.SP_PIN', reader: 'seriesPin_' },
+  { ui: 'uiClearPin', kind: 'setting', writer: 'clearSeriesPin_', store: 'PK.SP_PIN', reader: 'seriesPin_' },
+  { ui: 'uiSetManual', kind: 'setting', writer: 'uiSetManual', store: 'SC.MORDER', reader: 'seriesMOrder_' },
+  { ui: 'uiClearManual', kind: 'setting', writer: 'uiSetManual', store: 'SC.MCAT', reader: 'seriesCatOf_' },
+  { ui: 'uiSetCourse', kind: 'setting', writer: 'setSeriesManual_', store: 'SC.MANUAL', reader: 'seriesEligible_' },
+  { ui: 'uiBridgeSave', kind: 'setting', writer: 'bridgeSave_', store: 'SC.XREF', reader: 'bridgeKeys_' },
+  { ui: 'uiLvStyleSave', kind: 'setting', writer: 'uiLvStyleSave', store: 'SC.LVSTYLE', reader: 'lvStyleOf_' },
+  { ui: 'uiLvLevelSave', kind: 'setting', writer: 'uiLvLevelSave', store: 'SC.LVLEVEL', reader: 'lvLevelOf_' },
+  { ui: 'uiLvTextSave', kind: 'setting', writer: 'uiLvTextSave', store: 'SC.LVTEXT', reader: 'lvTextAt_' },
+  { ui: 'uiLvMotionSave', kind: 'setting', writer: 'uiLvMotionSave', store: 'SC.LVMOTION', reader: 'lvMotionAt_' },
+  { ui: 'uiRecapEverySave', kind: 'setting', writer: 'uiRecapEverySave', store: 'SC.RECAP_EVERY', reader: 'recapEveryOf_' },
+  { ui: 'uiRecapQueue', kind: 'action', runs: 'recapQueueSet_' },
+  { ui: 'uiHandoutSeries', kind: 'action', runs: 'handoutOneSeries_' },
+  { ui: 'uiHandoutAll', kind: 'action', runs: 'handoutBackfill_' },
+  { ui: 'uiJudgeNow', kind: 'action', runs: 'judgeSeries' },
+  { ui: 'uiBoardHtml', kind: 'action', runs: 'seriesBoardHtml_' }
+];
+
+/** مقصدها روی تخته — همان تب که `destGate_` می‌خوانَد. */
+function uiDestSave(list) {
+  try {
+    var r = destBoardSave_(list || []);
+    boardReceipt_(true, 'مقصدها ذخیره شد', r.done.concat(r.note ? [r.note] : []).concat(['از همین اجرا به بعد اعمال می‌شود؛ «آخرین وضعیت» را خودِ موتور می‌نویسد.']));
+    return { ok: true, message: 'مقصدها ذخیره شد — ' + r.done.join(' · ') + (r.note ? ' (' + r.note + ')' : '') };
+  } catch (e) { return { ok: false, message: 'ذخیرهٔ مقصدها انجام نشد: ' + e.message }; }
+}
+
+/** تیکِ «فعال (تولیدِ موازی)» یک مجموعه. */
+function uiParSave(key, on) {
+  try {
+    var r = seriesParSave_(getHub_(), key, !!on);
+    if (!r.ok) return r;
+    var msg = '«' + r.name + '»: ' + (r.on ? 'وارد گردشِ تولیدِ موازی شد' : 'از گردشِ موازی بیرون آمد') +
+              (r.ticked.length ? ' — تیک‌خورده‌ها: ' + r.ticked.join('، ') : ' — هیچ مجموعه‌ای تیک ندارد؛ رفتار همان پیشین (یک مجموعه تا پایان)') + '.';
+    boardReceipt_(true, msg, ['از قسمتِ بعدیِ درس‌نامه اعمال می‌شود. هر روز یک قسمت؛ نوبت با آنکه دیرتر از همه قسمت گرفته.']);
+    return { ok: true, message: msg };
+  } catch (e) { return { ok: false, message: 'ثبت نشد: ' + e.message }; }
+}
+
+/** خانهٔ «فعال (موازی)» در هر ردیفِ مجموعه. */
+function parCell_(x) {
+  var dis = (x.status === SST.SKIPPED) || (!x.hasWork && !x.par);
+  return '<td style="text-align:center"><input type="checkbox" class="parTick" data-key="' + bEsc_(x.key) + '"' +
+         (x.par ? ' checked' : '') + (dis ? ' disabled title="کاری برای ساختن ندارد"' : '') +
+         ' title="تولیدِ موازی: تیک = هر روز نوبتی کنارِ مجموعهٔ جاری. هیچ تیکی = یک مجموعه تا پایان (همان پیشین)."' +
+         ' onchange="parTick(this)">' + (x.par ? '<div class="sub">⇄ در گردش</div>' : '') + '</td>';
+}
+
+/** پنلِ مقصدها. */
+function destPanelHtml_() {
+  var d = null;
+  try { d = destBoardData_(); } catch (e) { return ''; }
+  if (!d) return '';
+  var H = ['<div class="card" id="destBox"><div style="font-weight:700;margin-bottom:6px">🎯 مقصدها</div>' +
+           '<div class="sub" style="margin-bottom:8px">هر ردیف یک جایی که موتور منتشر می‌کند. «فعال» خاموش ⇒ چیزی پاک یا رد نمی‌شود، فقط منتظر می‌ماند و با ' +
+           'روشن‌شدن ادامه می‌یابد. «سقفِ روزانه» خالی ⇒ سقفِ کد. ستونِ «آخرین وضعیت» را خودِ موتور می‌نویسد. همین‌ها در تبِ «' +
+           bEsc_(CFG.DEST_TAB || 'مقصدها') + '» هم هست و هر دو یک جاست.' +
+           (d.src !== 'tab' ? ' <b style="color:#b91c1c">تب خوانده نشد (' + bEsc_(d.why || d.src) + ')</b>' : '') + '</div>' +
+           '<table style="border-collapse:collapse;width:100%"><tr class="sub"><th>فعال</th><th style="text-align:right">مقصد</th><th>برنامه‌ها</th>' +
+           '<th>سقفِ روزانه</th><th style="text-align:right">آخرین وضعیت</th></tr>'];
+  for (var i = 0; i < d.rows.length; i++) {
+    var r = d.rows[i], sh = [];
+    for (var j = 0; j < d.shows.length; j++) {
+      var s = d.shows[j], on = !r.shows || r.shows.indexOf(s.key) !== -1;
+      sh.push('<label style="white-space:nowrap"><input type="checkbox" class="destShow" data-show="' + bEsc_(s.key) + '"' + (on ? ' checked' : '') + '> ' + bEsc_(s.name) + '</label>');
+    }
+    H.push('<tr class="destRow" data-kind="' + bEsc_(r.kind) + '"><td style="text-align:center"><input type="checkbox" class="destOn"' + (r.on ? ' checked' : '') + '></td>' +
+           '<td><b>' + bEsc_(r.name) + '</b> <span class="sub">' + bEsc_(r.acct) + '</span></td>' +
+           '<td>' + sh.join(' &nbsp; ') + ((r.bad || []).length ? '<div style="color:#8a6d1f">خوانده نشد: ' + bEsc_(r.bad.join('، ')) + '</div>' : '') + '</td>' +
+           '<td style="text-align:center"><input type="number" class="destCap" min="0" style="width:56px" value="' + (r.cap || '') + '"></td>' +
+           '<td class="sub">' + bEsc_(r.last || '—') + '</td></tr>');
+  }
+  H.push('</table><div style="margin-top:8px"><button onclick="destSave(this)">ذخیرهٔ مقصدها</button></div></div>');
+  return H.join('');
+}
+
+/**
+ * نمای چهارحالته (۱۱.۵): «او باید ببیند چه کار شده، در حالِ انجام، در انتظار و نرفته است.»
+ * از همان ردیف‌هایی ساخته می‌شود که فهرستِ پایین — یک منبع، پس دو تصویرِ متناقض ممکن نیست.
+ */
+function seriesStates_(d) {
+  var S = { done: [], doing: [], wait: [], out: [] };
+  var all = [];
+  for (var g = 0; g < (d.groups || []).length; g++) all = all.concat(d.groups[g].series || []);
+  for (var i = 0; i < all.length; i++) {
+    var x = all[i];
+    if (x.status === SST.SKIPPED) S.out.push({ x: x, why: 'در شیت‌های منبع پیدا نمی‌شود' });
+    else if (x.status === SST.DONE || (x.status === SST.ACTIVE && !x.hasWork)) S.done.push({ x: x });
+    else if (x.status === SST.ACTIVE || x.status === SST.REOPENED || x.isCurrent || x.isPinned) S.doing.push({ x: x });
+    else S.wait.push({ x: x });
+  }
+  for (var e = 0; e < (d.excluded || []).length; e++) S.out.push({ x: d.excluded[e], why: 'آموزشی تشخیص داده نشد' });
+  var ord = function (a, b) {
+    var ma = a.x.morder !== null && a.x.morder !== undefined ? a.x.morder : a.x.order;
+    var mb = b.x.morder !== null && b.x.morder !== undefined ? b.x.morder : b.x.order;
+    return ma - mb;
+  };
+  S.wait.sort(ord);
+  return S;
+}
+
+function seriesStatesHtml_(d) {
+  var S;
+  try { S = seriesStates_(d); } catch (e) { return ''; }
+  var box = function (title, color, list, hint) {
+    var L = [];
+    for (var i = 0; i < list.length && i < 60; i++) {
+      var x = list[i].x;
+      L.push('<li>' + bEsc_(x.name) + (x.par ? ' <span class="bdg b-act">⇄ موازی</span>' : '') +
+             (x.isCurrent ? ' <span class="bdg b-act">همین حالا</span>' : '') +
+             (list[i].why ? ' <span class="sub">— ' + bEsc_(list[i].why) + '</span>' : '') +
+             (x.episodes ? ' <span class="sub">(' + faNum_(x.episodes) + ' قسمت)</span>' : '') + '</li>');
+    }
+    if (list.length > 60) L.push('<li class="sub">و ' + faNum_(list.length - 60) + ' مجموعهٔ دیگر — در فهرستِ پایین</li>');
+    return '<details style="flex:1;min-width:200px;border-right:4px solid ' + color + ';padding:4px 8px"' + (list.length && list.length <= 8 ? ' open' : '') + '>' +
+           '<summary><b>' + title + '</b> ' + faNum_(list.length) + '</summary><div class="sub">' + hint + '</div><ul style="margin:4px 0;padding-right:18px">' + L.join('') + '</ul></details>';
+  };
+  return '<div class="card" id="stateBox"><div style="font-weight:700;margin-bottom:6px">🧭 وضعِ مجموعه‌ها</div>' +
+         '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+         box('✅ انجام‌شده', '#5a6478', S.done, 'همهٔ درس‌هایش ساخته شده') +
+         box('▶ در جریان', '#166534', S.doing, 'روی آن کار می‌شود یا قسمتِ تازه گرفته') +
+         box('⏳ در انتظار', '#2e5cb8', S.wait, 'به ترتیبِ نوبت؛ اولی نفرِ بعد است') +
+         box('⛔ نرفته', '#9ca3af', S.out, 'تولید نمی‌شود — با دلیلش') +
+         '</div></div>';
 }
 
 /* ═══════════════════════════ 16_Curate.gs ═══════════════════════════ */
@@ -46461,6 +46759,275 @@ function calWidths_(sh) {
     .setNumberFormat('@').setFontColor('#666666');
 }
 
+/* ═════════════════════════════ مقصدها (۱۱.۵) ═════════════════════════════
+
+   ══ خواسته ══
+   «جدولِ مقصدها … متصل به قفل و سوییچِ واقعی، با آزمونِ "هر کنترلِ شیت را بک‌اند
+   واقعاً می‌خوانَد"» — یک ردیف برای هر جایی که موتور منتشر می‌کند (یوتیوب،
+   اینستاگرام، فیسبوک)، با «فعال»، «برنامه‌ها»، «سقفِ روزانه» و «آخرین وضعیت».
+
+   ══ چرا این‌جا، کنارِ تقویم ══
+   تقویم می‌گوید «کی ساخته شود»؛ این تب می‌گوید «کجا برود». همان شکل، همان
+   قاعده‌ها (تب داده است نه کد؛ ستونِ آخرین وضعیت را خودِ موتور می‌نویسد)، و
+   همان جایگاه: ۲۵ پیش از ۲۷ (یوتیوب) و ۳۸ (اینستاگرام/فیسبوک) است، پس هر دو
+   این را بی فراخوانِ رو به جلو صدا می‌زنند.
+
+   ══ پیش‌فرض یعنی رفتارِ امروز ══
+   ردیف‌های بذری دقیقاً همان چیزی‌اند که پیش از این تب بود: یوتیوب روشن برای هر
+   دو برنامه، اینستاگرام روشن برای درس‌نامه، فیسبوک **خاموش**. پس نصبِ این نسخه
+   هیچ چیزی را عوض نمی‌کند تا کسی تیکی را عوض کند.
+
+   ══ اگر تب خوانده نشود ══
+   آخرین خواندنِ سالم (`PK.DEST_CACHE`) به کار می‌رود، و اگر آن هم نباشد همان
+   بذر. یعنی شکستنِ تب نه انتشارِ خاموش‌شده را روشن می‌کند (تا وقتی یک بار سالم
+   خوانده شده باشد)، نه همه‌چیز را بی‌صدا می‌خواباند.
+
+   ══ «خاموش» چه می‌کند ══
+   هیچ چیزی پاک یا رد نمی‌شود. یوتیوب: ردیفِ صف کنار می‌رود (`YT_DUE_PARKED`) و
+   با روشن‌شدن برمی‌گردد — همان راهی که ۱۱.۰ برای «از همه جا» ساخت. اینستاگرام:
+   ریلزِ آماده سرِ گامِ انتشار می‌ایستد. فیسبوک: ریلز بازنشر نمی‌شود.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+var DEST_HEADERS = ['مقصد', 'حساب', 'فعال', 'برنامه‌ها', 'سقفِ روزانه', 'آخرین وضعیت', 'یادداشت'];
+var DC = { KIND: 1, ACCT: 2, ON: 3, SHOWS: 4, CAP: 5, LAST: 6, NOTE: 7 };
+
+/** بذر — همان رفتارِ پیش از این تب. `shows` کلیدِ برنامه‌هاست. */
+function destKinds_() {
+  return [
+    { kind: 'yt', name: 'یوتیوب', acct: String(CFG.YT_MARK_HANDLE || '@truth_trace1'), on: true,
+      shows: [ENRICH_SHOW_SPECIAL, ENRICH_SHOW_VARIETY],
+      note: 'ویدئوی کامل و شورتز. سقف = آپلود در روز (شورتز هم یک آپلود است). خالی = سقفِ کد.' },
+    { kind: 'ig', name: 'اینستاگرام', acct: '@truth.traces', on: true,
+      shows: [ENRICH_SHOW_SPECIAL],
+      note: 'ریلز و استوریِ درس‌نامه. سقف = ریلز در روز. خالی = سقفِ کد.' },
+    { kind: 'fb', name: 'فیسبوک', acct: 'صفحهٔ Truth Trace', on: false,
+      shows: [ENRICH_SHOW_SPECIAL],
+      note: 'بازنشرِ همان ریلزِ اینستاگرام روی صفحه. تا کلیدِ متا دسترسیِ صفحه نداشته باشد، روشن‌کردنش فقط علت را در «آخرین وضعیت» می‌نویسد.' }
+  ];
+}
+
+function destKindOf_(cell) {
+  var t = String(cell == null ? '' : cell).trim().toLowerCase();
+  if (!t) return '';
+  if (/یوتیوب|youtube|^yt$/.test(t)) return 'yt';
+  if (/اینستا|instagram|^ig$/.test(t)) return 'ig';
+  if (/فیسبوک|facebook|^fb$/.test(t)) return 'fb';
+  return '';
+}
+
+/** نامِ نمایشیِ برنامه‌ها ⇄ کلید. «همه»/خالی ⇒ null (همه). */
+function destShowsParse_(cell) {
+  var t = String(cell == null ? '' : cell).trim();
+  if (!t || /^(همه|all|\*)$/i.test(t)) return { keys: null, bad: [] };
+  if (/^(هیچ|none|-)$/i.test(t)) return { keys: [], bad: [] };
+  var L = [];
+  try { L = knownShows_(); } catch (e) { L = []; }
+  var keys = [], bad = [];
+  var toks = t.split(/[،,;؛\n\r]+/);
+  for (var i = 0; i < toks.length; i++) {
+    var x = toks[i].replace(/[«»"]/g, '').trim();
+    if (!x) continue;
+    var k = '';
+    for (var j = 0; j < L.length; j++) {
+      if (x === L[j].key || x === String(L[j].name)) { k = L[j].key; break; }
+    }
+    if (!k && /درس/.test(x)) k = ENRICH_SHOW_SPECIAL;
+    if (!k && /همه ?جا/.test(x)) k = ENRICH_SHOW_VARIETY;
+    if (!k) { bad.push(x); continue; }
+    if (keys.indexOf(k) === -1) keys.push(k);
+  }
+  return { keys: keys, bad: bad };
+}
+
+function destShowsText_(keys) {
+  if (!keys) return 'همه';
+  if (!keys.length) return 'هیچ';
+  var out = [];
+  for (var i = 0; i < keys.length; i++) {
+    try { out.push(enrichShowName_(keys[i])); } catch (e) { out.push(keys[i]); }
+  }
+  return out.join('، ');
+}
+
+function destTab_(hub) {
+  return ensureTab_(hub || getHub_(), CFG.DEST_TAB || 'مقصدها', DEST_HEADERS);
+}
+
+/** ردیفِ هر مقصدی که نیست ساخته می‌شود؛ ردیفِ موجود هرگز بازنویسی نمی‌شود. ⇒ نامِ ساخته‌شده‌ها */
+function destSeed_(hub) {
+  var sh = destTab_(hub), have = {}, made = [];
+  if (sh.getLastRow() > 1) {
+    var v = sh.getRange(2, 1, sh.getLastRow() - 1, DEST_HEADERS.length).getValues();
+    for (var i = 0; i < v.length; i++) { var k = destKindOf_(v[i][DC.KIND - 1]); if (k) have[k] = 1; }
+  }
+  var K = destKinds_();
+  for (var j = 0; j < K.length; j++) {
+    if (have[K[j].kind]) continue;
+    sh.appendRow([K[j].name, K[j].acct, K[j].on ? 'بله' : 'خیر', destShowsText_(K[j].shows), '', '', K[j].note]);
+    made.push(K[j].name);
+  }
+  if (made.length) { try { logLine_('مقصدها: ردیفِ ' + made.join('، ') + ' ساخته شد (پیش‌فرض = رفتارِ پیشین).'); } catch (eL) {} }
+  return made;
+}
+
+var DEST_MEMO_ = null;
+function destMemoClear_() { DEST_MEMO_ = null; }
+
+function destDefaults_() {
+  var rows = {}, K = destKinds_();
+  for (var i = 0; i < K.length; i++) {
+    rows[K[i].kind] = { kind: K[i].kind, name: K[i].name, acct: K[i].acct, on: K[i].on,
+                        shows: K[i].shows.slice(), cap: 0, last: '', row: 0, bad: [] };
+  }
+  return rows;
+}
+
+/**
+ * خواندنِ تب، یک بار در هر دقیقهٔ اجرا. ⇒ {src:'tab'|'cache'|'default', rows:{yt,ig,fb}, why}
+ * ردیفی که در تب نیست از بذر پر می‌شود — پس «نیامدن» هرگز «خاموش» خوانده نمی‌شود.
+ */
+function destRead_() {
+  if (DEST_MEMO_ && Date.now() - DEST_MEMO_.t < 60 * 1000) return DEST_MEMO_.v;
+  var out = { src: 'default', rows: destDefaults_(), why: '' };
+  try {
+    var hub = getHub_();
+    destSeed_(hub);
+    var sh = destTab_(hub);
+    var v = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, DEST_HEADERS.length).getValues() : [];
+    var seen = {};
+    for (var i = 0; i < v.length; i++) {
+      var k = destKindOf_(v[i][DC.KIND - 1]);
+      if (!k || seen[k]) continue;          // ردیفِ دوم با همان مقصد نادیده — اولی حاکم است
+      seen[k] = 1;
+      var sp = destShowsParse_(v[i][DC.SHOWS - 1]);
+      var cap = parseInt(faDigits_(String(v[i][DC.CAP - 1] == null ? '' : v[i][DC.CAP - 1])).replace(/[^\d]/g, ''), 10);
+      var base = out.rows[k];
+      out.rows[k] = { kind: k, name: base.name, acct: String(v[i][DC.ACCT - 1] || base.acct),
+                      on: !destOff_(v[i][DC.ON - 1], base.on), shows: sp.keys, bad: sp.bad,
+                      cap: isFinite(cap) && cap > 0 ? cap : 0, last: String(v[i][DC.LAST - 1] || ''), row: i + 2 };
+    }
+    out.src = 'tab';
+    try {
+      var js = JSON.stringify(out.rows);
+      if (props_().getProperty(PK.DEST_CACHE) !== js) props_().setProperty(PK.DEST_CACHE, js);
+    } catch (eC) {}
+  } catch (e) {
+    out.why = String((e && e.message) || e).slice(0, 120);
+    try {
+      var c = JSON.parse(props_().getProperty(PK.DEST_CACHE) || 'null');
+      if (c && c.yt) { out.rows = c; out.src = 'cache'; }
+    } catch (eP) {}
+  }
+  DEST_MEMO_ = { t: Date.now(), v: out };
+  return out;
+}
+
+/** «بله/خیر» با پیش‌فرضِ همان ردیفِ بذری؛ ⇒ true یعنی خاموش. */
+function destOff_(v, defOn) {
+  var t = String(v == null ? '' : v).trim().toLowerCase();
+  if (!t) return !defOn;
+  for (var i = 0; i < CAL_NO.length; i++) if (t === CAL_NO[i]) return true;
+  for (var j = 0; j < CAL_YES.length; j++) if (t === CAL_YES[j]) return false;
+  return !defOn;
+}
+
+/**
+ * دروازه. ⇒ {ok, why, cap}. `show` خالی یعنی «هر برنامه‌ای».
+ * این تنها جایی است که «فعال» و «برنامه‌ها» معنا می‌گیرند — یوتیوب، اینستاگرام و فیسبوک هر سه همین را صدا می‌زنند.
+ */
+function destGate_(kind, show) {
+  var d = destRead_(), r = d.rows[kind];
+  if (!r) return { ok: true, why: '', cap: 0 };
+  if (!r.on) return { ok: false, why: 'مقصدِ «' + r.name + '» در تبِ «' + (CFG.DEST_TAB || 'مقصدها') + '» خاموش است', cap: r.cap };
+  if (show && r.shows && r.shows.indexOf(String(show)) === -1) {
+    var nm = show;
+    try { nm = enrichShowName_(show); } catch (e) {}
+    return { ok: false, why: '«' + nm + '» در برنامه‌های مقصدِ «' + r.name + '» تیک نخورده', cap: r.cap };
+  }
+  return { ok: true, why: '', cap: r.cap };
+}
+
+/** سقفِ مؤثر: کوچک‌ترِ سقفِ کد و سقفِ تب (خالی ⇒ سقفِ کد). */
+function destCap_(kind, codeCap) {
+  var c = Number(codeCap) || 0, r = destRead_().rows[kind];
+  if (r && r.cap > 0) return c > 0 ? Math.min(c, r.cap) : r.cap;
+  return c;
+}
+
+/** ستونِ «آخرین وضعیت» را خودِ موتور می‌نویسد — همان قاعدهٔ «آخرین تصمیم»ِ تقویم. یک بار برای هر متن در هر اجرا. */
+var DEST_NOTED_ = {};
+function destNote_(kind, text) {
+  var t = String(text || '').slice(0, 300);
+  if (!t || DEST_NOTED_[kind] === t) return false;
+  DEST_NOTED_[kind] = t;
+  try {
+    var d = destRead_(), r = d.rows[kind];
+    if (!r || !r.row || d.src !== 'tab') return false;
+    destTab_(getHub_()).getRange(r.row, DC.LAST).setValue(nowStr_() + ' — ' + t);
+    r.last = t;
+    return true;
+  } catch (e) { return false; }
+}
+
+/** دادهٔ پنلِ تخته. */
+function destBoardData_() {
+  var d = destRead_(), out = { src: d.src, why: d.why, shows: [], rows: [] };
+  try { out.shows = knownShows_(); } catch (e) { out.shows = []; }
+  var K = destKinds_();
+  for (var i = 0; i < K.length; i++) {
+    var r = d.rows[K[i].kind] || {};
+    out.rows.push({ kind: K[i].kind, name: K[i].name, acct: r.acct || K[i].acct, on: !!r.on,
+                    shows: r.shows ? r.shows.slice() : null, cap: r.cap || 0, last: r.last || '', bad: r.bad || [] });
+  }
+  return out;
+}
+
+/**
+ * ذخیره از تخته — روی **همان تب و همان ستون‌ها** که `destGate_` می‌خوانَد.
+ * list: [{kind, on, shows:[کلید], cap}]. «روشن ولی هیچ برنامه‌ای تیک نخورده» ⇒ خاموش، و صریح گفته می‌شود
+ * (همان قاعدهٔ تقویم: هیچ تیکی نباید معنای «همه» بگیرد).
+ */
+function destBoardSave_(list) {
+  var hub = getHub_();
+  destSeed_(hub);
+  destMemoClear_();
+  var d = destRead_(), sh = destTab_(hub), notes = [], done = [];
+  var known = {};
+  try { knownShows_().forEach(function (s) { known[s.key] = 1; }); } catch (e) {}
+  for (var i = 0; i < (list || []).length; i++) {
+    var x = list[i] || {}, r = d.rows[String(x.kind)];
+    if (!r || !r.row) { notes.push('مقصدِ ناشناخته: ' + x.kind); continue; }
+    var shows = [];
+    (x.shows || []).forEach(function (k) { if (known[k] && shows.indexOf(k) === -1) shows.push(k); });
+    var on = !!x.on;
+    if (on && !shows.length) { on = false; notes.push('«' + r.name + '»: هیچ برنامه‌ای تیک نخورده بود، پس خاموش شد'); }
+    var cap = parseInt(faDigits_(String(x.cap == null ? '' : x.cap)).replace(/[^\d]/g, ''), 10);
+    sh.getRange(r.row, DC.ON).setValue(on ? 'بله' : 'خیر');
+    sh.getRange(r.row, DC.SHOWS).setValue(destShowsText_(shows));
+    sh.getRange(r.row, DC.CAP).setValue(isFinite(cap) && cap > 0 ? cap : '');
+    done.push(r.name + ': ' + (on ? 'روشن — ' + destShowsText_(shows) + (cap > 0 ? ' · سقف ' + cap : '') : 'خاموش'));
+  }
+  destMemoClear_();
+  try { logLine_('مقصدها از تخته: ' + done.join(' | ') + (notes.length ? ' (' + notes.join('؛ ') + ')' : '')); } catch (eL) {}
+  return { ok: true, done: done, note: notes.join('؛ ') };
+}
+
+/** برای `_STATUS.json` و ایمیلِ روزانه. */
+function destStatus_() {
+  var d = destRead_(), rows = [], parts = [];
+  var K = destKinds_();
+  for (var i = 0; i < K.length; i++) {
+    var r = d.rows[K[i].kind];
+    if (!r) continue;
+    rows.push({ kind: r.kind, on: !!r.on, shows: r.shows, cap: r.cap || 0, last: r.last || '', bad: r.bad || [] });
+    parts.push(r.name + ' ' + (r.on ? 'روشن (' + destShowsText_(r.shows) + (r.cap ? '، سقف ' + r.cap : '') + ')' : 'خاموش') +
+               ((r.bad || []).length ? ' ⚠ خوانده نشد: ' + r.bad.join('، ') : ''));
+  }
+  return { src: d.src, why: d.why, rows: rows,
+           line: '🎯 مقصدها' + (d.src === 'tab' ? '' : d.src === 'cache' ? ' (تب خوانده نشد — آخرین خواندنِ سالم)' : ' (تب خوانده نشد — پیش‌فرض)') +
+                 ': ' + parts.join(' · ') + '.' };
+}
+
 /* ═══════════════════════════ 26_Handout.gs ═══════════════════════════ */
 
 /**
@@ -50215,6 +50782,8 @@ function ytQuotaTake_(units, isUpload) {
   var q = ytQuota_();
   var capU = Math.max(100, Number(CFG.YT_QUOTA_UNITS) || 9000);
   var capUp = Math.max(1, Number(CFG.YT_QUOTA_UPLOADS) || 90);
+  /* ۱۱.۵: «سقفِ روزانه»ِ ردیفِ یوتیوب در تبِ «مقصدها» — کوچک‌ترِ دو */
+  try { capUp = Math.max(1, destCap_('yt', capUp)); } catch (eD) {}
   if (isUpload && q.uploads + 1 > capUp) { q.blocked = 'آپلود'; ytQuotaSave_(q); return false; }
   if (q.units + (Number(units) || 0) > capU) { q.blocked = 'واحد'; ytQuotaSave_(q); return false; }
   q.units += (Number(units) || 0);
@@ -52627,7 +53196,10 @@ function ytDueList_() {
 /** ۱۱.۰: آیا انتشارِ این برنامه در یوتیوب خاموش است؟ («variety» | «special») */
 function ytShowOff_(show) {
   var off = CFG.YT_SHOWS_OFF || [];
-  return !!show && off.indexOf(String(show)) !== -1;
+  if (!!show && off.indexOf(String(show)) !== -1) return true;
+  /* ۱۱.۵: ردیفِ «یوتیوب» در تبِ «مقصدها» — «فعال» و «برنامه‌ها». همان سازوکارِ کنارگذاشتن (پاک نه، برمی‌گردد). */
+  if (show) { try { if (!destGate_('yt', String(show)).ok) return true; } catch (eD) {} }
+  return false;
 }
 
 /**
@@ -52658,7 +53230,13 @@ function ytShowsOffLine_() {
   var flLine = flK.length ? '🔒 قسمت‌های قدیمی بیرون از انتشارِ یوتیوب: ' + flK.map(function (k) {
       return (k === ENRICH_SHOW_VARIETY ? '«' + CFG.SHOW_NAME + '»' : k) + ' زیرِ ' + faDigitsOut_(String(fl[k]));
     }).join('، ') + ' — نه آپلودِ تازه، نه جایگزینی، نه ساختِ دوباره؛ قسمت‌های بعد عادی منتشر می‌شوند.' : '';
-  if (!off.length) return flLine;
+  /* ۱۱.۵: خاموش از تبِ «مقصدها» */
+  var dOff = [], dWhy = '';
+  try {
+    knownShows_().forEach(function (s) { var g = destGate_('yt', s.key); if (!g.ok && off.indexOf(s.key) === -1) { dOff.push('«' + s.name + '»'); dWhy = g.why; } });
+  } catch (eD) {}
+  var dLine = dOff.length ? '⏸ یوتیوب برای ' + dOff.join(' و ') + ': منتظر — ' + dWhy + '. قسمت‌های صف کنار گذاشته شده‌اند (پاک نشده) و با تیک برمی‌گردند.' : '';
+  if (!off.length) return [flLine, dLine].filter(Boolean).join(' ');
   var names = off.map(function (k) { return k === ENRICH_SHOW_VARIETY ? '«' + CFG.SHOW_NAME + '»' : k === ENRICH_SHOW_SPECIAL ? '«' + CFG.SPECIAL_SHOW_NAME + '»' : k; });
   var n = ytDueParked_().length;
   return '⏸ انتشار در یوتیوب برای ' + names.join(' و ') + ': متوقف — ' + (CFG.YT_SHOWS_OFF_WHY || 'به خواستِ شما') +
@@ -60496,6 +61074,7 @@ function ytUploadOne_(item, hub, pub) {
   if (!vid && !(chunkSt && chunkSt.url) && !ytQuotaTake_(YT_COST.videosInsert, true)) {
     res.why = 'سهمیهٔ آپلودِ امروز تمام شد؛ فردا ادامه می‌یابد';
     res.quota = true;
+    try { destNote_('yt', '⏳ سقفِ آپلودِ امروز پر شد — صف فردا ادامه می‌یابد'); } catch (eDq) {}
     return res;
   }
   if (!vid && !chunked) try {
@@ -60654,6 +61233,7 @@ function ytUploadOne_(item, hub, pub) {
                     : (!gate.ok ? gate.why + '؛ در ' + privacy + ' ماند' : '') });
   ytUpPendingClear_(upKey);
   try { tgCaptionLog_('یوتیوب — ویدئوی کامل', title, url, desc, ytDescRemoved_(plan.description, desc)); } catch (eTc) {}   // ۱۱.۰/۱۱.۳
+  try { destNote_('yt', 'بالا رفت: ' + title + ' — ' + url + ' (امروز ' + ytQuota_().uploads + ' آپلود)'); } catch (eDn) {}   // ۱۱.۵
   logLine_('یوتیوب: «' + title + '» ' +
            (privacy === 'public' ? 'منتشر شد' : 'در ' + privacy + ' ماند') + ' — ' + url);
   res.ok = !leaks.length && gate.ok; res.url = url; res.privacy = privacy; res.title = title;
@@ -83220,7 +83800,13 @@ function igStepPub_(it, plan, st, deadline) {
   var day = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
   st.stats = st.stats || {};
   if (st.stats.day !== day) { st.stats.day = day; st.stats.dayN = 0; }
-  if ((Number(st.stats.dayN) || 0) >= Math.max(1, Number(CFG.IG_PER_DAY) || 4)) return { wait: 'سهمِ امروز پر شد' };
+  /* ۱۱.۵: ردیفِ «اینستاگرام» در تبِ «مقصدها» — «فعال» و «سقفِ روزانه». ریلزِ آماده همین‌جا می‌ایستد؛ چیزی دور ریخته نمی‌شود. */
+  var dg = null;
+  try { dg = destGate_('ig', ENRICH_SHOW_SPECIAL); } catch (eDg) { dg = null; }
+  if (dg && !dg.ok) { try { destNote_('ig', '⏸ ' + dg.why + ' — ریلزِ آماده منتظر است'); } catch (eDn) {} return { wait: dg.why }; }
+  var igCap = Math.max(1, Number(CFG.IG_PER_DAY) || 4);
+  try { igCap = Math.max(1, destCap_('ig', igCap)); } catch (eDc) {}
+  if ((Number(st.stats.dayN) || 0) >= igCap) return { wait: 'سهمِ امروز (' + igCap + ') پر شد' };
   if (!plan.reelCid) {
     /* ۱۱.۰: کپشن همین لحظه از نو — برنامه‌هایی که پیش از ۱۱.۰ نوشته شدند هم با قالبِ تازه («لینک در بیو») می‌روند. */
     try {
@@ -83260,6 +83846,9 @@ function igStepPub_(it, plan, st, deadline) {
       } else if (ws !== 'wait') plan.storyWhy = ws;
     } else plan.storyWhy = igErr_(s);
   }
+  try { destNote_('ig', 'منتشر شد: ' + (plan.permalink || plan.reelId) + ' (امروز ' + st.stats.dayN + ')'); } catch (eDn2) {}
+  /* ۱۱.۵: بازنشر روی صفحهٔ فیسبوک — فقط اگر ردیفِ فیسبوک روشن است؛ شکستش ریلز را نمی‌شکند. */
+  try { fbAfterReel_(it, plan); } catch (eFb) { plan.fbWhy = String(eFb.message || eFb).slice(0, 140); }
   plan.phase = 'yts';
   try { tgSend_('✅ ریلزِ اینستاگرام منتشر شد: ' + (plan.permalink || plan.reelId) + '\n«' + tgEsc_(plan.plan.hook) + '»'); } catch (eT) {}
   try {
@@ -83284,6 +83873,8 @@ function igShortPub_(it, plan) {
   if (plan.shortId) { igShortThumb_(plan); return { ok: true }; }
   var yt = ytSvc_();
   if (!yt) { plan.shortWhy = ytOffWhy_(); return { ok: true }; }
+  /* ۱۱.۵: شورتز یعنی یوتیوب — همان ردیفِ «یوتیوب» در تبِ «مقصدها». خاموش ⇒ صف، نه دور ریختن. */
+  try { var dgY = destGate_('yt', ENRICH_SHOW_SPECIAL); if (!dgY.ok) return { wait: dgY.why }; } catch (eDy) {}
   var plUrl = '';
   try {
     var pl = ytPlFor_({ show: ENRICH_SHOW_SPECIAL, seriesKey: plan.seriesKey || '' }, plan.series, CFG.SPECIAL_SHOW_NAME);
@@ -83598,6 +84189,8 @@ function igTick() {
       keep.push(it);
     }
     st.inflight = keep;
+    /* ۱۱.۵: بازنشرهای فیسبوکی که بارِ اول نشدند */
+    try { fbQueueRun_(deadline); } catch (eFq) {}
     if ((st.shortQ || []).length) { try { igShortQueueRun_(st, deadline); } catch (eSq) { st.shortWhy = String(eSq.message || eSq).slice(0, 120); } }
     if (deadline - Date.now() > 40000) { try { igShortThumbRetro_(st, deadline); } catch (eTr) { st.thumbWhy = String(eTr.message || eTr).slice(0, 120); } }
     if (deadline - Date.now() > 60000) { try { igInsights_(st, deadline); } catch (eIn) { st.lastWhy = 'آمار: ' + String(eIn.message || eIn).slice(0, 120); } }
@@ -84289,6 +84882,156 @@ function igPattern_(rows, nowMs) {
                      'روزهای پرانتشار بازدیدِ هر ریلز را میان خودشان پخش می‌کنند.' : '') +
              (nTop ? '\n🔝 پربازدیدترین‌ها:\n' + top.map(row1).join('\n') + '\n🔻 کم‌بازدیدترین‌ها:\n' + low.map(row1).join('\n') : '');
   return { top: top.map(row1), low: low.map(row1), n: old.length, all: posts.length, median: m0, byHour: byHour, byHook: byHook, byDay: byDay, peak: peak ? peak.k : '', text: text };
+}
+
+/* ═══════ فیسبوک — بازنشرِ همان ریلز روی صفحه (۱۱.۵) ═══════
+
+   ══ چه چیزی، و چه چیزی نه ══
+   همان ویدئوی ریلزِ اینستاگرام، همان نشانیِ عمومی (`plan.video`) که متا یک بار پذیرفته، روی صفحهٔ فیسبوکِ وصل به همان
+   حساب (`igAcct_().page`)، از راهِ Reels Publishing API: `/{page}/video_reels` (start ⇒ upload با `file_url` ⇒ finish).
+   هیچ ساختنِ تازه‌ای ندارد — نه صدا، نه تصویر، نه مدل.
+
+   ══ دو در، هر دو لازم ══
+   ۱) تیکِ «فعال» در ردیفِ فیسبوکِ تبِ «مقصدها» (پیش‌فرض: خاموش)؛ ۲) کلیدِ متایی که صفحه را با اجازهٔ انتشار ببیند.
+   کلیدِ امروز («engine-bot») برای اینستاگرام ساخته شده؛ اگر اجازهٔ `pages_manage_posts` نداشته باشد، متا کلیدِ صفحه را
+   نمی‌دهد — و همین علت، به همین زبان، در «آخرین وضعیت» و تلگرام می‌نشیند. تیکی که بی‌صدا هیچ کاری نکند، دروغ است.
+
+   ══ شکستِ فیسبوک ریلز را نمی‌شکند ══
+   ریلز منتشر شده و برنمی‌گردد. فیسبوکِ ناموفق (یا سقفِ روزِ پر) به صفِ کوچکِ خودش می‌رود (`PK.FB_Q`) و در دورهای بعدی
+   تا `FB_TRY_MAX` بار دوباره امتحان می‌شود؛ بعد از آن علتش در برنامهٔ همان ریلز می‌ماند.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/** کلیدِ صفحه، از کلیدِ سامانه. ⇒ {tok} | {why} */
+function fbPageToken_(page) {
+  if (!page) return { why: 'صفحهٔ فیسبوکِ وصل به اینستاگرام ثبت نیست (منوی «۴) کلیدِ اینستاگرام (متا)» را دوباره بزنید)' };
+  var r = igApi_('get', '/' + page, { fields: 'access_token,name' });
+  var t = String((r.j && r.j.access_token) || '');
+  if (!t) return { why: 'متا کلیدِ صفحه را نداد — کلیدِ engine-bot اجازهٔ pages_manage_posts و pages_read_engagement ندارد (' + igErr_(r) + ')' };
+  return { tok: t };
+}
+
+function fbRupload_(videoId) {
+  var m = String(CFG.IG_GRAPH || 'https://graph.facebook.com/v23.0').match(/v\d+\.\d+/);
+  return 'https://rupload.facebook.com/video-upload/' + (m ? m[0] : 'v23.0') + '/' + videoId;
+}
+
+/** متنِ فیسبوک: همان کپشن، ولی «لینک در بیو» جایش را به پیوندِ خودِ درس می‌دهد — در فیسبوک پیوند کلیک می‌خورد. */
+function fbCaption_(plan) {
+  var c = igCapClean_(plan.caption || '');
+  var w = String(CFG.IG_LINK_WORD || 'لینک در بیو');
+  if (plan.yt && c.indexOf(w) !== -1) c = c.split(w).join(plan.yt);
+  return c;
+}
+
+/**
+ * یک بار بازنشر. ⇒ {ok} | {off} (مقصد خاموش — هیچ کاری) | {wait, why} (دوباره امتحان شود) | {fail, why}
+ * `plan.fbId`/`plan.fbUrl`/`plan.fbWhy`/`plan.fbAt` در برنامهٔ همان ریلز.
+ */
+function fbCross_(plan) {
+  if (plan.fbId) return { ok: true };
+  var g = destGate_('fb', ENRICH_SHOW_SPECIAL);
+  if (!g.ok) return { off: true, why: g.why };
+  if (!plan.video) { plan.fbWhy = 'ویدئوی ریلز نشانی ندارد'; return { fail: true, why: plan.fbWhy }; }
+  var day = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'), q = {};
+  try { q = JSON.parse(props_().getProperty(PK.FB_DAY) || '{}') || {}; } catch (eQ) { q = {}; }
+  if (q.day !== day) q = { day: day, n: 0 };
+  var cap = destCap_('fb', Math.max(1, Number(CFG.FB_PER_DAY) || 6));
+  if (q.n >= cap) return { wait: true, why: 'سهمِ امروزِ فیسبوک (' + cap + ') پر شد' };
+  var a = igAcct_() || {};
+  var page = String(a.page || '');
+  var pt = fbPageToken_(page);
+  if (!pt.tok) { plan.fbWhy = pt.why; return { wait: true, why: pt.why }; }
+  var G = String(CFG.IG_GRAPH || 'https://graph.facebook.com/v23.0');
+  var call = function (params) {
+    var res = UrlFetchApp.fetch(G + '/' + page + '/video_reels', { method: 'post', muteHttpExceptions: true, payload: params,
+                                                                  headers: { Authorization: 'Bearer ' + pt.tok } });
+    var j = {};
+    try { j = JSON.parse(res.getContentText() || '{}'); } catch (e) { j = {}; }
+    return { code: res.getResponseCode(), j: j };
+  };
+  var s = call({ upload_phase: 'start' });
+  var vid = String((s.j && s.j.video_id) || '');
+  if (!vid) { plan.fbWhy = 'آغازِ بارگذاری: ' + igErr_(s); return { wait: true, why: plan.fbWhy }; }
+  var up = UrlFetchApp.fetch(fbRupload_(vid), { method: 'post', muteHttpExceptions: true,
+                                               headers: { Authorization: 'OAuth ' + pt.tok, file_url: String(plan.video) } });
+  var uj = {};
+  try { uj = JSON.parse(up.getContentText() || '{}'); } catch (eU) { uj = {}; }
+  if (up.getResponseCode() !== 200 || uj.success === false) {
+    plan.fbWhy = 'بارگذاریِ ویدئو: ' + igErr_({ code: up.getResponseCode(), j: uj }); return { wait: true, why: plan.fbWhy };
+  }
+  var f = call({ upload_phase: 'finish', video_id: vid, video_state: 'PUBLISHED', description: fbCaption_(plan) });
+  if (!(f.j && (f.j.success === true || f.j.success === 'true'))) {
+    plan.fbWhy = 'پایانِ انتشار: ' + igErr_(f); return { wait: true, why: plan.fbWhy };
+  }
+  plan.fbId = vid;
+  plan.fbAt = nowStr_();
+  plan.fbWhy = '';
+  try { plan.fbUrl = String((igApi_('get', '/' + vid, { fields: 'permalink_url' }).j || {}).permalink_url || ''); } catch (eP) {}
+  if (plan.fbUrl && !/^https?:/.test(plan.fbUrl)) plan.fbUrl = 'https://www.facebook.com' + plan.fbUrl;
+  q.n = (Number(q.n) || 0) + 1;
+  try { props_().setProperty(PK.FB_DAY, JSON.stringify(q)); } catch (eS) {}
+  try { destNote_('fb', 'منتشر شد: ' + (plan.fbUrl || vid) + ' (امروز ' + q.n + ')'); } catch (eN) {}
+  try { tgCaptionLog_('فیسبوک — ریلز', igLessonLabel_(plan) + ' · ' + String(plan.series || ''), plan.fbUrl || '', fbCaption_(plan), []); } catch (eT) {}
+  return { ok: true };
+}
+
+/** صفِ تلاشِ دوباره — فقط کلید و پوشه؛ برنامه از پوشه خوانده می‌شود. */
+function fbQueue_() {
+  try { var q = JSON.parse(props_().getProperty(PK.FB_Q) || '[]'); return Object.prototype.toString.call(q) === '[object Array]' ? q : []; }
+  catch (e) { return []; }
+}
+function fbQueueSave_(q) { try { props_().setProperty(PK.FB_Q, JSON.stringify((q || []).slice(-30))); } catch (e) {} }
+
+/** پس از انتشارِ ریلز: یک بار همین‌جا، و اگر نشد به صف. هرگز پرتاب نمی‌کند. */
+function fbAfterReel_(it, plan) {
+  var r;
+  try { r = fbCross_(plan); } catch (e) { r = { wait: true, why: String(e.message || e).slice(0, 140) }; plan.fbWhy = r.why; }
+  if (r.off || r.ok) return r;
+  try { destNote_('fb', '⏳ ' + r.why); } catch (eN) {}
+  if (r.wait) {
+    var q = fbQueue_();
+    if (!q.some(function (x) { return x && x.k === it.key; })) q.push({ k: it.key, f: it.folderId, p: it.part || 1, n: 0 });
+    fbQueueSave_(q);
+  }
+  return r;
+}
+
+/** دورِ صف — از `igTick`. */
+function fbQueueRun_(deadline) {
+  var q = fbQueue_(), keep = [], out = { tried: 0, ok: 0 };
+  if (!q.length) return out;
+  try { if (!destGate_('fb', ENRICH_SHOW_SPECIAL).ok) return out; } catch (eG) { return out; }
+  var max = Math.max(1, Number(CFG.FB_TRY_MAX) || 5);
+  for (var i = 0; i < q.length; i++) {
+    var x = q[i];
+    if (!x || Date.now() > deadline - 30000) { if (x) keep.push(x); continue; }
+    var fo = null, plan = null;
+    try { fo = igFolder_(DriveApp.getFolderById(x.f), x.p); plan = igPlanRead_(fo); } catch (eF) { plan = null; }
+    if (!plan || plan.fbId) continue;
+    out.tried++;
+    var r;
+    try { r = fbCross_(plan); } catch (e) { r = { wait: true, why: String(e.message || e).slice(0, 140) }; plan.fbWhy = r.why; }
+    try { igPlanWrite_(fo, plan); } catch (eW) {}
+    if (r.ok) { out.ok++; continue; }
+    if (r.off) { keep.push(x); continue; }
+    x.n = (Number(x.n) || 0) + 1;
+    if (x.n < max) keep.push(x);
+    else { try { tgSend_('⚠️ بازنشرِ فیسبوکِ ' + igLessonLabel_(plan) + ' پس از ' + max + ' تلاش کنار رفت: ' + tgEsc_(r.why || '')); } catch (eT) {} }
+    if (/سهمِ امروز/.test(String(r.why || ''))) { for (var j = i + 1; j < q.length; j++) if (q[j]) keep.push(q[j]); break; }
+  }
+  fbQueueSave_(keep);
+  return out;
+}
+
+function fbStatus_() {
+  var q = fbQueue_(), d = {};
+  try { d = JSON.parse(props_().getProperty(PK.FB_DAY) || '{}') || {}; } catch (e) { d = {}; }
+  var g = { ok: false, why: '' };
+  try { g = destGate_('fb', ENRICH_SHOW_SPECIAL); } catch (eG) {}
+  var today = d.day === Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd') ? Number(d.n) || 0 : 0;
+  return { on: !!g.ok, why: g.ok ? '' : g.why, today: today, queued: q.length,
+           line: g.ok ? '📘 فیسبوک: روشن، امروز ' + today + ' ریلز' + (q.length ? '، ' + q.length + ' در صفِ تلاشِ دوباره' : '') + '.'
+                      : '📘 فیسبوک: خاموش (' + g.why + ').' };
 }
 
 /* ═══════════════════════════ 39_MusicReview.gs ═══════════════════════════ */

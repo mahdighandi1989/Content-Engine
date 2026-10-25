@@ -113,6 +113,8 @@ function seriesBoardData_(hub) {
       lvText: String(v[SC.LVTEXT - 1] || '').trim(),
       /* «جان‌بخشیِ تصویر» (۸.۵۴) — همان خانه؛ خالی یعنی پیش‌فرض. */
       lvMotion: String(v[SC.LVMOTION - 1] || '').trim(),
+      /* «فعال (تولیدِ موازی)» (۱۱.۵) — همان تابعی که انتخاب‌کننده می‌خوانَد. */
+      par: seriesParOn_(v),
       /* «مرورِ هر چند درس» (۸.۳۶) — خامِ خانه؛ خالی یعنی پیش‌فرض. */
       recapEvery: String(v[SC.RECAP_EVERY - 1] == null ? '' : v[SC.RECAP_EVERY - 1]).trim(),
       order: Number(v[SC.ORDER - 1]) || 999,
@@ -583,6 +585,9 @@ function seriesBoardHtml_(d) {
   // این فقط سطحِ نمایش است. پس اگر این پنل بشکند، تولید نمی‌شکند.
   H.push(calPanelHtml_());
   H.push(catPanelHtml_());
+  /* ۱۱.۵: مقصدها و نمای چهارحالته — هر دو فقط می‌خوانند/می‌نویسند همان جایی که تولید می‌خوانَد؛ شکستشان تخته را نمی‌خواباند. */
+  try { H.push(destPanelHtml_()); } catch (eDp) {}
+  try { H.push(seriesStatesHtml_(d)); } catch (eSs) {}
   H.push(handoutPanelHtml_(d));
   H.push(recapPanelHtml_(d));
 
@@ -698,6 +703,7 @@ function seriesBoardHtml_(d) {
            '<th>پیشرفت</th><th>وضعیت</th><th>قسمت‌های ساخته‌شده</th>' +
            '<th>جزوه</th><th>مرورِ بزرگ</th><th>سبکِ تصویر</th><th>تصویرسازی</th>' +
            '<th>مجموعه‌های مرجع</th>' +
+           '<th>فعال (موازی)</th>' +
            '<th></th></tr>');
     for (var i = 0; i < grp.series.length; i++) {
       var x = grp.series[i];
@@ -740,6 +746,7 @@ function seriesBoardHtml_(d) {
          یک ستونِ خالی از یک پنجرهٔ سفید بی‌نهایت بهتر است. */
       try { H.push(bridgeCell_(x, d)); }
       catch (eBc) { H.push('<td class="sub">—</td>'); }
+      H.push(parCell_(x));
       H.push('<td class="act"><button ' + (x.isPinned ? 'class="pin" ' : '') +
              'data-key="' + bEsc_(x.key) + '" ' +
              'data-act="' + (x.isPinned ? 'unpin' : 'pin') + '" ' +
@@ -762,7 +769,7 @@ function seriesBoardHtml_(d) {
       // قسمت‌های همان مجموعه، به ترتیب، با جای ایستادن
       if (x.partRows.length) {
         H.push('<tr class="' + clsName.replace('srow', 'sdetail') + '"><td></td>' +
-               '<td colspan="12"><table style="font-size:11px">');
+               '<td colspan="13"><table style="font-size:11px">');
         for (var p = 0; p < x.partRows.length; p++) {
           var pr = x.partRows[p];
           H.push('<tr><td style="width:34px">' + faNum_(pr.seq || (p + 1)) + '</td>' +
@@ -1132,6 +1139,18 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبتِ دسته‌ها…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiCatLockSave(on,list.map(function(x){return x.n;}));}');
+  // ── مقصدها و تولیدِ موازی (۱۱.۵) ──
+  H.push('function destSave(b){var box=document.getElementById("destBox");var list=[];' +
+         'box.querySelectorAll(".destRow").forEach(function(r){var sh=[];' +
+         'r.querySelectorAll(".destShow").forEach(function(c){if(c.checked)sh.push(c.dataset.show);});' +
+         'list.push({kind:r.dataset.kind,on:r.querySelector(".destOn").checked,shows:sh,cap:r.querySelector(".destCap").value});});' +
+         'busy();say("ثبتِ مقصدها…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiDestSave(list);}');
+  H.push('function parTick(c){var k=c.dataset.key,on=c.checked;' +
+         'busy();say("ثبتِ تولیدِ موازی…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiParSave(k,on);}');
   H.push('</script></body></html>');
   return H.join('\n');
 }
@@ -2713,4 +2732,142 @@ function uiClearPin() {
   clearSeriesPin_();
   logLine_('انتخاب دستی برداشته شد.');
   return { ok: true, message: 'انتخاب دستی برداشته شد. موتور به ترتیبِ خودکار برمی‌گردد.' };
+}
+
+/* ══ کنترل‌های تخته و جایی که بک‌اند می‌خوانَدشان (۱۱.۵) ══
+   «تنظیماتِ ظاهریِ شیت با رفتارِ واقعیِ بک‌اند مغایرت نداشته باشد.» هر تابعی که پنجره صدا می‌زند این‌جا یک ردیف دارد:
+   `store` = جایی که می‌نشیند (ستونِ رجیستری، کلیدِ Properties یا نامِ تب)، `writer` = تابعی که می‌نویسد، `reader` = تابعی
+   که **تولید** با آن می‌خوانَد. `run_owner110_test` §۱۲ برای هر ردیف می‌سنجد که نویسنده و خواننده هر دو همان `store` را
+   لمس می‌کنند و خواننده از بیرونِ تخته صدا زده می‌شود — و هر `google.script.run`ِ تازه‌ای که این‌جا ردیف نداشته باشد، می‌افتد.
+   `kind:'action'` یعنی دکمه‌ای که کاری را همان لحظه انجام می‌دهد و تنظیمی نمی‌گذارد. */
+var BOARD_CONTROLS_ = [
+  { ui: 'uiCalSave', kind: 'setting', writer: 'calBoardSave_', store: 'calTab_', reader: 'calGate_' },
+  { ui: 'uiCatLockSave', kind: 'setting', writer: 'catLockSave_', store: 'PK.CAT_LOCK_UI', reader: 'catLockUi_' },
+  { ui: 'uiDestSave', kind: 'setting', writer: 'destBoardSave_', store: 'destTab_', reader: 'destRead_' },
+  { ui: 'uiParSave', kind: 'setting', writer: 'seriesParSave_', store: 'SC.PAR', reader: 'seriesParOn_' },
+  { ui: 'uiPinSeries', kind: 'setting', writer: 'setSeriesPin_', store: 'PK.SP_PIN', reader: 'seriesPin_' },
+  { ui: 'uiPinCategory', kind: 'setting', writer: 'setSeriesPin_', store: 'PK.SP_PIN', reader: 'seriesPin_' },
+  { ui: 'uiClearPin', kind: 'setting', writer: 'clearSeriesPin_', store: 'PK.SP_PIN', reader: 'seriesPin_' },
+  { ui: 'uiSetManual', kind: 'setting', writer: 'uiSetManual', store: 'SC.MORDER', reader: 'seriesMOrder_' },
+  { ui: 'uiClearManual', kind: 'setting', writer: 'uiSetManual', store: 'SC.MCAT', reader: 'seriesCatOf_' },
+  { ui: 'uiSetCourse', kind: 'setting', writer: 'setSeriesManual_', store: 'SC.MANUAL', reader: 'seriesEligible_' },
+  { ui: 'uiBridgeSave', kind: 'setting', writer: 'bridgeSave_', store: 'SC.XREF', reader: 'bridgeKeys_' },
+  { ui: 'uiLvStyleSave', kind: 'setting', writer: 'uiLvStyleSave', store: 'SC.LVSTYLE', reader: 'lvStyleOf_' },
+  { ui: 'uiLvLevelSave', kind: 'setting', writer: 'uiLvLevelSave', store: 'SC.LVLEVEL', reader: 'lvLevelOf_' },
+  { ui: 'uiLvTextSave', kind: 'setting', writer: 'uiLvTextSave', store: 'SC.LVTEXT', reader: 'lvTextAt_' },
+  { ui: 'uiLvMotionSave', kind: 'setting', writer: 'uiLvMotionSave', store: 'SC.LVMOTION', reader: 'lvMotionAt_' },
+  { ui: 'uiRecapEverySave', kind: 'setting', writer: 'uiRecapEverySave', store: 'SC.RECAP_EVERY', reader: 'recapEveryOf_' },
+  { ui: 'uiRecapQueue', kind: 'action', runs: 'recapQueueSet_' },
+  { ui: 'uiHandoutSeries', kind: 'action', runs: 'handoutOneSeries_' },
+  { ui: 'uiHandoutAll', kind: 'action', runs: 'handoutBackfill_' },
+  { ui: 'uiJudgeNow', kind: 'action', runs: 'judgeSeries' },
+  { ui: 'uiBoardHtml', kind: 'action', runs: 'seriesBoardHtml_' }
+];
+
+/** مقصدها روی تخته — همان تب که `destGate_` می‌خوانَد. */
+function uiDestSave(list) {
+  try {
+    var r = destBoardSave_(list || []);
+    boardReceipt_(true, 'مقصدها ذخیره شد', r.done.concat(r.note ? [r.note] : []).concat(['از همین اجرا به بعد اعمال می‌شود؛ «آخرین وضعیت» را خودِ موتور می‌نویسد.']));
+    return { ok: true, message: 'مقصدها ذخیره شد — ' + r.done.join(' · ') + (r.note ? ' (' + r.note + ')' : '') };
+  } catch (e) { return { ok: false, message: 'ذخیرهٔ مقصدها انجام نشد: ' + e.message }; }
+}
+
+/** تیکِ «فعال (تولیدِ موازی)» یک مجموعه. */
+function uiParSave(key, on) {
+  try {
+    var r = seriesParSave_(getHub_(), key, !!on);
+    if (!r.ok) return r;
+    var msg = '«' + r.name + '»: ' + (r.on ? 'وارد گردشِ تولیدِ موازی شد' : 'از گردشِ موازی بیرون آمد') +
+              (r.ticked.length ? ' — تیک‌خورده‌ها: ' + r.ticked.join('، ') : ' — هیچ مجموعه‌ای تیک ندارد؛ رفتار همان پیشین (یک مجموعه تا پایان)') + '.';
+    boardReceipt_(true, msg, ['از قسمتِ بعدیِ درس‌نامه اعمال می‌شود. هر روز یک قسمت؛ نوبت با آنکه دیرتر از همه قسمت گرفته.']);
+    return { ok: true, message: msg };
+  } catch (e) { return { ok: false, message: 'ثبت نشد: ' + e.message }; }
+}
+
+/** خانهٔ «فعال (موازی)» در هر ردیفِ مجموعه. */
+function parCell_(x) {
+  var dis = (x.status === SST.SKIPPED) || (!x.hasWork && !x.par);
+  return '<td style="text-align:center"><input type="checkbox" class="parTick" data-key="' + bEsc_(x.key) + '"' +
+         (x.par ? ' checked' : '') + (dis ? ' disabled title="کاری برای ساختن ندارد"' : '') +
+         ' title="تولیدِ موازی: تیک = هر روز نوبتی کنارِ مجموعهٔ جاری. هیچ تیکی = یک مجموعه تا پایان (همان پیشین)."' +
+         ' onchange="parTick(this)">' + (x.par ? '<div class="sub">⇄ در گردش</div>' : '') + '</td>';
+}
+
+/** پنلِ مقصدها. */
+function destPanelHtml_() {
+  var d = null;
+  try { d = destBoardData_(); } catch (e) { return ''; }
+  if (!d) return '';
+  var H = ['<div class="card" id="destBox"><div style="font-weight:700;margin-bottom:6px">🎯 مقصدها</div>' +
+           '<div class="sub" style="margin-bottom:8px">هر ردیف یک جایی که موتور منتشر می‌کند. «فعال» خاموش ⇒ چیزی پاک یا رد نمی‌شود، فقط منتظر می‌ماند و با ' +
+           'روشن‌شدن ادامه می‌یابد. «سقفِ روزانه» خالی ⇒ سقفِ کد. ستونِ «آخرین وضعیت» را خودِ موتور می‌نویسد. همین‌ها در تبِ «' +
+           bEsc_(CFG.DEST_TAB || 'مقصدها') + '» هم هست و هر دو یک جاست.' +
+           (d.src !== 'tab' ? ' <b style="color:#b91c1c">تب خوانده نشد (' + bEsc_(d.why || d.src) + ')</b>' : '') + '</div>' +
+           '<table style="border-collapse:collapse;width:100%"><tr class="sub"><th>فعال</th><th style="text-align:right">مقصد</th><th>برنامه‌ها</th>' +
+           '<th>سقفِ روزانه</th><th style="text-align:right">آخرین وضعیت</th></tr>'];
+  for (var i = 0; i < d.rows.length; i++) {
+    var r = d.rows[i], sh = [];
+    for (var j = 0; j < d.shows.length; j++) {
+      var s = d.shows[j], on = !r.shows || r.shows.indexOf(s.key) !== -1;
+      sh.push('<label style="white-space:nowrap"><input type="checkbox" class="destShow" data-show="' + bEsc_(s.key) + '"' + (on ? ' checked' : '') + '> ' + bEsc_(s.name) + '</label>');
+    }
+    H.push('<tr class="destRow" data-kind="' + bEsc_(r.kind) + '"><td style="text-align:center"><input type="checkbox" class="destOn"' + (r.on ? ' checked' : '') + '></td>' +
+           '<td><b>' + bEsc_(r.name) + '</b> <span class="sub">' + bEsc_(r.acct) + '</span></td>' +
+           '<td>' + sh.join(' &nbsp; ') + ((r.bad || []).length ? '<div style="color:#8a6d1f">خوانده نشد: ' + bEsc_(r.bad.join('، ')) + '</div>' : '') + '</td>' +
+           '<td style="text-align:center"><input type="number" class="destCap" min="0" style="width:56px" value="' + (r.cap || '') + '"></td>' +
+           '<td class="sub">' + bEsc_(r.last || '—') + '</td></tr>');
+  }
+  H.push('</table><div style="margin-top:8px"><button onclick="destSave(this)">ذخیرهٔ مقصدها</button></div></div>');
+  return H.join('');
+}
+
+/**
+ * نمای چهارحالته (۱۱.۵): «او باید ببیند چه کار شده، در حالِ انجام، در انتظار و نرفته است.»
+ * از همان ردیف‌هایی ساخته می‌شود که فهرستِ پایین — یک منبع، پس دو تصویرِ متناقض ممکن نیست.
+ */
+function seriesStates_(d) {
+  var S = { done: [], doing: [], wait: [], out: [] };
+  var all = [];
+  for (var g = 0; g < (d.groups || []).length; g++) all = all.concat(d.groups[g].series || []);
+  for (var i = 0; i < all.length; i++) {
+    var x = all[i];
+    if (x.status === SST.SKIPPED) S.out.push({ x: x, why: 'در شیت‌های منبع پیدا نمی‌شود' });
+    else if (x.status === SST.DONE || (x.status === SST.ACTIVE && !x.hasWork)) S.done.push({ x: x });
+    else if (x.status === SST.ACTIVE || x.status === SST.REOPENED || x.isCurrent || x.isPinned) S.doing.push({ x: x });
+    else S.wait.push({ x: x });
+  }
+  for (var e = 0; e < (d.excluded || []).length; e++) S.out.push({ x: d.excluded[e], why: 'آموزشی تشخیص داده نشد' });
+  var ord = function (a, b) {
+    var ma = a.x.morder !== null && a.x.morder !== undefined ? a.x.morder : a.x.order;
+    var mb = b.x.morder !== null && b.x.morder !== undefined ? b.x.morder : b.x.order;
+    return ma - mb;
+  };
+  S.wait.sort(ord);
+  return S;
+}
+
+function seriesStatesHtml_(d) {
+  var S;
+  try { S = seriesStates_(d); } catch (e) { return ''; }
+  var box = function (title, color, list, hint) {
+    var L = [];
+    for (var i = 0; i < list.length && i < 60; i++) {
+      var x = list[i].x;
+      L.push('<li>' + bEsc_(x.name) + (x.par ? ' <span class="bdg b-act">⇄ موازی</span>' : '') +
+             (x.isCurrent ? ' <span class="bdg b-act">همین حالا</span>' : '') +
+             (list[i].why ? ' <span class="sub">— ' + bEsc_(list[i].why) + '</span>' : '') +
+             (x.episodes ? ' <span class="sub">(' + faNum_(x.episodes) + ' قسمت)</span>' : '') + '</li>');
+    }
+    if (list.length > 60) L.push('<li class="sub">و ' + faNum_(list.length - 60) + ' مجموعهٔ دیگر — در فهرستِ پایین</li>');
+    return '<details style="flex:1;min-width:200px;border-right:4px solid ' + color + ';padding:4px 8px"' + (list.length && list.length <= 8 ? ' open' : '') + '>' +
+           '<summary><b>' + title + '</b> ' + faNum_(list.length) + '</summary><div class="sub">' + hint + '</div><ul style="margin:4px 0;padding-right:18px">' + L.join('') + '</ul></details>';
+  };
+  return '<div class="card" id="stateBox"><div style="font-weight:700;margin-bottom:6px">🧭 وضعِ مجموعه‌ها</div>' +
+         '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+         box('✅ انجام‌شده', '#5a6478', S.done, 'همهٔ درس‌هایش ساخته شده') +
+         box('▶ در جریان', '#166534', S.doing, 'روی آن کار می‌شود یا قسمتِ تازه گرفته') +
+         box('⏳ در انتظار', '#2e5cb8', S.wait, 'به ترتیبِ نوبت؛ اولی نفرِ بعد است') +
+         box('⛔ نرفته', '#9ca3af', S.out, 'تولید نمی‌شود — با دلیلش') +
+         '</div></div>';
 }

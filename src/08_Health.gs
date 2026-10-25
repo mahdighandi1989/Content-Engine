@@ -684,6 +684,10 @@ function writeStatus_(hub, note) {
     igPattern: (function () { try { var x = JSON.parse(props_().getProperty(PK.IG_PATTERN) || 'null'); if (x) delete x.byDay; return x; } catch (e) { return null; } })(),
     catLock: (function () { try { return { on: catLockOn_(), order: catLockList_(), fromBoard: !!catLockUi_(), line: catLockLine_() }; } catch (e) { return null; } })(),
     ytShowsOff: (function () { try { return { shows: CFG.YT_SHOWS_OFF || [], line: ytShowsOffLine_(), parked: ytDueParked_().length }; } catch (e) { return null; } })(),
+    /* ۱۱.۵: مقصدها، فیسبوک و تولیدِ موازی — فراخوانِ رو به جلو (۸ → ۲۵/۱۳/۳۸) در try. */
+    destinations: (function () { try { return destStatus_(); } catch (e) { return null; } })(),
+    facebook: (function () { try { return fbStatus_(); } catch (e) { return null; } })(),
+    seriesPar: (function () { try { return seriesParStatus_(); } catch (e) { return null; } })(),
     ytOwnerPrivate: (function () { try { return { ids: ytOwnerPrivList_().length, line: ytOwnerPrivLine_() }; } catch (e) { return null; } })(),
     lessonMotion: (function () { try { return lvMotionStatus_(); } catch (e) { return null; } })(),
     lessonCards: (function () { try { return lvOvStatus_(); } catch (e) { return null; } })(),
@@ -2721,6 +2725,9 @@ function healthCheck() {
      تشخیص داد. */
   try { lvHealth_(problems, notes); } catch (eLv) {}
   try { notes.push(catLockLine_()); } catch (eCl) {}    // ۱۱.۰: قفلِ دسته‌های علمی — هر روز، حتی سالم
+  try { notes.push(destStatus_().line); } catch (eDs) {}   // ۱۱.۵: مقصدها — هر روز، حتی سالم
+  try { var fbS = fbStatus_(); if (fbS.on || fbS.queued) notes.push(fbS.line); } catch (eFs) {}
+  try { var spS = seriesParStatus_(); if (spS.line) notes.push(spS.line); } catch (eSp) {}
   try { var ytOffL = ytShowsOffLine_(); if (ytOffL) notes.push(ytOffL); } catch (eYo) {}
   try { var ytPrivL = ytOwnerPrivLine_(); if (ytPrivL) notes.push(ytPrivL); } catch (eYp) {}
   try { vmHealth_(problems, notes); } catch (eVmH) {}    // بخشِ ۳۷ پس از این بخش است ⇒ درونِ try

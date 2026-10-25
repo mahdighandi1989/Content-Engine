@@ -336,3 +336,272 @@ function calWidths_(sh) {
   sh.getRange(2, CC.LAST, Math.max(sh.getMaxRows() - 1, 1), 1)
     .setNumberFormat('@').setFontColor('#666666');
 }
+
+/* ═════════════════════════════ مقصدها (۱۱.۵) ═════════════════════════════
+
+   ══ خواسته ══
+   «جدولِ مقصدها … متصل به قفل و سوییچِ واقعی، با آزمونِ "هر کنترلِ شیت را بک‌اند
+   واقعاً می‌خوانَد"» — یک ردیف برای هر جایی که موتور منتشر می‌کند (یوتیوب،
+   اینستاگرام، فیسبوک)، با «فعال»، «برنامه‌ها»، «سقفِ روزانه» و «آخرین وضعیت».
+
+   ══ چرا این‌جا، کنارِ تقویم ══
+   تقویم می‌گوید «کی ساخته شود»؛ این تب می‌گوید «کجا برود». همان شکل، همان
+   قاعده‌ها (تب داده است نه کد؛ ستونِ آخرین وضعیت را خودِ موتور می‌نویسد)، و
+   همان جایگاه: ۲۵ پیش از ۲۷ (یوتیوب) و ۳۸ (اینستاگرام/فیسبوک) است، پس هر دو
+   این را بی فراخوانِ رو به جلو صدا می‌زنند.
+
+   ══ پیش‌فرض یعنی رفتارِ امروز ══
+   ردیف‌های بذری دقیقاً همان چیزی‌اند که پیش از این تب بود: یوتیوب روشن برای هر
+   دو برنامه، اینستاگرام روشن برای درس‌نامه، فیسبوک **خاموش**. پس نصبِ این نسخه
+   هیچ چیزی را عوض نمی‌کند تا کسی تیکی را عوض کند.
+
+   ══ اگر تب خوانده نشود ══
+   آخرین خواندنِ سالم (`PK.DEST_CACHE`) به کار می‌رود، و اگر آن هم نباشد همان
+   بذر. یعنی شکستنِ تب نه انتشارِ خاموش‌شده را روشن می‌کند (تا وقتی یک بار سالم
+   خوانده شده باشد)، نه همه‌چیز را بی‌صدا می‌خواباند.
+
+   ══ «خاموش» چه می‌کند ══
+   هیچ چیزی پاک یا رد نمی‌شود. یوتیوب: ردیفِ صف کنار می‌رود (`YT_DUE_PARKED`) و
+   با روشن‌شدن برمی‌گردد — همان راهی که ۱۱.۰ برای «از همه جا» ساخت. اینستاگرام:
+   ریلزِ آماده سرِ گامِ انتشار می‌ایستد. فیسبوک: ریلز بازنشر نمی‌شود.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+var DEST_HEADERS = ['مقصد', 'حساب', 'فعال', 'برنامه‌ها', 'سقفِ روزانه', 'آخرین وضعیت', 'یادداشت'];
+var DC = { KIND: 1, ACCT: 2, ON: 3, SHOWS: 4, CAP: 5, LAST: 6, NOTE: 7 };
+
+/** بذر — همان رفتارِ پیش از این تب. `shows` کلیدِ برنامه‌هاست. */
+function destKinds_() {
+  return [
+    { kind: 'yt', name: 'یوتیوب', acct: String(CFG.YT_MARK_HANDLE || '@truth_trace1'), on: true,
+      shows: [ENRICH_SHOW_SPECIAL, ENRICH_SHOW_VARIETY],
+      note: 'ویدئوی کامل و شورتز. سقف = آپلود در روز (شورتز هم یک آپلود است). خالی = سقفِ کد.' },
+    { kind: 'ig', name: 'اینستاگرام', acct: '@truth.traces', on: true,
+      shows: [ENRICH_SHOW_SPECIAL],
+      note: 'ریلز و استوریِ درس‌نامه. سقف = ریلز در روز. خالی = سقفِ کد.' },
+    { kind: 'fb', name: 'فیسبوک', acct: 'صفحهٔ Truth Trace', on: false,
+      shows: [ENRICH_SHOW_SPECIAL],
+      note: 'بازنشرِ همان ریلزِ اینستاگرام روی صفحه. تا کلیدِ متا دسترسیِ صفحه نداشته باشد، روشن‌کردنش فقط علت را در «آخرین وضعیت» می‌نویسد.' }
+  ];
+}
+
+function destKindOf_(cell) {
+  var t = String(cell == null ? '' : cell).trim().toLowerCase();
+  if (!t) return '';
+  if (/یوتیوب|youtube|^yt$/.test(t)) return 'yt';
+  if (/اینستا|instagram|^ig$/.test(t)) return 'ig';
+  if (/فیسبوک|facebook|^fb$/.test(t)) return 'fb';
+  return '';
+}
+
+/** نامِ نمایشیِ برنامه‌ها ⇄ کلید. «همه»/خالی ⇒ null (همه). */
+function destShowsParse_(cell) {
+  var t = String(cell == null ? '' : cell).trim();
+  if (!t || /^(همه|all|\*)$/i.test(t)) return { keys: null, bad: [] };
+  if (/^(هیچ|none|-)$/i.test(t)) return { keys: [], bad: [] };
+  var L = [];
+  try { L = knownShows_(); } catch (e) { L = []; }
+  var keys = [], bad = [];
+  var toks = t.split(/[،,;؛\n\r]+/);
+  for (var i = 0; i < toks.length; i++) {
+    var x = toks[i].replace(/[«»"]/g, '').trim();
+    if (!x) continue;
+    var k = '';
+    for (var j = 0; j < L.length; j++) {
+      if (x === L[j].key || x === String(L[j].name)) { k = L[j].key; break; }
+    }
+    if (!k && /درس/.test(x)) k = ENRICH_SHOW_SPECIAL;
+    if (!k && /همه ?جا/.test(x)) k = ENRICH_SHOW_VARIETY;
+    if (!k) { bad.push(x); continue; }
+    if (keys.indexOf(k) === -1) keys.push(k);
+  }
+  return { keys: keys, bad: bad };
+}
+
+function destShowsText_(keys) {
+  if (!keys) return 'همه';
+  if (!keys.length) return 'هیچ';
+  var out = [];
+  for (var i = 0; i < keys.length; i++) {
+    try { out.push(enrichShowName_(keys[i])); } catch (e) { out.push(keys[i]); }
+  }
+  return out.join('، ');
+}
+
+function destTab_(hub) {
+  return ensureTab_(hub || getHub_(), CFG.DEST_TAB || 'مقصدها', DEST_HEADERS);
+}
+
+/** ردیفِ هر مقصدی که نیست ساخته می‌شود؛ ردیفِ موجود هرگز بازنویسی نمی‌شود. ⇒ نامِ ساخته‌شده‌ها */
+function destSeed_(hub) {
+  var sh = destTab_(hub), have = {}, made = [];
+  if (sh.getLastRow() > 1) {
+    var v = sh.getRange(2, 1, sh.getLastRow() - 1, DEST_HEADERS.length).getValues();
+    for (var i = 0; i < v.length; i++) { var k = destKindOf_(v[i][DC.KIND - 1]); if (k) have[k] = 1; }
+  }
+  var K = destKinds_();
+  for (var j = 0; j < K.length; j++) {
+    if (have[K[j].kind]) continue;
+    sh.appendRow([K[j].name, K[j].acct, K[j].on ? 'بله' : 'خیر', destShowsText_(K[j].shows), '', '', K[j].note]);
+    made.push(K[j].name);
+  }
+  if (made.length) { try { logLine_('مقصدها: ردیفِ ' + made.join('، ') + ' ساخته شد (پیش‌فرض = رفتارِ پیشین).'); } catch (eL) {} }
+  return made;
+}
+
+var DEST_MEMO_ = null;
+function destMemoClear_() { DEST_MEMO_ = null; }
+
+function destDefaults_() {
+  var rows = {}, K = destKinds_();
+  for (var i = 0; i < K.length; i++) {
+    rows[K[i].kind] = { kind: K[i].kind, name: K[i].name, acct: K[i].acct, on: K[i].on,
+                        shows: K[i].shows.slice(), cap: 0, last: '', row: 0, bad: [] };
+  }
+  return rows;
+}
+
+/**
+ * خواندنِ تب، یک بار در هر دقیقهٔ اجرا. ⇒ {src:'tab'|'cache'|'default', rows:{yt,ig,fb}, why}
+ * ردیفی که در تب نیست از بذر پر می‌شود — پس «نیامدن» هرگز «خاموش» خوانده نمی‌شود.
+ */
+function destRead_() {
+  if (DEST_MEMO_ && Date.now() - DEST_MEMO_.t < 60 * 1000) return DEST_MEMO_.v;
+  var out = { src: 'default', rows: destDefaults_(), why: '' };
+  try {
+    var hub = getHub_();
+    destSeed_(hub);
+    var sh = destTab_(hub);
+    var v = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, DEST_HEADERS.length).getValues() : [];
+    var seen = {};
+    for (var i = 0; i < v.length; i++) {
+      var k = destKindOf_(v[i][DC.KIND - 1]);
+      if (!k || seen[k]) continue;          // ردیفِ دوم با همان مقصد نادیده — اولی حاکم است
+      seen[k] = 1;
+      var sp = destShowsParse_(v[i][DC.SHOWS - 1]);
+      var cap = parseInt(faDigits_(String(v[i][DC.CAP - 1] == null ? '' : v[i][DC.CAP - 1])).replace(/[^\d]/g, ''), 10);
+      var base = out.rows[k];
+      out.rows[k] = { kind: k, name: base.name, acct: String(v[i][DC.ACCT - 1] || base.acct),
+                      on: !destOff_(v[i][DC.ON - 1], base.on), shows: sp.keys, bad: sp.bad,
+                      cap: isFinite(cap) && cap > 0 ? cap : 0, last: String(v[i][DC.LAST - 1] || ''), row: i + 2 };
+    }
+    out.src = 'tab';
+    try {
+      var js = JSON.stringify(out.rows);
+      if (props_().getProperty(PK.DEST_CACHE) !== js) props_().setProperty(PK.DEST_CACHE, js);
+    } catch (eC) {}
+  } catch (e) {
+    out.why = String((e && e.message) || e).slice(0, 120);
+    try {
+      var c = JSON.parse(props_().getProperty(PK.DEST_CACHE) || 'null');
+      if (c && c.yt) { out.rows = c; out.src = 'cache'; }
+    } catch (eP) {}
+  }
+  DEST_MEMO_ = { t: Date.now(), v: out };
+  return out;
+}
+
+/** «بله/خیر» با پیش‌فرضِ همان ردیفِ بذری؛ ⇒ true یعنی خاموش. */
+function destOff_(v, defOn) {
+  var t = String(v == null ? '' : v).trim().toLowerCase();
+  if (!t) return !defOn;
+  for (var i = 0; i < CAL_NO.length; i++) if (t === CAL_NO[i]) return true;
+  for (var j = 0; j < CAL_YES.length; j++) if (t === CAL_YES[j]) return false;
+  return !defOn;
+}
+
+/**
+ * دروازه. ⇒ {ok, why, cap}. `show` خالی یعنی «هر برنامه‌ای».
+ * این تنها جایی است که «فعال» و «برنامه‌ها» معنا می‌گیرند — یوتیوب، اینستاگرام و فیسبوک هر سه همین را صدا می‌زنند.
+ */
+function destGate_(kind, show) {
+  var d = destRead_(), r = d.rows[kind];
+  if (!r) return { ok: true, why: '', cap: 0 };
+  if (!r.on) return { ok: false, why: 'مقصدِ «' + r.name + '» در تبِ «' + (CFG.DEST_TAB || 'مقصدها') + '» خاموش است', cap: r.cap };
+  if (show && r.shows && r.shows.indexOf(String(show)) === -1) {
+    var nm = show;
+    try { nm = enrichShowName_(show); } catch (e) {}
+    return { ok: false, why: '«' + nm + '» در برنامه‌های مقصدِ «' + r.name + '» تیک نخورده', cap: r.cap };
+  }
+  return { ok: true, why: '', cap: r.cap };
+}
+
+/** سقفِ مؤثر: کوچک‌ترِ سقفِ کد و سقفِ تب (خالی ⇒ سقفِ کد). */
+function destCap_(kind, codeCap) {
+  var c = Number(codeCap) || 0, r = destRead_().rows[kind];
+  if (r && r.cap > 0) return c > 0 ? Math.min(c, r.cap) : r.cap;
+  return c;
+}
+
+/** ستونِ «آخرین وضعیت» را خودِ موتور می‌نویسد — همان قاعدهٔ «آخرین تصمیم»ِ تقویم. یک بار برای هر متن در هر اجرا. */
+var DEST_NOTED_ = {};
+function destNote_(kind, text) {
+  var t = String(text || '').slice(0, 300);
+  if (!t || DEST_NOTED_[kind] === t) return false;
+  DEST_NOTED_[kind] = t;
+  try {
+    var d = destRead_(), r = d.rows[kind];
+    if (!r || !r.row || d.src !== 'tab') return false;
+    destTab_(getHub_()).getRange(r.row, DC.LAST).setValue(nowStr_() + ' — ' + t);
+    r.last = t;
+    return true;
+  } catch (e) { return false; }
+}
+
+/** دادهٔ پنلِ تخته. */
+function destBoardData_() {
+  var d = destRead_(), out = { src: d.src, why: d.why, shows: [], rows: [] };
+  try { out.shows = knownShows_(); } catch (e) { out.shows = []; }
+  var K = destKinds_();
+  for (var i = 0; i < K.length; i++) {
+    var r = d.rows[K[i].kind] || {};
+    out.rows.push({ kind: K[i].kind, name: K[i].name, acct: r.acct || K[i].acct, on: !!r.on,
+                    shows: r.shows ? r.shows.slice() : null, cap: r.cap || 0, last: r.last || '', bad: r.bad || [] });
+  }
+  return out;
+}
+
+/**
+ * ذخیره از تخته — روی **همان تب و همان ستون‌ها** که `destGate_` می‌خوانَد.
+ * list: [{kind, on, shows:[کلید], cap}]. «روشن ولی هیچ برنامه‌ای تیک نخورده» ⇒ خاموش، و صریح گفته می‌شود
+ * (همان قاعدهٔ تقویم: هیچ تیکی نباید معنای «همه» بگیرد).
+ */
+function destBoardSave_(list) {
+  var hub = getHub_();
+  destSeed_(hub);
+  destMemoClear_();
+  var d = destRead_(), sh = destTab_(hub), notes = [], done = [];
+  var known = {};
+  try { knownShows_().forEach(function (s) { known[s.key] = 1; }); } catch (e) {}
+  for (var i = 0; i < (list || []).length; i++) {
+    var x = list[i] || {}, r = d.rows[String(x.kind)];
+    if (!r || !r.row) { notes.push('مقصدِ ناشناخته: ' + x.kind); continue; }
+    var shows = [];
+    (x.shows || []).forEach(function (k) { if (known[k] && shows.indexOf(k) === -1) shows.push(k); });
+    var on = !!x.on;
+    if (on && !shows.length) { on = false; notes.push('«' + r.name + '»: هیچ برنامه‌ای تیک نخورده بود، پس خاموش شد'); }
+    var cap = parseInt(faDigits_(String(x.cap == null ? '' : x.cap)).replace(/[^\d]/g, ''), 10);
+    sh.getRange(r.row, DC.ON).setValue(on ? 'بله' : 'خیر');
+    sh.getRange(r.row, DC.SHOWS).setValue(destShowsText_(shows));
+    sh.getRange(r.row, DC.CAP).setValue(isFinite(cap) && cap > 0 ? cap : '');
+    done.push(r.name + ': ' + (on ? 'روشن — ' + destShowsText_(shows) + (cap > 0 ? ' · سقف ' + cap : '') : 'خاموش'));
+  }
+  destMemoClear_();
+  try { logLine_('مقصدها از تخته: ' + done.join(' | ') + (notes.length ? ' (' + notes.join('؛ ') + ')' : '')); } catch (eL) {}
+  return { ok: true, done: done, note: notes.join('؛ ') };
+}
+
+/** برای `_STATUS.json` و ایمیلِ روزانه. */
+function destStatus_() {
+  var d = destRead_(), rows = [], parts = [];
+  var K = destKinds_();
+  for (var i = 0; i < K.length; i++) {
+    var r = d.rows[K[i].kind];
+    if (!r) continue;
+    rows.push({ kind: r.kind, on: !!r.on, shows: r.shows, cap: r.cap || 0, last: r.last || '', bad: r.bad || [] });
+    parts.push(r.name + ' ' + (r.on ? 'روشن (' + destShowsText_(r.shows) + (r.cap ? '، سقف ' + r.cap : '') + ')' : 'خاموش') +
+               ((r.bad || []).length ? ' ⚠ خوانده نشد: ' + r.bad.join('، ') : ''));
+  }
+  return { src: d.src, why: d.why, rows: rows,
+           line: '🎯 مقصدها' + (d.src === 'tab' ? '' : d.src === 'cache' ? ' (تب خوانده نشد — آخرین خواندنِ سالم)' : ' (تب خوانده نشد — پیش‌فرض)') +
+                 ': ' + parts.join(' · ') + '.' };
+}
