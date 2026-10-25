@@ -29,6 +29,8 @@ function ok(n, c, d) {
 function summary(tag) {
   console.log('\n=== ' + tag + ' : ' + PASS + ' pass / ' + FAIL + ' fail ===');
   if (FAIL) { console.log('FAILED:'); FAILS.forEach(f => console.log('  * ' + f)); }
+  /* ۱۳.۰: «FAIL» چاپ می‌شد و کدِ خروج صفر می‌ماند — حلقهٔ «همه سبز؟» شکستِ این مجموعه‌ها را نمی‌دید (۱۴.۱۴ِ owner115 از ۱۲.۷). */
+  if (FAIL) process.exitCode = 1;
   return FAIL;
 }
 const quiet = () => { const o = console.log; console.log = () => {}; return () => { console.log = o; }; };

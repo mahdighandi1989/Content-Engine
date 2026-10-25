@@ -29,7 +29,7 @@ function onOpen() {
       .addItem('📊 مجموعه‌های آموزشی و پیشرفت', 'showSeriesBoard')
       .addItem('اسکن مجموعه‌های آموزشی', 'runScanSeries')
       .addItem('داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)', 'runJudgeSeries')
-      .addItem('⚡ مرتب‌سازیِ سریعِ فهرست (بی‌مدل)', 'runLocalJudgeAll')
+      .addItem('⚡ مرتب‌سازیِ موقتِ بی‌مدل (غیرقابل‌اتکا)', 'runLocalJudgeAll')
       .addItem('داوریِ همهٔ مجموعه‌ها از نو (با مدل)', 'runRejudgeAll')
       .addSeparator()
       .addItem('🌐 وضعیتِ غنی‌سازیِ اینترنتی', 'showEnrichStatus')

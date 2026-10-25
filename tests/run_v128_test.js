@@ -43,8 +43,8 @@ const row = (o) => { const v = new Array(SERIES_HEADERS.length).fill(''); Object
      /\| `series-queue` \|/.test(pr) && /تغییرِ نسخهٔ ۱۱۳/.test(pr) && /هر هفده ردیفش/.test(pr));
   ok('۳.۳ یادداشتِ ۱۰۸ به تاریخچه رفت، نه گم', !/تغییرِ نسخهٔ ۱۰۸/.test(pr.split('── ترتیبِ ریلز')[0]) &&
      /تغییرِ نسخهٔ ۱۰۸/.test(fs.readFileSync('docs/prompts/monitor_history.md', 'utf8')));
-  const m = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
-  ok('۳.۴ manifest بدهیِ پرامپت را فقط برای ناظر ثبت می‌کند', JSON.stringify(m.promptImpactKinds) === '["monitor"]' && m.promptImpact.length >= 1);
+  /* ۱۳.۰: manifest مالِ نسخهٔ روز است، نه ۱۲.۸ — شاهدِ ثابتِ ۱۲.۸ سطرِ Changelog است. */
+  ok('۳.۴ Changelogِ ۱۲.۸ پرامپتِ ناظرِ ۱۱۳ را نام می‌برد', /\| \*\*12\.8\*\* \|[^\n]*پرامپتِ ناظر ۱۱۳/.test(fs.readFileSync('README.md', 'utf8')));
 }
 
 /* ── ۴) گشتنِ شبانهٔ موسیقی در _STATUS ── */

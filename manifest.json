@@ -1,17 +1,22 @@
 {
-  "version": "12.9",
+  "version": "13.0",
   "codeFile": "engine.gs",
-  "sha256": "9bfd97f2988bc05ef9cb034e8f1ed3e958e25985b8ecac544e5935152bc28104",
-  "releasedAt": "2026-10-25T23:30:00Z",
-  "summary": "گلدوز: سه نمونهٔ «بی پردازش · گامِ ۰» با دستورِ سبکِ صاحبِ کانال پس از «بغض و لرزش»ِ نمونه‌های سقفِ اوج — فقط نمونه، تولید بی تغییر",
+  "sha256": "870da0725785d07202834412537266d86d8b86944a8162e3620a3321e7e22165",
+  "releasedAt": "2026-10-26T00:30:00Z",
+  "summary": "دورِ داوریِ مفهومی برای همهٔ ردیف‌های غیردستی (فقط مدل، ادامه‌دار، با دفترِ قبلی ← تازه)؛ بی‌مدل هرگز غالب؛ تولید بی تغییر",
   "fixes": [
-    "VOICE_SOUL_SEED: سه بذرِ Charon/Iapetus/Rasalgethi با pitchFix «0» و cueFix (GOLDUZ_STEADY_CUE)",
-    "vbrAsk_: pitchFix ⇒ params.pitch ثابت و بی targetHz؛ cueFix در ردیف",
-    "نمونه با cueFix: بی کارتِ سبک و بی کششِ مکث"
+    "JUDGE_ROUND/judgeKeep_/judgeRoundDone_: هر ردیفِ غیردستی یک بار، فقط با مدل؛ مصباح/آئودی/Intro و دستی‌ها دست‌نخورده",
+    "judgePrompt_: توجیهِ داور (نام، چند جملهٔ اول، شمارش، دستهٔ خودکار ✗)؛ form/audience/evidence در JUDGE_SCHEMA",
+    "applyVerdict_: بی‌مدل فقط «مشکوک» و هرگز روی داوریِ مدل؛ دفترِ «قبلی ← تازه» (judgeRoundLogAppend_)",
+    "judgeTick/judgeTickArm_: ادامه‌دار زیرِ سقفِ شش‌دقیقه، بیرون از ساعت‌های تولید؛ شروع پس از نصب و در ۱۰ صبح",
+    "تبِ بازبینی: دستهٔ قبلی، آموزشیِ قبلی، اطمینان؛ «نادیده ولی آموزشی — پیشنهاد»",
+    "tests/lib/probe_r4_lib: summary() کدِ خروجِ ۱ برای شکست"
   ],
   "sourceReportIds": [],
   "answers": [
-    "R-20261025-74"
+    "R-20261025-75",
+    "R-20261025-76",
+    "R-20261025-77"
   ],
   "promptImpact": [],
   "promptImpactKinds": []

@@ -1849,28 +1849,34 @@ function seriesParStatus_(hub, reg) {
    دکمهٔ «شماره و دستهٔ دستی»ِ تخته است (همان‌جا که `seriesCatOf_` می‌خوانَد؛ و دکمه پوشهٔ درایو را هم جابه‌جا می‌کند).
    همان فهرست به تلگرام هم می‌رود: صاحبِ کانال شیت باز نمی‌کند (۵.۹۰). */
 var SERIES_CAT_REVIEW_HEADERS = ['کلید', 'نامِ مجموعه', 'دستهٔ فعلی', 'منشأ', 'دستهٔ خودکار', 'دستهٔ دستی', 'موضوعِ واقعی (از محتوا)',
-                                 'آموزشی؟', 'وضعیت', 'قسمت‌های ساخته‌شده', 'فعال (موازی)', 'دلیلِ داوری', 'وضعِ داوری'];
+                                 'آموزشی؟', 'وضعیت', 'قسمت‌های ساخته‌شده', 'فعال (موازی)', 'دلیلِ داوری', 'وضعِ داوری',
+                                 'دستهٔ خودکارِ قبلی', 'آموزشیِ قبلی', 'اطمینان (آموزشی / دسته)'];
 
 /** ۱۲.۶: وضعِ داوریِ یک ردیف برای تبِ بازبینی. نشانه‌ها همان‌هایی‌اند که بخشِ ۱۶ در «دلیلِ داوری» می‌نویسد
     (این‌جا به‌شکلِ متن، چون بخشِ ۱۳ نباید به ۱۶ وابسته باشد). */
 function seriesJudgeState_(v) {
   var why = String(v[SC.WHY - 1] || ''), cat = String(v[SC.CAT - 1] || '');
   if (why.indexOf('داوریِ دوبارهٔ ۱۲٫۶') !== -1) return 'پیشنهادِ داور (اعمال‌نشده؛ ردیفِ دستی)';
+  /* ۱۳.۰: نادیده (به علتِ ساختاری) ولی داورِ مفهومی آموزشی دید — فقط پیشنهاد؛ وضعیت با تصمیمِ او عوض می‌شود. */
+  if (String(v[SC.STATUS - 1] || '') === SST.SKIPPED && String(v[SC.IS_COURSE - 1] || '') === SJ.YES) return 'نادیده ولی آموزشی — پیشنهادِ بازگشت (تأییدِ شما)';
   if (why.indexOf('[بی‌مدل]') !== -1 || String(v[SC.ABOUT - 1] || '').indexOf('موضوع‌های پرتکرارِ متن') === 0) return 'داوریِ ناقص';
   if (why.indexOf('نیازمند بازبینی') !== -1 || cat.indexOf('نیازمند بازبینی') !== -1 ||
       String(v[SC.IS_COURSE - 1] || '') === SJ.UNSURE || !String(v[SC.IS_COURSE - 1] || '').trim()) return 'نیازمند بازبینی';
   return '';
 }
 
-function seriesCatReviewRows_(reg) {
+function seriesCatReviewRows_(reg, logOpt) {
   var out = [];
+  var lg = logOpt || (function () { try { return judgeRoundLogMap_(null); } catch (e) { return {}; } })();   // بخشِ ۱۶ پس از ۱۳ است
   for (var i = 0; i < reg.rows.length; i++) {
     var v = reg.rows[i].vals;
     out.push([reg.rows[i].key, String(v[SC.NAME - 1] || ''), seriesCatOf_(v), seriesCatOrigin_(v),
               String(v[SC.CAT - 1] || ''), String(v[SC.MCAT - 1] || ''),
               String(v[SC.ABOUT - 1] || v[SC.TOPIC - 1] || '—'), String(v[SC.IS_COURSE - 1] || ''),
               String(v[SC.STATUS - 1] || ''), epNumsOf_(v[SC.EPISODES - 1]).length, seriesParOn_(v) ? 'بله' : '',
-              String(v[SC.WHY - 1] || '').slice(0, 300), seriesJudgeState_(v)]);
+              String(v[SC.WHY - 1] || '').slice(0, 300), seriesJudgeState_(v),
+              lg[reg.rows[i].key] ? String(lg[reg.rows[i].key][4] || '') : '', lg[reg.rows[i].key] ? String(lg[reg.rows[i].key][6] || '') : '',
+              lg[reg.rows[i].key] ? (String(lg[reg.rows[i].key][8] || '—') + ' / ' + String(lg[reg.rows[i].key][9] || '—')) : '']);
   }
   out.sort(function (a, b) {
     var ma = a[3] === 'دستی' ? 0 : 1, mb = b[3] === 'دستی' ? 0 : 1;
@@ -1899,6 +1905,7 @@ function seriesCatReview_(hub, tg) {
         L.push('   دستهٔ فعلی: ' + r[2] + ' — ' + r[3] + (r[3] !== 'دستی' && r[4] ? '' : '') + ' · وضعیت: ' + r[8] + ' · قسمت: ' + r[9] +
                (r[10] ? ' · موازی' : ''));
         L.push('   موضوعِ واقعی: ' + r[6] + (r[12] ? '  ⚠ ' + r[12] : ''));
+        if (r[13] || r[14]) L.push('   قبلی ← تازه: دسته «' + (r[13] || '—') + '» ← «' + r[4] + '» · آموزشی «' + (r[14] || '—') + '» ← «' + r[7] + '» · اطمینان ' + r[15]);
         L.push('');
       });
       /* ۱۲.۱: صفِ تولید و برآوردِ زمان، بالای همان فایل */

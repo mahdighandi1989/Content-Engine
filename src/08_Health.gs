@@ -2731,6 +2731,12 @@ function healthCheck() {
     var regC = readSeriesReg_(getHub_()), scl = seriesCatLine_(regC);
     notes.push(scl.line);
     try { notes.push(seriesQueuePlan_(null, regC).line); } catch (eQp) {}   // ۱۲.۱: صف و برآوردِ زمان
+    /* ۱۳.۰: دورِ داوریِ مفهومی — خطِ هر روز، و اگر صف مانده و تریگرش نیست، دوباره زمان‌بندی (موتور خودش ادامه می‌دهد). */
+    try {
+      var jrs = judgeRoundStatus_(regC);
+      if (jrs.on) notes.push(jrs.line);
+      if (seriesNeedingJudgement_(regC).length) judgeTickArm_(20);
+    } catch (eJr) {}
     if (scl.problem) problems.push(scl.problem);
     if (props_().getProperty(PK.CAT_REVIEW_REV) !== String(CFG.CODE_VERSION)) {
       var rv = seriesCatReview_(null, true);

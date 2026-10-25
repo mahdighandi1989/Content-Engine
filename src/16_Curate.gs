@@ -45,6 +45,9 @@ var JUDGE_SCHEMA = {
           category: { type: 'string' },
           catSure: { type: 'string' },
           courseSure: { type: 'string' },
+          form: { type: 'string' },
+          audience: { type: 'string' },
+          evidence: { type: 'string' },
           level: { type: 'string' },
           related: { type: 'string' },
           orderHint: { type: 'string' },
@@ -117,9 +120,16 @@ function seriesEligible_(vals, key, pinOpt) {
 
 /** فهرستِ مجموعه‌هایی که باید داوری شوند (تازه‌ها و داوری‌های کهنه). */
 function seriesNeedingJudgement_(reg) {
-  var out = [];
+  var out = [], roundSkipped = [];
   for (var i = 0; i < reg.rows.length; i++) {
     var v = reg.rows[i].vals;
+    /* ۱۳.۰: دورِ داوریِ مفهومی — هر ردیفِ غیردستی (نادیده‌ها هم) یک بار با مدل از نو؛ نشانش در «دلیل» می‌ماند. نادیده‌ها
+       آخرِ صف‌اند (اول آنچه در نوبت است)، و وضعیتشان عوض نمی‌شود. */
+    if (judgeRoundOn_() && !judgeKeep_(v) && !judgeRoundDone_(v)) {
+      reg.rows[i].__modelOnly = true; reg.rows[i].__round = true;
+      if (String(v[SC.STATUS - 1] || '') === SST.SKIPPED) roundSkipped.push(reg.rows[i]); else out.push(reg.rows[i]);
+      continue;
+    }
     if (String(v[SC.STATUS - 1] || '') === SST.SKIPPED) continue;
     /* ۱۲.۶: ردیفِ دستیِ داوری‌ناقص یک بار دوباره با مدل داوری می‌شود — applyVerdict_ فقط شرح/دلیل/دستهٔ خودکار را می‌نویسد. */
     if ((String(v[SC.MANUAL - 1] || '').trim() || seriesManualLock_(v)) && judgeIncomplete_(v)) {
@@ -127,6 +137,7 @@ function seriesNeedingJudgement_(reg) {
     }
     if (String(v[SC.MANUAL - 1] || '').trim()) continue;   // نظرِ شما ثبت شده
     if (seriesManualLock_(v)) continue;   // شماره/دستهٔ دستی: داوری حق دخالت ندارد
+    if (judgeKeep_(v) && String(v[SC.JUDGED - 1] || '').trim()) continue;   // ۱۳.۰: «مصباح، آئودی، … بماند» — داوریِ موجودشان
     // داوریِ بی‌مدل موقتی است. همین که مدل در دسترس باشد باید بازبینی شود، نه
     // سه روز بعد: کاربری که دکمهٔ داوری را می‌زند و «داوری‌نشده: ۰» می‌بیند،
     // فکر می‌کند مدل داوری کرده — درحالی‌که همهٔ تصمیم‌ها از قاعده آمده‌اند.
@@ -138,6 +149,49 @@ function seriesNeedingJudgement_(reg) {
     if (seriesJudged_(v)) continue;
     out.push(reg.rows[i]);
   }
+  return out.concat(roundSkipped);
+}
+
+/* ══ دورِ داوریِ مفهومی (۱۳.۰) ══
+ * صاحبِ کانال: «همهٔ داوری‌های قبلیِ دسته و آموزشی؟ اعتبار ندارند و اگر درست هم باشند شانسی است.» علت‌ها، از خودِ کد:
+ * (۱) تا ۱۲.۵ نمونه قطعهٔ **اول** سه قسمت بود — سلام و مقدمه؛ (۲) نامِ فایل در پرامپت پیش از متن می‌آمد؛ (۳) داوریِ بی‌مدل
+ * (`localVerdict_`) واژه می‌شمرد و «آموزشی/نه» و دسته را **قطعی** می‌نوشت، و ۱۰۶ ردیف فقط همین را داشتند؛ (۴) دستهٔ خودکار
+ * پیش‌فرضِ چند تصمیم بود. ۱۲.۶ ورودی را درست کرد (۱۰/۵۰/۹۰٪، عنوانِ همه، سرفصلِ جزوه) ولی فقط ردیف‌هایی که دوباره نوبت گرفتند
+ * از آن بهره بردند. این دور همه را یک بار با همان ورودی از نو می‌سنجد؛ ردیفِ دستیِ او (و سه مجموعه‌ای که نام برد) نه. */
+function judgeRoundOn_() { return !!String(CFG.JUDGE_ROUND || '').trim(); }
+function judgeRoundMark_() { return '‹داوریِ مفهومیِ ' + String(CFG.JUDGE_ROUND || '') + '›'; }
+function judgeRoundDone_(v) { return String(v[SC.WHY - 1] || '').indexOf(judgeRoundMark_()) !== -1; }
+/** ردیفی که خودِ او تنظیم کرده: تصمیمِ دستی، شماره یا دستهٔ دستی — و نام‌های `JUDGE_KEEP_NAMES` (مصباح، آئودی، …). */
+function judgeKeep_(v) {
+  if (String(v[SC.MANUAL - 1] || '').trim()) return true;
+  if (seriesManualLock_(v)) return true;
+  var nm = txNorm(String(v[SC.NAME - 1] || '') + ' ' + String(v[SC.KEY - 1] || '')).toLowerCase();
+  var keep = CFG.JUDGE_KEEP_NAMES || [];
+  for (var i = 0; i < keep.length; i++) {
+    var k = txNorm(String(keep[i] || '')).toLowerCase();
+    if (k && nm.indexOf(k) !== -1) return true;
+  }
+  return false;
+}
+/** داوریِ این ردیف از مدل بوده (نه بی‌مدل)؟ — داوریِ بی‌مدل هرگز روی آن نمی‌نشیند. */
+function judgedByModel_(v) {
+  return !!String(v[SC.JUDGED - 1] || '').trim() && String(v[SC.WHY - 1] || '').indexOf(JUDGE_LOCAL_MARK) === -1 &&
+         String(v[SC.ABOUT - 1] || '').indexOf('موضوع‌های پرتکرارِ متن') !== 0;
+}
+/** وضعِ دور ⇒ {on, total, done, left, leftSkipped, line} — فقط خواندنِ رجیستری. */
+function judgeRoundStatus_(reg) {
+  var out = { on: judgeRoundOn_(), total: 0, done: 0, left: 0, leftSkipped: 0, kept: 0, line: '' };
+  if (!out.on) return out;
+  for (var i = 0; i < reg.rows.length; i++) {
+    var v = reg.rows[i].vals;
+    if (judgeKeep_(v)) { out.kept++; continue; }
+    out.total++;
+    if (judgeRoundDone_(v)) out.done++;
+    else { out.left++; if (String(v[SC.STATUS - 1] || '') === SST.SKIPPED) out.leftSkipped++; }
+  }
+  out.line = '🧭 داوریِ مفهومیِ ' + CFG.JUDGE_ROUND + ': ' + faDigitsOut_(String(out.done)) + ' از ' + faDigitsOut_(String(out.total)) +
+             ' مجموعهٔ غیردستی' + (out.left ? ' · ' + faDigitsOut_(String(out.left)) + ' مانده (' + faDigitsOut_(String(out.leftSkipped)) + ' نادیده)' : ' · تمام') +
+             ' · ' + faDigitsOut_(String(out.kept)) + ' ردیفِ دستی دست نخورد. نتیجه: تبِ «' + (CFG.SERIES_CAT_REVIEW_TAB || 'بازبینیِ دستهٔ مجموعه‌ها') + '».';
   return out;
 }
 
@@ -527,6 +581,18 @@ function judgePrompt_(entries, catsOpt) {
   L.push('• اگر متنِ نمونه کوتاه یا نامفهوم است، محتاط باش: isCourse را false بگذار ' +
          'و در why بنویس که نمونه کافی نبود.');
   L.push('');
+  /* ۱۳.۰: «توجیهِ» داور — داوری‌های پیشین از کجا اشتباه می‌فهمیدند و فهمِ درست یعنی چه. */
+  L.push('چگونه بفهمی (این مهم‌ترین بخش است) — داوری‌های پیشینِ این آرشیو بیشترشان اشتباه بودند، چون از این‌ها می‌فهمیدند:');
+  L.push('  ✗ از نامِ فایل («جلسه ۳»، «Standard recording»، یا نامی که موضوعِ دیگری را تداعی می‌کند)؛');
+  L.push('  ✗ از چند جملهٔ اول — سلام، معرفی، «بسم‌الله»، مقدمهٔ رسمی یا خبرِ روز، که موضوعِ مجموعه نیستند؛');
+  L.push('  ✗ از شمارشِ واژه‌های پرتکرار؛  ✗ از دسته‌ای که پیش‌تر خودکار حدس زده شده بود.');
+  L.push('فهمِ درست یعنی خواندنِ مفهومیِ سرتاسرِ مجموعه: عنوانِ **همهٔ** قسمت‌ها به ترتیب (سیرِ مجموعه)، سه نمونه از ۱۰٪ و ۵۰٪ و ۹۰٪، ' +
+         'و سرفصل‌های جزوه اگر هست. بپرس: این مجموعه در کلِ خودش دربارهٔ چیست (موضوعِ واقعی)، به چه شکلی ارائه می‌شود (قالب)، ' +
+         'برای چه کسی (مخاطب)، و کدام جملهٔ خودِ متن این را نشان می‌دهد (شاهد).');
+  L.push('• اگر سه نمونه با هم نمی‌خوانند، موضوع را از عنوانِ همهٔ قسمت‌ها و سیرشان بگیر، و اطمینان را پایین بیاور.');
+  L.push('• «دربارهٔ X آموزش می‌دهد» با «X است» فرق دارد: «آموزشِ مداحی» (فن، تمرین، اشتباهِ رایج) آموزشی است، ولی ضبطِ یک مجلسِ مداحی نیست؛ ' +
+         '«تاریخِ عزاداری» آموزشی است، ولی خودِ مجلسِ روضه نیست. کتابِ درسیِ ریاضی به زبانِ انگلیسی («Thinking Mathematically») هم آموزشی است.');
+  L.push('');
   for (var i = 0; i < entries.length; i++) {
     var e = entries[i];
     L.push('─────────────────────────────────');
@@ -565,6 +631,9 @@ function judgePrompt_(entries, catsOpt) {
   L.push('• orderHint: اگر چند مجموعه در یک دسته‌اند، ترتیبِ یادگیریشان را با عددِ ' +
          'کوچک‌به‌بزرگ نشان بده (۱ یعنی باید اول شنیده شود).');
   L.push('• related: کلیدِ نزدیک‌ترین مجموعهٔ هم‌موضوع در همین فهرست، وگرنه رشتهٔ خالی.');
+  L.push('• form: قالبِ ارائه در یکی-دو واژه: «درسِ کلاسی»، «سخنرانی»، «مناظره»، «گفت‌وگو»، «داستان/روایت»، «مراسم»، «خبر»، «کتابِ صوتی»، «پادکست»، …');
+  L.push('• audience: مخاطب در چند واژه (مثلاً «دانشجوی فلسفه»، «عمومی»، «طلبه»، «کودک»، «علاقه‌مندِ بورس»).');
+  L.push('• evidence: یک جملهٔ کوتاه (حداکثر ۲۰ واژه) **عیناً از خودِ متنِ نمونه** که موضوع و قالب را نشان می‌دهد — نه از نامِ فایل.');
   L.push('• why: در یک جملهٔ کوتاهِ فارسی بگو چرا این تصمیم را گرفتی. اگر آموزشی ' +
          'نیست، صریح بگو چه چیزی هست — این جمله عیناً به کاربر نشان داده می‌شود.');
   L.push('');
@@ -669,13 +738,14 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
   var todo = force ? reg.rows.filter(function (r) {
       return String(r.vals[SC.STATUS - 1] || '') !== SST.SKIPPED &&
              !String(r.vals[SC.MANUAL - 1] || '').trim() &&
-             !seriesManualLock_(r.vals);   // حتی «داوریِ همه از نو» هم قفلِ دستی را نمی‌شکند
+             !seriesManualLock_(r.vals) &&   // حتی «داوریِ همه از نو» هم قفلِ دستی را نمی‌شکند
+             !(judgeKeep_(r.vals) && String(r.vals[SC.JUDGED - 1] || '').trim());   // ۱۳.۰: نام‌های «بماند» فقط داوریِ موجودشان را نگه می‌دارند
     }) : seriesNeedingJudgement_(reg);
   // در حالتِ «بی‌مدل»، ردیفی که همین حالا با قاعده داوری شده دوباره داوری
   // نمی‌شود: کارِ تکراری است و چیزی به آن اضافه نمی‌کند. بازبینیِ آن‌ها کارِ
   // مدل است، در دورهای عادی.
   if (localOnly) {
-    todo = todo.filter(function (r) { return !r.__redoLocked && !seriesJudged_(r.vals); });
+    todo = todo.filter(function (r) { return !r.__redoLocked && !r.__modelOnly && !seriesJudged_(r.vals); });
   }
   if (!todo.length) {
     // چیزی برای داوری نیست، ولی نظمِ فهرست همیشه باید درست باشد
@@ -751,7 +821,7 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
           var vd = Object.prototype.hasOwnProperty.call(byKey, rec.key) ? byKey[rec.key] : null;
           // کلیدی را که مدل جا انداخته، بی‌داوری رها نمی‌کنیم: با قاعده‌های خودی
           // داوری می‌شود و «مشکوک» می‌ماند تا دورِ بعد مدل دوباره امتحان کند.
-          if (!vd && rec.__redoLocked) { awaiting++; }   // ردیفِ دستی فقط با داوریِ مدل (۱۲.۶)
+          if (!vd && (rec.__redoLocked || rec.__modelOnly)) { awaiting++; }   // ردیفِ دستی و دورِ مفهومی فقط با داوریِ مدل (۱۲.۶/۱۳.۰)
           else if (!vd) { applyVerdict_(reg, rec, localVerdict_(entries[s2]), entries[s2], true); localN++; }
           else applyVerdict_(reg, rec, vd, entries[s2], true);
           touched[rec.key] = 1;
@@ -784,7 +854,7 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
       // ولی اگر همین ردیف قبلاً با قاعده داوری شده، دوباره نوشتنش فقط مهرِ زمان
       // را تازه می‌کند و به کاربر می‌گوید «۱ مجموعه داوری شد» — هر اجرا، همان
       // یک ردیف، تا ابد.
-      if (slice[0].__redoLocked || seriesJudged_(slice[0].vals)) { awaiting++; }
+      if (slice[0].__redoLocked || slice[0].__modelOnly || seriesJudged_(slice[0].vals)) { awaiting++; }
       else {
         applyVerdict_(reg, slice[0], localVerdict_(entries[0]), entries[0], true);
         touched[slice[0].key] = 1;
@@ -835,7 +905,7 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
       // ردیفی که همین حالا با قاعده داوری شده، در فهرست است تا مدل بازبینی‌اش
       // کند — نه تا قاعده دوباره همان نتیجه را بنویسد. رد کردنش از هم کارِ
       // تکراری جلو می‌گیرد و هم مهرِ زمانِ داوری را بی‌دلیل تازه نمی‌کند.
-      if (rec2.__redoLocked || seriesJudged_(rec2.vals)) { awaiting++; continue; }   // ردیفِ دستی فقط با مدل (۱۲.۶)
+      if (rec2.__redoLocked || rec2.__modelOnly || seriesJudged_(rec2.vals)) { awaiting++; continue; }   // ردیفِ دستی و دورِ مفهومی فقط با مدل (۱۲.۶/۱۳.۰)
       var e2 = entriesFor_([rec2], parts, lopts)[0];
       if (!e2.samples && !Object.prototype.hasOwnProperty.call(noTextSeen, e2.key)) {
         noTextSeen[e2.key] = 1; noText++;
@@ -849,8 +919,14 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
   // نوشتن ممکن است شکست بخورد (مهلتِ Sheets، جدولِ دست‌خورده). اگر شکست خورد،
   // نه ترتیب را از روی داوریِ نانوشته بازچینی می‌کنیم، نه «آخرین داوری» را
   // مهر می‌زنیم، نه به کاربر می‌گوییم چند مجموعه داوری شد — چون نشده.
+  var roundLog = [];
+  for (var rl = 0; rl < reg.rows.length; rl++) {
+    if (reg.rows[rl].__roundLog) { roundLog.push(reg.rows[rl].__roundLog); delete reg.rows[rl].__roundLog; }
+  }
   var wr = dirty ? writeJudgeCols_(hub, reg, touched) : { ok: true, reg: reg };
   var wrote = !!(wr && wr.ok);
+  /* ۱۳.۰: «قبلی ← جدید» فقط وقتی ردیف واقعاً نوشته شد — دفتری که چیزِ نانوشته را ثبت کند دروغ می‌گوید. */
+  if (wrote && roundLog.length) { try { judgeRoundLogAppend_(hub, roundLog); } catch (eRl) { logLine_('دفترِ داوریِ مفهومی نوشته نشد: ' + eRl.message); } }
   if (wrote && wr.reg) reg = wr.reg;
   // ردیفی که در این فاصله از جدول رفته، داوری‌شده به حساب نمی‌آید
   if (wrote && wr.missing) judged = Math.max(0, judged - wr.missing);
@@ -882,7 +958,11 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
      پیشنهادِ داور در «دلیل» و تبِ بازبینی می‌آید، نه در صف. داوریِ بی‌مدل روی آن هیچ نمی‌نویسد. */
   var lockedRedo = rec.__redoLocked === true;
   if (lockedRedo && vd && vd.__local === true) return;
+  /* ۱۳.۰: داوریِ بی‌مدل «موقت و غیرقابل‌اتکا» است: روی دورِ مفهومی و روی هر داوریِ مدل هرگز نمی‌نشیند. */
+  if (vd && vd.__local === true && (rec.__modelOnly || judgedByModel_(v))) return;
   var before = lockedRedo ? v.slice() : null;
+  var prevRound = rec.__round ? { cat: String(v[SC.CAT - 1] || ''), ic: String(v[SC.IS_COURSE - 1] || ''),
+                                  about: String(v[SC.ABOUT - 1] || '') } : null;
   // «بله/خیر» می‌تواند بولی باشد یا رشته («true»، «بله»، «yes»، «۱»)
   var yes = judgeYes_(vd.isCourse);
   // «رشتهٔ خالی» عدد نیست. Number('') صفر است، و همین صفرِ خاموش یک دورهٔ
@@ -931,6 +1011,8 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
   var ritualName = unsure && noSample && nameRit >= 1 &&
                    (vd.__local === true || sampleLen === 0 || !judgeYes_(vd.isCourse));
   v[SC.IS_COURSE - 1] = ritualName ? SJ.NO : (unsure ? SJ.UNSURE : (isC ? SJ.YES : SJ.NO));
+  /* ۱۳.۰: شمارشِ واژه هیچ‌وقت «آموزشی است/نیست» را قطعی نمی‌کند — فقط «مشکوک»، تا مدل بسنجد. */
+  if (vd.__local === true) v[SC.IS_COURSE - 1] = SJ.UNSURE;
   v[SC.CSCORE - 1] = score;
   v[SC.ABOUT - 1] = String(vd.about || '').slice(0, 300);
   var why = String(vd.why || '').slice(0, 300);
@@ -938,7 +1020,10 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
   // داوریِ بی‌مدل باید صریح علامت بخورد: هم شما در تخته می‌بینید که این تصمیم
   // از قاعده‌های خودیِ موتور آمده نه از مدل، و هم خودِ موتور از همین نشانه
   // می‌فهمد که باید زود (سه روز، نه چهل‌وپنج روز) با مدل بازبینی‌اش کند.
+  var fmF = String(vd.form || '').trim().slice(0, 30), auF = String(vd.audience || '').trim().slice(0, 40);
+  var evF = String(vd.evidence || '').trim().replace(/\s+/g, ' ').slice(0, 90);
   v[SC.WHY - 1] = (vd.__local ? JUDGE_LOCAL_MARK + ' ' + JUDGE_PARTIAL_MARK + ' — ' : '') +
+                  (fmF || auF ? '[' + (fmF ? 'قالب: ' + fmF : '') + (fmF && auF ? '؛ ' : '') + (auF ? 'مخاطب: ' + auF : '') + '] ' : '') +
                   (lowCourse ? '‹' + JUDGE_REVIEW_MARK + ': اطمینانِ داور ' + Math.round(cSure) + '› ' : '') +
                   (kind ? '[' + kind + '] ' : '') + why +
                   (ritualName
@@ -979,6 +1064,15 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
                     ' ‹ترتیب پیشنهادی=' + Math.round(hintNum) + '›';
   }
   v[SC.UPDATED - 1] = nowStr_();
+  if (evF) v[SC.WHY - 1] = String(v[SC.WHY - 1] || '').slice(0, 300 - evF.length - 12) + ' — شاهد: «' + evF + '»';
+  if (prevRound && vd.__local !== true) {
+    v[SC.WHY - 1] = String(v[SC.WHY - 1] || '').slice(0, 300) + ' ' + judgeRoundMark_();
+    rec.__roundLog = [nowStr_(), rec.key, String(v[SC.NAME - 1] || ''), String(v[SC.STATUS - 1] || ''),
+                      prevRound.cat, String(v[SC.CAT - 1] || ''), prevRound.ic, String(v[SC.IS_COURSE - 1] || ''),
+                      String(vd.courseSure == null ? '' : vd.courseSure), String(vd.catSure == null ? '' : vd.catSure),
+                      fmF, String(v[SC.ABOUT - 1] || '').slice(0, 200), String(vd.why || '').slice(0, 200), evF];
+    delete rec.__round; delete rec.__modelOnly;
+  }
   if (lockedRedo) {
     var sug = '‹' + JUDGE_REDO_MARK + ' — پیشنهادِ داور، اعمال‌نشده: آموزشی=' + (v[SC.IS_COURSE - 1] || '؟') + '، امتیاز=' + score +
               (cat ? '، دسته=' + cat : '') + (lvl ? '، سطح=' + lvl : '') + '›';
@@ -993,6 +1087,85 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
   try {
     reg.sheet.getRange(rec.row, 1, 1, SERIES_HEADERS.length).setValues([v]);
   } catch (e) { logLine_('نوشتنِ داوری ناموفق: ' + e.message); }
+}
+
+/* ══ دفترِ «قبلی ← جدید» (۱۳.۰) ══ یک ردیف برای هر مجموعه‌ای که دورِ مفهومی سنجید. تبِ بازبینی ستون‌های «قبلی» را از همین
+ * می‌خوانَد؛ Properties برای ۲۷۰ ردیف جا ندارد (سقفِ ۹ کیلوبایت). */
+var JUDGE_ROUND_LOG_HEADERS = ['زمان', 'کلید', 'نامِ مجموعه', 'وضعیت', 'دستهٔ قبلی', 'دستهٔ تازه', 'آموزشیِ قبلی', 'آموزشیِ تازه',
+                               'اطمینانِ «آموزشی»', 'اطمینانِ دسته', 'قالب', 'موضوعِ واقعی', 'دلیل', 'شاهد'];
+function judgeRoundLogAppend_(hub, rows) {
+  var sh = ensureTab_(hub, CFG.JUDGE_ROUND_TAB || 'داوریِ مفهومی — قبلی و تازه', JUDGE_ROUND_LOG_HEADERS);
+  var W = JUDGE_ROUND_LOG_HEADERS.length;
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, W).setValues(rows.map(function (r) { var x = r.slice(0, W); while (x.length < W) x.push(''); return x; }));
+}
+/** آخرین ردیفِ دفتر برای هر کلید ⇒ {key: row} — برای ستون‌های «قبلی» در تبِ بازبینی. */
+function judgeRoundLogMap_(hub) {
+  var out = Object.create(null);
+  try {
+    var sh = (hub || getHub_()).getSheetByName(CFG.JUDGE_ROUND_TAB || 'داوریِ مفهومی — قبلی و تازه');
+    if (!sh || sh.getLastRow() < 2) return out;
+    sh.getRange(2, 1, sh.getLastRow() - 1, JUDGE_ROUND_LOG_HEADERS.length).getValues().forEach(function (r) { out[String(r[1])] = r; });
+  } catch (e) {}
+  return out;
+}
+
+/* ══ داوریِ ادامه‌دار، زیرِ سقفِ شش‌دقیقه (۱۳.۰) ══ دور ~۲۷۰ مجموعه است و هر اجرا چند ده تا. پس یک تریگرِ یک‌باره که خودش
+ * دوباره زمان‌بندی می‌شود تا صف خالی شود — همان الگوی `embSpecsLater`. پیشرفت در خودِ رجیستری است (نشانِ دور در «دلیل»)،
+ * پس اجرای کشته‌شده چیزی گم نمی‌کند. ساعت‌های تولید (`JUDGE_TICK_QUIET`) را خالی می‌گذارد و قفل نمی‌گیرد مگر آزاد باشد. */
+function judgeTickArm_(mins) {
+  try {
+    clearRetryTriggers_('judgeTick');
+    ScriptApp.newTrigger('judgeTick').timeBased().after(Math.max(1, Number(mins) || Number(CFG.JUDGE_TICK_MIN) || 12) * 60000).create();
+    props_().setProperty(PK.JUDGE_TICK_AT, nowStr_());
+    return true;
+  } catch (e) { return false; }
+}
+function judgeTickQuiet_() {
+  var q = CFG.JUDGE_TICK_QUIET || [6.5, 9.5];
+  var d = new Date(), h = Number(Utilities.formatDate(d, CFG.TIMEZONE, 'HH')) + Number(Utilities.formatDate(d, CFG.TIMEZONE, 'mm')) / 60;
+  return isFinite(h) && h >= Number(q[0]) && h < Number(q[1]);
+}
+function judgeTick() {
+  runEnter_('judgeTick');
+  var note = '', lock = null;
+  try {
+    try { clearRetryTriggers_('judgeTick'); } catch (e0) {}
+    if (judgeTickQuiet_()) { judgeTickArm_(45); note = 'ساعتِ تولید — بعد'; return note; }
+    lock = LockService.getScriptLock();
+    if (!lock.tryLock(5000)) { lock = null; judgeTickArm_(Number(CFG.BUSY_RETRY_MIN) || 7); note = 'قفل گرفته بود'; return note; }
+    runStage_('داوری: دسته');
+    var r = judgeSeries(false, new Date().getTime() + (Number(CFG.JUDGE_TICK_MS) || 230000));
+    var hub = getHub_(), reg = readSeriesReg_(hub);
+    var need = seriesNeedingJudgement_(reg).length, rs = judgeRoundStatus_(reg);
+    note = 'داوری: ' + (r.judged || 0) + ' · مانده ' + need + (r.aiFail ? ' · مدل: ' + String(r.aiFail).slice(0, 60) : '');
+    /* مدلِ ازکارافتاده یعنی تلاشِ بعد دیرتر، نه هر دوازده دقیقه. */
+    if (need) judgeTickArm_(r.aiDown ? 60 : null);
+    if (rs.on && !rs.left && props_().getProperty(PK.JUDGE_ROUND_TOLD) !== String(CFG.JUDGE_ROUND)) {
+      try { seriesCatReview_(hub, true); } catch (eRv) {}
+      try { tgSend_(rs.line + '\n' + judgeRoundSummary_(hub).line); } catch (eT) {}
+      props_().setProperty(PK.JUDGE_ROUND_TOLD, String(CFG.JUDGE_ROUND));
+    }
+  } finally {
+    if (lock) { try { lock.releaseLock(); } catch (eR) {} }
+    runExit_('judgeTick', note);
+  }
+  return note;
+}
+/** چند عوض شد، چند مشکوک، چند «نادیده»ِ بالقوه آموزشی — از دفترِ دور. ⇒ {changedCat, changedIc, unsure, skippedEdu, line} */
+function judgeRoundSummary_(hub) {
+  var m = judgeRoundLogMap_(hub), out = { n: 0, changedCat: 0, changedIc: 0, unsure: 0, skippedEdu: 0, toEdu: 0, line: '' };
+  for (var k in m) {
+    var r = m[k]; out.n++;
+    if (String(r[4]) !== String(r[5])) out.changedCat++;
+    if (String(r[6]) !== String(r[7])) out.changedIc++;
+    if (String(r[7]) === SJ.UNSURE || /نیازمند بازبینی/.test(String(r[5]))) out.unsure++;
+    if (String(r[7]) === SJ.YES && String(r[6]) !== SJ.YES) out.toEdu++;
+    if (String(r[3]) === SST.SKIPPED && String(r[7]) === SJ.YES) out.skippedEdu++;
+  }
+  out.line = 'نتیجهٔ دور: ' + out.n + ' سنجیده · دسته عوض شد: ' + out.changedCat + ' · «آموزشی؟» عوض شد: ' + out.changedIc +
+             ' (' + out.toEdu + ' تازه آموزشی) · مشکوک/کم‌اطمینان: ' + out.unsure + ' · «نادیده»ِ بالقوه آموزشی: ' + out.skippedEdu +
+             ' — وضعیتِ هیچ‌کدام خودکار عوض نشد؛ بی شمارهٔ دستی وارد صف نمی‌شوند.';
+  return out;
 }
 
 /** «بله» را از هر شکلی می‌فهمد: بولی، «true»، «بله»، «yes»، «۱». */
@@ -1205,6 +1378,9 @@ function runJudgeSeries() {
            'مجموعه‌ها زیر عنوانِ «آموزشی تشخیص داده نشد» با دلیلشان دیده می‌شوند. ' +
            'اگر با داوری موافق نیستید، همان‌جا دستی عوضش کنید.');
   }
+  /* ۱۳.۰: وضعِ دورِ مفهومی، و اجرای بعد خودکار — دکمه تنها راهِ ادامه نیست. */
+  try { var jrs = judgeRoundStatus_(readSeriesReg_(hub)); if (jrs.on) L.push('', jrs.line); } catch (eJr) {}
+  try { if (seriesNeedingJudgement_(readSeriesReg_(hub)).length) { judgeTickArm_(); L.push('ادامه خودکار است (هر ' + (CFG.JUDGE_TICK_MIN || 12) + ' دقیقه، بیرون از ساعت‌های تولید).'); } } catch (eJa) {}
   var m = L.join('\n');
   if (ui) ui.alert('داوری و دسته‌بندیِ مجموعه‌ها', m, ui.ButtonSet.OK); else console.log(m);
   return r;
@@ -1221,7 +1397,7 @@ function runRejudgeAll() {
     var ans = ui.alert('داوریِ همه از نو',
       'همهٔ مجموعه‌ها از نو با مدل داوری می‌شوند — حتی آن‌هایی که داوریِ تازه دارند.\n' +
       'این کار چند اجرا طول می‌کشد و سهمیهٔ مدل مصرف می‌کند.\n' +
-      'تصمیم‌های دستیِ خودتان («آموزشی است» / «آموزشی نیست») دست نمی‌خورند.\n\n' +
+      'تصمیم‌های دستیِ خودتان («آموزشی است» / «آموزشی نیست»)، شماره و دستهٔ دستی، و ' + (CFG.JUDGE_KEEP_NAMES || []).join('، ') + ' دست نمی‌خورند.\n\n' +
       'ادامه بدهم؟', ui.ButtonSet.YES_NO);
     if (ans !== ui.Button.YES) return { cancelled: true };
   }
@@ -1256,7 +1432,9 @@ function runLocalJudgeAll() {
   var sum = judgeSummary_(hub);
   var L = [];
   if (r && r.error) L.push('خطا: ' + r.error);
-  L.push('مرتب‌شده در این اجرا: ' + (r.judged || 0) + ' مجموعه (بی‌مدل، از روی متن)');
+  L.push('مرتب‌شده در این اجرا: ' + (r.judged || 0) + ' مجموعه (بی‌مدل: شمارشِ واژه، نه فهمِ محتوا)');
+  L.push('⚠️ موقت و غیرقابل‌اتکا: «آموزشی؟» فقط «مشکوک» می‌شود، دسته قطعی نمی‌شود، و روی هیچ داوریِ مدل نمی‌نشیند. ' +
+         'داوریِ واقعی همان «داوری و دسته‌بندی از روی محتوا» است که خودش هم ادامه پیدا می‌کند.');
   if (r && r.ranked) L.push('ترتیبِ درونِ دسته‌ها: ' + r.ranked + ' تغییر.');
   if (r && r.left) {
     L.push('مانده: ' + r.left + ' — همین گزینه را یک بار دیگر بزنید.');
@@ -1267,9 +1445,8 @@ function runLocalJudgeAll() {
   L.push('آموزشی: ' + sum.course + '  ·  آموزشی نیست: ' + sum.notCourse +
          '  ·  مشکوک: ' + sum.unsure + '  ·  داوری‌نشده: ' + sum.unjudged);
   L.push('');
-  L.push('«مشکوک» یعنی از روی متن قطعی نشد؛ این‌ها از فهرست بیرون نمی‌روند و در ' +
-         'نوبتِ درس‌نامه می‌مانند، و در دورهای بعدی با مدل دقیق داوری می‌شوند.');
+  L.push('«مشکوک» یعنی قطعی نشد؛ این‌ها با مدل داوری می‌شوند و تا آن‌وقت هیچ تصمیمی روی آن‌ها گرفته نمی‌شود.');
   var m = L.join('\n');
-  if (ui) ui.alert('مرتب‌سازیِ سریعِ فهرست', m, ui.ButtonSet.OK); else console.log(m);
+  if (ui) ui.alert('مرتب‌سازیِ موقتِ بی‌مدل', m, ui.ButtonSet.OK); else console.log(m);
   return r;
 }

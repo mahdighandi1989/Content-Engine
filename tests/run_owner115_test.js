@@ -504,7 +504,7 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
   ok('۱۴.۱۳ بی نقشه همه «آموزشی» و متن می‌گوید قالبِ دوم هنوز منتشر نشده', pat0.byFormat.length === 1 && /قالبِ دومی هنوز منتشر نشده/.test(pat0.text));
   const s38 = fs.readFileSync('src/38_Instagram.gs', 'utf8'), s27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
   ok('۱۴.۱۴ سیم‌ها: انتشار قالب را ثبت می‌کند، الگو نقشه را می‌خوانَد، ytHypoRun_ byFormat را می‌دهد',
-     /st\.media\[plan\.reelId\] = it\.key;\s*\n\s*igFmtMark_\(plan\.reelId, plan\.format\)/.test(s38) && /igPattern_\([^;]*igFmtMap_\(\)\)/.test(s38) && /byFormat \|\| \[\][\s\S]{0,300}, avp, igF\)/.test(s27));
+     /st\.media\[plan\.reelId\] = it\.key;\s*\n\s*igFmtMark_\(plan\.reelId, plan\.format\)/.test(s38) && /igPattern_\([^;]*igFmtMap_\(\)(, ownP)?\)/.test(s38) && /byFormat \|\| \[\][\s\S]{0,300}, avp, igF\)/.test(s27));
   delete global.__PROPS[PK.IG_FMT];
 }
 
