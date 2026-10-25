@@ -2892,9 +2892,11 @@ function seriesStatesHtml_(d) {
 function uiCatReview() {
   try {
     var r = seriesCatReview_(getHub_(), true);
+    var qline = '';
+    try { qline = seriesQueuePlan_().line; } catch (eQ) {}
     var msg = 'فهرستِ بازبینی ساخته شد: ' + r.n + ' مجموعه (' + r.manual + ' دسته‌دستی، ' + r.auto + ' فقط خودکار) در تبِ «' +
               (CFG.SERIES_CAT_REVIEW_TAB || 'بازبینیِ دستهٔ مجموعه‌ها') + '»' + (r.sent ? ' و در تلگرام' : '') + '.';
-    boardReceipt_(true, msg, ['آن تب فقط‌خواندنی است و هر بار از نو ساخته می‌شود؛ اصلاح با دکمهٔ «شماره و دستهٔ دستی» هر ردیف.']);
+    boardReceipt_(true, msg, ['آن تب فقط‌خواندنی است و هر بار از نو ساخته می‌شود؛ اصلاح با دکمهٔ «شماره و دستهٔ دستی» هر ردیف.'].concat(qline ? [qline] : []));
     return { ok: true, message: msg };
   } catch (e) { return { ok: false, message: 'فهرست ساخته نشد: ' + e.message }; }
 }

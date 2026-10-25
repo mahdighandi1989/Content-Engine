@@ -2730,6 +2730,7 @@ function healthCheck() {
   try {
     var regC = readSeriesReg_(getHub_()), scl = seriesCatLine_(regC);
     notes.push(scl.line);
+    try { notes.push(seriesQueuePlan_(null, regC).line); } catch (eQp) {}   // ۱۲.۱: صف و برآوردِ زمان
     if (scl.problem) problems.push(scl.problem);
     if (props_().getProperty(PK.CAT_REVIEW_REV) !== String(CFG.CODE_VERSION)) {
       var rv = seriesCatReview_(null, true);

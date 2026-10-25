@@ -1,15 +1,24 @@
 {
-  "version": "12.0",
+  "version": "12.1",
   "codeFile": "engine.gs",
-  "sha256": "12baa558ed8e5a1a1f7f5af3406ed51600441f39df57a887ae8177d601b59cc4",
-  "releasedAt": "2026-10-25T14:31:51Z",
-  "summary": "سنجشِ فرضیه‌های رقبا با دادهٔ خودِ کانال — فقط اندازه",
+  "sha256": "afecc60a6568c2c8b7a941dd301fa47eae13634f40f54f4009bbb40adfc03ec1",
+  "releasedAt": "2026-10-25T15:05:41Z",
+  "summary": "تصمیم‌های صاحبِ کانال: Analytics پس از روشن‌شدن، CAST خاموش، صفِ درس‌نامه با برآوردِ ماه، ف۷ قالبِ ریل",
   "fixes": [
-    "ytHypo_/ytHypoRun_: میانهٔ نمایش در روز برای هر فرضیه؛ خطِ روزانه و جدولِ هفتگی در تلگرام"
+    "ytaDue_: دورِ «need» یک ساعت بعد دوباره (YTA_RETRY_H)؛ ytaRun_: کشورِ بیننده و نقشهٔ ماندگاریِ هر ویدئو (PK.YTA_AVP)",
+    "ytHypo_: میانهٔ ماندگاری کنارِ نمایش؛ ف۷ قالبِ ریل از igPattern_().byFormat",
+    "YT_DESC_CAST=false (تصمیمِ صاحبِ کانال)",
+    "seriesQueuePlan_: ترتیبِ صف و برآوردِ قسمت/روز/ماه در ایمیلِ روزانه و فایلِ بازبینیِ تلگرام",
+    "igFmtMark_/igFmtMap_: قالبِ هر ریلز هنگامِ انتشار؛ igPattern_ گروهِ byFormat"
   ],
   "sourceReportIds": [],
   "answers": [
-    "R-20261025-43"
+    "R-20261025-45",
+    "R-20261025-46",
+    "R-20261025-47",
+    "R-20261025-48",
+    "R-20261025-49",
+    "R-20261025-50"
   ],
   "promptImpact": [],
   "promptImpactKinds": []

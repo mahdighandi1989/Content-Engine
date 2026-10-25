@@ -12698,6 +12698,8 @@ function ytaDue_() {
   try { at = String(props_().getProperty(PK.YTA_AT) || ''); } catch (e) {}
   if (!at) return true;
   var t = parseWhen_(at);
+  /* ۱۲.۱: دورِ شکست‌خورده از نبودِ API/اجازه زود دوباره امتحان می‌شود — «روشنش کردم» نباید بیست ساعت منتظر بماند. */
+  try { var sn = ytaSnap_(); if (sn && sn.need) everyH = Math.max(1, Number(CFG.YTA_RETRY_H) || 1); } catch (eS) {}
   return isNaN(t) || (new Date().getTime() - t) / 3600000 >= everyH;
 }
 
@@ -12778,6 +12780,12 @@ function ytaRun_(budgetMs) {
     }
   }
   snap.shows = shows;
+  /* ۱۲.۱: درصدِ دیده‌شدنِ هر ویدئوی خودمان، جدا از عکس (سقفِ ۹ کیلوبایتِ Properties) — سنجشِ فرضیه‌ها گروه‌به‌گروه می‌خوانَدش. */
+  try {
+    var avpMap = {};
+    vids.forEach(function (x) { if (x.mine && x.views > 0) avpMap[x.id] = x.avp; });
+    props_().setProperty(PK.YTA_AVP, JSON.stringify(avpMap).slice(0, 8900));
+  } catch (eAv) {}
   var minV = Math.max(1, Number(CFG.YTA_MIN_VIEWS) || 10);
   var ours = vids.filter(function (x) { return x.mine && x.views >= minV && x.title; });
   ours.sort(function (a, b) { return b.avp - a.avp; });
@@ -12799,6 +12807,16 @@ function ytaRun_(budgetMs) {
       snap.src = { total: tot, list: list };
       for (var gk in g) if (Object.prototype.hasOwnProperty.call(g, gk)) snap.src[gk] = tot ? Math.round(g[gk] / tot * 100) : 0;
     }
+  }
+  /* ۱۲.۱: «کشور» — مخاطبِ عراق/هند/پاکستان را فقط همین عدد نشان می‌دهد. */
+  if (left() > 6000) {
+    var geo = q({ dims: 'country', metrics: 'views,averageViewPercentage', sort: '-views', max: Math.max(3, Number(CFG.YTA_GEO_MAX) || 8) });
+    if (geo.ok) {
+      var gr = ytaRows_(geo), gt = 0;
+      gr.forEach(function (x) { gt += Number(x.views || 0); });
+      snap.geo = gr.map(function (x) { return { c: String(x.country || ''), v: Number(x.views || 0), pct: gt ? Math.round(Number(x.views || 0) / gt * 100) : 0,
+                                                avp: Math.round(Number(x.averageViewPercentage || 0) * 10) / 10 }; });
+    } else snap.geoWhy = geo.why;
   }
   /* کلیک روی کاور: همهٔ نسخه‌های API این دو سنجه را ندارند — نبودش ثبت می‌شود، خطا نمی‌شود. */
   if (left() > 6000) {
@@ -12909,6 +12927,9 @@ function ytaDiagnose_(s) {
     }
   }
   if (parts.length) D.push({ k: 'shows', text: 'به تفکیک (از آغاز): ' + parts.join(' · ') + '.' });
+  if ((s.geo || []).length) {
+    D.push({ k: 'geo', text: 'کشورِ بیننده‌ها: ' + s.geo.map(function (g) { return g.c + ' ' + fa(g.pct) + '٪ (دیده‌شدن ' + fa(g.avp) + '٪)'; }).join('، ') + '.' });
+  }
   return D;
 }
 
@@ -15369,12 +15390,14 @@ function ytHypoMed_(a) {
   var s = a.slice().sort(function (x, y) { return x - y; }), m = Math.floor(s.length / 2);
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
-function ytHypo_(rows) {
+function ytHypo_(rows, avpOpt, igFmtOpt) {
+  var avpMap = avpOpt || {};
   var last = Object.create(null);
   for (var i = 0; i < (rows || []).length; i++) {
     var id = String(rows[i][4] || '');
     if (!id || !String(rows[i][5] || '')) continue;
-    last[id] = { title: String(rows[i][5]), perDay: Number(rows[i][11]) || 0, age: Number(rows[i][10]) || 0, at: String(rows[i][0] || '') };
+    last[id] = { title: String(rows[i][5]), perDay: Number(rows[i][11]) || 0, age: Number(rows[i][10]) || 0, at: String(rows[i][0] || ''),
+                 avp: Object.prototype.hasOwnProperty.call(avpMap, id) ? Number(avpMap[id]) : null };
   }
   var vids = Object.keys(last).map(function (k) { return last[k]; });
   var min = Math.max(2, Number(CFG.YT_HYPO_MIN) || 5);
@@ -15382,7 +15405,11 @@ function ytHypo_(rows) {
     var A = vids.filter(fa).map(function (x) { return x.perDay; }), B = vids.filter(fb).map(function (x) { return x.perDay; });
     var ma = ytHypoMed_(A), mb = ytHypoMed_(B);
     var thin = A.length < min || B.length < min;
-    return { name: name, a: a, b: b, na: A.length, nb: B.length, ma: ma, mb: mb, thin: thin,
+    /* ۱۲.۱: ماندگاری (درصدِ دیده‌شدن، از Analytics) کنارِ نمایش — گروهی که بیشتر دیده می‌شود ولی زودتر رها می‌شود، برنده نیست. */
+    var RA = vids.filter(fa).map(function (x) { return x.avp; }).filter(function (x) { return x !== null && !isNaN(x); });
+    var RB = vids.filter(fb).map(function (x) { return x.avp; }).filter(function (x) { return x !== null && !isNaN(x); });
+    var ra = ytHypoMed_(RA), rb = ytHypoMed_(RB);
+    return { name: name, a: a, b: b, na: A.length, nb: B.length, ma: ma, mb: mb, thin: thin, ra: ra, rb: rb,
              say: thin ? 'کم‌داده (' + A.length + ' در برابرِ ' + B.length + ')'
                        : (ma > mb * 1.3 ? '«' + a + '» بیشتر دیده شده' : mb > ma * 1.3 ? '«' + b + '» بیشتر دیده شده' : 'تفاوتِ معنادار نیست') };
   };
@@ -15410,8 +15437,17 @@ function ytHypo_(rows) {
   var mid = ytHypoMed_(counts) || 0;
   out.tests.push(g('ف۴ رقیق‌شدن', 'هفته‌های کم‌انتشار', 'هفته‌های پرانتشار',
                    longs(function (x) { return x.wk !== undefined && wk[x.wk] <= mid; }), longs(function (x) { return x.wk !== undefined && wk[x.wk] > mid; })));
+  /* ۱۲.۱ ف۷: قالبِ ریلِ اینستاگرام — «جملهٔ کوتاه» در برابرِ «آموزشی»، میانهٔ بازدیدِ ریلزهای بالای ۴۸ ساعت (`igPattern_().byFormat`).
+     تا قالبِ آزمایشی منتشر نشده، «کم‌داده» است — و همین را می‌گوید، نه «تفاوتی نیست». */
+  var igF = igFmtOpt || [], fA = null, fB = null;
+  igF.forEach(function (x) { if (x && x.k === 'جملهٔ کوتاه') fA = x; else if (x && x.k === String(CFG.IG_FMT_DEFAULT || 'آموزشی')) fB = x; });
+  var na7 = fA ? fA.n : 0, nb7 = fB ? fB.n : 0, ma7 = fA ? fA.med : null, mb7 = fB ? fB.med : null, thin7 = na7 < min || nb7 < min;
+  out.tests.push({ name: 'ف۷ قالبِ ریل (اینستاگرام، بازدید)', a: 'جملهٔ کوتاه', b: 'آموزشی', na: na7, nb: nb7, ma: ma7, mb: mb7, thin: thin7, ra: null, rb: null,
+                   say: thin7 ? (na7 ? 'کم‌داده (' + na7 + ' در برابرِ ' + nb7 + ')' : 'هنوز هیچ ریلِ «جملهٔ کوتاه» منتشر نشده (' + nb7 + ' آموزشی)')
+                              : (ma7 > mb7 * 1.3 ? '«جملهٔ کوتاه» بیشتر دیده شده' : mb7 > ma7 * 1.3 ? '«آموزشی» بیشتر دیده شده' : 'تفاوتِ معنادار نیست') });
   out.line = '📐 سنجشِ فرضیه‌ها (' + out.n + ' ویدئو، میانهٔ نمایش در روز): ' + out.tests.map(function (t) {
-    return t.name + ': ' + t.say + (t.thin ? '' : ' [' + (t.ma == null ? '—' : t.ma.toFixed(1)) + ' / ' + (t.mb == null ? '—' : t.mb.toFixed(1)) + ']');
+    return t.name + ': ' + t.say + (t.thin ? '' : ' [' + (t.ma == null ? '—' : t.ma.toFixed(1)) + ' / ' + (t.mb == null ? '—' : t.mb.toFixed(1)) + ']') +
+           (t.ra != null && t.rb != null ? ' {دیده‌شدن ' + t.ra.toFixed(0) + '٪ / ' + t.rb.toFixed(0) + '٪}' : '');
   }).join(' · ') + '. فقط سنجش است؛ چیزی عوض نشد.';
   return out;
 }
@@ -15419,14 +15455,19 @@ function ytHypo_(rows) {
 function ytHypoRun_(hub) {
   var sh = (hub || getHub_()).getSheetByName(CFG.YTS_TAB || 'بازخوردِ یوتیوب');
   if (!sh || sh.getLastRow() < 2) return null;
-  var r = ytHypo_(sh.getRange(2, 1, sh.getLastRow() - 1, YTS_HEADERS.length).getValues());
+  var avp = {};
+  try { avp = JSON.parse(props_().getProperty(PK.YTA_AVP) || '{}') || {}; } catch (eA) { avp = {}; }
+  var igF = [];
+  try { igF = (JSON.parse(props_().getProperty(PK.IG_PATTERN) || '{}') || {}).byFormat || []; } catch (eI) { igF = []; }
+  var r = ytHypo_(sh.getRange(2, 1, sh.getLastRow() - 1, YTS_HEADERS.length).getValues(), avp, igF);
   try {
     var lastAt = Number(props_().getProperty(PK.YT_HYPO_AT) || 0) || 0;
     if (Date.now() - lastAt > Math.max(1, Number(CFG.YT_HYPO_DAYS) || 7) * 86400000) {
       var L = ['📐 <b>سنجشِ فرضیه‌های رقبا با دادهٔ خودِ کانال</b> — ' + r.n + ' ویدئو، میانهٔ «نمایش در روز»', ''];
       r.tests.forEach(function (t) {
         L.push('• ' + tgEsc_(t.name) + ': «' + tgEsc_(t.a) + '» ' + (t.ma == null ? '—' : t.ma.toFixed(1)) + ' (' + t.na + ') در برابرِ «' +
-               tgEsc_(t.b) + '» ' + (t.mb == null ? '—' : t.mb.toFixed(1)) + ' (' + t.nb + ') ⇒ ' + tgEsc_(t.say));
+               tgEsc_(t.b) + '» ' + (t.mb == null ? '—' : t.mb.toFixed(1)) + ' (' + t.nb + ') ⇒ ' + tgEsc_(t.say) +
+               (t.ra != null && t.rb != null ? ' · دیده‌شدن ' + t.ra.toFixed(0) + '٪ در برابرِ ' + t.rb.toFixed(0) + '٪' : ''));
       });
       L.push(''); L.push('فقط سنجش است؛ هیچ تنظیمی عوض نشد. همبستگی، نه علیت.');
       if (tgSend_(L.join('\n'))) props_().setProperty(PK.YT_HYPO_AT, String(Date.now()));

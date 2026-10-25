@@ -441,4 +441,71 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
   ok('۱۳.۶ به ایمیلِ روزانه وصل است', /ytHypoRun_\(\)/.test(src8));
 }
 
+/* ── ۱۴) ۱۲.۱: تصمیم‌های صاحبِ کانال — صفِ درس‌نامه، Analytics، CAST خاموش، قالبِ ریل ── */
+{
+  ok('۱۴.۱ YT_DESC_CAST پیش‌فرض خاموش (تصمیمِ صاحبِ کانال؛ متنِ اصلی در تلگرام می‌ماند)', CFG.YT_DESC_CAST === false);
+  /* صف: فعال اول، بعد تازه‌های شماره‌دار به ترتیبِ شماره؛ بی‌شماره منتظر. برآورد از تکه‌به‌ازای‌درسِ خودِ مجموعه. */
+  const mk = (key, name, st, mo, eps, last) => {
+    const v = new Array(SERIES_HEADERS.length).fill(''); v[SC.KEY - 1] = key; v[SC.NAME - 1] = name; v[SC.STATUS - 1] = st;
+    if (mo !== null) v[SC.MORDER - 1] = mo; v[SC.EPISODES - 1] = eps; v[SC.LAST_EP_AT - 1] = last || ''; v[SC.MANUAL - 1] = SMAN.YES;
+    return { key, row: 0, vals: v };
+  };
+  const reg = { rows: [mk('A', 'آئودی', SST.ACTIVE, 1, '1 2 3 4', '2026-10-24 08:00'), mk('C', 'دین فطری', SST.NEW, 4, ''),
+                       mk('B', 'خداشناسی', SST.NEW, 2, ''), mk('D', 'بی‌شماره', SST.NEW, null, '')] };
+  reg.rows.forEach((r, i) => { r.row = i + 2; });
+  const prt = (key, chunks, done) => { const v = new Array(20).fill(''); v[SP.CHUNKS - 1] = chunks; v[SP.DONE_TO - 1] = done; return { vals: v }; };
+  const parts = { byKey: { A: [prt('A', 20, 8)], B: [prt('B', 9, 0)], C: [prt('C', 3, 0)], D: [prt('D', 6, 0)] } };
+  const keepT = CFG.SERIES_AUTO_CAT_TRUST; CFG.SERIES_AUTO_CAT_TRUST = false;
+  let q;
+  try { q = seriesQueuePlan_({}, reg, parts); } finally { CFG.SERIES_AUTO_CAT_TRUST = keepT; }
+  ok('۱۴.۲ ترتیب: فعال ← #۲ ← #۴؛ بی‌شماره بیرون و شمرده', q.rows.map((x) => x.key).join(',') === 'A,B,C' && q.held === 1, JSON.stringify(q.rows.map((x) => x.key)) + ' held=' + q.held);
+  const A = q.rows[0];
+  ok('۱۴.۳ برآوردِ آئودی از نرخِ خودش: ۸ تکه / ۴ قسمت = ۲ ⇒ ۱۲ تکه = ۶ درس', A.per === 2 && A.lessons === 6, JSON.stringify(A));
+  ok('۱۴.۴ روزها پیوسته و ماه حساب شده', q.rows[1].fromDay === A.toDay + 1 && q.days === q.rows[2].toDay && q.months === Math.round(q.days / 30.4 * 10) / 10);
+  ok('۱۴.۵ خطِ روزانه نام، شماره و جمع را می‌گوید', /«خداشناسی» \[#2\]/.test(q.line) && /ماه/.test(q.line) && /بی شمارهٔ دستی منتظر/.test(q.line), q.line);
+  ok('۱۴.۶ به ایمیلِ روزانه وصل است', /seriesQueuePlan_\(/.test(fs.readFileSync('src/08_Health.gs', 'utf8')));
+
+  /* Analytics: دورِ «API خاموش» زود دوباره امتحان می‌شود */
+  const t0 = new Date(Date.now() - 2 * 3600000);
+  const at = Utilities.formatDate(t0, CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+  global.__PROPS[PK.YTA_AT] = at; global.__PROPS[PK.YTA_SNAP] = JSON.stringify({ need: 'api' });
+  const due1 = ytaDue_();
+  global.__PROPS[PK.YTA_SNAP] = JSON.stringify({ at: at, totals: {} });
+  const due2 = ytaDue_();
+  delete global.__PROPS[PK.YTA_AT]; delete global.__PROPS[PK.YTA_SNAP];
+  ok('۱۴.۷ «need» ⇒ پس از یک ساعت دوباره؛ عکسِ سالم ⇒ بیست ساعت صبر', due1 === true && due2 === false, due1 + ' ' + due2);
+
+  /* فرضیه‌ها: ماندگاری کنارِ نمایش، و ف۷ قالبِ ریل */
+  const R = [];
+  const row = (id, title, perDay) => R.push(['2026-10-25 10:00', 'درس‌نامه', '', '', id, title, 0, 0, 0, 0, 20, perDay, '']);
+  for (let i = 1; i <= 5; i++) row('Q' + i, 'معرفت چیست؟ - درس ' + i, 20);
+  for (let i = 6; i <= 10; i++) row('L' + i, 'معرفت و توجیه - درس ' + i, 5);
+  const avp = { Q1: 30, Q2: 32, Q3: 34, Q4: 36, Q5: 38, L6: 60, L7: 61, L8: 62, L9: 63, L10: 64 };
+  const h0 = ytHypo_(R, avp, []);
+  const tq = h0.tests.find((x) => x.name === 'ف۱ آغاز با پرسش');
+  ok('۱۴.۸ ماندگاری از Analytics کنارِ نمایش: پرسشی بیشتر دیده شده ولی کمتر تماشا شده', tq.ra === 34 && tq.rb === 62 && /دیده‌شدن 34٪ \/ 62٪/.test(h0.line), JSON.stringify(tq));
+  const f7 = h0.tests.find((x) => /ف۷/.test(x.name));
+  ok('۱۴.۹ ف۷ بی ریلِ «جملهٔ کوتاه» ⇒ «هنوز منتشر نشده»، نه «تفاوتی نیست»', f7 && f7.thin && /هنوز هیچ ریلِ «جملهٔ کوتاه»/.test(f7.say), f7 && f7.say);
+  const h1 = ytHypo_(R, {}, [{ k: 'آموزشی', n: 30, med: 400 }, { k: 'جملهٔ کوتاه', n: 6, med: 900 }]);
+  const f71 = h1.tests.find((x) => /ف۷/.test(x.name));
+  ok('۱۴.۱۰ ف۷ با دادهٔ کافی: «جملهٔ کوتاه» بیشتر دیده شده', !f71.thin && /«جملهٔ کوتاه» بیشتر دیده شده/.test(f71.say) && f71.ma === 900 && f71.mb === 400, f71.say);
+
+  /* اینستاگرام: قالب از نقشه، پیش‌فرض «آموزشی»؛ فقط غیرپیش‌فرض نوشته می‌شود */
+  delete global.__PROPS[PK.IG_FMT];
+  ok('۱۴.۱۱ igFmtMark_: پیش‌فرض نوشته نمی‌شود، «جملهٔ کوتاه» نوشته می‌شود', igFmtMark_('R1', 'آموزشی') === false && igFmtMark_('R2', 'جملهٔ کوتاه') === true &&
+     JSON.stringify(igFmtMap_()) === JSON.stringify({ R2: 'جملهٔ کوتاه' }));
+  const now = Date.parse('2026-10-25T12:00:00Z'), rows = [];
+  for (let i = 0; i < 4; i++) rows.push(['R' + (i + 10), '2026-10-20 0' + i + ':00', 'REELS', 'ig:special:' + i, 'آیا می‌دانستید ' + i, '', 100 + i, '', '', '', '', '', '', 5]);
+  rows.push(['R2', '2026-10-20 05:00', 'REELS', 'ig:special:q', '«انسان مقیاسِ همه‌چیز است»', '', 900, '', '', '', '', '', '', 9]);
+  const pat = igPattern_(rows, now, igFmtMap_());
+  const byF = Object.fromEntries(pat.byFormat.map((x) => [x.k, x]));
+  ok('۱۴.۱۲ igPattern_ قالبِ ریل را جدا می‌شمارد', byF['آموزشی'].n === 4 && byF['جملهٔ کوتاه'].n === 1 && byF['جملهٔ کوتاه'].med === 900 && /🧩 قالبِ ریل/.test(pat.text), JSON.stringify(pat.byFormat));
+  const pat0 = igPattern_(rows.slice(0, 4), now);
+  ok('۱۴.۱۳ بی نقشه همه «آموزشی» و متن می‌گوید قالبِ دوم هنوز منتشر نشده', pat0.byFormat.length === 1 && /قالبِ دومی هنوز منتشر نشده/.test(pat0.text));
+  const s38 = fs.readFileSync('src/38_Instagram.gs', 'utf8'), s27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۱۴.۱۴ سیم‌ها: انتشار قالب را ثبت می‌کند، الگو نقشه را می‌خوانَد، ytHypoRun_ byFormat را می‌دهد',
+     /st\.media\[plan\.reelId\] = it\.key;\s*\n\s*igFmtMark_\(plan\.reelId, plan\.format\)/.test(s38) && /igPattern_\([^;]*igFmtMap_\(\)\)/.test(s38) && /byFormat \|\| \[\][\s\S]{0,300}, avp, igF\)/.test(s27));
+  delete global.__PROPS[PK.IG_FMT];
+}
+
 summary('owner115');

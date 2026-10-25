@@ -1890,6 +1890,19 @@ function seriesCatReview_(hub, tg) {
         L.push('   موضوعِ واقعی: ' + r[6]);
         L.push('');
       });
+      /* ۱۲.۱: صفِ تولید و برآوردِ زمان، بالای همان فایل */
+      try {
+        var qp = seriesQueuePlan_(hub, reg);
+        var Q = ['صفِ تولیدِ درس‌نامه (برآورد؛ روزی یک قسمت، «قطعه در هر درس» از درس‌های ساخته‌شدهٔ همان مجموعه — میانهٔ همه: ' + qp.medPer + '):'];
+        qp.rows.forEach(function (x, i) {
+          Q.push((i + 1) + ') ' + x.name + (x.morder !== null ? '  [شمارهٔ دستی ' + x.morder + ']' : '') + ' — ' + x.status +
+                 ' · ' + x.left + ' قطعهٔ مانده ÷ ' + x.per + ' ⇒ ~' + x.lessons + ' درس' + (x.recaps ? ' + ' + x.recaps + ' مرور' : '') +
+                 ' · روزهای ' + x.fromDay + ' تا ' + x.toDay);
+        });
+        Q.push('جمعاً ~' + qp.days + ' روز (~' + qp.months + ' ماه).' + (qp.held ? ' ' + qp.held + ' مجموعهٔ دیگر بی شمارهٔ دستی در صف نیستند.' : ''));
+        Q.push(''); Q.push('');
+        L = Q.concat(L);
+      } catch (eQ) { L.unshift('(صفِ تولید ساخته نشد: ' + String(eQ.message || eQ).slice(0, 80) + ')', ''); }
       tgApi_('sendDocument', { chat_id: tgChat_(), document: Utilities.newBlob(L.join('\n'), 'text/plain', 'بازبینیِ دستهٔ مجموعه‌ها.txt'),
                                caption: '🗂 فهرستِ همهٔ ' + out.n + ' مجموعه با دستهٔ فعلی، منشأ و موضوعِ واقعی — ' + man + ' دسته‌دستی' });
       out.sent = true;
@@ -1916,4 +1929,61 @@ function seriesCatLine_(reg) {
     problem: (!trust && !nextMan && held) ? '⚠️ هیچ مجموعه‌ای با «شمارهٔ دستی» در نوبت نیست: وقتی مجموعهٔ جاری تمام شود، درس‌نامهٔ تازه‌ای شروع نمی‌شود — ' +
                                      'در تخته برای مجموعهٔ بعدی «شماره و دستهٔ دستی» شماره بگذارید (یا سنجاقش کنید).' : ''
   };
+}
+
+/* ═══════ صفِ تولیدِ درس‌نامه و برآوردِ زمان (۱۲.۱) ═══════
+   «بگویید ترتیبِ نهاییِ صف دقیقاً چیست و چند ماه تولید را می‌پوشاند.» همان قاعده‌های `pickSeriesPlan_`، بی نوشتنِ چیزی:
+   ۱) «در حال تولید» با کار (تازه‌ترین اول — همان که فردا ساخته می‌شود) ۲) «قسمتِ تازه اضافه شد» ۳) «در نوبت» فقط با شمارهٔ
+   دستی، به ترتیبِ شماره. برآوردِ درس از قطعه‌های مانده تقسیم بر «قطعه در هر درس»ِ خودِ همان مجموعه (از درس‌های ساخته‌شده‌اش)،
+   وگرنه میانهٔ همهٔ مجموعه‌ها؛ به‌اضافهٔ مرورِ بزرگ هر چند درس؛ روزی یک قسمت. برآورد است، نه قول — و عددهایش کنارش چاپ می‌شود. */
+function seriesQueuePlan_(hub, regOpt, partsOpt) {
+  hub = hub || getHub_();
+  var reg = regOpt || readSeriesReg_(hub), parts = partsOpt || readSeriesParts_(hub);
+  var rowsOf = function (r) {
+    var list = parts.byKey[r.key] || [], tot = 0, done = 0;
+    for (var i = 0; i < list.length; i++) {
+      var n = Number(list[i].vals[SP.CHUNKS - 1]) || 0, d = Math.min(n, Math.max(0, Number(list[i].vals[SP.DONE_TO - 1]) || 0));
+      tot += n; done += d;
+    }
+    return { tot: tot, done: done, left: Math.max(0, tot - done), eps: epNumsOf_(r.vals[SC.EPISODES - 1]).length };
+  };
+  var perEp = [];
+  reg.rows.forEach(function (r) { var c = rowsOf(r); if (c.eps >= 2 && c.done > 0) perEp.push(c.done / c.eps); });
+  perEp.sort(function (a, b) { return a - b; });
+  var medPer = perEp.length ? perEp[Math.floor(perEp.length / 2)] : 3;
+  var act = [], reo = [], que = [], held = 0;
+  reg.rows.forEach(function (r) {
+    var st = String(r.vals[SC.STATUS - 1] || '');
+    if (st === SST.SKIPPED || !seriesEligible_(r.vals, r.key, null)) return;
+    var c = rowsOf(r);
+    if (!c.left) return;
+    if (st === SST.ACTIVE) act.push(r);
+    else if (st === SST.REOPENED) reo.push(r);
+    else if (st === SST.NEW) { if (CFG.SERIES_AUTO_CAT_TRUST === false && !isFinite(seriesMOrder_(r.vals))) held++; else que.push(r); }
+  });
+  var at = function (r) { var t = parseWhen_(String(r.vals[SC.LAST_EP_AT - 1] || '')); return isNaN(t) ? 0 : t; };
+  act.sort(function (a, b) { return at(b) - at(a); });
+  que.sort(function (a, b) { return seriesEffOrder_(a.vals) - seriesEffOrder_(b.vals) || a.row - b.row; });
+  var order = act.concat(reo, que), out = { rows: [], days: 0, held: held, medPer: Math.round(medPer * 10) / 10 }, day = 0;
+  order.forEach(function (r) {
+    var c = rowsOf(r);
+    var per = (c.eps >= 2 && c.done > 0) ? c.done / c.eps : medPer;
+    var lessons = Math.max(1, Math.ceil(c.left / Math.max(0.5, per)));
+    var every = 0;
+    try { var ev = recapEveryOf_(r.vals); every = ev.off ? 0 : ev.n; } catch (eR) { every = Number(CFG.RECAP_EVERY) || 15; }
+    var recaps = every ? Math.floor((c.eps + lessons) / every) - Math.floor(c.eps / every) : 0;
+    var n = lessons + recaps;
+    out.rows.push({ key: r.key, name: String(r.vals[SC.NAME - 1] || r.key), status: String(r.vals[SC.STATUS - 1] || ''),
+                    morder: isFinite(seriesMOrder_(r.vals)) ? seriesMOrder_(r.vals) : null, cat: seriesCatOf_(r.vals),
+                    left: Math.round(c.left), per: Math.round(per * 10) / 10, lessons: lessons, recaps: recaps,
+                    fromDay: day + 1, toDay: day + n });
+    day += n;
+  });
+  out.days = day;
+  out.months = Math.round(day / 30.4 * 10) / 10;
+  out.line = '🗓 صفِ درس‌نامه: ' + (out.rows.length ? out.rows.map(function (x, i) {
+    return (i + 1) + ') «' + x.name + '»' + (x.morder !== null ? ' [#' + x.morder + ']' : '') + ' ~' + (x.lessons + x.recaps) + ' قسمت';
+  }).join(' ← ') + ' — جمعاً ~' + out.days + ' روز (~' + out.months + ' ماه، روزی یک قسمت)' : 'هیچ مجموعه‌ای با کارِ مانده در صف نیست') +
+    (held ? ' · ' + held + ' مجموعهٔ دیگر بی شمارهٔ دستی منتظر است' : '') + '.';
+  return out;
 }

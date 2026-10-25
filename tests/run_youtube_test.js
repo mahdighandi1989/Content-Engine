@@ -1866,16 +1866,20 @@ console.log('=== ۴۳) سهمِ زمانیِ هر گوینده (۶٫۱۵) ===');
 
   /* و در کپشن می‌نشیند — وگرنه همهٔ این‌ها یک محاسبهٔ بی‌مصرف است. */
   /* ۱۱.۰: «بی بلوکِ اعتبارِ صدای هوش مصنوعی» — پیش‌فرض خاموش (`YT_DESC_CAST: false`)؛ سازوکار سرِ جایش، با کلید روشن می‌شود. */
+  const castWas = CFG.YT_DESC_CAST;
+  ok('۴۳.۱۰-پ (۱۲.۱) پیش‌فرض به تصمیمِ صاحبِ کانال خاموش است', castWas === false);
+  CFG.YT_DESC_CAST = true;
   const d0 = ytDescBuild_({ hookLine: 'ق', summary: 'خ', bullets: [] },
                           { castLines: lines, showName: 'درس‌نامه' }, [{ at: 0, title: 'شروع' }]);
-  ok('۴۳.۱۰-الف (۱۱.۱) پیش‌فرض «مثلِ قبل»: بلوکِ گویندگان در کپشن می‌آید', d0.indexOf('گویندگانِ این قسمت:') !== -1 && CFG.YT_DESC_CAST === true);
+  ok('۴۳.۱۰-الف کلیدِ روشن ⇒ بلوکِ گویندگان در کپشن می‌آید', d0.indexOf('گویندگانِ این قسمت:') !== -1);
   CFG.YT_DESC_CAST = false;
-  ok('۴۳.۱۰-ب (۱۱.۰) کلیدِ خاموش ⇒ بلوک نمی‌آید', ytDescBuild_({ hookLine: 'ق', summary: 'خ', bullets: [] },
+  ok('۴۳.۱۰-ب کلیدِ خاموش ⇒ بلوک نمی‌آید', ytDescBuild_({ hookLine: 'ق', summary: 'خ', bullets: [] },
      { castLines: lines, showName: 'درس‌نامه' }, [{ at: 0, title: 'شروع' }]).indexOf('گویندگانِ این قسمت:') === -1);
   CFG.YT_DESC_CAST = true;
   const d = ytDescBuild_({ hookLine: 'ق', summary: 'خ', bullets: [] },
                          { castLines: lines, showName: 'درس‌نامه' },
                          [{ at: 0, title: 'شروع' }]);
+  CFG.YT_DESC_CAST = castWas;
   ok('۴۳.۱۰ و با کلیدِ روشن واقعاً در کپشن می‌آید',
      d.indexOf('گویندگانِ این قسمت:') !== -1 && d.indexOf('آرش') !== -1);
   /* همان مدلِ زمانیِ فصل‌ها — دو تخمینِ متفاوت در یک کپشن بدتر از یکی است. */

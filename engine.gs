@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 12.0
+ *  موتور محتوا و پادکست — نسخهٔ 12.1
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1135,7 +1135,7 @@ var CFG = {
   YT_PRIVATE_HANDS_OFF: true,
   YT_COVER_QUESTION: true,      // ۱۱.۴: متنِ کاورِ ویدئوی بلند = پرسشِ ملموس، حداکثر ۶ واژه با «؟» (false ⇒ قاعدهٔ پیشینِ «دو تا پنج واژه، خودِ موضوع»)
   YT_QA_MATCH_SOFT: 0.8,        // ۱۱.۳: «فقط X از N صحنه سرِ جای خودش» به‌تنهایی با X/N ≥ این، مشاوره است نه سد (special:81 = ۳۶/۴۱ با صفر قابِ خالی و همگامیِ سالم)
-  YT_DESC_CAST: true,           // ۱۱.۱: ویدئوهای بلند «دقیقاً مثلِ قبل» — بلوکِ «گویندگانِ این قسمت» می‌ماند تا خودِ صاحبِ کانال کوتاه‌کردن را تأیید کند (false ⇒ برداشته می‌شود)
+  YT_DESC_CAST: false,          // ۱۲.۱: تصمیمِ صاحبِ کانال (۲۵ اکتبر) — بلوکِ «گویندگانِ این قسمت» از ویدئوهای بلندِ **تازه** حذف؛ آنچه حذف شد ذیلِ همان ویدئو در تلگرام (ytDescRemoved_). پیش‌تر:           // ۱۱.۱: ویدئوهای بلند «دقیقاً مثلِ قبل» — بلوکِ «گویندگانِ این قسمت» می‌ماند تا خودِ صاحبِ کانال کوتاه‌کردن را تأیید کند (false ⇒ برداشته می‌شود)
   YT_DESC_ARCHIVE: 2,           // ۱۱.۶: ۲ = شورتزها و ویدئوهای پیشینِ کانال هم (از پلی‌لیستِ آپلودها)؛ آنچه در ۱ رفت تکرار نمی‌شود.
   // ۱۱.۰: «اصلِ توضیحاتِ ویدیوهای بلندِ فعلی را در تلگرام ذخیره کنید» — یک بار برای هر شماره؛ بالا بردنش ⇒ دوباره
   TG_CAPTIONS: true,            // ۱۱.۰: متنِ کاملِ کپشنِ هر انتشار (ریلز، شورتز، ویدئوی کامل) در تلگرام
@@ -1204,7 +1204,9 @@ var CFG = {
   YTA_TAB: 'آمارِ رشدِ یوتیوب',
   YTS_TAB: 'بازخوردِ یوتیوب',
   YT_HYPO_MIN: 5,                       // ۱۲.۰: گروهِ کمتر از این ⇒ «کم‌داده»، نه نتیجه
-  YT_HYPO_DAYS: 7,                      // ۱۲.۰: جدولِ کاملِ سنجش هر چند روز به تلگرام
+  YT_HYPO_DAYS: 7,
+  YTA_RETRY_H: 1,                       // ۱۲.۱: دورِ آمارِ رشد که به «API خاموش/اجازه نیست» خورد، یک ساعت بعد دوباره — نه بیست ساعت
+  YTA_GEO_MAX: 8,                       // ۱۲.۱: چند کشورِ پربیننده                      // ۱۲.۰: جدولِ کاملِ سنجش هر چند روز به تلگرام
   YTC_TAB2: 'کامنت‌های یوتیوب',
   YT_STATS_MAX: 40,                     // تازه‌ترین ویدئوها در هر دور
   YT_COMMENTS_MAX: 8,                   // کامنتِ تازه از هر ویدئو
@@ -1488,6 +1490,7 @@ var CFG = {
   IG_VOICE: 'Alnilam',
   IG_SHORTS_PER_DAY: 2,          // ۹.۶۹: «یوتیوب هم دوتا» — شورتز در روز
   IG_SHORT_ONE_PER_LESSON: true, // ۱۱.۰: «دو Short هم‌روز از یک درس … همدیگر را می‌خورند» — از هر درس روزی یک شورتز
+  IG_FMT_DEFAULT: 'آموزشی',     // ۱۲.۱: قالبِ همهٔ ریلزهای تا امروز؛ «جملهٔ کوتاه» قالبِ آزمایشیِ آینده است و هنوز ساخته نمی‌شود
   IG_PATTERN_TG: 1,             // ۱۱.۰: الگوی ساعت/قالبِ ریلزها به تلگرام — یک بار برای هر شماره، بعد هفتگی (0 = هرگز)
   IG_LINK_WORD: 'لینک در بیو',  // ۱۱.۰: نشانیِ خام در کپشنِ اینستاگرام کلیک‌پذیر نیست
   IG_SHORT_KEEP_UP: 2,           // ۹.۳۲: شورتز فقط از سهمیه‌ای برمی‌دارد که این‌قدر آپلودِ قسمتِ کاملِ امروز هنوز جا داشته باشد
@@ -2294,7 +2297,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '12.0',
+  CODE_VERSION: '12.1',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3477,13 +3480,15 @@ var PK = {
   YT_DESC_MINE: 'YT_DESC_MINE',
   YT_CHAN_MINE: 'YT_CHAN_MINE',    // ۱۱.۸: اثرِ انگشتِ «دربارهٔ کانال» و کلیدواژه‌هایی که موتور نوشت    // ۱۱.۶: اثرِ انگشتِ توضیحی که موتور نوشت {videoId: fp} — ویرایشِ Studio از روی آن شناخته می‌شود
   YT_DESC_ARCH: 'YT_DESC_ARCH',    // ۱۱.۰: بایگانیِ توضیحاتِ ویدئوهای بلند در تلگرام {rev, done[], at}
+  IG_FMT: 'IG_FMT',                // ۱۲.۱: قالبِ هر ریلز (فقط غیرپیش‌فرض‌ها) — شناسهٔ ریلز ⇒ قالب، برای سنجشِ «جملهٔ کوتاه» در برابرِ «آموزشی»
   IG_PATTERN: 'IG_PATTERN',        // ۱۱.۰: الگوی ساعت/قالبِ ریلزها (igPattern_) — کلیدِ جدا از IG_STATE
   CAT_LOCK_LAST: 'CAT_LOCK_LAST',
   DEST_CACHE: 'DEST_CACHE',        // ۱۱.۵: آخرین خواندنِ سالمِ تبِ «مقصدها» — اگر تب خوانده نشود
   FB_DAY: 'FB_DAY',                // ۱۱.۵: شمارِ بازنشرِ فیسبوکِ امروز
   FB_Q: 'FB_Q',
   CAT_REVIEW_REV: 'CAT_REVIEW_REV',
-  YT_HYPO_AT: 'YT_HYPO_AT',          // ۱۲.۰: آخرین ارسالِ جدولِ سنجشِ فرضیه‌ها  // ۱۱.۷: فهرستِ بازبینیِ دسته‌ها برای کدام نسخه به تلگرام رفت                    // ۱۱.۵: صفِ تلاشِ دوبارهٔ فیسبوک — فقط کلید و پوشه
+  YT_HYPO_AT: 'YT_HYPO_AT',
+  YTA_AVP: 'YTA_AVP',                // ۱۲.۱: درصدِ دیده‌شدنِ هر ویدئوی خودمان {videoId: avp} — برای سنجشِ فرضیه‌ها          // ۱۲.۰: آخرین ارسالِ جدولِ سنجشِ فرضیه‌ها  // ۱۱.۷: فهرستِ بازبینیِ دسته‌ها برای کدام نسخه به تلگرام رفت                    // ۱۱.۵: صفِ تلاشِ دوبارهٔ فیسبوک — فقط کلید و پوشه
   CAT_LOCK_UI: 'CAT_LOCK_UI',      // ۱۱.۳: تیک‌های پنلِ «دسته‌های از همه جا» در تخته {on, list[], at} — بر CFG.CAT_LOCK مقدم  // ۱۱.۰: آخرین تصمیمِ قفلِ دسته {cat, why, at}
   YT_PL: 'YT_PLAYLIST_MAP',        // نگاشتِ کلیدِ مجموعه → شناسهٔ پلی‌لیست
   YT_STATS: 'YT_STATS_AT',
@@ -20686,6 +20691,7 @@ function healthCheck() {
   try {
     var regC = readSeriesReg_(getHub_()), scl = seriesCatLine_(regC);
     notes.push(scl.line);
+    try { notes.push(seriesQueuePlan_(null, regC).line); } catch (eQp) {}   // ۱۲.۱: صف و برآوردِ زمان
     if (scl.problem) problems.push(scl.problem);
     if (props_().getProperty(PK.CAT_REVIEW_REV) !== String(CFG.CODE_VERSION)) {
       var rv = seriesCatReview_(null, true);
@@ -26519,6 +26525,19 @@ function seriesCatReview_(hub, tg) {
         L.push('   موضوعِ واقعی: ' + r[6]);
         L.push('');
       });
+      /* ۱۲.۱: صفِ تولید و برآوردِ زمان، بالای همان فایل */
+      try {
+        var qp = seriesQueuePlan_(hub, reg);
+        var Q = ['صفِ تولیدِ درس‌نامه (برآورد؛ روزی یک قسمت، «قطعه در هر درس» از درس‌های ساخته‌شدهٔ همان مجموعه — میانهٔ همه: ' + qp.medPer + '):'];
+        qp.rows.forEach(function (x, i) {
+          Q.push((i + 1) + ') ' + x.name + (x.morder !== null ? '  [شمارهٔ دستی ' + x.morder + ']' : '') + ' — ' + x.status +
+                 ' · ' + x.left + ' قطعهٔ مانده ÷ ' + x.per + ' ⇒ ~' + x.lessons + ' درس' + (x.recaps ? ' + ' + x.recaps + ' مرور' : '') +
+                 ' · روزهای ' + x.fromDay + ' تا ' + x.toDay);
+        });
+        Q.push('جمعاً ~' + qp.days + ' روز (~' + qp.months + ' ماه).' + (qp.held ? ' ' + qp.held + ' مجموعهٔ دیگر بی شمارهٔ دستی در صف نیستند.' : ''));
+        Q.push(''); Q.push('');
+        L = Q.concat(L);
+      } catch (eQ) { L.unshift('(صفِ تولید ساخته نشد: ' + String(eQ.message || eQ).slice(0, 80) + ')', ''); }
       tgApi_('sendDocument', { chat_id: tgChat_(), document: Utilities.newBlob(L.join('\n'), 'text/plain', 'بازبینیِ دستهٔ مجموعه‌ها.txt'),
                                caption: '🗂 فهرستِ همهٔ ' + out.n + ' مجموعه با دستهٔ فعلی، منشأ و موضوعِ واقعی — ' + man + ' دسته‌دستی' });
       out.sent = true;
@@ -26545,6 +26564,63 @@ function seriesCatLine_(reg) {
     problem: (!trust && !nextMan && held) ? '⚠️ هیچ مجموعه‌ای با «شمارهٔ دستی» در نوبت نیست: وقتی مجموعهٔ جاری تمام شود، درس‌نامهٔ تازه‌ای شروع نمی‌شود — ' +
                                      'در تخته برای مجموعهٔ بعدی «شماره و دستهٔ دستی» شماره بگذارید (یا سنجاقش کنید).' : ''
   };
+}
+
+/* ═══════ صفِ تولیدِ درس‌نامه و برآوردِ زمان (۱۲.۱) ═══════
+   «بگویید ترتیبِ نهاییِ صف دقیقاً چیست و چند ماه تولید را می‌پوشاند.» همان قاعده‌های `pickSeriesPlan_`، بی نوشتنِ چیزی:
+   ۱) «در حال تولید» با کار (تازه‌ترین اول — همان که فردا ساخته می‌شود) ۲) «قسمتِ تازه اضافه شد» ۳) «در نوبت» فقط با شمارهٔ
+   دستی، به ترتیبِ شماره. برآوردِ درس از قطعه‌های مانده تقسیم بر «قطعه در هر درس»ِ خودِ همان مجموعه (از درس‌های ساخته‌شده‌اش)،
+   وگرنه میانهٔ همهٔ مجموعه‌ها؛ به‌اضافهٔ مرورِ بزرگ هر چند درس؛ روزی یک قسمت. برآورد است، نه قول — و عددهایش کنارش چاپ می‌شود. */
+function seriesQueuePlan_(hub, regOpt, partsOpt) {
+  hub = hub || getHub_();
+  var reg = regOpt || readSeriesReg_(hub), parts = partsOpt || readSeriesParts_(hub);
+  var rowsOf = function (r) {
+    var list = parts.byKey[r.key] || [], tot = 0, done = 0;
+    for (var i = 0; i < list.length; i++) {
+      var n = Number(list[i].vals[SP.CHUNKS - 1]) || 0, d = Math.min(n, Math.max(0, Number(list[i].vals[SP.DONE_TO - 1]) || 0));
+      tot += n; done += d;
+    }
+    return { tot: tot, done: done, left: Math.max(0, tot - done), eps: epNumsOf_(r.vals[SC.EPISODES - 1]).length };
+  };
+  var perEp = [];
+  reg.rows.forEach(function (r) { var c = rowsOf(r); if (c.eps >= 2 && c.done > 0) perEp.push(c.done / c.eps); });
+  perEp.sort(function (a, b) { return a - b; });
+  var medPer = perEp.length ? perEp[Math.floor(perEp.length / 2)] : 3;
+  var act = [], reo = [], que = [], held = 0;
+  reg.rows.forEach(function (r) {
+    var st = String(r.vals[SC.STATUS - 1] || '');
+    if (st === SST.SKIPPED || !seriesEligible_(r.vals, r.key, null)) return;
+    var c = rowsOf(r);
+    if (!c.left) return;
+    if (st === SST.ACTIVE) act.push(r);
+    else if (st === SST.REOPENED) reo.push(r);
+    else if (st === SST.NEW) { if (CFG.SERIES_AUTO_CAT_TRUST === false && !isFinite(seriesMOrder_(r.vals))) held++; else que.push(r); }
+  });
+  var at = function (r) { var t = parseWhen_(String(r.vals[SC.LAST_EP_AT - 1] || '')); return isNaN(t) ? 0 : t; };
+  act.sort(function (a, b) { return at(b) - at(a); });
+  que.sort(function (a, b) { return seriesEffOrder_(a.vals) - seriesEffOrder_(b.vals) || a.row - b.row; });
+  var order = act.concat(reo, que), out = { rows: [], days: 0, held: held, medPer: Math.round(medPer * 10) / 10 }, day = 0;
+  order.forEach(function (r) {
+    var c = rowsOf(r);
+    var per = (c.eps >= 2 && c.done > 0) ? c.done / c.eps : medPer;
+    var lessons = Math.max(1, Math.ceil(c.left / Math.max(0.5, per)));
+    var every = 0;
+    try { var ev = recapEveryOf_(r.vals); every = ev.off ? 0 : ev.n; } catch (eR) { every = Number(CFG.RECAP_EVERY) || 15; }
+    var recaps = every ? Math.floor((c.eps + lessons) / every) - Math.floor(c.eps / every) : 0;
+    var n = lessons + recaps;
+    out.rows.push({ key: r.key, name: String(r.vals[SC.NAME - 1] || r.key), status: String(r.vals[SC.STATUS - 1] || ''),
+                    morder: isFinite(seriesMOrder_(r.vals)) ? seriesMOrder_(r.vals) : null, cat: seriesCatOf_(r.vals),
+                    left: Math.round(c.left), per: Math.round(per * 10) / 10, lessons: lessons, recaps: recaps,
+                    fromDay: day + 1, toDay: day + n });
+    day += n;
+  });
+  out.days = day;
+  out.months = Math.round(day / 30.4 * 10) / 10;
+  out.line = '🗓 صفِ درس‌نامه: ' + (out.rows.length ? out.rows.map(function (x, i) {
+    return (i + 1) + ') «' + x.name + '»' + (x.morder !== null ? ' [#' + x.morder + ']' : '') + ' ~' + (x.lessons + x.recaps) + ' قسمت';
+  }).join(' ← ') + ' — جمعاً ~' + out.days + ' روز (~' + out.months + ' ماه، روزی یک قسمت)' : 'هیچ مجموعه‌ای با کارِ مانده در صف نیست') +
+    (held ? ' · ' + held + ' مجموعهٔ دیگر بی شمارهٔ دستی منتظر است' : '') + '.';
+  return out;
 }
 
 /* ═══════════════════════════ 14_Special.gs ═══════════════════════════ */
@@ -32268,9 +32344,11 @@ function seriesStatesHtml_(d) {
 function uiCatReview() {
   try {
     var r = seriesCatReview_(getHub_(), true);
+    var qline = '';
+    try { qline = seriesQueuePlan_().line; } catch (eQ) {}
     var msg = 'فهرستِ بازبینی ساخته شد: ' + r.n + ' مجموعه (' + r.manual + ' دسته‌دستی، ' + r.auto + ' فقط خودکار) در تبِ «' +
               (CFG.SERIES_CAT_REVIEW_TAB || 'بازبینیِ دستهٔ مجموعه‌ها') + '»' + (r.sent ? ' و در تلگرام' : '') + '.';
-    boardReceipt_(true, msg, ['آن تب فقط‌خواندنی است و هر بار از نو ساخته می‌شود؛ اصلاح با دکمهٔ «شماره و دستهٔ دستی» هر ردیف.']);
+    boardReceipt_(true, msg, ['آن تب فقط‌خواندنی است و هر بار از نو ساخته می‌شود؛ اصلاح با دکمهٔ «شماره و دستهٔ دستی» هر ردیف.'].concat(qline ? [qline] : []));
     return { ok: true, message: msg };
   } catch (e) { return { ok: false, message: 'فهرست ساخته نشد: ' + e.message }; }
 }
@@ -63570,6 +63648,8 @@ function ytaDue_() {
   try { at = String(props_().getProperty(PK.YTA_AT) || ''); } catch (e) {}
   if (!at) return true;
   var t = parseWhen_(at);
+  /* ۱۲.۱: دورِ شکست‌خورده از نبودِ API/اجازه زود دوباره امتحان می‌شود — «روشنش کردم» نباید بیست ساعت منتظر بماند. */
+  try { var sn = ytaSnap_(); if (sn && sn.need) everyH = Math.max(1, Number(CFG.YTA_RETRY_H) || 1); } catch (eS) {}
   return isNaN(t) || (new Date().getTime() - t) / 3600000 >= everyH;
 }
 
@@ -63650,6 +63730,12 @@ function ytaRun_(budgetMs) {
     }
   }
   snap.shows = shows;
+  /* ۱۲.۱: درصدِ دیده‌شدنِ هر ویدئوی خودمان، جدا از عکس (سقفِ ۹ کیلوبایتِ Properties) — سنجشِ فرضیه‌ها گروه‌به‌گروه می‌خوانَدش. */
+  try {
+    var avpMap = {};
+    vids.forEach(function (x) { if (x.mine && x.views > 0) avpMap[x.id] = x.avp; });
+    props_().setProperty(PK.YTA_AVP, JSON.stringify(avpMap).slice(0, 8900));
+  } catch (eAv) {}
   var minV = Math.max(1, Number(CFG.YTA_MIN_VIEWS) || 10);
   var ours = vids.filter(function (x) { return x.mine && x.views >= minV && x.title; });
   ours.sort(function (a, b) { return b.avp - a.avp; });
@@ -63671,6 +63757,16 @@ function ytaRun_(budgetMs) {
       snap.src = { total: tot, list: list };
       for (var gk in g) if (Object.prototype.hasOwnProperty.call(g, gk)) snap.src[gk] = tot ? Math.round(g[gk] / tot * 100) : 0;
     }
+  }
+  /* ۱۲.۱: «کشور» — مخاطبِ عراق/هند/پاکستان را فقط همین عدد نشان می‌دهد. */
+  if (left() > 6000) {
+    var geo = q({ dims: 'country', metrics: 'views,averageViewPercentage', sort: '-views', max: Math.max(3, Number(CFG.YTA_GEO_MAX) || 8) });
+    if (geo.ok) {
+      var gr = ytaRows_(geo), gt = 0;
+      gr.forEach(function (x) { gt += Number(x.views || 0); });
+      snap.geo = gr.map(function (x) { return { c: String(x.country || ''), v: Number(x.views || 0), pct: gt ? Math.round(Number(x.views || 0) / gt * 100) : 0,
+                                                avp: Math.round(Number(x.averageViewPercentage || 0) * 10) / 10 }; });
+    } else snap.geoWhy = geo.why;
   }
   /* کلیک روی کاور: همهٔ نسخه‌های API این دو سنجه را ندارند — نبودش ثبت می‌شود، خطا نمی‌شود. */
   if (left() > 6000) {
@@ -63781,6 +63877,9 @@ function ytaDiagnose_(s) {
     }
   }
   if (parts.length) D.push({ k: 'shows', text: 'به تفکیک (از آغاز): ' + parts.join(' · ') + '.' });
+  if ((s.geo || []).length) {
+    D.push({ k: 'geo', text: 'کشورِ بیننده‌ها: ' + s.geo.map(function (g) { return g.c + ' ' + fa(g.pct) + '٪ (دیده‌شدن ' + fa(g.avp) + '٪)'; }).join('، ') + '.' });
+  }
   return D;
 }
 
@@ -66241,12 +66340,14 @@ function ytHypoMed_(a) {
   var s = a.slice().sort(function (x, y) { return x - y; }), m = Math.floor(s.length / 2);
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
-function ytHypo_(rows) {
+function ytHypo_(rows, avpOpt, igFmtOpt) {
+  var avpMap = avpOpt || {};
   var last = Object.create(null);
   for (var i = 0; i < (rows || []).length; i++) {
     var id = String(rows[i][4] || '');
     if (!id || !String(rows[i][5] || '')) continue;
-    last[id] = { title: String(rows[i][5]), perDay: Number(rows[i][11]) || 0, age: Number(rows[i][10]) || 0, at: String(rows[i][0] || '') };
+    last[id] = { title: String(rows[i][5]), perDay: Number(rows[i][11]) || 0, age: Number(rows[i][10]) || 0, at: String(rows[i][0] || ''),
+                 avp: Object.prototype.hasOwnProperty.call(avpMap, id) ? Number(avpMap[id]) : null };
   }
   var vids = Object.keys(last).map(function (k) { return last[k]; });
   var min = Math.max(2, Number(CFG.YT_HYPO_MIN) || 5);
@@ -66254,7 +66355,11 @@ function ytHypo_(rows) {
     var A = vids.filter(fa).map(function (x) { return x.perDay; }), B = vids.filter(fb).map(function (x) { return x.perDay; });
     var ma = ytHypoMed_(A), mb = ytHypoMed_(B);
     var thin = A.length < min || B.length < min;
-    return { name: name, a: a, b: b, na: A.length, nb: B.length, ma: ma, mb: mb, thin: thin,
+    /* ۱۲.۱: ماندگاری (درصدِ دیده‌شدن، از Analytics) کنارِ نمایش — گروهی که بیشتر دیده می‌شود ولی زودتر رها می‌شود، برنده نیست. */
+    var RA = vids.filter(fa).map(function (x) { return x.avp; }).filter(function (x) { return x !== null && !isNaN(x); });
+    var RB = vids.filter(fb).map(function (x) { return x.avp; }).filter(function (x) { return x !== null && !isNaN(x); });
+    var ra = ytHypoMed_(RA), rb = ytHypoMed_(RB);
+    return { name: name, a: a, b: b, na: A.length, nb: B.length, ma: ma, mb: mb, thin: thin, ra: ra, rb: rb,
              say: thin ? 'کم‌داده (' + A.length + ' در برابرِ ' + B.length + ')'
                        : (ma > mb * 1.3 ? '«' + a + '» بیشتر دیده شده' : mb > ma * 1.3 ? '«' + b + '» بیشتر دیده شده' : 'تفاوتِ معنادار نیست') };
   };
@@ -66282,8 +66387,17 @@ function ytHypo_(rows) {
   var mid = ytHypoMed_(counts) || 0;
   out.tests.push(g('ف۴ رقیق‌شدن', 'هفته‌های کم‌انتشار', 'هفته‌های پرانتشار',
                    longs(function (x) { return x.wk !== undefined && wk[x.wk] <= mid; }), longs(function (x) { return x.wk !== undefined && wk[x.wk] > mid; })));
+  /* ۱۲.۱ ف۷: قالبِ ریلِ اینستاگرام — «جملهٔ کوتاه» در برابرِ «آموزشی»، میانهٔ بازدیدِ ریلزهای بالای ۴۸ ساعت (`igPattern_().byFormat`).
+     تا قالبِ آزمایشی منتشر نشده، «کم‌داده» است — و همین را می‌گوید، نه «تفاوتی نیست». */
+  var igF = igFmtOpt || [], fA = null, fB = null;
+  igF.forEach(function (x) { if (x && x.k === 'جملهٔ کوتاه') fA = x; else if (x && x.k === String(CFG.IG_FMT_DEFAULT || 'آموزشی')) fB = x; });
+  var na7 = fA ? fA.n : 0, nb7 = fB ? fB.n : 0, ma7 = fA ? fA.med : null, mb7 = fB ? fB.med : null, thin7 = na7 < min || nb7 < min;
+  out.tests.push({ name: 'ف۷ قالبِ ریل (اینستاگرام، بازدید)', a: 'جملهٔ کوتاه', b: 'آموزشی', na: na7, nb: nb7, ma: ma7, mb: mb7, thin: thin7, ra: null, rb: null,
+                   say: thin7 ? (na7 ? 'کم‌داده (' + na7 + ' در برابرِ ' + nb7 + ')' : 'هنوز هیچ ریلِ «جملهٔ کوتاه» منتشر نشده (' + nb7 + ' آموزشی)')
+                              : (ma7 > mb7 * 1.3 ? '«جملهٔ کوتاه» بیشتر دیده شده' : mb7 > ma7 * 1.3 ? '«آموزشی» بیشتر دیده شده' : 'تفاوتِ معنادار نیست') });
   out.line = '📐 سنجشِ فرضیه‌ها (' + out.n + ' ویدئو، میانهٔ نمایش در روز): ' + out.tests.map(function (t) {
-    return t.name + ': ' + t.say + (t.thin ? '' : ' [' + (t.ma == null ? '—' : t.ma.toFixed(1)) + ' / ' + (t.mb == null ? '—' : t.mb.toFixed(1)) + ']');
+    return t.name + ': ' + t.say + (t.thin ? '' : ' [' + (t.ma == null ? '—' : t.ma.toFixed(1)) + ' / ' + (t.mb == null ? '—' : t.mb.toFixed(1)) + ']') +
+           (t.ra != null && t.rb != null ? ' {دیده‌شدن ' + t.ra.toFixed(0) + '٪ / ' + t.rb.toFixed(0) + '٪}' : '');
   }).join(' · ') + '. فقط سنجش است؛ چیزی عوض نشد.';
   return out;
 }
@@ -66291,14 +66405,19 @@ function ytHypo_(rows) {
 function ytHypoRun_(hub) {
   var sh = (hub || getHub_()).getSheetByName(CFG.YTS_TAB || 'بازخوردِ یوتیوب');
   if (!sh || sh.getLastRow() < 2) return null;
-  var r = ytHypo_(sh.getRange(2, 1, sh.getLastRow() - 1, YTS_HEADERS.length).getValues());
+  var avp = {};
+  try { avp = JSON.parse(props_().getProperty(PK.YTA_AVP) || '{}') || {}; } catch (eA) { avp = {}; }
+  var igF = [];
+  try { igF = (JSON.parse(props_().getProperty(PK.IG_PATTERN) || '{}') || {}).byFormat || []; } catch (eI) { igF = []; }
+  var r = ytHypo_(sh.getRange(2, 1, sh.getLastRow() - 1, YTS_HEADERS.length).getValues(), avp, igF);
   try {
     var lastAt = Number(props_().getProperty(PK.YT_HYPO_AT) || 0) || 0;
     if (Date.now() - lastAt > Math.max(1, Number(CFG.YT_HYPO_DAYS) || 7) * 86400000) {
       var L = ['📐 <b>سنجشِ فرضیه‌های رقبا با دادهٔ خودِ کانال</b> — ' + r.n + ' ویدئو، میانهٔ «نمایش در روز»', ''];
       r.tests.forEach(function (t) {
         L.push('• ' + tgEsc_(t.name) + ': «' + tgEsc_(t.a) + '» ' + (t.ma == null ? '—' : t.ma.toFixed(1)) + ' (' + t.na + ') در برابرِ «' +
-               tgEsc_(t.b) + '» ' + (t.mb == null ? '—' : t.mb.toFixed(1)) + ' (' + t.nb + ') ⇒ ' + tgEsc_(t.say));
+               tgEsc_(t.b) + '» ' + (t.mb == null ? '—' : t.mb.toFixed(1)) + ' (' + t.nb + ') ⇒ ' + tgEsc_(t.say) +
+               (t.ra != null && t.rb != null ? ' · دیده‌شدن ' + t.ra.toFixed(0) + '٪ در برابرِ ' + t.rb.toFixed(0) + '٪' : ''));
       });
       L.push(''); L.push('فقط سنجش است؛ هیچ تنظیمی عوض نشد. همبستگی، نه علیت.');
       if (tgSend_(L.join('\n'))) props_().setProperty(PK.YT_HYPO_AT, String(Date.now()));
@@ -84243,6 +84362,7 @@ function igStepPub_(it, plan, st, deadline) {
     plan.reelId = String(p.j.id);
     st.media = st.media || {};
     st.media[plan.reelId] = it.key;
+    igFmtMark_(plan.reelId, plan.format);
     var mk = Object.keys(st.media);
     if (mk.length > 80) delete st.media[mk[0]];
     try { plan.permalink = String((igApi_('get', '/' + plan.reelId, { fields: 'permalink' }).j || {}).permalink || ''); } catch (eP) {}
@@ -85223,7 +85343,7 @@ function igInsights_(st, deadline) {
     var lr = shP ? shP.getLastRow() : 0;
     if (lr > 1) {
       /* کلیدِ جدا، نه درونِ `st.ins`: حالتِ اینستاگرام زیرِ سقفِ ۹ کیلوبایتیِ هر Property است (۹.۳۲). */
-      var pat = igPattern_(shP.getRange(2, 1, lr - 1, 14).getValues(), Date.now());
+      var pat = igPattern_(shP.getRange(2, 1, lr - 1, 14).getValues(), Date.now(), igFmtMap_());
       pat.at = nowStr_();
       try { props_().setProperty(PK.IG_PATTERN, JSON.stringify(pat).slice(0, 8500)); } catch (eSp) {}
       var rev = Number(CFG.IG_PATTERN_TG) || 0, prevP = (st.ins && st.ins.patternTold) || {};
@@ -85242,9 +85362,12 @@ function igInsights_(st, deadline) {
  * چندروزه که بعد متوقف شد را بگویید». از سطرهای تبِ آمار (زمانِ ستونِ دوم **UTC** است — `timestamp`ِ متا — پس +۴ برای
  * دبی). پستی که کمتر از ۴۸ ساعت عمر دارد در مقایسه نمی‌آید: بازدیدِ ریلز تا دو روز بالا می‌رود و ریلزِ دیروز کنارِ ریلزِ
  * هفتهٔ پیش همیشه «کم‌بازده» دیده می‌شد. میانه، نه میانگین — یک ریلزِ پربازدید میانگینِ یک گروه را می‌سازد.
- * ⇒ {n, byHour[], byHook[], byDay[], text}
+ * ۱۲.۱: و قالبِ ریل (`byFormat`) — «جملهٔ کوتاه» در برابرِ «آموزشی»، از نقشهٔ `PK.IG_FMT`؛ ریلزی که در نقشه نیست قالبِ
+ * پیش‌فرض دارد، که برای همهٔ ریلزهای تا امروز راست است: قالبِ دیگری هنوز ساخته نشده.
+ * ⇒ {n, byHour[], byHook[], byFormat[], byDay[], text}
  */
-function igPattern_(rows, nowMs) {
+function igPattern_(rows, nowMs, fmtOpt) {
+  var fmtMap = fmtOpt || {}, fmtDef = String(CFG.IG_FMT_DEFAULT || 'آموزشی');
   var med = function (a) {
     if (!a.length) return 0;
     var b = a.slice().sort(function (x, y) { return x - y; }), h = Math.floor(b.length / 2);
@@ -85260,6 +85383,7 @@ function igPattern_(rows, nowMs) {
     var cap = String(r[4] || '');
     posts.push({ ms: ms, h: d.getUTCHours(), day: d.toISOString().slice(0, 10), v: v, watch: Number(r[13]) || 0,
                  key: String(r[3] || ''), cap: cap.slice(0, 70),
+                 fmt: Object.prototype.hasOwnProperty.call(fmtMap, String(r[0] || '')) ? String(fmtMap[String(r[0])]) : fmtDef,
                  hook: /^آیا\s*می[\u200c ]?دانستید/.test(cap) ? 'آیا می‌دانستید' : /[؟?]/.test(cap.split(/[.!]/)[0] || cap) ? 'پرسشِ دیگر' : 'جملهٔ خبری' });
   });
   var old = posts.filter(function (p) { return (nowMs || Date.now()) - p.ms >= 48 * 3600000; });
@@ -85274,6 +85398,7 @@ function igPattern_(rows, nowMs) {
   var slot = function (p) { return p.h < 6 ? 'بامداد (۰ تا ۶)' : p.h < 12 ? 'صبح (۶ تا ۱۲)' : p.h < 18 ? 'بعدازظهر (۱۲ تا ۱۸)' : 'شب (۱۸ تا ۲۴)'; };
   var byHour = group(old, slot, ['بامداد (۰ تا ۶)', 'صبح (۶ تا ۱۲)', 'بعدازظهر (۱۲ تا ۱۸)', 'شب (۱۸ تا ۲۴)']);
   var byHook = group(old, function (p) { return p.hook; }, ['آیا می‌دانستید', 'پرسشِ دیگر', 'جملهٔ خبری']);
+  var byFormat = group(old, function (p) { return p.fmt; });
   var byDay = group(posts, function (p) { return p.day; });
   var all = old.map(function (p) { return p.v; }), m0 = med(all);
   var fmt = function (g) { return g.map(function (x) { return x.k + ': میانهٔ ' + x.med + ' بازدید از ' + x.n + ' ریلز (تماشا ' + x.watch + ' ث)'; }).join(' · '); };
@@ -85291,11 +85416,26 @@ function igPattern_(rows, nowMs) {
   var text = '📊 الگوی ریلزهای اینستاگرام (' + old.length + ' ریلزِ بالای ۴۸ ساعت از ' + posts.length + '؛ میانهٔ کل ' + m0 + ' بازدید)\n' +
              '⏰ ساعتِ انتشار (دبی): ' + (fmt(byHour) || '—') + '\n' +
              '🪝 قالبِ سطرِ اول: ' + (fmt(byHook) || '—') + '\n' +
+             '🧩 قالبِ ریل: ' + (fmt(byFormat) || '—') + (byFormat.length < 2 ? ' (قالبِ دومی هنوز منتشر نشده؛ مقایسه پس از آن)' : '') + '\n' +
              '📅 روز به روز: ' + byDay.map(function (x) { return x.k.slice(5) + '=' + x.med + ' (' + x.n + ')'; }).join('، ') +
              (peak ? '\n↗ رشد تا ' + peak.k + ' (میانهٔ ' + peak.med + ') و بعد پایین‌تر — پیش از نتیجه‌گیری، شمارِ ریلزِ همان روزها را ببینید: ' +
                      'روزهای پرانتشار بازدیدِ هر ریلز را میان خودشان پخش می‌کنند.' : '') +
              (nTop ? '\n🔝 پربازدیدترین‌ها:\n' + top.map(row1).join('\n') + '\n🔻 کم‌بازدیدترین‌ها:\n' + low.map(row1).join('\n') : '');
-  return { top: top.map(row1), low: low.map(row1), n: old.length, all: posts.length, median: m0, byHour: byHour, byHook: byHook, byDay: byDay, peak: peak ? peak.k : '', text: text };
+  return { top: top.map(row1), low: low.map(row1), n: old.length, all: posts.length, median: m0, byHour: byHour, byHook: byHook, byFormat: byFormat, byDay: byDay, peak: peak ? peak.k : '', text: text };
+}
+
+/** نقشهٔ قالب‌ها — فقط غیرپیش‌فرض‌ها نوشته می‌شوند، پس زیرِ سقفِ هر Property می‌ماند. */
+function igFmtMap_() {
+  try { var m = JSON.parse(props_().getProperty(PK.IG_FMT) || '{}'); return m && typeof m === 'object' ? m : {}; } catch (e) { return {}; }
+}
+function igFmtMark_(reelId, format) {
+  var f = String(format || '').trim();
+  if (!reelId || !f || f === String(CFG.IG_FMT_DEFAULT || 'آموزشی')) return false;
+  var m = igFmtMap_();
+  m[String(reelId)] = f.slice(0, 20);
+  var k = Object.keys(m);
+  while (k.length > 250) delete m[k.shift()];
+  try { props_().setProperty(PK.IG_FMT, JSON.stringify(m)); return true; } catch (e) { return false; }
 }
 
 /* ═══════ فیسبوک — بازنشرِ همان ریلز روی صفحه (۱۱.۵) ═══════

@@ -1270,6 +1270,7 @@ function igStepPub_(it, plan, st, deadline) {
     plan.reelId = String(p.j.id);
     st.media = st.media || {};
     st.media[plan.reelId] = it.key;
+    igFmtMark_(plan.reelId, plan.format);
     var mk = Object.keys(st.media);
     if (mk.length > 80) delete st.media[mk[0]];
     try { plan.permalink = String((igApi_('get', '/' + plan.reelId, { fields: 'permalink' }).j || {}).permalink || ''); } catch (eP) {}
@@ -2250,7 +2251,7 @@ function igInsights_(st, deadline) {
     var lr = shP ? shP.getLastRow() : 0;
     if (lr > 1) {
       /* کلیدِ جدا، نه درونِ `st.ins`: حالتِ اینستاگرام زیرِ سقفِ ۹ کیلوبایتیِ هر Property است (۹.۳۲). */
-      var pat = igPattern_(shP.getRange(2, 1, lr - 1, 14).getValues(), Date.now());
+      var pat = igPattern_(shP.getRange(2, 1, lr - 1, 14).getValues(), Date.now(), igFmtMap_());
       pat.at = nowStr_();
       try { props_().setProperty(PK.IG_PATTERN, JSON.stringify(pat).slice(0, 8500)); } catch (eSp) {}
       var rev = Number(CFG.IG_PATTERN_TG) || 0, prevP = (st.ins && st.ins.patternTold) || {};
@@ -2269,9 +2270,12 @@ function igInsights_(st, deadline) {
  * چندروزه که بعد متوقف شد را بگویید». از سطرهای تبِ آمار (زمانِ ستونِ دوم **UTC** است — `timestamp`ِ متا — پس +۴ برای
  * دبی). پستی که کمتر از ۴۸ ساعت عمر دارد در مقایسه نمی‌آید: بازدیدِ ریلز تا دو روز بالا می‌رود و ریلزِ دیروز کنارِ ریلزِ
  * هفتهٔ پیش همیشه «کم‌بازده» دیده می‌شد. میانه، نه میانگین — یک ریلزِ پربازدید میانگینِ یک گروه را می‌سازد.
- * ⇒ {n, byHour[], byHook[], byDay[], text}
+ * ۱۲.۱: و قالبِ ریل (`byFormat`) — «جملهٔ کوتاه» در برابرِ «آموزشی»، از نقشهٔ `PK.IG_FMT`؛ ریلزی که در نقشه نیست قالبِ
+ * پیش‌فرض دارد، که برای همهٔ ریلزهای تا امروز راست است: قالبِ دیگری هنوز ساخته نشده.
+ * ⇒ {n, byHour[], byHook[], byFormat[], byDay[], text}
  */
-function igPattern_(rows, nowMs) {
+function igPattern_(rows, nowMs, fmtOpt) {
+  var fmtMap = fmtOpt || {}, fmtDef = String(CFG.IG_FMT_DEFAULT || 'آموزشی');
   var med = function (a) {
     if (!a.length) return 0;
     var b = a.slice().sort(function (x, y) { return x - y; }), h = Math.floor(b.length / 2);
@@ -2287,6 +2291,7 @@ function igPattern_(rows, nowMs) {
     var cap = String(r[4] || '');
     posts.push({ ms: ms, h: d.getUTCHours(), day: d.toISOString().slice(0, 10), v: v, watch: Number(r[13]) || 0,
                  key: String(r[3] || ''), cap: cap.slice(0, 70),
+                 fmt: Object.prototype.hasOwnProperty.call(fmtMap, String(r[0] || '')) ? String(fmtMap[String(r[0])]) : fmtDef,
                  hook: /^آیا\s*می[\u200c ]?دانستید/.test(cap) ? 'آیا می‌دانستید' : /[؟?]/.test(cap.split(/[.!]/)[0] || cap) ? 'پرسشِ دیگر' : 'جملهٔ خبری' });
   });
   var old = posts.filter(function (p) { return (nowMs || Date.now()) - p.ms >= 48 * 3600000; });
@@ -2301,6 +2306,7 @@ function igPattern_(rows, nowMs) {
   var slot = function (p) { return p.h < 6 ? 'بامداد (۰ تا ۶)' : p.h < 12 ? 'صبح (۶ تا ۱۲)' : p.h < 18 ? 'بعدازظهر (۱۲ تا ۱۸)' : 'شب (۱۸ تا ۲۴)'; };
   var byHour = group(old, slot, ['بامداد (۰ تا ۶)', 'صبح (۶ تا ۱۲)', 'بعدازظهر (۱۲ تا ۱۸)', 'شب (۱۸ تا ۲۴)']);
   var byHook = group(old, function (p) { return p.hook; }, ['آیا می‌دانستید', 'پرسشِ دیگر', 'جملهٔ خبری']);
+  var byFormat = group(old, function (p) { return p.fmt; });
   var byDay = group(posts, function (p) { return p.day; });
   var all = old.map(function (p) { return p.v; }), m0 = med(all);
   var fmt = function (g) { return g.map(function (x) { return x.k + ': میانهٔ ' + x.med + ' بازدید از ' + x.n + ' ریلز (تماشا ' + x.watch + ' ث)'; }).join(' · '); };
@@ -2318,11 +2324,26 @@ function igPattern_(rows, nowMs) {
   var text = '📊 الگوی ریلزهای اینستاگرام (' + old.length + ' ریلزِ بالای ۴۸ ساعت از ' + posts.length + '؛ میانهٔ کل ' + m0 + ' بازدید)\n' +
              '⏰ ساعتِ انتشار (دبی): ' + (fmt(byHour) || '—') + '\n' +
              '🪝 قالبِ سطرِ اول: ' + (fmt(byHook) || '—') + '\n' +
+             '🧩 قالبِ ریل: ' + (fmt(byFormat) || '—') + (byFormat.length < 2 ? ' (قالبِ دومی هنوز منتشر نشده؛ مقایسه پس از آن)' : '') + '\n' +
              '📅 روز به روز: ' + byDay.map(function (x) { return x.k.slice(5) + '=' + x.med + ' (' + x.n + ')'; }).join('، ') +
              (peak ? '\n↗ رشد تا ' + peak.k + ' (میانهٔ ' + peak.med + ') و بعد پایین‌تر — پیش از نتیجه‌گیری، شمارِ ریلزِ همان روزها را ببینید: ' +
                      'روزهای پرانتشار بازدیدِ هر ریلز را میان خودشان پخش می‌کنند.' : '') +
              (nTop ? '\n🔝 پربازدیدترین‌ها:\n' + top.map(row1).join('\n') + '\n🔻 کم‌بازدیدترین‌ها:\n' + low.map(row1).join('\n') : '');
-  return { top: top.map(row1), low: low.map(row1), n: old.length, all: posts.length, median: m0, byHour: byHour, byHook: byHook, byDay: byDay, peak: peak ? peak.k : '', text: text };
+  return { top: top.map(row1), low: low.map(row1), n: old.length, all: posts.length, median: m0, byHour: byHour, byHook: byHook, byFormat: byFormat, byDay: byDay, peak: peak ? peak.k : '', text: text };
+}
+
+/** نقشهٔ قالب‌ها — فقط غیرپیش‌فرض‌ها نوشته می‌شوند، پس زیرِ سقفِ هر Property می‌ماند. */
+function igFmtMap_() {
+  try { var m = JSON.parse(props_().getProperty(PK.IG_FMT) || '{}'); return m && typeof m === 'object' ? m : {}; } catch (e) { return {}; }
+}
+function igFmtMark_(reelId, format) {
+  var f = String(format || '').trim();
+  if (!reelId || !f || f === String(CFG.IG_FMT_DEFAULT || 'آموزشی')) return false;
+  var m = igFmtMap_();
+  m[String(reelId)] = f.slice(0, 20);
+  var k = Object.keys(m);
+  while (k.length > 250) delete m[k.shift()];
+  try { props_().setProperty(PK.IG_FMT, JSON.stringify(m)); return true; } catch (e) { return false; }
 }
 
 /* ═══════ فیسبوک — بازنشرِ همان ریلز روی صفحه (۱۱.۵) ═══════
