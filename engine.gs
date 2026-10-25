@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 10.9
+ *  موتور محتوا و پادکست — نسخهٔ 11.0
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -128,6 +128,12 @@ var CFG = {
   // (۳+۳+۱+۱ = ۸ از ۱۲، پس چهار جای آزاد برای انتخابِ سردبیر می‌ماند)
   MIN_KIND_ITEMS: { 'ویدیو': 3, 'عکس': 3, 'صدا': 1, 'سند': 1 },
   CAT_PREFER_MIX: true,        // دستهٔ برندهٔ تک‌نوع جایش را به دستهٔ تلفیقیِ سه‌تای اول می‌دهد (۸.۷۲، قسمتِ ۶۹)
+  /* ۱۱.۰ — «موتور را روی دسته‌های علمی قفل کنید … چرخشِ خودکار بین دسته‌ها را خاموش کنید؛ فقط وقتی منابعِ علمی تمام شد
+     به دستهٔ بعدی بروید.» ترتیب همان ترتیبِ رفتن است: تا وقتی اولی محتوای کافی دارد، فقط اولی. دستهٔ بعدی فقط وقتی که
+     قبلی دیگر قسمت نمی‌سازد (کمتر از ۵ ردیفِ واجد یا ۴ آیتمِ خواندنی). همه تمام ⇒ رتبه‌بندیِ پیشین (همهٔ دسته‌ها)، با
+     خبر. «فرهنگی، تاریخی و ادبی» و «مستند و مصاحبه» دانش‌اند ولی نه به معنای «علمی»؛ عقب‌تر. خاموش: CAT_LOCK_ON: false. */
+  CAT_LOCK_ON: true,
+  CAT_LOCK: ['علمی و آموزشی', 'روانشناسی و رشد فردی', 'فرهنگی، تاریخی و ادبی', 'مستند و مصاحبه'],
   TARGET_MINUTES: 10,          // طول هدف قسمت (مجله‌ای ۸ تا ۱۲ دقیقه)
   // تعداد بخش‌های قسمت. صریح گفته می‌شود چون «حدود ۱۵۰۰ کلمه» بدون آن، چهار
   // بخشِ کوتاه می‌شد و قسمت حدود بیست درصد کوتاه‌تر از هدف درمی‌آمد.
@@ -1110,6 +1116,20 @@ var CFG = {
      راهِ `_YT-RENDER.json` خواسته می‌شود. همان تقسیمِ کاری که برای موسیقی
      جواب داد: «تو نشانی بده، موتور می‌آورد» — این‌بار برعکس. */
   YT_ENABLED: true,
+  /* ۱۱.۰ — «انتشارِ پادکستِ «از همه جا از همه رنگ» روی کانالِ @truth_trace1 متوقف شود؛ چیزی حذف نشود و تنظیماتِ پادکست برای
+     کانالِ جداگانهٔ آینده سالم بماند.» برنامه‌ای که این‌جاست به صفِ یوتیوب نمی‌رود (نه ویدئو، نه رندر)؛ ردیف‌های صفِ موجودش
+     در PK.YT_DUE_PARKED کنار می‌روند، نه پاک. پادکست، ایمیل، تلگرام و همهٔ تنظیماتِ ویدئویش (VM_*، YT_CATEGORY_VARIETY)
+     دست‌نخورده‌اند. روشن‌کردن: این فهرست را خالی کن — ردیف‌های کنارگذاشته خودشان برمی‌گردند. */
+  YT_SHOWS_OFF: ['variety'],
+  YT_SHOWS_OFF_WHY: 'به خواستِ شما از ۲۵ اکتبر — برای کانالِ جداگانهٔ آینده نگه داشته شده',
+  /* ۱۱.۰ — «ویدیوهای غیرعلمیِ قبلی را در Studio خصوصی می‌کنم؛ موتور هرگز وضعیتشان را به Public برنگرداند و روی آن‌ها
+     بازنویسی انجام ندهد.» پیش از هر عمومی‌کردن، به‌روزرسانیِ عنوان/توضیح و نشاندنِ کاور روی ویدئوی موجود، وضعیتِ **زندهٔ**
+     خودِ ویدئو خوانده می‌شود (۱ واحد)؛ «private» ⇒ دست نمی‌خورد، و شناسه‌اش در PK.YT_OWNER_PRIVATE می‌ماند تا اگر روزی
+     خواندن نشد هم دست نخورد. */
+  YT_PRIVATE_HANDS_OFF: true,
+  YT_DESC_CAST: false,          // ۱۱.۰: «بی بلوکِ اعتبارِ صدای هوش مصنوعی» — سطرهای «گویندگانِ این قسمت» در توضیحِ ویدئوهای تازه نمی‌آید
+  YT_DESC_ARCHIVE: 1,           // ۱۱.۰: «اصلِ توضیحاتِ ویدیوهای بلندِ فعلی را در تلگرام ذخیره کنید» — یک بار برای هر شماره؛ بالا بردنش ⇒ دوباره
+  TG_CAPTIONS: true,            // ۱۱.۰: متنِ کاملِ کپشنِ هر انتشار (ریلز، شورتز، ویدئوی کامل) در تلگرام
   YT_TICK_MAX: 2,               // ۹.۸۸: آپلودِ هر دورِ دوره‌ای (پیش‌تر یکی و آخرِ صف)
   YT_TICK_PUB_MS: 150000,       // ۹.۸۸: سهمِ انتشار از بودجهٔ دور — پیش از نگه‌داری
   IG_SHORT_KEEP_MAX: 2,         // ۹.۸۸: ذخیرهٔ سهمیه برای حداکثر این‌قدر قسمتِ کامل، نه کلِ صفِ عقب‌افتاده؛ ۹.۹۷: ۳⇒۲ — همان دو قسمتِ امروز. با ۳، روزی که دو آپلود رفته بود (۳۸۱۵ واحد) شورتزِ دوم هرگز نمی‌رفت
@@ -1456,6 +1476,9 @@ var CFG = {
      اصلیِ دیگری گرفته بودند. پس صدای ریلز همان است که او پسندید، ثابت برای همه. خالی ⇒ گویندهٔ اصلیِ درس (رفتارِ پیشین). */
   IG_VOICE: 'Alnilam',
   IG_SHORTS_PER_DAY: 2,          // ۹.۶۹: «یوتیوب هم دوتا» — شورتز در روز
+  IG_SHORT_ONE_PER_LESSON: true, // ۱۱.۰: «دو Short هم‌روز از یک درس … همدیگر را می‌خورند» — از هر درس روزی یک شورتز
+  IG_PATTERN_TG: 1,             // ۱۱.۰: الگوی ساعت/قالبِ ریلزها به تلگرام — یک بار برای هر شماره، بعد هفتگی (0 = هرگز)
+  IG_LINK_WORD: 'لینک در بیو',  // ۱۱.۰: نشانیِ خام در کپشنِ اینستاگرام کلیک‌پذیر نیست
   IG_SHORT_KEEP_UP: 2,           // ۹.۳۲: شورتز فقط از سهمیه‌ای برمی‌دارد که این‌قدر آپلودِ قسمتِ کاملِ امروز هنوز جا داشته باشد
   IG_STORY: true,                // استوریِ کاورِ همان ریلز
   IG_TAB: 'انتشار در اینستاگرام',
@@ -2237,7 +2260,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '10.9',
+  CODE_VERSION: '11.0',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3406,6 +3429,11 @@ var PK = {
   YT_DUE: 'YT_DUE_QUEUE',          // صفِ قسمت‌هایی که باید منتشر شوند
   YT_SCAN: 'YT_SCAN_CUR',          // مکان‌نمای کاوشِ قسمت‌های گذشته
   YT_QUOTA: 'YT_QUOTA_DAY',        // سهمیهٔ مصرف‌شدهٔ امروز
+  YT_DUE_PARKED: 'YT_DUE_PARKED',  // ۱۱.۰: ردیف‌های صفِ برنامه‌ای که انتشارش خاموش است (YT_SHOWS_OFF) — کنار، نه پاک
+  YT_OWNER_PRIVATE: 'YT_OWNER_PRIVATE', // ۱۱.۰: ویدئوهایی که خصوصی دیده شدند — موتور دست نمی‌زند
+  YT_DESC_ARCH: 'YT_DESC_ARCH',    // ۱۱.۰: بایگانیِ توضیحاتِ ویدئوهای بلند در تلگرام {rev, done[], at}
+  IG_PATTERN: 'IG_PATTERN',        // ۱۱.۰: الگوی ساعت/قالبِ ریلزها (igPattern_) — کلیدِ جدا از IG_STATE
+  CAT_LOCK_LAST: 'CAT_LOCK_LAST',  // ۱۱.۰: آخرین تصمیمِ قفلِ دسته {cat, why, at}
   YT_PL: 'YT_PLAYLIST_MAP',        // نگاشتِ کلیدِ مجموعه → شناسهٔ پلی‌لیست
   YT_STATS: 'YT_STATS_AT',
   YTA_AT: 'YTA_AT',               // ۹.۱۳: آخرین دورِ آمارِ رشد
@@ -11678,6 +11706,56 @@ function pickCategory_(hub) {
   }
   if (!ranked.length) return null;
 
+  /* ══ قفلِ دسته‌های علمی (۱۱.۰) ══ بی چرخش: ترتیبِ `CAT_LOCK` همان ترتیبِ رفتن است و جریمهٔ «اخیراً» این‌جا معنا ندارد.
+     دسته‌های قفل همه امتحان می‌شوند (نه فقط سه‌تای اول)، پس دستهٔ بعدی فقط وقتی می‌آید که قبلی واقعاً قسمت نمی‌سازد. */
+  var lock = catLockOrder_(idx);
+  if (lock.length) {
+    var lockRes = pickCategoryFrom_(hub, lock, true);
+    if (lockRes) {
+      catLockNote_(lockRes.title, lockRes.title === lock[0].name ? '' :
+                   '«' + lock[0].name + '» دیگر محتوای کافی نداشت؛ دستهٔ علمیِ بعدی');
+      return lockRes;
+    }
+    catLockNote_('', 'هیچ دستهٔ علمی محتوای کافی نداشت — این قسمت از رتبه‌بندیِ همهٔ دسته‌ها');
+    logLine_('قفلِ دسته: دسته‌های علمی (' + lock.map(function (x) { return x.name; }).join('، ') +
+             ') هیچ‌کدام قسمت نمی‌سازند؛ رتبه‌بندیِ عادی.');
+  }
+  return pickCategoryFrom_(hub, ranked, false);
+}
+
+/** ترتیبِ قفل (۱۱.۰): فقط دسته‌هایی از `CAT_LOCK` که در داشبورد هستند و دست‌کم ۵ ردیفِ واجد دارند. خاموش ⇒ []. */
+function catLockOrder_(idx) {
+  if (CFG.CAT_LOCK_ON === false) return [];
+  var want = CFG.CAT_LOCK || [], out = [];
+  for (var w = 0; w < want.length; w++) {
+    for (var i = 0; i < (idx || []).length; i++) {
+      if (String(idx[i].name) === String(want[w]) && Number(idx[i].elig) >= 5) { out.push({ name: idx[i].name, s: 0 }); break; }
+    }
+  }
+  return out;
+}
+
+/** تصمیمِ قفل برای خطِ روزانه (بی هاب). */
+function catLockNote_(cat, why) {
+  try { props_().setProperty(PK.CAT_LOCK_LAST, JSON.stringify({ cat: String(cat || ''), why: String(why || ''), at: nowStr_() })); } catch (e) {}
+}
+
+/** خطِ روزانهٔ قفل — همیشه، حتی وقتی همه‌چیز سرِ جایش است (سکوت با «قفل کار نکرد» یکی است). */
+function catLockLine_() {
+  if (CFG.CAT_LOCK_ON === false) return '📚 قفلِ دسته‌های علمی: خاموش (CAT_LOCK_ON) — چرخشِ عادی میانِ همهٔ دسته‌ها.';
+  var r = null;
+  try { r = JSON.parse(props_().getProperty(PK.CAT_LOCK_LAST) || 'null'); } catch (e) { r = null; }
+  var head = '📚 قفلِ دسته‌های علمی: روشن (به ترتیب: ' + (CFG.CAT_LOCK || []).join(' ← ') + ')';
+  if (!r) return head + ' — هنوز قسمتی با آن ساخته نشده.';
+  return head + ' — آخرین قسمت (' + r.at + '): ' + (r.cat ? '«' + r.cat + '»' : 'بیرون از قفل') + (r.why ? ' · ' + r.why : '') + '.';
+}
+
+/**
+ * از فهرستِ رتبه‌بندی‌شده، نخستین دسته‌ای که قسمت می‌سازد. `all` ⇒ همهٔ فهرست امتحان می‌شود (قفل)؛ وگرنه سه‌تای اول،
+ * با جابه‌جاییِ تلفیق (۸.۷۲) — همان رفتارِ پیش از ۱۱.۰.
+ */
+function pickCategoryFrom_(hub, ranked, all) {
+
   /* ══ تلفیق از همان انتخابِ دسته (۸.۷۲) ══
      قسمتِ ۶۹ (۱۱ اکتبر) ۱۲ عکس و صفر ویدیو بود: دستهٔ برنده ویدیوی استفاده‌نشده نداشت
      (تحلیلگرِ ویدیو از ۲۳ سپتامبر ردیفِ تازه ننوشته) و `enforceMix_` فقط از همان دسته
@@ -11691,9 +11769,10 @@ function pickCategory_(hub) {
     return kinds >= 2;
   };
   var order = [], firstSt = null;
-  for (var t0 = 0; t0 < Math.min(3, ranked.length); t0++) order.push(t0);
+  for (var t0 = 0; t0 < (all ? ranked.length : Math.min(3, ranked.length)); t0++) order.push(t0);
   var stCache = {};
-  if (CFG.CAT_PREFER_MIX !== false && order.length > 1) {
+  /* قفل (۱۱.۰): جابه‌جاییِ تلفیق نه — «فقط وقتی منابعِ علمی تمام شد به دستهٔ بعدی». */
+  if (!all && CFG.CAT_PREFER_MIX !== false && order.length > 1) {
     var s0 = tabStats_(hub, ranked[0].name, CFG.MIN_PRIORITY);
     stCache[0] = s0;
     if (s0.rows.length >= 5 && !mixOk(s0.rows)) {
@@ -17433,6 +17512,18 @@ function tgSend_(text) {
   });
 }
 
+/**
+ * ۱۱.۰ — «متنِ کاملِ کپشن‌ها (یوتیوب و اینستاگرام) برای هر انتشار در تلگرام ارسال شود تا همیشه قابلِ مرور باشد.»
+ * عین همان متنی که رفت، نه خلاصه؛ بلند ⇒ چند پیام. شکستِ تلگرام انتشار را «نشد» نمی‌کند — فقط false.
+ */
+function tgCaptionLog_(kind, title, url, text) {
+  if (CFG.TG_CAPTIONS === false || !tgEnabled_()) return false;
+  var head = '📝 <b>کپشن — ' + tgEsc_(kind) + '</b>' + (title ? '\n' + tgEsc_(title) : '') + (url ? '\n' + tgEsc_(url) : '');
+  var parts = tgSplit_(head + '\n\n' + tgEsc_(String(text || '').trim() || '(خالی)'), 3800);
+  for (var i = 0; i < parts.length; i++) tgSend_(parts[i]);
+  return true;
+}
+
 /** متن سادهٔ قسمت برای پیوست .txt */
 function episodePlainText_(epNum, ep, items, cat) {
   var L = [];
@@ -18459,6 +18550,10 @@ function writeStatus_(hub, note) {
     lessonVisuals: (function () { try { return lvStatus_(); } catch (e) { return null; } })(),
     /* کلیپ، حرکت و آزمونِ مدلِ تازه (۸.۵۲) — هر سه فقط از Properties، بی درایو. */
     lessonClip: (function () { try { return lvClipStatus_(); } catch (e) { return null; } })(),
+    igPattern: (function () { try { var x = JSON.parse(props_().getProperty(PK.IG_PATTERN) || 'null'); if (x) delete x.byDay; return x; } catch (e) { return null; } })(),
+    catLock: (function () { try { return { on: CFG.CAT_LOCK_ON !== false, order: CFG.CAT_LOCK || [], line: catLockLine_() }; } catch (e) { return null; } })(),
+    ytShowsOff: (function () { try { return { shows: CFG.YT_SHOWS_OFF || [], line: ytShowsOffLine_(), parked: ytDueParked_().length }; } catch (e) { return null; } })(),
+    ytOwnerPrivate: (function () { try { return { ids: ytOwnerPrivList_().length, line: ytOwnerPrivLine_() }; } catch (e) { return null; } })(),
     lessonMotion: (function () { try { return lvMotionStatus_(); } catch (e) { return null; } })(),
     lessonCards: (function () { try { return lvOvStatus_(); } catch (e) { return null; } })(),
     lessonSceneFb: (function () { try { return lvSceneFbStatus_(); } catch (e) { return null; } })(),
@@ -20494,6 +20589,9 @@ function healthCheck() {
      برنامه شیت باز نمی‌کند (۵.۹۰) و سکوت را نمی‌شود از «این قابلیت مرده»
      تشخیص داد. */
   try { lvHealth_(problems, notes); } catch (eLv) {}
+  try { notes.push(catLockLine_()); } catch (eCl) {}    // ۱۱.۰: قفلِ دسته‌های علمی — هر روز، حتی سالم
+  try { var ytOffL = ytShowsOffLine_(); if (ytOffL) notes.push(ytOffL); } catch (eYo) {}
+  try { var ytPrivL = ytOwnerPrivLine_(); if (ytPrivL) notes.push(ytPrivL); } catch (eYp) {}
   try { vmHealth_(problems, notes); } catch (eVmH) {}    // بخشِ ۳۷ پس از این بخش است ⇒ درونِ try
   try { igHealth_(problems, notes); } catch (eIgH) {}
   try { mrHealth_(problems, notes); } catch (eMrH) {}   // ۹.۷۵: بخشِ ۳۹   // ۹.۲۱: بخشِ ۳۸ ⇒ درونِ try
@@ -50963,7 +51061,7 @@ function ytDescBuild_(meta, ctx, chapters) {
   /* گویندگان و سهمِ زمانی‌شان — خواستهٔ صریحِ صاحبِ برنامه، تا بتواند بعداً
      قابلیتِ هر صدا را بسنجد. از همان مدلِ زمانیِ فصل‌ها می‌آید، پس این دو
      هرگز با هم اختلاف نمی‌گویند. */
-  var cl = (ctx && ctx.castLines) || [];
+  var cl = CFG.YT_DESC_CAST === false ? [] : ((ctx && ctx.castLines) || []);   // ۱۱.۰
   if (cl.length) {
     L.push('گویندگانِ این قسمت:');
     for (var v = 0; v < cl.length; v++) L.push(ytScrub_(String(cl[v])));
@@ -52379,10 +52477,119 @@ function ytGaveUp_(pub, show, ep) {
  * همان اشتباهی که یک بار در صفِ جزوه رخ داد و درس‌های ۱ تا ۲۰ را انداخت.
  */
 function ytDueList_() {
+  var a = [];
   try {
-    var a = JSON.parse(props_().getProperty(PK.YT_DUE) || '[]');
+    a = JSON.parse(props_().getProperty(PK.YT_DUE) || '[]');
+    if (Object.prototype.toString.call(a) !== '[object Array]') a = [];
+  } catch (e) { return []; }
+  /* ۱۱.۰: ردیفِ برنامهٔ خاموش (`YT_SHOWS_OFF`) از صف به کنار می‌رود — نه پاک — و کنارگذاشتهٔ برنامه‌ای که دوباره روشن
+     شده برمی‌گردد. همین‌جا، چون هر مصرف‌کنندهٔ صف (آپلود، سهمیهٔ شورتز، هشدارِ گیر، رندر) از همین در می‌خوانَد. */
+  try {
+    var park = ytDueParked_(), moved = 0, keep = [], back = [];
+    for (var i = 0; i < a.length; i++) {
+      if (ytShowOff_(a[i] && a[i].show)) { park.push(a[i]); moved++; } else keep.push(a[i]);
+    }
+    for (var j = 0; j < park.length; j++) {
+      if (!ytShowOff_(park[j] && park[j].show)) back.push(park[j]);
+    }
+    if (moved || back.length) {
+      var rest = park.filter(function (x) { return back.indexOf(x) === -1; });
+      props_().setProperty(PK.YT_DUE_PARKED, JSON.stringify(rest.slice(-200)));
+      keep = keep.concat(back.filter(function (x) { return !keep.some(function (k) { return String(k.key) === String(x.key); }); }));
+      if (back.length) keep = ytDueOrder_(keep);
+      props_().setProperty(PK.YT_DUE, JSON.stringify(keep));
+      logLine_('یوتیوب — صف: ' + (moved ? moved + ' ردیفِ برنامهٔ خاموش کنار رفت (YT_DUE_PARKED، پاک نشد)' : '') +
+               (moved && back.length ? ' · ' : '') + (back.length ? back.length + ' ردیفِ کنارگذاشته به صف برگشت' : '') + '.');
+    }
+    return keep;
+  } catch (eP) { return a; }
+}
+
+/** ۱۱.۰: آیا انتشارِ این برنامه در یوتیوب خاموش است؟ («variety» | «special») */
+function ytShowOff_(show) {
+  var off = CFG.YT_SHOWS_OFF || [];
+  return !!show && off.indexOf(String(show)) !== -1;
+}
+
+/** ردیف‌های کنارگذاشتهٔ صف (۱۱.۰). */
+function ytDueParked_() {
+  try {
+    var p = JSON.parse(props_().getProperty(PK.YT_DUE_PARKED) || '[]');
+    return Object.prototype.toString.call(p) === '[object Array]' ? p : [];
+  } catch (e) { return []; }
+}
+
+/** خطِ روزانه (۱۱.۰) — خالی وقتی هیچ برنامه‌ای خاموش نیست. */
+function ytShowsOffLine_() {
+  var off = CFG.YT_SHOWS_OFF || [];
+  if (!off.length) return '';
+  var names = off.map(function (k) { return k === ENRICH_SHOW_VARIETY ? '«' + CFG.SHOW_NAME + '»' : k === ENRICH_SHOW_SPECIAL ? '«' + CFG.SPECIAL_SHOW_NAME + '»' : k; });
+  var n = ytDueParked_().length;
+  return '⏸ انتشار در یوتیوب برای ' + names.join(' و ') + ': متوقف — ' + (CFG.YT_SHOWS_OFF_WHY || 'به خواستِ شما') +
+         '. پادکست ساخته و فرستاده می‌شود؛ ویدئویش نه ساخته می‌شود نه بالا می‌رود' +
+         (n ? ' · ' + faDigitsOut_(String(n)) + ' قسمتِ صف کنار گذاشته شده (پاک نشده)' : '') +
+         ' · روشن‌کردن: `YT_SHOWS_OFF: []`.';
+}
+
+/* ══ ویدئوی خصوصی مالِ صاحبِ کانال است (۱۱.۰) ══
+ * «ویدیوهای غیرعلمیِ قبلی را در Studio خصوصی می‌کنم؛ مطمئن شوید موتور هرگز وضعیتِ آن‌ها را به Public برنگرداند و روی
+ * آن‌ها بازنویسی انجام ندهد.» شش در بود که ویدئوی **موجود** را عوض می‌کرد — عمومی‌کردنِ پس از سنجش، عمومی‌کردنِ
+ * «ماندنی»ِ تکراری‌ها، بازسازیِ عنوان/توضیح/کاور، بازگرداندنِ کاورِ نقاشی، کاورِ شورتز — و هیچ‌کدام نمی‌پرسید ویدئو الان
+ * چه حالی دارد؛ دفترِ موتور حالِ **خودش** را می‌دانست، نه حالی که او در Studio گذاشته. پس یک در برای همه: پیش از دست
+ * زدن، وضعیتِ زنده (`videos.list?part=status`، یک واحد). «private» ⇒ دست نمی‌خورد و شناسه در `PK.YT_OWNER_PRIVATE`
+ * می‌ماند؛ اگر روزی خواندن نشد، همان دفتر جواب می‌دهد. خواندنی که نشد و در دفتر نیست ⇒ ادامه، چون خودِ تغییر از همان
+ * API می‌رود و ویدئوی عمومی/unlisted را بی‌دلیل قفل نمی‌کنیم. خصوصی‌کردن (تکراری، جایگزین) گناهی نیست و از این در نمی‌گذرد.
+ */
+var YT_PRIV_SEEN_ = {};
+function ytOwnerPrivList_() {
+  try {
+    var a = JSON.parse(props_().getProperty(PK.YT_OWNER_PRIVATE) || '[]');
     return Object.prototype.toString.call(a) === '[object Array]' ? a : [];
   } catch (e) { return []; }
+}
+
+function ytOwnerPrivSet_(vid, on) {
+  var a = ytOwnerPrivList_(), i = a.indexOf(String(vid));
+  if (on && i === -1) a.push(String(vid));
+  else if (!on && i !== -1) a.splice(i, 1);
+  else return;
+  try { props_().setProperty(PK.YT_OWNER_PRIVATE, JSON.stringify(a.slice(-400))); } catch (e) {}
+}
+
+/** وضعیتِ زندهٔ یک ویدئو: 'public' | 'unlisted' | 'private' | '' (نامعلوم). یک بار در هر اجرا. */
+function ytVidPrivacy_(vid) {
+  vid = String(vid || '');
+  if (!vid) return '';
+  if (Object.prototype.hasOwnProperty.call(YT_PRIV_SEEN_, vid)) return YT_PRIV_SEEN_[vid];
+  var p = '';
+  try {
+    var yt = ytSvc_();
+    if (yt && yt.Videos && typeof yt.Videos.list === 'function' && ytQuotaTake_(YT_COST.videosList, false)) {
+      var vl = yt.Videos.list('status', { id: vid });
+      var it = ((vl && vl.items) || [])[0];
+      p = it && it.status ? String(it.status.privacyStatus || '') : '';
+    }
+  } catch (e) { p = ''; }
+  YT_PRIV_SEEN_[vid] = p;
+  return p;
+}
+
+/** ⇒ true یعنی «دست نزن». `what` برای لاگ («عمومی‌کردن»، «عنوان و توضیح»، «کاور»). */
+function ytHandsOff_(vid, what) {
+  if (CFG.YT_PRIVATE_HANDS_OFF === false || !vid) return false;
+  var p = ytVidPrivacy_(vid);
+  var priv = p === 'private' || (!p && ytOwnerPrivList_().indexOf(String(vid)) !== -1);
+  if (p) ytOwnerPrivSet_(vid, p === 'private');
+  if (priv) logLine_('یوتیوب: ویدئوی ' + vid + ' خصوصی است — ' + (what || 'تغییر') + ' انجام نشد (۱۱.۰: ویدئوی خصوصی دست نمی‌خورد).');
+  return priv;
+}
+
+/** خطِ روزانه (۱۱.۰). */
+function ytOwnerPrivLine_() {
+  if (CFG.YT_PRIVATE_HANDS_OFF === false) return '';
+  var n = ytOwnerPrivList_().length;
+  return '🔒 ویدئوهای خصوصی: موتور به هیچ ویدئوی خصوصی دست نمی‌زند (نه عمومی‌کردن، نه عنوان/توضیح/کاور)' +
+         (n ? ' — ' + faDigitsOut_(String(n)) + ' ویدئو تا امروز خصوصی دیده شده.' : '.');
 }
 
 function ytDueSave_(list) {
@@ -52394,6 +52601,7 @@ function ytDueSave_(list) {
 }
 
 function ytDueAdd_(show, ep, folderId, seriesKey, seriesName) {
+  if (ytShowOff_(show)) return 0;                // ۱۱.۰: برنامهٔ خاموش به صف نمی‌رود
   var l = ytDueList_(), k = String(show) + ':' + String(ep);
   for (var i = 0; i < l.length; i++) if (String(l[i].key) === k) return 0;
   l.push({ key: k, show: String(show), ep: String(ep),
@@ -52535,7 +52743,7 @@ function ytBackfill_(maxWalk) {
      در نتیجه نام و ترتیبِ پلی‌لیست — از آن می‌آید. */
   var walk = [];
   try {
-    var vf = ytShowFolder_(CFG.VARIETY_FOLDER);
+    var vf = ytShowOff_(ENRICH_SHOW_VARIETY) ? null : ytShowFolder_(CFG.VARIETY_FOLDER);   // ۱۱.۰: برنامهٔ خاموش پیموده نمی‌شود
     if (vf) {
       var it = vf.getFolders();
       while (it.hasNext()) {
@@ -58070,6 +58278,8 @@ function ytApprovedRedo_(budgetMs) {
  */
 function ytDescFinal_(key, description) {
   var desc = String(description || '');
+  /* ۱۱.۰: «بدونِ بلوکِ اعتبارِ صدای هوش مصنوعی» — نقشه‌هایی که پیش از ۱۱.۰ نوشته شدند هم همین‌جا پاک می‌شوند. */
+  if (CFG.YT_DESC_CAST === false) desc = ytDescNoCast_(desc);
   try {
     var m = (ytRenderMapCached_() || {})[String(key)] || null;
     if (m && m.inserts && m.inserts.length) desc = vmShiftDesc_(desc, m.inserts);
@@ -58083,6 +58293,75 @@ function ytDescFinal_(key, description) {
     }
   } catch (eCr) {}
   return desc;
+}
+
+/**
+ * بایگانیِ توضیحاتِ ویدئوهای بلند در تلگرام (۱۱.۰) — «توضیحاتِ ویدیوهای بلندِ فعلی را من بعداً کوتاه می‌کنم؛ اصلِ متن‌ها
+ * را شما در تلگرام ذخیره کنید.» متنِ **زنده** از خودِ یوتیوب (نه نقشهٔ `_yt.json` که ممکن است با آنچه نشست فرق کند)،
+ * هر ۲۵ ویدئو یک فایلِ متنی، با مکان‌نما (`PK.YT_DESC_ARCH`) چون همه در یک دور جا نمی‌شوند. یک بار برای هر شمارهٔ
+ * `YT_DESC_ARCHIVE`؛ بالا بردنش یعنی یک بارِ دیگر. ⇒ {sent, left, why}
+ */
+function ytDescArchive_(budgetMs) {
+  var out = { sent: 0, left: 0, why: '' };
+  var rev = Number(CFG.YT_DESC_ARCHIVE) || 0;
+  if (!rev || !tgEnabled_()) return out;
+  var st = null;
+  try { st = JSON.parse(props_().getProperty(PK.YT_DESC_ARCH) || 'null'); } catch (e) { st = null; }
+  if (!st || Number(st.rev) !== rev) st = { rev: rev, done: [], part: 0, at: nowStr_() };
+  if (st.finished) return out;
+  var yt = ytSvc_();
+  if (!yt || !yt.Videos || typeof yt.Videos.list !== 'function') { out.why = 'یوتیوب در دسترس نیست'; return out; }
+  var pub = ytPublished_(getHub_());
+  var keys = Object.keys(pub).filter(function (k) { return !!pub[k].videoId; }).sort(function (a, b) {
+    var pa = a.split(':'), pb = b.split(':');
+    return pa[0] !== pb[0] ? (pa[0] < pb[0] ? -1 : 1) : (Number(pa[1]) || 0) - (Number(pb[1]) || 0);
+  });
+  var todo = keys.filter(function (k) { return st.done.indexOf(String(pub[k].videoId)) === -1; });
+  var t0 = Date.now(), budget = Math.max(10000, Number(budgetMs) || 30000);
+  while (todo.length && Date.now() - t0 < budget) {
+    var batch = todo.slice(0, 25);
+    var ids = batch.map(function (k) { return String(pub[k].videoId); });
+    if (!ytQuotaTake_(YT_COST.videosList, false)) { out.why = 'سهمیهٔ امروز'; break; }
+    var vl = yt.Videos.list('snippet,status', { id: ids.join(','), maxResults: 50 });
+    var byId = {};
+    ((vl && vl.items) || []).forEach(function (x) { byId[String(x.id)] = x; });
+    var L = [];
+    batch.forEach(function (k) {
+      var r = pub[k], it = byId[String(r.videoId)];
+      L.push('══════ ' + k + ' — ' + String((it && it.snippet && it.snippet.title) || r.title || ''));
+      L.push(r.url || ('https://www.youtube.com/watch?v=' + r.videoId));
+      L.push('وضعیت: ' + String((it && it.status && it.status.privacyStatus) || 'در یوتیوب پیدا نشد') + ' · بایگانی: ' + nowStr_());
+      L.push('');
+      L.push(it && it.snippet ? String(it.snippet.description || '(توضیح خالی است)') : '(ویدئو در یوتیوب پیدا نشد)');
+      L.push(''); L.push('');
+    });
+    st.part = (Number(st.part) || 0) + 1;
+    var blob = Utilities.newBlob(L.join('\n'), 'text/plain', 'توضیحاتِ یوتیوب — بخشِ ' + st.part + '.txt');
+    tgApi_('sendDocument', { chat_id: tgChat_(), document: blob,
+                             caption: '🗄 اصلِ توضیحاتِ ویدئوهای بلند، پیش از کوتاه‌کردن — بخشِ ' + st.part + ' (' + batch.length + ' ویدئو)' });
+    st.done = st.done.concat(ids);
+    out.sent += batch.length;
+    todo = todo.slice(batch.length);
+    try { props_().setProperty(PK.YT_DESC_ARCH, JSON.stringify(st)); } catch (eS) {}
+  }
+  out.left = todo.length;
+  if (!todo.length) {
+    st.finished = nowStr_();
+    try { tgSend_('🗄 بایگانیِ توضیحاتِ ویدئوهای بلند کامل شد: ' + st.done.length + ' ویدئو در ' + st.part + ' فایل.'); } catch (eT) {}
+  }
+  try { props_().setProperty(PK.YT_DESC_ARCH, JSON.stringify(st)); } catch (eS2) {}
+  return out;
+}
+
+/** بلوکِ «گویندگانِ این قسمت:» و سطرهای «گویندهٔ …» زیرش، تا سطرِ خالیِ بعد (۱۱.۰). */
+function ytDescNoCast_(desc) {
+  var L = String(desc || '').split('\n'), out = [], skip = false;
+  for (var i = 0; i < L.length; i++) {
+    if (/^گویندگانِ این قسمت:/.test(L[i].trim())) { skip = true; continue; }
+    if (skip) { if (!L[i].trim()) { skip = false; } continue; }
+    out.push(L[i]);
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
 /** یک ویدئوی حالتِ صحنه (یا رسانه) عمومی شد ⇒ شمارِ سدِ تأییدِ همان حالت. */
@@ -58170,6 +58449,7 @@ function ytThumbRestore_(budgetMs) {
     out.checked++;
     var th = ytThumbFor_(cand[i], null);
     if (!th || !th.painted) { out.why.push(cand[i] + ': کاورِ نقاشی خوانده نشد'); continue; }
+    if (ytHandsOff_(r.videoId, 'بازگرداندنِ کاور')) { out.why.push(cand[i] + ': خصوصی است — دست نخورد'); continue; }
     if (!ytQuotaTake_(YT_COST.thumbSet, false)) { out.why.push('سهمیه'); break; }
     try {
       yt.Thumbnails.set(r.videoId, th.blob);
@@ -60161,6 +60441,8 @@ function ytUploadOne_(item, hub, pub) {
         owner: ROWNER_CODE, episode: item.ep
       });
     } catch (eF) {}
+  } else if (gate.ok && ytHandsOff_(vid, 'عمومی‌کردن')) {
+    privacy = 'private';                       // ۱۱.۰: میانِ آپلود و عمومی‌کردن خصوصی شد — همان می‌ماند
   } else if (gate.ok && ytQuotaTake_(YT_COST.videosUpdate, false)) {
     try {
       yt.Videos.update({ id: vid, status: {
@@ -60184,6 +60466,7 @@ function ytUploadOne_(item, hub, pub) {
                 note: leaks.length ? 'نشتیِ خصوصی؛ در ' + privacy + ' ماند'
                     : (!gate.ok ? gate.why + '؛ در ' + privacy + ' ماند' : '') });
   ytUpPendingClear_(upKey);
+  try { tgCaptionLog_('یوتیوب — ویدئوی کامل', title, url, desc); } catch (eTc) {}   // ۱۱.۰
   logLine_('یوتیوب: «' + title + '» ' +
            (privacy === 'public' ? 'منتشر شد' : 'در ' + privacy + ' ماند') + ' — ' + url);
   res.ok = !leaks.length && gate.ok; res.url = url; res.privacy = privacy; res.title = title;
@@ -60577,7 +60860,7 @@ function ytRetireTick_(budgetMs, hubIn) {
         yt.Videos.update({ id: gone[gi], status: { privacyStatus: 'private', selfDeclaredMadeForKids: false } }, 'status');
       }
       if (keepVid) {
-        if (ytQuotaTake_(YT_COST.videosUpdate, false)) {
+        if (!ytHandsOff_(keepVid, 'عمومی‌کردنِ ماندنی') && ytQuotaTake_(YT_COST.videosUpdate, false)) {
           try { yt.Videos.update({ id: keepVid, status: { privacyStatus: CFG.YT_PRIVACY_FINAL || 'public',
                                                           selfDeclaredMadeForKids: false } }, 'status'); } catch (eK) {}
         }
@@ -60976,7 +61259,9 @@ function ytTitleSweep_(budgetMs, hubIn) {
   }
   /* ══ «از همه جا» (۸.۶۹) ══ شمارهٔ قسمت همان شمارهٔ سراسری است، پس فقط شکل؛ کاورش از قبل «قسمت N» دارد و
      دست نمی‌خورد (`thumb: false`) — نیمی از هزینه. */
-  if (s.si >= rows.length && !stop) {
+  /* ۱۱.۰: برنامهٔ خاموش در این کانال دست نمی‌خورد — نه عنوان، نه توضیح. */
+  var vOff = ytShowOff_(ENRICH_SHOW_VARIETY);
+  if (s.si >= rows.length && !stop && !vOff) {
     var vk = Object.keys(pub).filter(function (k) {
       return k.indexOf(ENRICH_SHOW_VARIETY + ':') === 0 && (pub[k] || {}).videoId;
     }).sort(function (a, b) { return (Number(a.split(':')[1]) || 0) - (Number(b.split(':')[1]) || 0); });
@@ -61004,8 +61289,8 @@ function ytTitleSweep_(budgetMs, hubIn) {
       s.vi++;
     }
   }
-  if (s.si >= rows.length && (Number(s.vi) || 0) >= Object.keys(pub).filter(function (k) {
-        return k.indexOf(ENRICH_SHOW_VARIETY + ':') === 0 && (pub[k] || {}).videoId; }).length) {
+  if (s.si >= rows.length && (vOff || (Number(s.vi) || 0) >= Object.keys(pub).filter(function (k) {
+        return k.indexOf(ENRICH_SHOW_VARIETY + ':') === 0 && (pub[k] || {}).videoId; }).length)) {
     s.done = true; s.doneAt = nowStr_();
   }
   s.at = nowStr_();
@@ -61079,7 +61364,7 @@ function ytPlaylistSync_(budgetMs) {
   try {
     var vKey = ytPlKey_(ENRICH_SHOW_VARIETY, '', '');
     var vMap = ytPlMap_(), vRec = vMap[vKey] || {};
-    if (vRec.id) {
+    if (vRec.id && !ytShowOff_(ENRICH_SHOW_VARIETY)) {   // ۱۱.۰
       out.checked++;
       ytPlDress_(vRec.id, vRec.title, String(CFG.SHOW_NAME || ''),
                  String(CFG.SHOW_NAME || ''), String(CFG.SHOW_NAME || ''),
@@ -61427,6 +61712,10 @@ function ytTick_(budgetMs) {
   if (left() > 35000) {
     try { ytRetireTick_(Math.min(30000, left() - 25000)); }
     catch (eRt) { out.why += (out.why ? ' · ' : '') + 'کنارگذاشتن: ' + String(eRt.message).slice(0, 60); }
+  }
+  if (left() > 35000) {
+    try { ytDescArchive_(Math.min(30000, left() - 25000)); }     // ۱۱.۰: یک بار؛ پس از پایان فقط یک خواندنِ Properties
+    catch (eDa) { out.why += (out.why ? ' · ' : '') + 'بایگانیِ توضیحات: ' + String(eDa.message).slice(0, 60); }
   }
   try { lvWaitPrune_(); } catch (eLw) {}
   if (!pubDone && left() > 25000) {
@@ -62830,6 +63119,8 @@ function ytRedoOne_(show, ep, opt) {
   var showName = String(show) === ENRICH_SHOW_SPECIAL ? CFG.SPECIAL_SHOW_NAME : CFG.SHOW_NAME;
   var rec = pub[String(show) + ':' + String(ep)];
   if (!rec || !rec.videoId) { out.why = 'این قسمت هنوز منتشر نشده'; return out; }
+  /* ۱۱.۰: ویدئوی خصوصی بازنویسی نمی‌شود — نه عنوان و توضیح، نه کاور، نه عمومی‌کردن. */
+  if (ytHandsOff_(rec.videoId, 'بازسازیِ عنوان، توضیح و کاور')) { out.why = 'ویدئو خصوصی است — به خواستِ شما دست نخورد'; return out; }
 
   // پوشهٔ قسمت از صف نمی‌آید (صف خالی شده)، پس از روی نامِ پوشه پیدایش می‌کنیم
   var folder = ytFolderOf_(show, ep, rec.series);
@@ -62874,6 +63165,8 @@ function ytRedoOne_(show, ep, opt) {
         categoryId: isSpecial ? (CFG.YT_CATEGORY_SPECIAL || '27') : (CFG.YT_CATEGORY_VARIETY || '22'),
         defaultLanguage: CFG.YT_LANG || 'fa' } }, 'snippet');
       out.changed.push('عنوان و کپشن');
+      try { tgCaptionLog_('یوتیوب — بازنویسیِ ویدئوی کامل', plan.title, rec.url,
+                          ytDescFinal_(String(show) + ':' + String(ep), plan.description)); } catch (eTc) {}   // ۱۱.۰
     } catch (e) { out.why = 'به‌روزرسانیِ متن نشد: ' + String(e.message).slice(0, 150); }
   }
 
@@ -64021,7 +64314,7 @@ function ytPlDescSync_(budgetMs) {
       rec.descSig = sig; rec.descAt = nowStr_(); map[key] = rec; out.updated++;
     } catch (eU) { out.why.push(String(title).slice(0, 30) + ': ' + String(eU.message || eU).slice(0, 80)); }
   };
-  try {
+  if (!ytShowOff_(ENRICH_SHOW_VARIETY)) try {   // ۱۱.۰: پلی‌لیستِ برنامهٔ خاموش دست نمی‌خورد
     var v = ytPlDescVariety_(pub, today);
     summary.variety = { n: v.n, last: v.last };
     push(ytPlKey_(ENRICH_SHOW_VARIETY, '', ''), String(CFG.SHOW_NAME || ''), v.text);
@@ -81315,6 +81608,12 @@ function vmStatus_() {
   var r = null;
   try { r = JSON.parse(props_().getProperty(PK.VM_LAST) || 'null'); } catch (e) { r = null; }
   if (!vmOn_('variety')) return { on: false, ok: true, line: '' };
+  /* ۱۱.۰: انتشارِ «از همه جا» در یوتیوب به خواستِ او متوقف است — ویدئویی ساخته نمی‌شود و این «افتادن» نیست. */
+  try {
+    if (ytShowOff_('variety')) return { on: false, off: true, ok: true, last: r,
+      line: '🎞 «از همه جا» با رسانه‌های منبع: ویدئو ساخته نمی‌شود چون انتشارش در یوتیوب متوقف است (' +
+            (CFG.YT_SHOWS_OFF_WHY || 'به خواستِ شما') + ') — ایراد نیست؛ تنظیماتش دست‌نخورده است.' };
+  } catch (eOff) {}
   if (!r) return { on: true, ok: true, last: null,
                    line: '🎞 «از همه جا» با رسانه‌های منبع: روشن — هنوز هیچ قسمتی از این راه نرفته.' };
   if (!r.ok && r.none) return { on: true, ok: true, none: true, last: r,
@@ -81367,7 +81666,7 @@ function vmHealth_(problems, notes) {
      «هیچ قسمتی از این راه نرفت» یکی است. افتادن به ویدئوی ساده ⇒ مسئلهٔ روز و یافتهٔ کد. */
   try {
     var vmS = vmStatus_();
-    if (vmS.on && vmS.line) notes.push(vmS.line);
+    if ((vmS.on || vmS.off) && vmS.line) notes.push(vmS.line);
     if (vmS.on && !vmS.ok && vmS.last) {
       problems.push('🎞 قسمتِ ' + vmS.last.key + ' بی رسانه‌های منبع (ویدئوی ساده) ساخته شد: ' + vmS.last.why);
       logSelfFinding_(getHub_(), {
@@ -81545,6 +81844,13 @@ var IG_JUDGE_SCHEMA = { type: 'object', properties: {
 /** جملهٔ پایانیِ گفتنی — از کد، تا همیشه باشد. */
 /* ۹.۲۶: «لازم نیست بگی لینک در کپشن است … همین که نسخهٔ کامل در یوتیوب هست کافیه». */
 var IG_CTA_LINE = 'نسخهٔ کاملِ این درس در یوتیوب است.';
+
+/* ══ قلابِ ملموس (۱۱.۰) ══ تحلیلِ کانال: «قلاب‌هایی که کار می‌کنند، پرسش‌های ملموس و روزمره‌اند (هدایت و دین، سالِ
+   تولد، داروساز، حلوا)؛ قلاب‌های انتزاعی ضعیف‌اند.» یک نسخه، که هم پرسشِ آغازِ متن، هم کاور و هم سطرِ اولِ کپشن از آن
+   می‌خوانند — دو نسخه یعنی یکی بی‌صدا کهنه می‌شود. */
+var IG_HOOK_RULE = 'پرسشی **ملموس و روزمره** که بیننده دربارهٔ زندگیِ خودش از خودش می‌پرسد — با چیزی آشنا (خانه، خانواده، ' +
+  'غذا، پول، سلامت، کار، دین، گوشی) و نه با اصطلاح یا عنوانِ انتزاعی. پربازدیدترین قلاب‌های کانال همین شکل بودند: دربارهٔ هدایت ' +
+  'و دین، سالِ تولد، داروساز، حلوا. بد: «ماهیتِ توجیهِ معرفتی چیست؟» — خوب: «از کجا می‌دانی داروسازت راست می‌گوید؟»';
 
 /* `shortQ` در کلیدِ جدای خودش می‌نشیند (۹.۳۲): با روزی ۶ ریلز و ۲–۳ شورتز، صف تا چند ده ردیف بزرگ می‌شود و کنارِ بقیهٔ
    حالت از سقفِ ۹ کیلوبایتیِ هر Property می‌گذشت — و `igStateSave_`ی که بی‌صدا شکست بخورد یعنی همهٔ پیشرفت گم. */
@@ -81845,7 +82151,7 @@ function igPrompt_(ep, seriesName, lesson, opt) {
     '',
     'اول idea را بنویس: **یک** ایدهٔ مشخص از همین درس که در یک جمله گفتنی است — نه فهرستِ مطالبِ درس.',
     'بعد script: یک متنِ پیوسته (' + faDigitsOut_(String(W.lo)) + ' تا ' + faDigitsOut_(String(W.hi)) + ' واژه) که فقط همان یک ایده را باز می‌کند، با این خط:',
-    '  ۱) قلاب: پرسش یا نکتهٔ شگفتی که شنونده را نگه می‌دارد («آیا می‌دانستید …؟» یا پرسشی تیز) — حداکثر ۱۴ واژه؛',
+    '  ۱) قلاب: ' + IG_HOOK_RULE + ' — **پرسش در ۱۰ واژهٔ اول**، کل جمله حداکثر ۱۴ واژه؛ ادعا یا جملهٔ خبری نه؛',
     '  ۲) چرا مهم است، در یک جمله؛',
     '  ۳) خودِ ایده، گام به گام — هر جمله از جملهٔ قبل بیرون می‌آید («چون…»، «پس…»، «یعنی…»، «اما…»)؛',
     '  ۴) یک مثالِ ملموس از خودِ درس؛',
@@ -81857,8 +82163,8 @@ function igPrompt_(ep, seriesName, lesson, opt) {
     '• هیچ تاریخ، روز، «امروز»، «در این قسمت»، «پادکست»، «شنوندگانِ عزیز» یا شمارهٔ قسمت ننویس؛ دعوت به یوتیوب را هم **ننویس** — خودِ برنامه می‌افزاید.',
     '• ادعا و نام و عدد فقط از خودِ درس.',
     '• scenes = ۴ یا ۵ توصیفِ انگلیسیِ تصویرِ نقاشی‌گونه، به ترتیبِ همان خط (قلاب، چرایی، ایده، مثال، جواب)؛ بی هیچ نوشته، حرف، عدد یا لوگو.',
-    '• coverTitle = عنوانِ کاور، حداکثر ۶ واژه، همان پرسشِ قلاب به کوتاه‌ترین شکل.',
-    '• caption = کپشنِ اینستاگرام: سطرِ اول یک جملهٔ کنجکاوکننده (همان که زیرِ ریلز پیش از «بیشتر» دیده می‌شود، حداکثر ۱۲۰ نویسه)، بعد ۲ تا ۳ جملهٔ ساده که همان ایده را بگوید و به درسِ کامل دعوت کند. پیوند و برچسب ننویس.',
+    '• coverTitle = عنوانِ کاور، حداکثر ۶ واژه، همان پرسشِ ملموسِ قلاب به کوتاه‌ترین شکل.',
+    '• caption = ' + IG_CAPTION_RULE,
     '• ytDesc = توضیحِ شورتزِ یوتیوب: ۳ تا ۵ جمله — بیننده در این ویدئو چه می‌فهمد، چرا مهم است، و درسِ کامل چه چیزِ بیشتری می‌دهد؛ واژه‌های کلیدیِ جست‌وجوپذیرِ همین موضوع را طبیعی در جمله‌ها بیاور. پیوند و برچسب ننویس.',
     '• tags = ۸ تا ۱۵ برچسبِ مرتبط، بی #. story = یک جملهٔ کوتاه برای استوری.',
     '• kicker = نامِ مجموعه برای برچسبِ روی تصویر: **فارسی**، ۲ تا ۴ واژه، بی هیچ حرفِ لاتین — اگر نامِ مجموعه انگلیسی یا عنوانِ کتاب است، موضوعش را کوتاه به فارسی بگو (مثلاً «معرفت‌شناسیِ آئودی»).',
@@ -81997,11 +82303,11 @@ function igPromptRecap_(ep, seriesName, opt, W) {
     'مسیر از کجا شروع شد، به کجا رسید و چرا هر گام لازم بود — و بخواهد درس‌ها را کامل ببیند.',
     'زبان: ساده، صمیمی، زنده؛ اصطلاحِ فلسفیِ بی‌توضیح و جملهٔ سنگین ممنوع.',
     'idea = مسیرِ کلِ مرور در یک جمله. **جملهٔ اول بگوید این مرورِ درس‌های گذشته است** (مثلاً «مروری بر ' + (opt.range ? String(opt.range).replace(/^مرورِ\s*(بزرگِ\s*)?/, '') : 'درس‌هایی که گذشت') + '…»)؛',
-    'قلاب (جملهٔ دوم): پرسشی که کلِ مسیر جوابش است — حداکثر ۱۴ واژه. coverTitle نباید مثلِ عنوانِ یک درسِ تازه باشد.',
+    'قلاب (جملهٔ دوم): پرسشی که کلِ مسیر جوابش است — ' + IG_HOOK_RULE + ' — حداکثر ۱۴ واژه. coverTitle نباید مثلِ عنوانِ یک درسِ تازه باشد.',
     '• جمله‌ها کوتاه (حداکثر ۲۲ واژه). هیچ تاریخ، «امروز»، «در این قسمت»، «پادکست» یا شمارهٔ قسمت؛ دعوت به یوتیوب را **ننویس**.',
     '• ادعا و نام و عدد فقط از خودِ مرور.',
     '• scenes = ۷ تا ۹ توصیفِ انگلیسیِ تصویرِ نقاشی‌گونه به ترتیبِ مسیر؛ بی هیچ نوشته، حرف، عدد یا لوگو.',
-    '• coverTitle = حداکثر ۶ واژه. caption = سطرِ اولِ کنجکاوکننده (حداکثر ۱۲۰ نویسه) + ۲ تا ۳ جمله؛ پیوند و برچسب ننویس.',
+    '• coverTitle = حداکثر ۶ واژه. caption = ' + IG_CAPTION_RULE,
     '• ytDesc = ۴ تا ۶ جمله برای یوتیوب: این مرور کدام درس‌ها را به چه ترتیبی می‌پیماید و هر کدام چه می‌دهد؛ واژه‌های کلیدی طبیعی. پیوند و برچسب ننویس.',
     '• tags = ۸ تا ۱۵ برچسب، بی #. story = یک جملهٔ کوتاه. emph = ۴ تا ۸ واژهٔ کلیدیِ ۱ تا ۳ واژه‌ای که **عیناً** در script آمده‌اند.',
     '',
@@ -82160,11 +82466,47 @@ function igCaption_(plan, ytUrl, seriesName, lesson) {
   try { mk = ytMarkSpec_(); } catch (e) { mk = null; }
   var chan = (mk && mk.name) || 'رد پای حقیقت';
   var lab = igLessonLabel_({ recap: plan.recap, range: plan.range, lesson: lesson, part: plan.part, parts: plan.parts });
-  var s = String(plan.caption || '').trim() + '\n\n' +
-          'نسخهٔ کامل در یوتیوب، کانالِ «' + chan + '»' + ((mk && mk.handle) ? ' (' + mk.handle + ')' : '') + ':\n' + ytUrl + '\n' +
+  /* ۱۱.۰: «نشانیِ خام در کپشن کلیک‌پذیر نیست» ⇒ «لینک در بیو»؛ و قلاب سطرِ اول، ارزش در چند سطرِ کوتاه. `ytUrl` دیگر در
+     کپشن نمی‌آید (امضا برای فراخوان‌ها ماند). */
+  void ytUrl;
+  var s = igCapBody_(plan.caption, plan.coverTitle || plan.hook) + '\n\n' +
+          'نسخهٔ کامل در یوتیوب، کانالِ «' + chan + '»: ' + (CFG.IG_LINK_WORD || 'لینک در بیو') + '\n' +
           'مجموعهٔ «' + seriesName + '»' + (lab ? ' — ' + lab : '') + '\n\n' +
           igTags_(plan, 12).map(function (t) { return '#' + t; }).join(' ');
   return s.length > 2200 ? s.slice(0, 2200) : s;
+}
+
+/** ۱۱.۰: قانونِ کپشن برای مدل — یک نسخه برای ریلز و مرور. */
+var IG_CAPTION_RULE = 'کپشن: **سطرِ اول همان پرسشِ ملموسِ قلاب** (حداکثر ۱۰۰ نویسه، با «؟») — همان که پیش از «بیشتر» دیده می‌شود؛ ' +
+  'بعد ۲ تا ۴ سطرِ کوتاه، هر سطر **یک** جملهٔ کوتاه که یک چیزِ به‌دردبخور از همین ایده می‌دهد (نه تبلیغ، نه «در این ویدئو»). ' +
+  'پیوند، نشانی، برچسب، نامِ گوینده یا هر اشاره‌ای به صدای ساختگی ننویس.';
+
+/**
+ * بدنهٔ کپشن (۱۱.۰) — قاعدهٔ «سقفی که فقط در پرامپت گفته شده، سقف نیست»: سطرِ اول باید پرسش باشد، پس اگر مدل جمله‌ای
+ * خبری داد و قلاب/کاور پرسش است، همان بالا می‌نشیند. جمله‌ها هر کدام یک سطر، نشانیِ خام بیرون، حداکثر پنج سطرِ ارزش.
+ */
+function igCapBody_(caption, head) {
+  var t = igCapClean_(String(caption || '')).replace(/https?:\/\/\S+/g, '').replace(/[ \t]{2,}/g, ' ').trim();
+  var lines = [];
+  t.split(/\n+/).forEach(function (ln) {
+    var parts = String(ln).match(/[^.!?؟…]+[.!?؟…]*/g) || [];
+    parts.forEach(function (x) { x = x.trim(); if (x && !/^[.!?؟…]+$/.test(x)) lines.push(x); });
+  });
+  var h = String(head || '').replace(/[«»]/g, '').trim();
+  if ((!lines.length || !/؟|\?/.test(lines[0])) && /؟|\?/.test(h)) {
+    lines = lines.filter(function (x) { return x.replace(/[؟?\s]/g, '') !== h.replace(/[؟?\s]/g, ''); });
+    lines.unshift(h);
+  }
+  return lines.slice(0, 6).join('\n');
+}
+
+/** ۱۱.۰: «بدونِ لینکِ مرده» — فقط نشانیِ یوتیوب، و نه ویدئویی که خصوصی دیده شده. */
+function igLinkLive_(u) {
+  u = String(u || '').trim();
+  var m = u.match(/^https:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|playlist\?list=|@)|youtu\.be\/)([A-Za-z0-9_.-]+)/);
+  if (!m) return false;
+  try { if (ytOwnerPrivList_().indexOf(m[1]) !== -1) return false; } catch (e) {}
+  return true;
 }
 
 /**
@@ -82181,12 +82523,14 @@ function igShortMeta_(plan, plUrl) {
   var tail = ' | ' + sn.slice(0, 40) + (lab ? '، ' + lab : '') + ' #Shorts';
   var title = (head.slice(0, Math.max(20, 100 - tail.length)) + tail).slice(0, 100);
   var tags = igTags_(plan.plan, 14);
-  var desc = igCapClean_(String(plan.plan.ytDesc || plan.plan.caption || '')) + '\n\n' +
-             'نسخهٔ کامل' + (lab ? ' (' + lab + ' از مجموعهٔ «' + sn + '»)' : '') + ':\n' + plan.yt + '\n' +
-             (plUrl ? '\nهمهٔ درس‌های «' + plan.series + '» به ترتیب:\n' + plUrl + '\n' : '') +
-             ((mk && mk.handle) ? '\nکانالِ «' + ((mk && mk.name) || 'رد پای حقیقت') + '»: https://www.youtube.com/' + mk.handle + '\n' : '') +
+  /* ۱۱.۰: سطرِ اول قلابِ پرسشی، چند سطرِ کوتاهِ ارزش، و فقط پیوندهایی که زنده‌اند. */
+  var chanUrl = (mk && mk.handle) ? 'https://www.youtube.com/' + mk.handle : '';
+  var desc = igCapBody_(String(plan.plan.ytDesc || plan.plan.caption || ''), plan.plan.coverTitle || plan.plan.hook) + '\n\n' +
+             (igLinkLive_(plan.yt) ? 'نسخهٔ کامل' + (lab ? ' (' + lab + ' از مجموعهٔ «' + sn + '»)' : '') + ':\n' + plan.yt + '\n' : '') +
+             (igLinkLive_(plUrl) ? '\nهمهٔ درس‌های «' + plan.series + '» به ترتیب:\n' + plUrl + '\n' : '') +
+             (igLinkLive_(chanUrl) ? '\nکانالِ «' + ((mk && mk.name) || 'رد پای حقیقت') + '»: ' + chanUrl + '\n' : '') +
              '\n#Shorts ' + tags.map(function (t) { return '#' + t; }).join(' ');
-  return { title: title, desc: desc.slice(0, 4900), tags: tags };
+  return { title: title, desc: desc.replace(/\n{3,}/g, '\n\n').slice(0, 4900), tags: tags };
 }
 
 /** صدای ریلز (۹.۷۳): `IG_VOICE` — از همان درِ `ttsVoiceFree_`، پس صدای کنارگذاشته جای خودش را به هم‌جنسِ مجاز می‌دهد؛ خالی ⇒ گویندهٔ اصلیِ درس. */
@@ -82314,7 +82658,7 @@ function igStepPlan_(it, fo) {
                series: seriesName, seriesKey: String(meta.seriesKey || ''), lesson: lesson,
                recap: recap, range: opt.range, title: String(ep.title || ''),
                yt: it.yt, at: nowStr_(), phase: 'voice', plan: p,
-               caption: igCaption_({ caption: p.caption, tags: p.tags, recap: recap, range: opt.range, part: opt.part, parts: opt.parts },
+               caption: igCaption_({ caption: p.caption, coverTitle: p.coverTitle, hook: p.hook, tags: p.tags, recap: recap, range: opt.range, part: opt.part, parts: opt.parts },
                                    it.yt, p.kicker || seriesName, lesson),
                voice: igVoice_(ep) };
   igPlanWrite_(fo, plan);
@@ -82679,6 +83023,13 @@ function igStepPub_(it, plan, st, deadline) {
   if (st.stats.day !== day) { st.stats.day = day; st.stats.dayN = 0; }
   if ((Number(st.stats.dayN) || 0) >= Math.max(1, Number(CFG.IG_PER_DAY) || 4)) return { wait: 'سهمِ امروز پر شد' };
   if (!plan.reelCid) {
+    /* ۱۱.۰: کپشن همین لحظه از نو — برنامه‌هایی که پیش از ۱۱.۰ نوشته شدند هم با قالبِ تازه («لینک در بیو») می‌روند. */
+    try {
+      var pp = plan.plan || {};
+      plan.caption = igCaption_({ caption: pp.caption, coverTitle: pp.coverTitle, hook: pp.hook, tags: pp.tags, recap: plan.recap,
+                                  range: plan.range, part: plan.part, parts: plan.parts },
+                                plan.yt, pp.kicker || plan.series, plan.lesson);
+    } catch (eCap) {}
     var c = igApi_('post', '/' + a.ig + '/media', { media_type: 'REELS', video_url: plan.video, cover_url: plan.cover,
                                                     caption: igCapClean_(plan.caption), share_to_feed: 'true' });
     if (!(c.j && c.j.id)) { var ce = igErr_(c); return igAcctErr_(ce) ? { wait: 'حساب/دسترسی: ' + ce } : { fail: 'ظرفِ ریلز ساخته نشد: ' + ce }; }
@@ -82711,7 +83062,8 @@ function igStepPub_(it, plan, st, deadline) {
     } else plan.storyWhy = igErr_(s);
   }
   plan.phase = 'yts';
-  try { tgSend_('✅ ریلزِ اینستاگرام منتشر شد: ' + (plan.permalink || plan.reelId) + '\n«' + plan.plan.hook + '»'); } catch (eT) {}
+  try { tgSend_('✅ ریلزِ اینستاگرام منتشر شد: ' + (plan.permalink || plan.reelId) + '\n«' + tgEsc_(plan.plan.hook) + '»'); } catch (eT) {}
+  try { tgCaptionLog_('اینستاگرام — ریلز', igLessonLabel_(plan) + ' · ' + String(plan.series || ''), plan.permalink || '', igCapClean_(plan.caption)); } catch (eTc) {}
   return { ok: true };
 }
 
@@ -82738,6 +83090,8 @@ function igShortPub_(it, plan) {
   /* ۹.۶۹: «یوتیوب هم دوتا» — شورتز در روز سقفِ خودش را دارد، جدا از سهمیهٔ واحد. */
   var shDay = Math.max(0, Number(CFG.IG_SHORTS_PER_DAY) || 0);
   if (shDay && (Number(ytQuota_().shorts) || 0) >= shDay) return { wait: 'سهمِ شورتزِ امروز (' + shDay + ') پر شد' };
+  /* ۱۱.۰: «دو Short هم‌روز از یک درس با عنوانِ تقریباً یکسان (۱۰۹ در برابرِ ۴۸۴ بازدید) همدیگر را می‌خورند». */
+  if (igShortLessonToday_(plan.ep || it.ep)) return { wait: 'از همین درس امروز یک شورتز رفته — بخشِ بعدی فردا', sameLesson: true };
   if (!igShortQuotaOk_()) return { wait: 'سهمیهٔ یوتیوب برای قسمت‌های کاملِ امروز کنار گذاشته شده' };
   if (!ytQuotaTake_(YT_COST.videosInsert, true)) return { wait: 'سهمیهٔ آپلودِ یوتیوب امروز تمام شد' };
   var blob = null;
@@ -82756,7 +83110,12 @@ function igShortPub_(it, plan) {
   } catch (eU) { plan.shortWhy = 'آپلودِ شورتز: ' + String(eU.message || eU).slice(0, 160); return { ok: true }; }
   if (!plan.shortId) { plan.shortWhy = 'یوتیوب شناسه برنگرداند'; return { ok: true }; }
   plan.shortUrl = 'https://www.youtube.com/shorts/' + plan.shortId;
-  try { var qS = ytQuota_(); qS.shorts = (Number(qS.shorts) || 0) + 1; ytQuotaSave_(qS); } catch (eQs) {}
+  plan.shortAt = nowStr_();   // ۱۱.۰: «آیا ساعتِ انتشارِ شورتزها ثبت است؟» — تا امروز فقط ساعتِ ریلز بود
+  try {
+    var qS = ytQuota_(); qS.shorts = (Number(qS.shorts) || 0) + 1;
+    qS.shortEps = (qS.shortEps || []).concat([String(plan.ep || it.ep)]).slice(-20);
+    ytQuotaSave_(qS);
+  } catch (eQs) {}
   igShortThumb_(plan);
   if (leaks.length) { plan.shortWhy = 'نشتیِ خصوصی در متن — unlisted ماند'; return { ok: true }; }
   try {
@@ -82765,7 +83124,8 @@ function igShortPub_(it, plan) {
       plan.shortPublic = true;
     } else plan.shortWhy = 'سهمیهٔ به‌روزرسانی — unlisted ماند';
   } catch (eV) { plan.shortWhy = 'عمومی نشد: ' + String(eV.message || eV).slice(0, 120); }
-  try { tgSend_('▶️ شورتزِ یوتیوب: ' + plan.shortUrl + (plan.shortPublic ? '' : ' (هنوز unlisted — ' + (plan.shortWhy || '') + ')')); } catch (eT) {}
+  try { tgSend_('▶️ شورتزِ یوتیوب: ' + plan.shortUrl + (plan.shortPublic ? '' : ' (هنوز unlisted — ' + tgEsc_(plan.shortWhy || '') + ')')); } catch (eT) {}
+  try { tgCaptionLog_('یوتیوب — شورتز', title, plan.shortUrl, desc); } catch (eTc) {}
   return { ok: true };
 }
 
@@ -82804,21 +83164,34 @@ function igShortEnqueue_(st, it) {
  * نمی‌رود. ⇒ شمارِ شورتزهای رفته در این دور.
  */
 function igShortQueueRun_(st, deadline) {
-  var q = st.shortQ || [], n = 0;
-  while (q.length && Date.now() < deadline - 30000) {
-    var h = q[0], fo = null, plan = null;
+  /* ۱۱.۰: ردیفی که فقط به‌خاطرِ «از همین درس امروز یکی رفته» می‌ماند، درسِ بعد را پشتِ خودش نگه نمی‌دارد — وگرنه با دو
+     ریلز برای هر درس، روزی یک شورتز می‌رفت و صف هر روز یکی بلندتر می‌شد. ترتیب همچنان: بخشِ دومِ یک درس هرگز پیش از بخشِ
+     اولش، و هر «صبر» دیگری (سهمیه، سقفِ روز) کلِ صف را نگه می‌دارد. */
+  var q = st.shortQ || [], n = 0, i = 0, held = '';
+  while (i < q.length && Date.now() < deadline - 30000) {
+    var h = q[i], fo = null, plan = null;
+    var same = q.slice(0, i).some(function (x) { return String(x.ep) === String(h.ep); });
+    if (same || igShortLessonToday_(h.ep)) { held = held || ('از درسِ ' + h.ep + ' امروز یک شورتز رفته'); i++; continue; }
     try { fo = igFolder_(DriveApp.getFolderById(h.folderId), h.part); plan = igPlanRead_(fo); } catch (eF) {}
-    if (!plan) { q.shift(); continue; }
-    if (plan.shortId) { q.shift(); continue; }
+    if (!plan) { q.splice(i, 1); continue; }
+    if (plan.shortId) { q.splice(i, 1); continue; }
     var r = igShortPub_(h, plan);
-    if (r.wait) { st.shortWhy = r.wait; break; }
+    if (r.wait && r.sameLesson) { held = held || r.wait; i++; continue; }
+    if (r.wait) { st.shortWhy = r.wait; held = ''; break; }
     plan.shortQueued = '';
     igPlanWrite_(fo, plan);
-    q.shift(); n++;
+    q.splice(i, 1); n++;
   }
   st.shortQ = q;
   if (!q.length) st.shortWhy = '';
+  else if (held) st.shortWhy = held;
   return n;
+}
+
+/** ۱۱.۰: آیا از این درس (شمارهٔ قسمتِ درس‌نامه) امروز شورتزی رفته؟ */
+function igShortLessonToday_(ep) {
+  if (CFG.IG_SHORT_ONE_PER_LESSON === false || ep === undefined || ep === null || ep === '') return false;
+  return ((ytQuota_().shortEps) || []).indexOf(String(ep)) !== -1;
 }
 
 /**
@@ -82834,6 +83207,7 @@ function igShortThumb_(plan) {
   if (!plan.cover) { plan.shortThumbWhy = 'کاوری از رانر نیامده'; return false; }
   var yt = ytSvc_();
   if (!yt) return false;                                   // بعداً دوباره؛ دلیلی ثبت نمی‌شود چون عیبِ کاور نیست
+  if (ytHandsOff_(plan.shortId, 'کاورِ شورتز')) { plan.shortThumbWhy = 'خصوصی است — دست نخورد (۱۱.۰)'; return false; }
   if (!ytQuotaTake_(YT_COST.thumbSet, false)) return false;
   try {
     var res = UrlFetchApp.fetch(plan.cover, { muteHttpExceptions: true, followRedirects: true });
@@ -83627,8 +84001,85 @@ function igInsights_(st, deadline) {
     try { tgSend_('📱 اینستاگرام — ' + (p.comments ? p.comments + ' نظرِ تازه' : '') + (p.comments && g.newMsgs.length ? '، ' : '') +
                   (g.newMsgs.length ? g.newMsgs.length + ' پیامِ تازه' : '') + '\n' + news.join('\n')); } catch (eT) {}
   }
+  /* ۱۱.۰: الگوی ساعت و قالب از همان تبِ آمار — یک خواندن، پس از به‌روزشدنش. */
+  try {
+    var shP = igBook_().getSheetByName(CFG.IG_STATS_TAB || 'اینستاگرام — آمار');
+    var lr = shP ? shP.getLastRow() : 0;
+    if (lr > 1) {
+      /* کلیدِ جدا، نه درونِ `st.ins`: حالتِ اینستاگرام زیرِ سقفِ ۹ کیلوبایتیِ هر Property است (۹.۳۲). */
+      var pat = igPattern_(shP.getRange(2, 1, lr - 1, 14).getValues(), Date.now());
+      pat.at = nowStr_();
+      try { props_().setProperty(PK.IG_PATTERN, JSON.stringify(pat).slice(0, 8500)); } catch (eSp) {}
+      var rev = Number(CFG.IG_PATTERN_TG) || 0, prevP = (st.ins && st.ins.patternTold) || {};
+      var dueTell = rev && (Number(prevP.rev) !== rev || Date.now() - Number(prevP.ms || 0) > 7 * 86400000);
+      if (dueTell && pat.n >= 6) {
+        try { tgSend_(tgEsc_(pat.text)); ins.patternTold = { rev: rev, ms: Date.now() }; } catch (eTp) { ins.patternTold = prevP; }
+      } else ins.patternTold = prevP;
+    }
+  } catch (ePt) { ins.why.pattern = String(ePt.message || ePt).slice(0, 100); }
   st.ins = ins;
   return ins;
+}
+
+/**
+ * الگوی ریلزهای پربازده و کم‌بازده (۱۱.۰) — «ساعت و قالبِ انتشارِ ریل‌های پربازده و کم‌بازده را مقایسه کنید و الگوی رشدِ
+ * چندروزه که بعد متوقف شد را بگویید». از سطرهای تبِ آمار (زمانِ ستونِ دوم **UTC** است — `timestamp`ِ متا — پس +۴ برای
+ * دبی). پستی که کمتر از ۴۸ ساعت عمر دارد در مقایسه نمی‌آید: بازدیدِ ریلز تا دو روز بالا می‌رود و ریلزِ دیروز کنارِ ریلزِ
+ * هفتهٔ پیش همیشه «کم‌بازده» دیده می‌شد. میانه، نه میانگین — یک ریلزِ پربازدید میانگینِ یک گروه را می‌سازد.
+ * ⇒ {n, byHour[], byHook[], byDay[], text}
+ */
+function igPattern_(rows, nowMs) {
+  var med = function (a) {
+    if (!a.length) return 0;
+    var b = a.slice().sort(function (x, y) { return x - y; }), h = Math.floor(b.length / 2);
+    return b.length % 2 ? b[h] : Math.round((b[h - 1] + b[h]) / 2);
+  };
+  var posts = [];
+  (rows || []).forEach(function (r) {
+    var t = String(r[1] || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})/);
+    var v = Number(r[6]);
+    if (!t || !(v >= 0) || String(r[6]) === '') return;
+    var ms = Date.UTC(+t[1], +t[2] - 1, +t[3], +t[4], +t[5]);
+    var d = new Date(ms + 4 * 3600000);              // دبی
+    var cap = String(r[4] || '');
+    posts.push({ ms: ms, h: d.getUTCHours(), day: d.toISOString().slice(0, 10), v: v, watch: Number(r[13]) || 0,
+                 key: String(r[3] || ''), cap: cap.slice(0, 70),
+                 hook: /^آیا\s*می[\u200c ]?دانستید/.test(cap) ? 'آیا می‌دانستید' : /[؟?]/.test(cap.split(/[.!]/)[0] || cap) ? 'پرسشِ دیگر' : 'جملهٔ خبری' });
+  });
+  var old = posts.filter(function (p) { return (nowMs || Date.now()) - p.ms >= 48 * 3600000; });
+  var group = function (arr, keyFn, order) {
+    var g = {};
+    arr.forEach(function (p) { var k = keyFn(p); (g[k] = g[k] || []).push(p); });
+    var keys = order || Object.keys(g).sort();
+    return keys.filter(function (k) { return g[k]; }).map(function (k) {
+      return { k: k, n: g[k].length, med: med(g[k].map(function (p) { return p.v; })), watch: med(g[k].map(function (p) { return p.watch; })) };
+    });
+  };
+  var slot = function (p) { return p.h < 6 ? 'بامداد (۰ تا ۶)' : p.h < 12 ? 'صبح (۶ تا ۱۲)' : p.h < 18 ? 'بعدازظهر (۱۲ تا ۱۸)' : 'شب (۱۸ تا ۲۴)'; };
+  var byHour = group(old, slot, ['بامداد (۰ تا ۶)', 'صبح (۶ تا ۱۲)', 'بعدازظهر (۱۲ تا ۱۸)', 'شب (۱۸ تا ۲۴)']);
+  var byHook = group(old, function (p) { return p.hook; }, ['آیا می‌دانستید', 'پرسشِ دیگر', 'جملهٔ خبری']);
+  var byDay = group(posts, function (p) { return p.day; });
+  var all = old.map(function (p) { return p.v; }), m0 = med(all);
+  var fmt = function (g) { return g.map(function (x) { return x.k + ': میانهٔ ' + x.med + ' بازدید از ' + x.n + ' ریلز (تماشا ' + x.watch + ' ث)'; }).join(' · '); };
+  /* رشد و ایستادن: میانهٔ هر روزِ انتشار؛ «اوج» روزی است که پس از آن دو روزِ پیاپی پایین‌تر آمد. */
+  var peak = null;
+  for (var i = 1; i < byDay.length - 2; i++) {
+    if (byDay[i].med > byDay[i - 1].med && byDay[i + 1].med < byDay[i].med && byDay[i + 2].med < byDay[i].med) { peak = byDay[i]; break; }
+  }
+  /* ۱۱.۰: «کدام درس/قالب/ساعت برای ریل‌های ۱۲۶ تا ۱۷۱ و کدام برای ۶۹۳ تا ۲۱۰۰» — فهرستِ بالا و پایین، هر کدام با درس،
+     ساعتِ دبی و سطرِ اول، تا قاعدهٔ قلاب از داده بیاید. */
+  var byV = old.slice().sort(function (a, b) { return b.v - a.v; });
+  var nTop = Math.min(7, Math.floor(byV.length / 2));
+  var row1 = function (p) { return p.v + ' · ' + p.key.replace(/^ig:special:/, 'درسِ ') + ' · ' + p.day.slice(5) + ' ' + p.h + ':۰۰ · «' + p.cap + '»'; };
+  var top = byV.slice(0, nTop), low = byV.slice(byV.length - nTop);
+  var text = '📊 الگوی ریلزهای اینستاگرام (' + old.length + ' ریلزِ بالای ۴۸ ساعت از ' + posts.length + '؛ میانهٔ کل ' + m0 + ' بازدید)\n' +
+             '⏰ ساعتِ انتشار (دبی): ' + (fmt(byHour) || '—') + '\n' +
+             '🪝 قالبِ سطرِ اول: ' + (fmt(byHook) || '—') + '\n' +
+             '📅 روز به روز: ' + byDay.map(function (x) { return x.k.slice(5) + '=' + x.med + ' (' + x.n + ')'; }).join('، ') +
+             (peak ? '\n↗ رشد تا ' + peak.k + ' (میانهٔ ' + peak.med + ') و بعد پایین‌تر — پیش از نتیجه‌گیری، شمارِ ریلزِ همان روزها را ببینید: ' +
+                     'روزهای پرانتشار بازدیدِ هر ریلز را میان خودشان پخش می‌کنند.' : '') +
+             (nTop ? '\n🔝 پربازدیدترین‌ها:\n' + top.map(row1).join('\n') + '\n🔻 کم‌بازدیدترین‌ها:\n' + low.map(row1).join('\n') : '');
+  return { top: top.map(row1), low: low.map(row1), n: old.length, all: posts.length, median: m0, byHour: byHour, byHook: byHook, byDay: byDay, peak: peak ? peak.k : '', text: text };
 }
 
 /* ═══════════════════════════ 39_MusicReview.gs ═══════════════════════════ */

@@ -6950,6 +6950,56 @@ function pickCategory_(hub) {
   }
   if (!ranked.length) return null;
 
+  /* ══ قفلِ دسته‌های علمی (۱۱.۰) ══ بی چرخش: ترتیبِ `CAT_LOCK` همان ترتیبِ رفتن است و جریمهٔ «اخیراً» این‌جا معنا ندارد.
+     دسته‌های قفل همه امتحان می‌شوند (نه فقط سه‌تای اول)، پس دستهٔ بعدی فقط وقتی می‌آید که قبلی واقعاً قسمت نمی‌سازد. */
+  var lock = catLockOrder_(idx);
+  if (lock.length) {
+    var lockRes = pickCategoryFrom_(hub, lock, true);
+    if (lockRes) {
+      catLockNote_(lockRes.title, lockRes.title === lock[0].name ? '' :
+                   '«' + lock[0].name + '» دیگر محتوای کافی نداشت؛ دستهٔ علمیِ بعدی');
+      return lockRes;
+    }
+    catLockNote_('', 'هیچ دستهٔ علمی محتوای کافی نداشت — این قسمت از رتبه‌بندیِ همهٔ دسته‌ها');
+    logLine_('قفلِ دسته: دسته‌های علمی (' + lock.map(function (x) { return x.name; }).join('، ') +
+             ') هیچ‌کدام قسمت نمی‌سازند؛ رتبه‌بندیِ عادی.');
+  }
+  return pickCategoryFrom_(hub, ranked, false);
+}
+
+/** ترتیبِ قفل (۱۱.۰): فقط دسته‌هایی از `CAT_LOCK` که در داشبورد هستند و دست‌کم ۵ ردیفِ واجد دارند. خاموش ⇒ []. */
+function catLockOrder_(idx) {
+  if (CFG.CAT_LOCK_ON === false) return [];
+  var want = CFG.CAT_LOCK || [], out = [];
+  for (var w = 0; w < want.length; w++) {
+    for (var i = 0; i < (idx || []).length; i++) {
+      if (String(idx[i].name) === String(want[w]) && Number(idx[i].elig) >= 5) { out.push({ name: idx[i].name, s: 0 }); break; }
+    }
+  }
+  return out;
+}
+
+/** تصمیمِ قفل برای خطِ روزانه (بی هاب). */
+function catLockNote_(cat, why) {
+  try { props_().setProperty(PK.CAT_LOCK_LAST, JSON.stringify({ cat: String(cat || ''), why: String(why || ''), at: nowStr_() })); } catch (e) {}
+}
+
+/** خطِ روزانهٔ قفل — همیشه، حتی وقتی همه‌چیز سرِ جایش است (سکوت با «قفل کار نکرد» یکی است). */
+function catLockLine_() {
+  if (CFG.CAT_LOCK_ON === false) return '📚 قفلِ دسته‌های علمی: خاموش (CAT_LOCK_ON) — چرخشِ عادی میانِ همهٔ دسته‌ها.';
+  var r = null;
+  try { r = JSON.parse(props_().getProperty(PK.CAT_LOCK_LAST) || 'null'); } catch (e) { r = null; }
+  var head = '📚 قفلِ دسته‌های علمی: روشن (به ترتیب: ' + (CFG.CAT_LOCK || []).join(' ← ') + ')';
+  if (!r) return head + ' — هنوز قسمتی با آن ساخته نشده.';
+  return head + ' — آخرین قسمت (' + r.at + '): ' + (r.cat ? '«' + r.cat + '»' : 'بیرون از قفل') + (r.why ? ' · ' + r.why : '') + '.';
+}
+
+/**
+ * از فهرستِ رتبه‌بندی‌شده، نخستین دسته‌ای که قسمت می‌سازد. `all` ⇒ همهٔ فهرست امتحان می‌شود (قفل)؛ وگرنه سه‌تای اول،
+ * با جابه‌جاییِ تلفیق (۸.۷۲) — همان رفتارِ پیش از ۱۱.۰.
+ */
+function pickCategoryFrom_(hub, ranked, all) {
+
   /* ══ تلفیق از همان انتخابِ دسته (۸.۷۲) ══
      قسمتِ ۶۹ (۱۱ اکتبر) ۱۲ عکس و صفر ویدیو بود: دستهٔ برنده ویدیوی استفاده‌نشده نداشت
      (تحلیلگرِ ویدیو از ۲۳ سپتامبر ردیفِ تازه ننوشته) و `enforceMix_` فقط از همان دسته
@@ -6963,9 +7013,10 @@ function pickCategory_(hub) {
     return kinds >= 2;
   };
   var order = [], firstSt = null;
-  for (var t0 = 0; t0 < Math.min(3, ranked.length); t0++) order.push(t0);
+  for (var t0 = 0; t0 < (all ? ranked.length : Math.min(3, ranked.length)); t0++) order.push(t0);
   var stCache = {};
-  if (CFG.CAT_PREFER_MIX !== false && order.length > 1) {
+  /* قفل (۱۱.۰): جابه‌جاییِ تلفیق نه — «فقط وقتی منابعِ علمی تمام شد به دستهٔ بعدی». */
+  if (!all && CFG.CAT_PREFER_MIX !== false && order.length > 1) {
     var s0 = tabStats_(hub, ranked[0].name, CFG.MIN_PRIORITY);
     stCache[0] = s0;
     if (s0.rows.length >= 5 && !mixOk(s0.rows)) {

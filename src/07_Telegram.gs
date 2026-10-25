@@ -189,6 +189,18 @@ function tgSend_(text) {
   });
 }
 
+/**
+ * ۱۱.۰ — «متنِ کاملِ کپشن‌ها (یوتیوب و اینستاگرام) برای هر انتشار در تلگرام ارسال شود تا همیشه قابلِ مرور باشد.»
+ * عین همان متنی که رفت، نه خلاصه؛ بلند ⇒ چند پیام. شکستِ تلگرام انتشار را «نشد» نمی‌کند — فقط false.
+ */
+function tgCaptionLog_(kind, title, url, text) {
+  if (CFG.TG_CAPTIONS === false || !tgEnabled_()) return false;
+  var head = '📝 <b>کپشن — ' + tgEsc_(kind) + '</b>' + (title ? '\n' + tgEsc_(title) : '') + (url ? '\n' + tgEsc_(url) : '');
+  var parts = tgSplit_(head + '\n\n' + tgEsc_(String(text || '').trim() || '(خالی)'), 3800);
+  for (var i = 0; i < parts.length; i++) tgSend_(parts[i]);
+  return true;
+}
+
 /** متن سادهٔ قسمت برای پیوست .txt */
 function episodePlainText_(epNum, ep, items, cat) {
   var L = [];

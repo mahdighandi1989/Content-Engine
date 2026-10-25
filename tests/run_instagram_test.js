@@ -191,7 +191,8 @@ const RAW = { idea: 'دانستن بیش از باورِ صادقِ موجه ا�
      igKicker_('Audi (2011) Epistemology', 'Audi Epistemology') === '' && igKicker_('Audi (2011) Epistemology', '') === '' &&
      /kicker: (plan\.recap [^?]*\? plan\.plan\.kicker : )?igKicker_\(plan\.series, plan\.plan\.kicker\)/.test(String(igStepAsk_)) && IG_REEL_SCHEMA.required.indexOf('kicker') !== -1);
   const cap = igCaption_(p, 'https://youtu.be/v5', 'معرفت‌شناسی', 4);
-  ok('۲.۵ کپشن: پیوندِ همان ویدئو، نامِ مجموعه و درس، برچسبِ پایه و درس بی تکرار', cap.indexOf('https://youtu.be/v5') !== -1 &&
+  /* ۱۱.۰: نشانیِ خام در کپشنِ اینستاگرام کلیک‌پذیر نیست ⇒ «لینک در بیو»؛ نشانی نباید بیاید. */
+  ok('۲.۵ کپشن: «لینک در بیو» (نه نشانیِ خام)، نامِ مجموعه و درس، برچسبِ پایه و درس بی تکرار', cap.indexOf('https://youtu.be/v5') === -1 && /لینک در بیو/.test(cap) &&
      cap.indexOf('«معرفت‌شناسی» — درسِ ۴') !== -1 && /#درسنامه/.test(cap) && /#فلسفه/.test(cap) &&
      cap.split('#فلسفه').length === 2 && cap.length <= 2200 && (cap.match(/#/g) || []).length <= 12 && /کانالِ «/.test(cap), cap.replace(/\n/g, ' ¶ '));
 }
@@ -233,7 +234,7 @@ let fo, plan;
      plan.plan.judge === 'پیوسته' && plan.plan.lines[plan.plan.lines.length - 1].text === IG_CTA_LINE &&
      plan.plan.lines[plan.plan.lines.length - 1].cta === true &&
      plan.plan.lines.filter(x => /یوتیوب/.test(x.text)).length === 1, JSON.stringify(plan && plan.plan.lines.map(x => x.text.slice(0, 10))));
-  ok('۳.۲ صدای ثابتِ ریلز (IG_VOICE، ۹.۷۴)، و کپشن با پیوند', plan.voice === CFG.IG_VOICE && CFG.IG_VOICE === 'Alnilam' && plan.caption.indexOf('https://youtu.be/v5') !== -1);
+  ok('۳.۲ صدای ثابتِ ریلز (IG_VOICE، ۹.۷۴)، و کپشن با «لینک در بیو» (۱۱.۰)', plan.voice === CFG.IG_VOICE && CFG.IG_VOICE === 'Alnilam' && plan.caption.indexOf('https://youtu.be/v5') === -1 && /لینک در بیو/.test(plan.caption));
   ok('۳.۳ `_ig.json` و متن در زیرپوشهٔ «اینستاگرام» — نه خودِ پوشهٔ قسمت',
      fo.getName() === 'اینستاگرام' && fo.getFilesByName('_ig.json').hasNext() && fo.getFilesByName('ریلز — متن و کپشن.txt').hasNext() &&
      !epFo.getFilesByName('_ig.json').hasNext() && igFolder_(epFo) === fo);
@@ -501,6 +502,9 @@ console.log('=== ۴-ب) شورتزِ یوتیوب: بی پلی‌لیست، دو
   ins.length = 0; upd.length = 0;
   global.ytLeaks_ = () => ['drive.google.com/x'];
   const sp2 = Object.assign(JSON.parse(JSON.stringify(sp)), { shortId: '', shortUrl: '', shortPublic: false });
+  /* ۱۱.۰: همان درس امروز یک شورتز گرفت ⇒ این یکی «صبر» می‌گرفت؛ برای سنجیدنِ نشتی، دفترِ امروز خالی می‌شود. */
+  ok('۴-ب.۳-پ (۱۱.۰) شورتزِ دومِ همان درس در همان روز صبر می‌کند', igShortPub_(it, sp2).sameLesson === true && ins.length === 0);
+  CFG.IG_SHORT_ONE_PER_LESSON = false;   // باقیِ این بخش یک درس را چند بار می‌سنجد
   igShortPub_(it, sp2);
   ok('۴-ب.۴ نشتیِ خصوصی ⇒ unlisted می‌ماند و علت ثبت می‌شود', ins.length === 1 && upd.length === 0 && /نشتی/.test(sp2.shortWhy), sp2.shortWhy);
   global.ytLeaks_ = keep.leaks;
@@ -555,6 +559,7 @@ console.log('=== ۴-ب) شورتزِ یوتیوب: بی پلی‌لیست، دو
 }
 
 {
+  CFG.IG_SHORT_ONE_PER_LESSON = true;
   /* igStep_: «yts» ⇒ شورتز ⇒ «done» و ردیفِ تب. */
   const keep = { sp: global.igShortPub_, lg: global.igLog_ };
   let called = 0, logged = 0;
@@ -778,7 +783,7 @@ console.log('=== ۹) مرورِ بزرگ، سقفِ سه دقیقه، کپشنِ
   const sm = igShortMeta_({ plan: { coverTitle: 'عقلِ ما درست می‌فهمد؟', ytDesc: 'متنِ ویژهٔ یوتیوب.', caption: 'کپشنِ اینستا', tags: ['معرفت_شناسی', 'فلسفه'] },
                            series: 'معرفت شناسی مجتبی مصباح', lesson: 1, yt: 'https://youtu.be/v1' }, 'https://www.youtube.com/playlist?list=PL1');
   ok('۹.۴ شورتز: عنوانِ ≤۱۰۰ با مجموعه و «درسِ ۱» و #Shorts؛ توضیحِ ویژهٔ یوتیوب (نه کپشنِ اینستا) + درسِ کامل + پلی‌لیست؛ ≤۱۵ برچسب',
-     sm.title.length <= 100 && /معرفت شناسی مجتبی مصباح، درسِ ۱ #Shorts$/.test(sm.title) && /^متنِ ویژهٔ یوتیوب/.test(sm.desc) &&
+     sm.title.length <= 100 && /معرفت شناسی مجتبی مصباح، درسِ ۱ #Shorts$/.test(sm.title) && /^عقلِ ما درست می‌فهمد؟\nمتنِ ویژهٔ یوتیوب/.test(sm.desc) /* ۱۱.۰: سطرِ اول قلابِ پرسشی */ &&
      sm.desc.indexOf('https://youtu.be/v1') !== -1 && sm.desc.indexOf('list=PL1') !== -1 && sm.desc.indexOf('کپشنِ اینستا') === -1 &&
      (sm.desc.match(/#/g) || []).length <= 15, sm.title + ' ¶ ' + sm.desc.replace(/\n/g, ' ¶ '));
   /* انتشار به ترتیب: گامِ «pub» درسِ ۲ تا درسِ ۱ منتشر نشده صبر می‌کند. */

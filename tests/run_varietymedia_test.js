@@ -12,6 +12,9 @@ const FILES = fs.readdirSync('src').filter(f => f.endsWith('.gs')).sort();
 let src = ''; for (const f of FILES) src += '\n' + fs.readFileSync('src/' + f, 'utf8');
 (0, eval)(src);
 global.__PROPS['GEMINI_API_KEY'] = 'TEST';
+/* ۱۱.۰: انتشارِ «از همه جا» در یوتیوب خاموش است (YT_SHOWS_OFF)، ولی سازوکارِ ویدئویش برای کانالِ آینده سالم می‌ماند — پس
+   این مجموعه همان سازوکار را با برنامهٔ روشن می‌سنجد؛ حالتِ خاموش در run_owner110_test ۲.۶. */
+CFG.YT_SHOWS_OFF = [];
 
 let pass = 0;
 const ok = (n, c, info) => {

@@ -681,6 +681,10 @@ function writeStatus_(hub, note) {
     lessonVisuals: (function () { try { return lvStatus_(); } catch (e) { return null; } })(),
     /* کلیپ، حرکت و آزمونِ مدلِ تازه (۸.۵۲) — هر سه فقط از Properties، بی درایو. */
     lessonClip: (function () { try { return lvClipStatus_(); } catch (e) { return null; } })(),
+    igPattern: (function () { try { var x = JSON.parse(props_().getProperty(PK.IG_PATTERN) || 'null'); if (x) delete x.byDay; return x; } catch (e) { return null; } })(),
+    catLock: (function () { try { return { on: CFG.CAT_LOCK_ON !== false, order: CFG.CAT_LOCK || [], line: catLockLine_() }; } catch (e) { return null; } })(),
+    ytShowsOff: (function () { try { return { shows: CFG.YT_SHOWS_OFF || [], line: ytShowsOffLine_(), parked: ytDueParked_().length }; } catch (e) { return null; } })(),
+    ytOwnerPrivate: (function () { try { return { ids: ytOwnerPrivList_().length, line: ytOwnerPrivLine_() }; } catch (e) { return null; } })(),
     lessonMotion: (function () { try { return lvMotionStatus_(); } catch (e) { return null; } })(),
     lessonCards: (function () { try { return lvOvStatus_(); } catch (e) { return null; } })(),
     lessonSceneFb: (function () { try { return lvSceneFbStatus_(); } catch (e) { return null; } })(),
@@ -2716,6 +2720,9 @@ function healthCheck() {
      برنامه شیت باز نمی‌کند (۵.۹۰) و سکوت را نمی‌شود از «این قابلیت مرده»
      تشخیص داد. */
   try { lvHealth_(problems, notes); } catch (eLv) {}
+  try { notes.push(catLockLine_()); } catch (eCl) {}    // ۱۱.۰: قفلِ دسته‌های علمی — هر روز، حتی سالم
+  try { var ytOffL = ytShowsOffLine_(); if (ytOffL) notes.push(ytOffL); } catch (eYo) {}
+  try { var ytPrivL = ytOwnerPrivLine_(); if (ytPrivL) notes.push(ytPrivL); } catch (eYp) {}
   try { vmHealth_(problems, notes); } catch (eVmH) {}    // بخشِ ۳۷ پس از این بخش است ⇒ درونِ try
   try { igHealth_(problems, notes); } catch (eIgH) {}
   try { mrHealth_(problems, notes); } catch (eMrH) {}   // ۹.۷۵: بخشِ ۳۹   // ۹.۲۱: بخشِ ۳۸ ⇒ درونِ try

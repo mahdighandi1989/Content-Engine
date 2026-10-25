@@ -975,6 +975,12 @@ function vmStatus_() {
   var r = null;
   try { r = JSON.parse(props_().getProperty(PK.VM_LAST) || 'null'); } catch (e) { r = null; }
   if (!vmOn_('variety')) return { on: false, ok: true, line: '' };
+  /* ۱۱.۰: انتشارِ «از همه جا» در یوتیوب به خواستِ او متوقف است — ویدئویی ساخته نمی‌شود و این «افتادن» نیست. */
+  try {
+    if (ytShowOff_('variety')) return { on: false, off: true, ok: true, last: r,
+      line: '🎞 «از همه جا» با رسانه‌های منبع: ویدئو ساخته نمی‌شود چون انتشارش در یوتیوب متوقف است (' +
+            (CFG.YT_SHOWS_OFF_WHY || 'به خواستِ شما') + ') — ایراد نیست؛ تنظیماتش دست‌نخورده است.' };
+  } catch (eOff) {}
   if (!r) return { on: true, ok: true, last: null,
                    line: '🎞 «از همه جا» با رسانه‌های منبع: روشن — هنوز هیچ قسمتی از این راه نرفته.' };
   if (!r.ok && r.none) return { on: true, ok: true, none: true, last: r,
@@ -1027,7 +1033,7 @@ function vmHealth_(problems, notes) {
      «هیچ قسمتی از این راه نرفت» یکی است. افتادن به ویدئوی ساده ⇒ مسئلهٔ روز و یافتهٔ کد. */
   try {
     var vmS = vmStatus_();
-    if (vmS.on && vmS.line) notes.push(vmS.line);
+    if ((vmS.on || vmS.off) && vmS.line) notes.push(vmS.line);
     if (vmS.on && !vmS.ok && vmS.last) {
       problems.push('🎞 قسمتِ ' + vmS.last.key + ' بی رسانه‌های منبع (ویدئوی ساده) ساخته شد: ' + vmS.last.why);
       logSelfFinding_(getHub_(), {
