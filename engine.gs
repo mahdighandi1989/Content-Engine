@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 12.6
+ *  موتور محتوا و پادکست — نسخهٔ 12.7
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2144,6 +2144,8 @@ var CFG = {
            '(فلسفهٔ حقوق، سیاست، اخلاق، ذهن، علم). مرزش با «مذهبی و معنوی»: نظریه و استدلال ⇒ این دسته؛ مراسم، هیئت، مداحی، ' +
            'روضه، دعا، احکامِ عملی و کارِ تشکیلاتی ⇒ «مذهبی و معنوی».' }
   ],
+  EXT_TAG: 'ext-notebooklm',         // ۱۲.۷: تگِ پنهانِ ویدئوی دستیِ بیرونی در یوتیوب
+  EXT_SINCE: '2026-10-25',           // ۱۲.۷: ویدئوی بی‌تگِ بیرون از دفتر فقط از این روز «بیرونی» است (۱۱۷ ویدئوی پیش از موتور نه)
   JUDGE_COURSE_MIN_SURE: 60,         // ۱۲.۶: اطمینانِ داور به «آموزشی/نه» کمتر از این ⇒ مشکوک و «نیازمند بازبینی»
   JUDGE_SAMPLE_FRACS: [0.1, 0.5, 0.9], // ۱۲.۶: جای نمونه‌ها در کلِ مجموعه (نه قطعهٔ اولِ هر قسمت)
   SERIES_CAT_MIN_SURE: 60,           // ۱۱.۹: اطمینانِ داور به دسته کمتر از این ⇒ «بدون دسته، نیازمند بازبینی»
@@ -2315,7 +2317,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '12.6',
+  CODE_VERSION: '12.7',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3510,6 +3512,8 @@ var PK = {
   YT_DESC_ARCH: 'YT_DESC_ARCH',    // ۱۱.۰: بایگانیِ توضیحاتِ ویدئوهای بلند در تلگرام {rev, done[], at}
   YT_CLAIMS: 'YT_CLAIMS',         // ۱۲.۵: ویدئوهای محدودشده (rejectionReason/regionRestriction) — فقط سنجش
   BIO_TG_AT: 'BIO_TG_AT',         // ۱۲.۲: آخرین فرستادنِ هفتگیِ پیشنهادِ بیوها به تلگرام
+  IG_EXT: 'IG_EXT',                // ۱۲.۷: پست‌های بیرونیِ اینستاگرام (نه در دفترِ موتور) — فقط شمارش
+  YT_EXT: 'YT_EXT',                // ۱۲.۷: ویدئوهای بیرونیِ یوتیوب (نه در دفترِ موتور، یا تگِ ext-notebooklm) — فقط شمارش
   IG_FMT: 'IG_FMT',                // ۱۲.۱: قالبِ هر ریلز (فقط غیرپیش‌فرض‌ها) — شناسهٔ ریلز ⇒ قالب، برای سنجشِ «جملهٔ کوتاه» در برابرِ «آموزشی»
   IG_PATTERN: 'IG_PATTERN',        // ۱۱.۰: الگوی ساعت/قالبِ ریلزها (igPattern_) — کلیدِ جدا از IG_STATE
   CAT_LOCK_LAST: 'CAT_LOCK_LAST',
@@ -20738,6 +20742,7 @@ function healthCheck() {
   try { var ytPrivL = ytOwnerPrivLine_(); if (ytPrivL) notes.push(ytPrivL); } catch (eYp) {}
   try { vmHealth_(problems, notes); } catch (eVmH) {}    // بخشِ ۳۷ پس از این بخش است ⇒ درونِ try
   try { igHealth_(problems, notes); } catch (eIgH) {}
+  try { notes.push(extLine_().line); } catch (eExt) {}   // ۱۲.۷: محتوای بیرونی — بخشِ جدا، فقط شمارش
   try { mrHealth_(problems, notes); } catch (eMrH) {}   // ۹.۷۵: بخشِ ۳۹   // ۹.۲۱: بخشِ ۳۸ ⇒ درونِ try
   /* ستونِ «سبکِ تصویر» (۷.۹۶): خانه‌های خالی با پیشنهادِ خودِ موتور پر
      می‌شوند — «پیشنهادِ خودت رو هم تو اون مجموعه بنویس» — و خانهٔ ناخوانا
@@ -63905,6 +63910,10 @@ function ytaRun_(budgetMs) {
     if (!Object.prototype.hasOwnProperty.call(pub, k) || !pub[k].videoId) continue;
     mine[pub[k].videoId] = { show: k.split(':')[0], ep: k.split(':')[1], title: String(pub[k].title || '').slice(0, 70) };
   }
+  /* ۱۲.۷: شورتزهای خودِ موتور هم «مالِ موتور»اند (پیش‌تر در «دیگر» بودند)، و بیرونی‌ها سطلِ خودشان را دارند. */
+  try { var ownI = igOwnSet_(igState_()); if (ownI) Object.keys(ownI.shorts).forEach(function (v) { if (!mine[v]) mine[v] = { show: 'shorts', ep: '', title: '' }; }); } catch (eOs) {}
+  var extY = Object.create(null);
+  try { ((JSON.parse(props_().getProperty(PK.YT_EXT) || 'null') || {}).items || []).forEach(function (x) { extY[x.id] = 1; }); } catch (eEx) {}
 
   var life = null;
   if (left() > 8000) {
@@ -63925,7 +63934,7 @@ function ytaRun_(budgetMs) {
   /* هر برنامه جدا — «از همه جا» و «درس‌نامه» و ویدئوهای پیش از موتور سه مخاطبِ جدا دارند. */
   var shows = {};
   for (var v = 0; v < vids.length; v++) {
-    var key = vids[v].mine ? vids[v].show : 'other';
+    var key = vids[v].mine ? vids[v].show : (extY[vids[v].id] ? 'ext' : 'other');
     var s = shows[key] || (shows[key] = { n: 0, views: 0, w: 0 });
     s.n++; s.views += vids[v].views; s.w += vids[v].avp * vids[v].views;
   }
@@ -63939,7 +63948,7 @@ function ytaRun_(budgetMs) {
   /* ۱۲.۱: درصدِ دیده‌شدنِ هر ویدئوی خودمان، جدا از عکس (سقفِ ۹ کیلوبایتِ Properties) — سنجشِ فرضیه‌ها گروه‌به‌گروه می‌خوانَدش. */
   try {
     var avpMap = {};
-    vids.forEach(function (x) { if (x.mine && x.views > 0) avpMap[x.id] = x.avp; });
+    vids.forEach(function (x) { if (x.mine && x.show !== 'shorts' && x.views > 0) avpMap[x.id] = x.avp; });
     props_().setProperty(PK.YTA_AVP, JSON.stringify(avpMap).slice(0, 8900));
   } catch (eAv) {}
   var minV = Math.max(1, Number(CFG.YTA_MIN_VIEWS) || 10);
@@ -63985,7 +63994,7 @@ function ytaRun_(budgetMs) {
   }
   /* منحنیِ ماندگاری برای تازه‌ترین ویدئوهای خودمان که بیننده داشته‌اند. */
   var rmax = Math.max(0, Number(CFG.YTA_RET_MAX) || 6), ret = [];
-  var recent = vids.filter(function (x) { return x.mine && x.views >= minV && x.dur > 0; })
+  var recent = vids.filter(function (x) { return x.mine && x.show !== 'shorts' && x.views >= minV && x.dur > 0; })
                    .sort(function (a, b) { return (Number(b.ep) || 0) - (Number(a.ep) || 0); });
   for (var rr = 0; rr < recent.length && ret.length < rmax && left() > 5000; rr++) {
     var rv = recent[rr];
@@ -85367,6 +85376,101 @@ function igDayLine_(st) {
   return { line: line, prev: prev, r: r, rCap: rCap, s: sh, sCap: sCap, why: why };
 }
 
+/* ══ محتوای بیرونی (۱۲.۷) ══ صاحبِ کانال با NotebookLM ریلز و شورتزِ دستی روی همان صفحه و کانال می‌گذارد. «مالِ موتور» یعنی
+ * ثبت‌شده در دفترِ خودِ موتور — تبِ «انتشار در اینستاگرام» (ستونِ ریلز و شورتز) و حافظهٔ `st.media` — نه هرچه در صفحه است.
+ * بیرونی از الگوها و فرضیهٔ ۷ کنار می‌ماند و فقط در ایمیلِ ۱۰ شمرده می‌شود. موتور هیچ‌وقت روی آن نمی‌نویسد.
+ * دفترِ خالی یا ناخوانا ⇒ `null`، یعنی «نمی‌دانیم» — و آن‌وقت هیچ پستی بیرونی خوانده نمی‌شود (همان رفتارِ پیشین)، نه همه. */
+function igCode_(u) {
+  var m = /instagram\.com\/(?:[^\/]+\/)?(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/.exec(String(u || ''));
+  return m ? m[1] : '';
+}
+function igOwnSet_(st) {
+  var out = { ids: Object.create(null), codes: Object.create(null), shorts: Object.create(null), n: 0 };
+  Object.keys((st && st.media) || {}).forEach(function (id) { out.ids[String(id)] = 1; out.n++; });
+  var sh = igBook_().getSheetByName(CFG.IG_TAB || 'انتشار در اینستاگرام');
+  if (sh && sh.getLastRow() > 1) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, 11).getValues().forEach(function (r) {
+      var rl = String(r[5] || '').trim();
+      if (rl) { var c = igCode_(rl); if (c) out.codes[c] = 1; else out.ids[rl] = 1; out.n++; }
+      var sm = /youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/.exec(String(r[10] || ''));
+      if (sm) out.shorts[sm[1]] = 1;
+    });
+  }
+  return out.n ? out : null;
+}
+function igIsOwn_(own, id, permalink) {
+  if (!own) return true;
+  if (own.ids[String(id || '')]) return true;
+  var c = igCode_(permalink);
+  return !!(c && own.codes[c]);
+}
+
+/** یوتیوب: صفحهٔ اولِ «آپلودها»ی کانال (۱ واحد) و برچسب‌های تازه‌ها (۱ واحد) — روزی یک بار. فقط خواندن. ⇒ {n, items, why} */
+function ytExtScan_() {
+  var day = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  var prev = null;
+  try { prev = JSON.parse(props_().getProperty(PK.YT_EXT) || 'null'); } catch (e0) { prev = null; }
+  if (prev && prev.day === day) return prev;
+  var out = { day: day, at: nowStr_(), items: (prev && prev.items) || [], why: '' };
+  var yt = ytSvc_();
+  if (!yt) { out.why = ytOffWhy_(); return out; }
+  var mine = Object.create(null);
+  var pub = ytPublished_(getHub_());
+  Object.keys(pub).forEach(function (k) { if (pub[k].videoId) mine[String(pub[k].videoId)] = 1; });
+  try { var own = igOwnSet_(igState_()); if (own) Object.keys(own.shorts).forEach(function (v) { mine[v] = 1; }); } catch (eO) {}
+  var ids = [];
+  try {
+    var ch = ytChannelInfo_();
+    var up = ch && ch.info && ch.info.contentDetails && ch.info.contentDetails.relatedPlaylists && ch.info.contentDetails.relatedPlaylists.uploads;
+    if (!up) { out.why = 'فهرستِ آپلودهای کانال خوانده نشد'; return out; }
+    if (!ytQuotaTake_(YT_COST.itemsList, false)) { out.why = 'سهمیه'; return out; }
+    var pr = yt.PlaylistItems.list('contentDetails', { playlistId: up, maxResults: 50 });
+    ((pr && pr.items) || []).forEach(function (x) { var v = x && x.contentDetails && x.contentDetails.videoId; if (v) ids.push(String(v)); });
+  } catch (eU) { out.why = 'آپلودها: ' + String(eU.message || eU).slice(0, 100); return out; }
+  var known = Object.create(null);
+  out.items.forEach(function (x) { known[x.id] = 1; });
+  var cand = ids.filter(function (v) { return !mine[v] && !known[v]; });
+  if (cand.length && ytQuotaTake_(YT_COST.videosList, false)) {
+    try {
+      var vl = yt.Videos.list('snippet,contentDetails', { id: cand.slice(0, 50).join(','), maxResults: 50 });
+      ((vl && vl.items) || []).forEach(function (x) {
+        var sn = x.snippet || {}, tags = (sn.tags || []).map(function (t) { return String(t).toLowerCase(); });
+        var tag = tags.indexOf(String(CFG.EXT_TAG || 'ext-notebooklm').toLowerCase()) !== -1;
+        var at = String(sn.publishedAt || '').slice(0, 10);
+        if (!tag && at < String(CFG.EXT_SINCE || '2026-10-25')) return;   // ویدئوهای پیش از موتور «بیرونی» نیستند
+        var kind = ytArchKind_(x, '');
+        out.items.push({ id: String(x.id), at: String(sn.publishedAt || '').replace('T', ' ').slice(0, 16), title: String(sn.title || '').slice(0, 60),
+                         tag: tag, kind: kind === 'شورتز' ? 'شورتز' : 'ویدئو' });
+      });
+    } catch (eV) { out.why = 'برچسب‌ها: ' + String(eV.message || eV).slice(0, 100); }
+  }
+  out.items = out.items.slice(-40);
+  try { props_().setProperty(PK.YT_EXT, JSON.stringify(out).slice(0, 8500)); } catch (eS) {}
+  return out;
+}
+
+/** خطِ جدای ایمیلِ ۱۰ صبح — «بیرون از موتور». فقط شمارش و نام، هیچ نوشتنی روی آن محتوا. */
+function extLine_() {
+  var day = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  var y = Utilities.formatDate(new Date(Date.now() - 86400000), CFG.TIMEZONE, 'yyyy-MM-dd');
+  var yt = null, ig = null;
+  try { yt = ytExtScan_(); } catch (e1) { yt = null; }
+  try { ig = JSON.parse(props_().getProperty(PK.IG_EXT) || 'null'); } catch (e2) { ig = null; }
+  var dubai = function (utc) {   // زمانِ متا و یوتیوب UTC است
+    var t = String(utc || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})/);
+    return t ? new Date(Date.UTC(+t[1], +t[2] - 1, +t[3], +t[4], +t[5]) + 4 * 3600000).toISOString().slice(0, 10) : '';
+  };
+  var pick = function (arr) { return (arr || []).filter(function (x) { var d = dubai(x.at); return d === day || d === y; }); };
+  var yi = pick(yt && yt.items), ii = pick(ig && ig.items);
+  var L = '🧩 بیرون از موتور (دیروز و امروز؛ فقط شمارش — در آمار، فرضیه‌ها و سقف‌ها نیست): یوتیوب ' + faDigitsOut_(yi.length) +
+          (yi.length ? ' (' + yi.slice(0, 6).map(function (x) { return x.kind + ' «' + x.title + '»' + (x.tag ? '' : ' — بی تگ'); }).join('، ') + ')' : '') +
+          ' · اینستاگرام ' + faDigitsOut_(ii.length) +
+          (ii.length ? ' (' + ii.slice(0, 6).map(function (x) { return '«' + (x.cap || x.id) + '»'; }).join('، ') + ')' : '') +
+          (yt && yt.why ? ' · یوتیوب خوانده نشد: ' + yt.why : '') +
+          (ig && ig.own === false ? ' · دفترِ اینستاگرامِ موتور خوانده نشد، پس هیچ پستی بیرونی شمرده نشد' : '');
+  return { line: L, yt: yi.length, ig: ii.length };
+}
+
 /** ۱۲.۶: پیامِ شبانه — یک بار در روز، از ساعتِ ۲۳ِ دبی. */
 function igDayTell_(st) {
   var day = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
@@ -85613,6 +85717,8 @@ function igMediaKey_(m, st) {
 /** آمار و نظرها. ⇒ {posts, comments, why} */
 function igInsightsPosts_(a, st, deadline) {
   var out = { posts: 0, comments: 0, newComments: [], why: '' };
+  var own = null;
+  try { own = igOwnSet_(st); } catch (eOw) { own = null; }
   var lst = igPaged_('/' + a.ig + '/media', { fields: 'id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count', limit: 50 },
                      Number(CFG.IG_INS_MAX) || 500);
   if (lst.why && !lst.data.length) { out.why = 'فهرستِ پست‌ها: ' + lst.why; return out; }
@@ -85639,6 +85745,7 @@ function igInsightsPosts_(a, st, deadline) {
     var m = pick[i], ins = igMediaInsights_(m), I = ins.m || {};
     if (!ins.m) insWhy = ins.why;
     var key = igMediaKey_(m, st);
+    if (own && !igIsOwn_(own, m.id, m.permalink)) key = 'بیرونی';   // ۱۲.۷: کپشنِ دستی با پیوندِ یوتیوب شبیهِ پستِ موتور نشود
     var row = [String(m.id), String(m.timestamp || '').replace('T', ' ').slice(0, 16), String(m.media_product_type || m.media_type || ''),
                key, String(m.caption || '').split('\n')[0].slice(0, 80), String(m.permalink || ''),
                I.views !== undefined ? I.views : '', I.reach !== undefined ? I.reach : '',
@@ -85742,7 +85849,11 @@ function igInsights_(st, deadline) {
     var lr = shP ? shP.getLastRow() : 0;
     if (lr > 1) {
       /* کلیدِ جدا، نه درونِ `st.ins`: حالتِ اینستاگرام زیرِ سقفِ ۹ کیلوبایتیِ هر Property است (۹.۳۲). */
-      var pat = igPattern_(shP.getRange(2, 1, lr - 1, 14).getValues(), Date.now(), igFmtMap_());
+      var ownP = null;
+      try { ownP = igOwnSet_(st); } catch (eOp) { ownP = null; }
+      var pat = igPattern_(shP.getRange(2, 1, lr - 1, 14).getValues(), Date.now(), igFmtMap_(), ownP);
+      try { props_().setProperty(PK.IG_EXT, JSON.stringify({ at: nowStr_(), own: !!ownP, items: (pat.ext || []).slice(-30) }).slice(0, 8000)); } catch (eIx) {}
+      delete pat.ext;
       pat.at = nowStr_();
       try { props_().setProperty(PK.IG_PATTERN, JSON.stringify(pat).slice(0, 8500)); } catch (eSp) {}
       var rev = Number(CFG.IG_PATTERN_TG) || 0, prevP = (st.ins && st.ins.patternTold) || {};
@@ -85765,8 +85876,9 @@ function igInsights_(st, deadline) {
  * پیش‌فرض دارد، که برای همهٔ ریلزهای تا امروز راست است: قالبِ دیگری هنوز ساخته نشده.
  * ⇒ {n, byHour[], byHook[], byFormat[], byDay[], text}
  */
-function igPattern_(rows, nowMs, fmtOpt) {
+function igPattern_(rows, nowMs, fmtOpt, ownOpt) {
   var fmtMap = fmtOpt || {}, fmtDef = String(CFG.IG_FMT_DEFAULT || 'آموزشی');
+  var ext = [];
   var med = function (a) {
     if (!a.length) return 0;
     var b = a.slice().sort(function (x, y) { return x - y; }), h = Math.floor(b.length / 2);
@@ -85780,6 +85892,8 @@ function igPattern_(rows, nowMs, fmtOpt) {
     var ms = Date.UTC(+t[1], +t[2] - 1, +t[3], +t[4], +t[5]);
     var d = new Date(ms + 4 * 3600000);              // دبی
     var cap = String(r[4] || '');
+    /* ۱۲.۷: پستِ بیرونی (نه در دفترِ موتور) از الگوها و فرضیهٔ ۷ کنار — فقط شمرده می‌شود. */
+    if (ownOpt && !igIsOwn_(ownOpt, r[0], r[5])) { ext.push({ id: String(r[0] || ''), at: String(r[1] || ''), cap: cap.slice(0, 50) }); return; }
     posts.push({ ms: ms, h: d.getUTCHours(), day: d.toISOString().slice(0, 10), v: v, watch: Number(r[13]) || 0,
                  key: String(r[3] || ''), cap: cap.slice(0, 70),
                  fmt: Object.prototype.hasOwnProperty.call(fmtMap, String(r[0] || '')) ? String(fmtMap[String(r[0])]) : fmtDef,
@@ -85820,7 +85934,7 @@ function igPattern_(rows, nowMs, fmtOpt) {
              (peak ? '\n↗ رشد تا ' + peak.k + ' (میانهٔ ' + peak.med + ') و بعد پایین‌تر — پیش از نتیجه‌گیری، شمارِ ریلزِ همان روزها را ببینید: ' +
                      'روزهای پرانتشار بازدیدِ هر ریلز را میان خودشان پخش می‌کنند.' : '') +
              (nTop ? '\n🔝 پربازدیدترین‌ها:\n' + top.map(row1).join('\n') + '\n🔻 کم‌بازدیدترین‌ها:\n' + low.map(row1).join('\n') : '');
-  return { top: top.map(row1), low: low.map(row1), n: old.length, all: posts.length, median: m0, byHour: byHour, byHook: byHook, byFormat: byFormat, byDay: byDay, peak: peak ? peak.k : '', text: text };
+  return { top: top.map(row1), low: low.map(row1), n: old.length, all: posts.length, median: m0, byHour: byHour, byHook: byHook, byFormat: byFormat, byDay: byDay, peak: peak ? peak.k : '', text: text, ext: ext };
 }
 
 /* ═══════ قالبِ «جملهٔ کوتاه» (۱۲.۲) — آزمایشی، پیش‌فرض خاموش ═══════

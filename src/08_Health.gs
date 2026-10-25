@@ -2747,6 +2747,7 @@ function healthCheck() {
   try { var ytPrivL = ytOwnerPrivLine_(); if (ytPrivL) notes.push(ytPrivL); } catch (eYp) {}
   try { vmHealth_(problems, notes); } catch (eVmH) {}    // بخشِ ۳۷ پس از این بخش است ⇒ درونِ try
   try { igHealth_(problems, notes); } catch (eIgH) {}
+  try { notes.push(extLine_().line); } catch (eExt) {}   // ۱۲.۷: محتوای بیرونی — بخشِ جدا، فقط شمارش
   try { mrHealth_(problems, notes); } catch (eMrH) {}   // ۹.۷۵: بخشِ ۳۹   // ۹.۲۱: بخشِ ۳۸ ⇒ درونِ try
   /* ستونِ «سبکِ تصویر» (۷.۹۶): خانه‌های خالی با پیشنهادِ خودِ موتور پر
      می‌شوند — «پیشنهادِ خودت رو هم تو اون مجموعه بنویس» — و خانهٔ ناخوانا

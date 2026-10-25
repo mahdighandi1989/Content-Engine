@@ -12791,6 +12791,10 @@ function ytaRun_(budgetMs) {
     if (!Object.prototype.hasOwnProperty.call(pub, k) || !pub[k].videoId) continue;
     mine[pub[k].videoId] = { show: k.split(':')[0], ep: k.split(':')[1], title: String(pub[k].title || '').slice(0, 70) };
   }
+  /* ۱۲.۷: شورتزهای خودِ موتور هم «مالِ موتور»اند (پیش‌تر در «دیگر» بودند)، و بیرونی‌ها سطلِ خودشان را دارند. */
+  try { var ownI = igOwnSet_(igState_()); if (ownI) Object.keys(ownI.shorts).forEach(function (v) { if (!mine[v]) mine[v] = { show: 'shorts', ep: '', title: '' }; }); } catch (eOs) {}
+  var extY = Object.create(null);
+  try { ((JSON.parse(props_().getProperty(PK.YT_EXT) || 'null') || {}).items || []).forEach(function (x) { extY[x.id] = 1; }); } catch (eEx) {}
 
   var life = null;
   if (left() > 8000) {
@@ -12811,7 +12815,7 @@ function ytaRun_(budgetMs) {
   /* هر برنامه جدا — «از همه جا» و «درس‌نامه» و ویدئوهای پیش از موتور سه مخاطبِ جدا دارند. */
   var shows = {};
   for (var v = 0; v < vids.length; v++) {
-    var key = vids[v].mine ? vids[v].show : 'other';
+    var key = vids[v].mine ? vids[v].show : (extY[vids[v].id] ? 'ext' : 'other');
     var s = shows[key] || (shows[key] = { n: 0, views: 0, w: 0 });
     s.n++; s.views += vids[v].views; s.w += vids[v].avp * vids[v].views;
   }
@@ -12825,7 +12829,7 @@ function ytaRun_(budgetMs) {
   /* ۱۲.۱: درصدِ دیده‌شدنِ هر ویدئوی خودمان، جدا از عکس (سقفِ ۹ کیلوبایتِ Properties) — سنجشِ فرضیه‌ها گروه‌به‌گروه می‌خوانَدش. */
   try {
     var avpMap = {};
-    vids.forEach(function (x) { if (x.mine && x.views > 0) avpMap[x.id] = x.avp; });
+    vids.forEach(function (x) { if (x.mine && x.show !== 'shorts' && x.views > 0) avpMap[x.id] = x.avp; });
     props_().setProperty(PK.YTA_AVP, JSON.stringify(avpMap).slice(0, 8900));
   } catch (eAv) {}
   var minV = Math.max(1, Number(CFG.YTA_MIN_VIEWS) || 10);
@@ -12871,7 +12875,7 @@ function ytaRun_(budgetMs) {
   }
   /* منحنیِ ماندگاری برای تازه‌ترین ویدئوهای خودمان که بیننده داشته‌اند. */
   var rmax = Math.max(0, Number(CFG.YTA_RET_MAX) || 6), ret = [];
-  var recent = vids.filter(function (x) { return x.mine && x.views >= minV && x.dur > 0; })
+  var recent = vids.filter(function (x) { return x.mine && x.show !== 'shorts' && x.views >= minV && x.dur > 0; })
                    .sort(function (a, b) { return (Number(b.ep) || 0) - (Number(a.ep) || 0); });
   for (var rr = 0; rr < recent.length && ret.length < rmax && left() > 5000; rr++) {
     var rv = recent[rr];

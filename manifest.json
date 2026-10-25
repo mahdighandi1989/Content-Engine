@@ -1,25 +1,21 @@
 {
-  "version": "12.6",
+  "version": "12.7",
   "codeFile": "engine.gs",
-  "sha256": "ae606b21b3daef54eef937e02785b2070227fe514d3d043bffb8b6d0cf0c8652",
-  "releasedAt": "2026-10-25T20:30:00Z",
-  "summary": "دستهٔ خودکار در هیچ تصمیمی نیست؛ داوری از دلِ مجموعه با اطمینان و «داوریِ ناقص»ِ یک‌باره بی دست‌زدن به ردیف‌های دستی؛ شمارِ روزانهٔ ریلز/شورتز؛ راهنما و آمادگیِ موازی در تخته",
+  "sha256": "9eb8476d1fe37bcd89fb8fa4c76b36f65fe30498735f1e4d8b70e185a5e3c74d",
+  "releasedAt": "2026-10-25T21:00:00Z",
+  "summary": "محتوای بیرونی (NotebookLM) فقط شمرده می‌شود: از فرضیهٔ ۷ و الگوهای اینستاگرام کنار، و بخشِ جدا در ایمیلِ ۱۰ — بی تغییر در تولید",
   "fixes": [
-    "specialCatOf_ + meta.seriesCatT: لحنِ بخش‌ها، lvStyleSuggest_، جزوه و ytPlan فقط از دستهٔ دستی؛ قسمتِ قدیمی همان مسیر (بی بازسازی)",
-    "seriesFolder_: پوشهٔ مجموعهٔ تازه از seriesCatTrusted_",
-    "sampleSeriesText_: ۱۰/۵۰/۹۰٪ + allTitles؛ judgeHandoutHeads_؛ courseSure در JUDGE_SCHEMA",
-    "applyVerdict_: courseSure کم ⇒ مشکوک + «نیازمند بازبینی»؛ بی‌مدل ⇒ «داوریِ ناقص»؛ __redoLocked فقط ABOUT/WHY/CAT",
-    "seriesNeedingJudgement_/judgeIncomplete_: ردیفِ دستیِ داوری‌ناقص یک بار؛ ستونِ «وضعِ داوری» در تبِ بازبینی",
-    "igDayLine_/igDayTell_: «امروز N از ۶ ریلز و N از ۲ شورتز» در ایمیلِ ۱۰ و تلگرامِ ۲۳",
-    "تخته: parGuideHtml_ + ستونِ «آمادگیِ موازی» (seriesParMissing_)"
+    "igOwnSet_/igIsOwn_: مالِ موتور از دفترِ «انتشار در اینستاگرام» + st.media",
+    "igPattern_(…, own): بیرونی از byHour/byFormat/ف۷ کنار؛ PK.IG_EXT",
+    "igInsightsPosts_: ستونِ «قسمت» برای پستِ دستی «بیرونی»",
+    "ytExtScan_: آپلودها + تگِ ext-notebooklm، روزی ۲ واحد، فقط خواندن؛ PK.YT_EXT",
+    "ytaRun_: شورتزِ موتور «shorts»، بیرونی «ext»؛ avp و منحنی‌ها بی تغییر",
+    "extLine_ در ایمیلِ ۱۰"
   ],
   "sourceReportIds": [],
   "answers": [
-    "R-20261025-62",
-    "R-20261025-63",
-    "R-20261025-64",
-    "R-20261025-65",
-    "R-20261025-66"
+    "R-20261025-67",
+    "R-20261025-68"
   ],
   "promptImpact": [],
   "promptImpactKinds": []
