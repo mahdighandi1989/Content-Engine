@@ -2726,6 +2726,7 @@ function healthCheck() {
   try { lvHealth_(problems, notes); } catch (eLv) {}
   try { notes.push(catLockLine_()); } catch (eCl) {}    // ۱۱.۰: قفلِ دسته‌های علمی — هر روز، حتی سالم
   try { notes.push(destStatus_().line); } catch (eDs) {}   // ۱۱.۵: مقصدها — هر روز، حتی سالم
+  try { var daL = ytDescArchLine_(); if (daL) notes.push(daL); } catch (eDa) {}   // ۱۱.۶
   try { var fbS = fbStatus_(); if (fbS.on || fbS.queued) notes.push(fbS.line); } catch (eFs) {}
   try { var spS = seriesParStatus_(); if (spS.line) notes.push(spS.line); } catch (eSp) {}
   try { var ytOffL = ytShowsOffLine_(); if (ytOffL) notes.push(ytOffL); } catch (eYo) {}

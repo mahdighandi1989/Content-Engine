@@ -1,29 +1,18 @@
 {
-  "version": "11.5",
+  "version": "11.6",
   "codeFile": "engine.gs",
-  "sha256": "2c96c1a637be4c7aba25a3434e54d4475886ed89367ab5ff5ccbace785220999",
-  "releasedAt": "2026-10-25T12:46:20Z",
-  "summary": "تبِ «مقصدها» وصل به انتشارِ واقعی، فیسبوک (خاموش تا تیک)، نمای چهارحالته، زیرساختِ تولیدِ موازی (خاموش تا تیک)، آزمونِ کنترل‌های تخته",
+  "sha256": "47dab5ccf1b38125f28d1775c824aa5975d05f98f9ddd0625249e9350b3f475f",
+  "releasedAt": "2026-10-25T13:06:01Z",
+  "summary": "توضیحِ ویرایش‌شده در Studio دست نمی‌خورد؛ بایگانیِ کاملِ توضیحاتِ یوتیوب (شورتز و ویدئوهای پیشین هم) در تلگرام",
   "fixes": [
-    "destGate_/destCap_/destNote_ (بخشِ ۲۵) در ytShowOff_، ytQuotaTake_، igStepPub_، igShortPub_",
-    "fbCross_/fbAfterReel_/fbQueueRun_: بازنشرِ ریلز روی صفحهٔ فیسبوک از Reels Publishing API",
-    "SC.PAR + seriesParPick_: گردشِ مجموعه‌های تیک‌خورده؛ بی تیک همان مسیرِ پیشین",
-    "BOARD_CONTROLS_ + run_owner115_test §۸: هر کنترلِ تخته خواننده‌ای در تولید دارد",
-    "پنل‌های «🎯 مقصدها» و «🧭 وضعِ مجموعه‌ها» در تخته"
+    "ytDescHuman_/ytDescMineSet_ (PK.YT_DESC_MINE): راهِ خودکارِ ytRedoOne_ متنِ زندهٔ ویرایش‌شده را نگه می‌دارد؛ manual فقط از منو",
+    "ytDescArchive_ دورِ ۲: پلی‌لیستِ آپلودها، نوعِ هر ویدئو، بی تکرارِ دورِ ۱؛ ytDescArchLine_ در ایمیلِ روزانه"
   ],
   "sourceReportIds": [],
   "answers": [
-    "R-20261025-28",
-    "R-20261025-29",
-    "R-20261025-30",
-    "R-20261025-31",
-    "R-20261025-32"
+    "R-20261025-33",
+    "R-20261025-34"
   ],
-  "promptImpact": [
-    "_STATUS.json: کلیدهای تازهٔ destinations، facebook، seriesPar",
-    "تبِ تازهٔ «مقصدها» در هاب"
-  ],
-  "promptImpactKinds": [
-    "monitor"
-  ]
+  "promptImpact": [],
+  "promptImpactKinds": []
 }

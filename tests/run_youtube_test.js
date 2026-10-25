@@ -7519,10 +7519,13 @@ console.log('\n=== ۷۴) ویدئوی گیرکرده: بازسنجی واقعا�
                   privacy: 'unlisted', result: 'منتشر نشد (وارسی)' });
     folders[String(n)] = f;
   };
-  const calls = { snip: [], pub: [], failSnip: false };
+  const calls = { snip: [], pub: [], failSnip: false, desc: {} };
+  /* ۱۱.۶: راهِ خودکار متنِ زنده را می‌خوانَد؛ این‌جا متنی است که موتور خودش نوشته بود (اثرش ثبت است). */
+  const liveDesc = {};
   global.YouTube = {
-    Videos: { update: (b) => {
-      if (b.snippet) { if (calls.failSnip) throw new Error('quotaExceeded'); calls.snip.push(b.id); }
+    Videos: { list: (part, o) => ({ items: String(o.id).split(',').map((id) => ({ id, snippet: { description: liveDesc[id] || 'متنِ موتور ' + id }, status: { privacyStatus: 'unlisted' } })) }),
+      update: (b) => {
+      if (b.snippet) { if (calls.failSnip) throw new Error('quotaExceeded'); calls.snip.push(b.id); calls.desc[b.id] = b.snippet.description; }
       if (b.status && b.status.privacyStatus === 'public') calls.pub.push(b.id);
     } },
     Thumbnails: { set() {} }, Channels: { list: () => ({ items: [] }) },
@@ -7533,6 +7536,7 @@ console.log('\n=== ۷۴) ویدئوی گیرکرده: بازسنجی واقعا�
   global.ytFolderOf_ = (show, ep) => (String(show) === 'special' ? folders[String(ep)] || null : null);
 
   mkEp(74, 'کپشنِ پاکِ درس');
+  ytDescMineSet_('VID74', 'متنِ موتور VID74');
   const night = ytRedoStuckNightly_(120000);
   ok('۷۴.۱ بازسنجیِ شبانه ویدئوی گیرکرده را پیدا می‌کند، متنِ پاک را می‌نشانَد و عمومی می‌کند',
      night.cleared === 1 && calls.snip.indexOf('VID74') !== -1 && calls.pub.indexOf('VID74') !== -1 &&
@@ -7569,6 +7573,34 @@ console.log('\n=== ۷۴) ویدئوی گیرکرده: بازسنجی واقعا�
   ok('۷۴.۵ و خطِ روزانه دیگر علت را حدس نمی‌زند',
      !/یعنی در کپشنشان چیزی از جنسِ خصوصی/.test(line), line.slice(0, 160));
 
+  /* ۱۱.۶ — «در Studio فقط بخش‌های لازم را اصلاح کنم و موتور بعداً بازنویسی نکند». */
+  ok('۷۴.۶ (۱۱.۶) توضیحی که موتور نوشته بود (اثرش ثبت است) با متنِ تازهٔ نقشه جایگزین شد',
+     calls.desc['VID74'] && calls.desc['VID74'] !== 'متنِ موتور VID74' && /کپشنِ پاکِ درس/.test(calls.desc['VID74']), String(calls.desc['VID74']).slice(0, 80));
+  mkEp(78, 'متنِ تازهٔ نقشه');
+  ytDescMineSet_('VID78', 'آنچه موتور نوشته بود');
+  liveDesc['VID78'] = 'آنچه موتور نوشته بود — و صاحبِ کانال در Studio بلوکِ گویندگان را برداشت';
+  const r78 = ytRedoOne_('special', '78', {});
+  ok('۷۴.۷ (۱۱.۶) ویرایشِ Studio ⇒ راهِ خودکار توضیحِ زنده را عیناً نگه می‌دارد (فقط عنوان می‌رود) و ویدئو باز عمومی می‌شود',
+     calls.desc['VID78'] === liveDesc['VID78'] && r78.changed.indexOf('توضیحِ زنده دست نخورد') !== -1 && calls.pub.indexOf('VID78') !== -1, JSON.stringify(r78));
+  mkEp(79, 'متنِ تازهٔ نقشه');
+  liveDesc['VID79'] = 'ویدئوی پیش از ۱۱.۶، بی اثرِ انگشت';
+  ytRedoOne_('special', '79', {});
+  ok('۷۴.۸ (۱۱.۶) ویدئوی پیش از ۱۱.۶ (بی اثر) ⇒ متنِ زنده مالِ صاحبِ کانال است', calls.desc['VID79'] === liveDesc['VID79']);
+  mkEp(80, 'متنِ تازهٔ نقشه');
+  liveDesc['VID80'] = 'دست‌نوشته';
+  const r80 = ytRedoOne_('special', '80', { manual: true });
+  ok('۷۴.۹ (۱۱.۶) فقط دکمهٔ منو (manual) کلِ متن را بازمی‌نویسد، و اثرِ تازه ثبت می‌شود',
+     /متنِ تازهٔ نقشه/.test(calls.desc['VID80'] || '') && ytDescMine_()['VID80'] === ytDescFp_(calls.desc['VID80']), JSON.stringify(r80));
+  liveDesc['VID81x'] = 'منبع: https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012345/view';
+  mkEp(82, 'متنِ پاک');
+  liveDesc['VID82'] = 'منبع: https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012345/view';
+  const r82 = ytRedoOne_('special', '82', {});
+  ok('۷۴.۱۰ (۱۱.۶) توضیحِ زندهٔ نگه‌داشته هم از سدِ نشتی می‌گذرد: نشتی ⇒ دست نمی‌خورد و عمومی نمی‌شود',
+     !calls.desc['VID82'] && calls.pub.indexOf('VID82') === -1 && /خصوصی/.test(r82.why), r82.why);
+  const srcY = require('fs').readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۷۴.۱۱ (۱۱.۶) دکمهٔ منو تنها درِ manual است؛ آپلود اثرِ انگشت را ثبت می‌کند',
+     (srcY.match(/manual: true/g) || []).length === 1 && /ytRedoOne_\(show, m\[1\], \{[^}]*manual: true/.test(srcY) && /ytDescMineSet_\(vid, desc\)/.test(srcY));
+
   global.ytFolderOf_ = folderWas; delete global.YouTube;
   CFG.YT_THUMB = thumbWas; CFG.YT_QUOTA_UNITS = unitsWas;
 }
@@ -7599,7 +7631,8 @@ console.log('\n=== ۷۵) ویدئوی تأییدشده جلوِ صف است، و
   };
   const calls = { pub: [] };
   global.YouTube = {
-    Videos: { update: (b) => { if (b.status && b.status.privacyStatus === 'public') calls.pub.push(b.id); } },
+    Videos: { list: (part, o) => ({ items: String(o.id).split(',').map((id) => ({ id, snippet: { description: 'متنِ زندهٔ ' + id } })) }),   // ۱۱.۶
+              update: (b) => { if (b.status && b.status.privacyStatus === 'public') calls.pub.push(b.id); } },
     Thumbnails: { set() {} }, Channels: { list: () => ({ items: [] }) },
     PlaylistItems: { list: () => ({ items: [] }) }, Playlists: {} };
   const folderWas = global.ytFolderOf_;

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 11.5
+ *  موتور محتوا و پادکست — نسخهٔ 11.6
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1136,7 +1136,8 @@ var CFG = {
   YT_COVER_QUESTION: true,      // ۱۱.۴: متنِ کاورِ ویدئوی بلند = پرسشِ ملموس، حداکثر ۶ واژه با «؟» (false ⇒ قاعدهٔ پیشینِ «دو تا پنج واژه، خودِ موضوع»)
   YT_QA_MATCH_SOFT: 0.8,        // ۱۱.۳: «فقط X از N صحنه سرِ جای خودش» به‌تنهایی با X/N ≥ این، مشاوره است نه سد (special:81 = ۳۶/۴۱ با صفر قابِ خالی و همگامیِ سالم)
   YT_DESC_CAST: true,           // ۱۱.۱: ویدئوهای بلند «دقیقاً مثلِ قبل» — بلوکِ «گویندگانِ این قسمت» می‌ماند تا خودِ صاحبِ کانال کوتاه‌کردن را تأیید کند (false ⇒ برداشته می‌شود)
-  YT_DESC_ARCHIVE: 1,           // ۱۱.۰: «اصلِ توضیحاتِ ویدیوهای بلندِ فعلی را در تلگرام ذخیره کنید» — یک بار برای هر شماره؛ بالا بردنش ⇒ دوباره
+  YT_DESC_ARCHIVE: 2,           // ۱۱.۶: ۲ = شورتزها و ویدئوهای پیشینِ کانال هم (از پلی‌لیستِ آپلودها)؛ آنچه در ۱ رفت تکرار نمی‌شود.
+  // ۱۱.۰: «اصلِ توضیحاتِ ویدیوهای بلندِ فعلی را در تلگرام ذخیره کنید» — یک بار برای هر شماره؛ بالا بردنش ⇒ دوباره
   TG_CAPTIONS: true,            // ۱۱.۰: متنِ کاملِ کپشنِ هر انتشار (ریلز، شورتز، ویدئوی کامل) در تلگرام
   YT_TICK_MAX: 2,               // ۹.۸۸: آپلودِ هر دورِ دوره‌ای (پیش‌تر یکی و آخرِ صف)
   YT_TICK_PUB_MS: 150000,       // ۹.۸۸: سهمِ انتشار از بودجهٔ دور — پیش از نگه‌داری
@@ -2275,7 +2276,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '11.5',
+  CODE_VERSION: '11.6',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3455,6 +3456,7 @@ var PK = {
   YT_QUOTA: 'YT_QUOTA_DAY',        // سهمیهٔ مصرف‌شدهٔ امروز
   YT_DUE_PARKED: 'YT_DUE_PARKED',  // ۱۱.۰: ردیف‌های صفِ برنامه‌ای که انتشارش خاموش است (YT_SHOWS_OFF) — کنار، نه پاک
   YT_OWNER_PRIVATE: 'YT_OWNER_PRIVATE', // ۱۱.۰: ویدئوهایی که خصوصی دیده شدند — موتور دست نمی‌زند
+  YT_DESC_MINE: 'YT_DESC_MINE',    // ۱۱.۶: اثرِ انگشتِ توضیحی که موتور نوشت {videoId: fp} — ویرایشِ Studio از روی آن شناخته می‌شود
   YT_DESC_ARCH: 'YT_DESC_ARCH',    // ۱۱.۰: بایگانیِ توضیحاتِ ویدئوهای بلند در تلگرام {rev, done[], at}
   IG_PATTERN: 'IG_PATTERN',        // ۱۱.۰: الگوی ساعت/قالبِ ریلزها (igPattern_) — کلیدِ جدا از IG_STATE
   CAT_LOCK_LAST: 'CAT_LOCK_LAST',
@@ -20659,6 +20661,7 @@ function healthCheck() {
   try { lvHealth_(problems, notes); } catch (eLv) {}
   try { notes.push(catLockLine_()); } catch (eCl) {}    // ۱۱.۰: قفلِ دسته‌های علمی — هر روز، حتی سالم
   try { notes.push(destStatus_().line); } catch (eDs) {}   // ۱۱.۵: مقصدها — هر روز، حتی سالم
+  try { var daL = ytDescArchLine_(); if (daL) notes.push(daL); } catch (eDa) {}   // ۱۱.۶
   try { var fbS = fbStatus_(); if (fbS.on || fbS.queued) notes.push(fbS.line); } catch (eFs) {}
   try { var spS = seriesParStatus_(); if (spS.line) notes.push(spS.line); } catch (eSp) {}
   try { var ytOffL = ytShowsOffLine_(); if (ytOffL) notes.push(ytOffL); } catch (eYo) {}
@@ -59037,30 +59040,53 @@ function ytDescArchive_(budgetMs) {
   if (!rev || !tgEnabled_()) return out;
   var st = null;
   try { st = JSON.parse(props_().getProperty(PK.YT_DESC_ARCH) || 'null'); } catch (e) { st = null; }
-  if (!st || Number(st.rev) !== rev) st = { rev: rev, done: [], part: 0, at: nowStr_() };
+  /* ۱۱.۶: شمارهٔ تازه «انجام‌شده»ها را نگه می‌دارد — آنچه در دورِ پیش رفت دوباره نمی‌رود؛ فقط آنچه جا مانده بود. */
+  if (!st || Number(st.rev) !== rev) {
+    st = { rev: rev, done: (st && st.done) || [], part: (st && st.part) || 0, at: nowStr_(), n: (st && st.n) || {} };
+  }
   if (st.finished) return out;
   var yt = ytSvc_();
   if (!yt || !yt.Videos || typeof yt.Videos.list !== 'function') { out.why = 'یوتیوب در دسترس نیست'; return out; }
-  var pub = ytPublished_(getHub_());
-  var keys = Object.keys(pub).filter(function (k) { return !!pub[k].videoId; }).sort(function (a, b) {
-    var pa = a.split(':'), pb = b.split(':');
-    return pa[0] !== pb[0] ? (pa[0] < pb[0] ? -1 : 1) : (Number(pa[1]) || 0) - (Number(pb[1]) || 0);
-  });
-  var todo = keys.filter(function (k) { return st.done.indexOf(String(pub[k].videoId)) === -1; });
+  var pub = ytPublished_(getHub_()), keyOf = {};
+  Object.keys(pub).forEach(function (k) { if (pub[k].videoId) keyOf[String(pub[k].videoId)] = k; });
+  /* ۱۱.۶: «توضیحاتِ ویدیوهای بلند **و شورتزِ** فعلی». دفترِ «انتشار در یوتیوب» فقط ویدئوهای بلندِ موتور را دارد (۱۱.۰
+     همین را بایگانی کرد): شورتزها و ویدئوهای پیشینِ خودِ کانال در آن نیستند. فهرستِ کامل از پلی‌لیستِ «آپلودها»ی خودِ
+     کانال می‌آید — هر صفحه ۵۰ ویدئو، یک واحد — و اگر آن خوانده نشد، همان دفتر. */
+  var ids = st.all || null;
+  if (!ids) {
+    ids = [];
+    try {
+      var ch = ytChannelInfo_();
+      var up = ch && ch.info && ch.info.contentDetails && ch.info.contentDetails.relatedPlaylists && ch.info.contentDetails.relatedPlaylists.uploads;
+      var tok = '', guard = 0;
+      while (up && guard++ < 40) {
+        if (!ytQuotaTake_(YT_COST.itemsList, false)) { out.why = 'سهمیهٔ امروز'; return out; }
+        var pr = yt.PlaylistItems.list('contentDetails', tok ? { playlistId: up, maxResults: 50, pageToken: tok } : { playlistId: up, maxResults: 50 });
+        ((pr && pr.items) || []).forEach(function (x) { var v = x && x.contentDetails && x.contentDetails.videoId; if (v && ids.indexOf(String(v)) === -1) ids.push(String(v)); });
+        tok = (pr && pr.nextPageToken) || '';
+        if (!tok) break;
+      }
+    } catch (eU) { out.why = 'فهرستِ آپلودها: ' + String(eU.message || eU).slice(0, 100); }
+    Object.keys(keyOf).forEach(function (v) { if (ids.indexOf(v) === -1) ids.push(v); });
+    st.all = ids;
+  }
+  var todo = ids.filter(function (v) { return st.done.indexOf(v) === -1; });
   var t0 = Date.now(), budget = Math.max(10000, Number(budgetMs) || 30000);
   while (todo.length && Date.now() - t0 < budget) {
     var batch = todo.slice(0, 25);
-    var ids = batch.map(function (k) { return String(pub[k].videoId); });
     if (!ytQuotaTake_(YT_COST.videosList, false)) { out.why = 'سهمیهٔ امروز'; break; }
-    var vl = yt.Videos.list('snippet,status', { id: ids.join(','), maxResults: 50 });
+    var vl = yt.Videos.list('snippet,status,contentDetails', { id: batch.join(','), maxResults: 50 });
     var byId = {};
     ((vl && vl.items) || []).forEach(function (x) { byId[String(x.id)] = x; });
-    var L = [];
-    batch.forEach(function (k) {
-      var r = pub[k], it = byId[String(r.videoId)];
-      L.push('══════ ' + k + ' — ' + String((it && it.snippet && it.snippet.title) || r.title || ''));
-      L.push(r.url || ('https://www.youtube.com/watch?v=' + r.videoId));
-      L.push('وضعیت: ' + String((it && it.status && it.status.privacyStatus) || 'در یوتیوب پیدا نشد') + ' · بایگانی: ' + nowStr_());
+    var L = [], kinds = {};
+    batch.forEach(function (v) {
+      var it = byId[v], k = keyOf[v] || '', r = k ? pub[k] : null;
+      var kind = ytArchKind_(it, k);
+      kinds[kind] = (kinds[kind] || 0) + 1;
+      st.n[kind] = (Number(st.n[kind]) || 0) + 1;
+      L.push('══════ [' + kind + '] ' + (k ? k + ' — ' : '') + String((it && it.snippet && it.snippet.title) || (r && r.title) || ''));
+      L.push((r && r.url) || ('https://www.youtube.com/watch?v=' + v));
+      L.push('شناسه: ' + v + ' · وضعیت: ' + String((it && it.status && it.status.privacyStatus) || 'در یوتیوب پیدا نشد') + ' · بایگانی: ' + nowStr_());
       L.push('');
       L.push(it && it.snippet ? String(it.snippet.description || '(توضیح خالی است)') : '(ویدئو در یوتیوب پیدا نشد)');
       L.push(''); L.push('');
@@ -59068,8 +59094,9 @@ function ytDescArchive_(budgetMs) {
     st.part = (Number(st.part) || 0) + 1;
     var blob = Utilities.newBlob(L.join('\n'), 'text/plain', 'توضیحاتِ یوتیوب — بخشِ ' + st.part + '.txt');
     tgApi_('sendDocument', { chat_id: tgChat_(), document: blob,
-                             caption: '🗄 اصلِ توضیحاتِ ویدئوهای بلند، پیش از کوتاه‌کردن — بخشِ ' + st.part + ' (' + batch.length + ' ویدئو)' });
-    st.done = st.done.concat(ids);
+                             caption: '🗄 اصلِ توضیحاتِ ویدئوهای یوتیوب — بخشِ ' + st.part + ' (' +
+                                      Object.keys(kinds).map(function (x) { return kinds[x] + ' ' + x; }).join('، ') + ')' });
+    st.done = st.done.concat(batch);
     out.sent += batch.length;
     todo = todo.slice(batch.length);
     try { props_().setProperty(PK.YT_DESC_ARCH, JSON.stringify(st)); } catch (eS) {}
@@ -59077,10 +59104,70 @@ function ytDescArchive_(budgetMs) {
   out.left = todo.length;
   if (!todo.length) {
     st.finished = nowStr_();
-    try { tgSend_('🗄 بایگانیِ توضیحاتِ ویدئوهای بلند کامل شد: ' + st.done.length + ' ویدئو در ' + st.part + ' فایل.'); } catch (eT) {}
+    delete st.all;
+    try { tgSend_('🗄 بایگانیِ توضیحاتِ یوتیوب کامل شد: ' + st.done.length + ' ویدئو در ' + st.part + ' فایل (' + ytArchCounts_(st.n) + ').'); } catch (eT) {}
   }
   try { props_().setProperty(PK.YT_DESC_ARCH, JSON.stringify(st)); } catch (eS2) {}
   return out;
+}
+
+/** نوعِ ویدئو برای بایگانی: بلندِ موتور (در دفتر)، شورتز (≤ ۳ دقیقه یا #Shorts)، یا ویدئوی دیگرِ کانال. */
+function ytArchKind_(it, key) {
+  if (key) return 'بلند';
+  var d = String((it && it.contentDetails && it.contentDetails.duration) || '');
+  var m = d.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  var sec = m ? (Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0)) : 0;
+  var t = String((it && it.snippet && it.snippet.title) || '') + ' ' + String((it && it.snippet && it.snippet.description) || '');
+  if ((sec && sec <= 180) || /#shorts/i.test(t)) return 'شورتز';
+  return 'دیگر';
+}
+function ytArchCounts_(n) { return Object.keys(n || {}).map(function (k) { return n[k] + ' ' + k; }).join('، ') || 'هیچ'; }
+
+/** خطِ روزانه: چند ویدئو بایگانی شد، از چه نوعی، و چند تا مانده. */
+function ytDescArchLine_() {
+  var st = null;
+  try { st = JSON.parse(props_().getProperty(PK.YT_DESC_ARCH) || 'null'); } catch (e) { st = null; }
+  if (!st) return Number(CFG.YT_DESC_ARCHIVE) ? '🗄 بایگانیِ توضیحاتِ یوتیوب در تلگرام: هنوز شروع نشده.' : '';
+  var done = (st.done || []).length, all = st.all ? st.all.length : 0;
+  return '🗄 بایگانیِ توضیحاتِ یوتیوب در تلگرام (دورِ ' + st.rev + '): ' + done + ' ویدئو در ' + (st.part || 0) + ' فایل' +
+         (st.n && Object.keys(st.n).length ? ' (' + ytArchCounts_(st.n) + ')' : '') +
+         (st.finished ? ' — کامل، ' + st.finished : (all ? ' — ' + Math.max(0, all - done) + ' مانده' : ' — در جریان')) + '.';
+}
+
+/* ══ توضیحی که شما در Studio نوشتید، مالِ شماست (۱۱.۶) ══
+ * «در Studio فقط بخش‌های لازم را اصلاح کنم و ضمناً موتور بعداً آن‌ها را بازنویسی نکند.» تا ۱۱.۵ سه راهِ خودکار — پیمایشِ
+ * عنوان‌ها، ویدئوی گیرکرده در Unlisted، و ویدئوی تأییدشده — `ytRedoOne_` را می‌زدند و آن **کلِ** توضیح را از `_yt.json` از نو
+ * می‌نوشت؛ هیچ‌کدام نمی‌پرسید متنِ زنده همان است که موتور نوشته بود یا نه. حالا موتور اثرِ انگشتِ آنچه خودش نوشته را نگه
+ * می‌دارد (`PK.YT_DESC_MINE`)؛ راهِ خودکار پیش از نوشتن متنِ زنده را می‌خوانَد و اگر با آن نمی‌خوانَد — یا ویدئو پیش از این
+ * نسخه بالا رفته و اثری ندارد — **توضیحِ زنده را نگه می‌دارد** و فقط عنوان/برچسب را می‌فرستد. فقط دکمهٔ منو («بازسازیِ
+ * عنوان و کاور») کلِ متن را بازمی‌نویسد، چون آن تصمیمِ خودِ شماست. */
+function ytDescFp_(t) {
+  var s = String(t || '').replace(/\r/g, '').trim(), h = 5381;
+  for (var i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36) + ':' + s.length;
+}
+function ytDescMine_() {
+  try { var m = JSON.parse(props_().getProperty(PK.YT_DESC_MINE) || '{}'); return (m && typeof m === 'object') ? m : {}; } catch (e) { return {}; }
+}
+function ytDescMineSet_(vid, desc) {
+  if (!vid) return false;
+  try {
+    var m = ytDescMine_(), k = Object.keys(m);
+    m[String(vid)] = ytDescFp_(desc);
+    if (k.length > 300) delete m[k[0]];
+    props_().setProperty(PK.YT_DESC_MINE, JSON.stringify(m));
+    return true;
+  } catch (e) { return false; }
+}
+/** متنِ زندهٔ توضیح، اگر دیگر همان نیست که موتور نوشته بود ⇒ همان متن؛ وگرنه null (موتور آزاد است بنویسد). */
+function ytDescHuman_(yt, vid) {
+  if (!ytQuotaTake_(YT_COST.videosList, false)) return { keep: true, live: null, why: 'سهمیه' };
+  var it = null;
+  try { var r = yt.Videos.list('snippet', { id: String(vid) }); it = r && r.items && r.items[0]; } catch (e) { it = null; }
+  if (!it || !it.snippet) return { keep: true, live: null, why: 'متنِ زنده خوانده نشد' };
+  var live = String(it.snippet.description || ''), mine = ytDescMine_()[String(vid)];
+  if (mine && mine === ytDescFp_(live)) return { keep: false, live: live };
+  return { keep: true, live: live, why: mine ? 'در Studio ویرایش شده' : 'پیش از ۱۱.۶ بالا رفته — متنِ زنده مالِ شماست' };
 }
 
 /**
@@ -61232,6 +61319,7 @@ function ytUploadOne_(item, hub, pub) {
                 note: leaks.length ? 'نشتیِ خصوصی؛ در ' + privacy + ' ماند'
                     : (!gate.ok ? gate.why + '؛ در ' + privacy + ' ماند' : '') });
   ytUpPendingClear_(upKey);
+  ytDescMineSet_(vid, desc);   // ۱۱.۶: اثرِ انگشتِ آنچه موتور نوشت — تا ویرایشِ Studio شناخته شود
   try { tgCaptionLog_('یوتیوب — ویدئوی کامل', title, url, desc, ytDescRemoved_(plan.description, desc)); } catch (eTc) {}   // ۱۱.۰/۱۱.۳
   try { destNote_('yt', 'بالا رفت: ' + title + ' — ' + url + ' (امروز ' + ytQuota_().uploads + ' آپلود)'); } catch (eDn) {}   // ۱۱.۵
   logLine_('یوتیوب: «' + title + '» ' +
@@ -63930,15 +64018,28 @@ function ytRedoOne_(show, ep, opt) {
     return out;
   }
 
-  if (ytQuotaTake_(YT_COST.videosUpdate, false)) {
+  /* ۱۱.۶: راهِ خودکار توضیحِ دست‌نوشته را بازنویسی نمی‌کند؛ فقط دکمهٔ منو (`manual`). */
+  var descOut = ytDescFinal_(String(show) + ':' + String(ep), plan.description), keptLive = false, skipSnip = false;
+  if (!opt.manual) {
+    var hu = ytDescHuman_(yt, rec.videoId);
+    /* خوانده نشد ⇒ متن اصلاً فرستاده نمی‌شود (نه عنوان، نه توضیح)؛ بقیه — کاور و عمومی‌کردن — مثلِ پیش. */
+    if (hu.keep && hu.live === null) { skipSnip = true; out.why = 'عنوان و توضیح فرستاده نشد: متنِ زنده خوانده نشد (' + hu.why + ')'; }
+    else if (hu.keep) {
+      descOut = hu.live; keptLive = true;
+      var leaksL = ytLeaks_(plan.title + '\n' + descOut);
+      if (leaksL.length) { out.why = 'توضیحِ زنده چیزی از جنسِ خصوصی دارد: ' + leaksL.map(function (x) { return x.kind; }).join('، ') + ' — دست نخورد'; return out; }
+    }
+  }
+  if (!skipSnip && ytQuotaTake_(YT_COST.videosUpdate, false)) {
     try {
       yt.Videos.update({ id: rec.videoId, snippet: {
-        title: plan.title, description: ytDescFinal_(String(show) + ':' + String(ep), plan.description), tags: plan.tags,
+        title: plan.title, description: descOut, tags: plan.tags,
         categoryId: isSpecial ? (CFG.YT_CATEGORY_SPECIAL || '27') : (CFG.YT_CATEGORY_VARIETY || '22'),
         defaultLanguage: CFG.YT_LANG || 'fa' } }, 'snippet');
       out.changed.push('عنوان و کپشن');
-      try { tgCaptionLog_('یوتیوب — بازنویسیِ ویدئوی کامل', plan.title, rec.url,
-                          ytDescFinal_(String(show) + ':' + String(ep), plan.description)); } catch (eTc) {}   // ۱۱.۰
+      if (keptLive) out.changed.push('توضیحِ زنده دست نخورد');
+      else ytDescMineSet_(rec.videoId, descOut);
+      if (!keptLive) { try { tgCaptionLog_('یوتیوب — بازنویسیِ ویدئوی کامل', plan.title, rec.url, descOut); } catch (eTc) {} }   // ۱۱.۰
     } catch (e) { out.why = 'به‌روزرسانیِ متن نشد: ' + String(e.message).slice(0, 150); }
   }
 
@@ -65170,7 +65271,7 @@ function runYouTubeRedo() {
   var m = txt.match(/(\d{1,5})/);
   if (!m) { ui.alert('شمارهٔ قسمت خوانده نشد.'); return; }
   var show = /درس|تخصص|special/i.test(txt) ? ENRICH_SHOW_SPECIAL : ENRICH_SHOW_VARIETY;
-  var out = ytRedoOne_(show, m[1], { remodel: /نو|تازه|new/i.test(txt), recover: true });
+  var out = ytRedoOne_(show, m[1], { remodel: /نو|تازه|new/i.test(txt), recover: true, manual: true });   // ۱۱.۶: فقط این در کلِ متن را بازمی‌نویسد
   ui.alert('بازسازیِ یوتیوب',
     (out.ok ? '✅ انجام شد: ' + out.changed.join('، ') : '❌ انجام نشد') +
     (out.why ? '\n\n' + out.why : '') +

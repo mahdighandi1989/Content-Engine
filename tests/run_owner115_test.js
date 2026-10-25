@@ -259,4 +259,45 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
   ok('۸.۸ مجموعهٔ کار‌تمام و تیک‌نخورده تیکِ غیرفعال دارد', /disabled/.test(parCell_({ key: 'k', par: false, hasWork: false, status: SST.DONE })));
 }
 
+/* ── ۹) ۱۱.۶: بایگانیِ کامل — شورتز و ویدئوهای پیشینِ کانال هم، از پلی‌لیستِ آپلودها ── */
+{
+  const docs = [];
+  const svA = global.tgApi_;
+  global.tgApi_ = (m, p) => { if (m === 'sendDocument') docs.push(p); return { ok: true }; };
+  resetProps([PK.YT_DESC_ARCH]);
+  const sv = { ytSvc_: global.ytSvc_, ytQuotaTake_: global.ytQuotaTake_, ytPublished_: global.ytPublished_, ytChannelInfo_: global.ytChannelInfo_ };
+  global.ytQuotaTake_ = () => true;
+  global.ytPublished_ = () => ({ 'special:1': { videoId: 'L1', url: 'u1', title: 'درس ۱' }, 'special:2': { videoId: 'L2', url: 'u2', title: 'درس ۲' } });
+  global.ytChannelInfo_ = () => ({ info: { contentDetails: { relatedPlaylists: { uploads: 'UU1' } } } });
+  const vids = { L1: ['PT14M', 'درس'], L2: ['PT15M', 'درس'], S1: ['PT58S', 'شورت'], S2: ['PT2M10S', 'پرسش #Shorts'], O1: ['PT9M', 'ویدئوی قدیمیِ کانال'] };
+  global.ytSvc_ = () => ({
+    PlaylistItems: { list: (part, o) => o.pageToken ? { items: [{ contentDetails: { videoId: 'O1' } }] }
+                                                    : { items: ['L1', 'S1', 'S2'].map((v) => ({ contentDetails: { videoId: v } })), nextPageToken: 'p2' } },
+    Videos: { list: (part, o) => ({ items: o.id.split(',').map((id) => ({ id, snippet: { title: vids[id][1], description: 'اصلِ ' + id },
+                                                                             status: { privacyStatus: id === 'O1' ? 'private' : 'public' },
+                                                                             contentDetails: { duration: vids[id][0] } })) }) } });
+  const r = ytDescArchive_(60000);
+  const txt = docs.map((d) => (d.document.getDataAsString ? d.document.getDataAsString() : String(d.document))).join('\n');
+  ok('۹.۱ همهٔ آپلودها (دو صفحه) + آنچه فقط در دفتر است: ۵ ویدئو', r.sent === 5, JSON.stringify(r));
+  ok('۹.۲ نوع هر کدام: ۲ بلند، ۲ شورتز (≤ ۳ دقیقه یا #Shorts)، ۱ دیگر', /\[بلند\] special:1/.test(txt) && (txt.match(/\[شورتز\]/g) || []).length === 2 &&
+     /\[دیگر\]/.test(txt) && /اصلِ S2/.test(txt) && /وضعیت: private/.test(txt), txt.slice(0, 200));
+  ok('۹.۳ خطِ روزانه شمار و نوع را می‌گوید', /5 ویدئو/.test(ytDescArchLine_()) && /2 شورتز/.test(ytDescArchLine_()) && /کامل/.test(ytDescArchLine_()), ytDescArchLine_());
+  docs.length = 0;
+  ok('۹.۴ تمام‌شده دوباره نمی‌رود', ytDescArchive_(60000).sent === 0 && !docs.length);
+  /* دورِ ۱ِ واقعی (۱۱.۰) فقط بلندها را برد؛ دورِ ۲ همان‌ها را تکرار نمی‌کند */
+  global.__PROPS[PK.YT_DESC_ARCH] = JSON.stringify({ rev: 1, done: ['L1', 'L2'], part: 1, finished: 'x', n: { 'بلند': 2 } });
+  const r2 = ytDescArchive_(60000);
+  ok('۹.۵ پس از دورِ ۱ (۱۱.۰، فقط بلندها) دورِ ۲ فقط شورتزها و دیگری را می‌برد', r2.sent === 3 && JSON.parse(global.__PROPS[PK.YT_DESC_ARCH]).done.length === 5, JSON.stringify(r2));
+  Object.assign(global, sv); global.tgApi_ = svA;
+  ok('۹.۶ ytDescHuman_: اثرِ برابر ⇒ آزاد؛ ویرایش‌شده یا بی اثر ⇒ نگه‌دار؛ خوانده‌نشده ⇒ هیچ', (function () {
+    resetProps([PK.YT_DESC_MINE]);
+    const y = (d) => ({ Videos: { list: () => (d === null ? { items: [] } : { items: [{ snippet: { description: d } }] }) } });
+    global.ytQuotaTake_ = () => true;
+    ytDescMineSet_('A', 'متنِ موتور');
+    const a = ytDescHuman_(y('متنِ موتور'), 'A'), b = ytDescHuman_(y('ویرایش‌شده'), 'A'), c = ytDescHuman_(y('هر چه'), 'B'), d = ytDescHuman_(y(null), 'A');
+    Object.assign(global, sv);
+    return !a.keep && b.keep && b.live === 'ویرایش‌شده' && c.keep && /پیش از ۱۱.۶/.test(c.why) && d.keep && d.live === null;
+  })());
+}
+
 summary('owner115');

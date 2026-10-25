@@ -409,7 +409,8 @@ console.log('=== ۸) سیم‌کشی: هر دو در و یک تعریف ===');
      up.indexOf('vmBuild_(folder, meta, plan, ctx)') !== -1 &&
      up.indexOf('vmBuild_(folder, meta, plan, ctx)') < up.indexOf('lvScenesBuild_(folder, meta, plan, ctx)'));
   ok('۸.۲ هر دو درِ انتشار متنِ توضیح را از ytDescFinal_ می‌گیرند',
-     (y.match(/description: ytDescFinal_\(/g) || []).length === 1 && /var desc = ytDescFinal_\(/.test(y));
+     /* ۱۱.۶: درِ بازسازی از `descOut` می‌گذرد (متنِ موتور، مگر توضیحِ ویرایش‌شدهٔ Studio که دست نمی‌خورد) */
+     /var desc = ytDescFinal_\(/.test(y) && /var descOut = ytDescFinal_\(/.test(y) && /description: descOut,/.test(y));
   const h = fs.readFileSync('src/08_Health.gs', 'utf8');
   ok('۸.۳ سلامتِ روزانه vmHealth_ را جدا از lvHealth_ صدا می‌زند', /vmHealth_\(problems, notes\)/.test(h));
   ok('۸.۴ و _STATUS کلیدِ varietyMedia دارد', /varietyMedia: \(function \(\) \{ try \{ return vmStatus_\(\)/.test(h));

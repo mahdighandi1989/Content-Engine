@@ -275,6 +275,7 @@ ok('۲.۰ (۱۱.۱) پیش‌فرض: هیچ برنامه‌ای در یوتیو�
 /* ── ۸) بایگانیِ توضیحات ── */
 {
   resetProps([PK.YT_DESC_ARCH]);
+  const revWas = CFG.YT_DESC_ARCHIVE; CFG.YT_DESC_ARCHIVE = 1;
   docs.length = 0; tg.length = 0;
   const pub = {};
   for (let i = 1; i <= 30; i++) pub['special:' + i] = { videoId: 'V' + i, url: 'https://www.youtube.com/watch?v=V' + i, title: 'درس ' + i };
@@ -293,8 +294,10 @@ ok('۲.۰ (۱۱.۱) پیش‌فرض: هیچ برنامه‌ای در یوتیو�
   const r2 = ytDescArchive_(60000);
   ok('۸.۴ یک بار — دورِ بعد هیچ', r2.sent === 0 && !docs.length);
   CFG.YT_DESC_ARCHIVE = 2;
+  pub['special:31'] = { videoId: 'V31', url: '', title: 'درس ۳۱' };
   const r3 = ytDescArchive_(60000);
-  ok('۸.۵ بالا بردنِ شماره ⇒ یک بارِ دیگر', r3.sent === 31);
+  ok('۸.۵ (۱۱.۶) شمارهٔ تازه ⇒ فقط آنچه جا مانده، نه تکرارِ ۳۱ تای قبلی', r3.sent === 1, JSON.stringify(r3));
+  CFG.YT_DESC_ARCHIVE = revWas;
   CFG.YT_DESC_ARCHIVE = 1;
   Object.assign(global, sv);
   resetProps([PK.YT_DESC_ARCH]);
