@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 12.4
+ *  موتور محتوا و پادکست — نسخهٔ 12.5
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2313,7 +2313,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '12.4',
+  CODE_VERSION: '12.5',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2707,7 +2707,14 @@ var CFG = {
        تند و بی‌روح. علت با کد جور است: یک گام برای کلِ گوینده. همان دو نمونه با زیروبمِ هر تکه (`voicebridge.segPitchPlan`،
        فقط بیرون‌زدگی بیش از ۲ نیم‌پرده، با سقفِ ۴)، تا بشنود؛ روی قسمت‌ها خاموش (`VBR_SEG_PITCH`) تا تأییدِ او. */
     { speaker: 'razavi',      show: 'special', ep: '74', tag: 'درسِ ۷۴ · آرام · گامِ دقیق · مبدأ Charon · مکث به اندازهٔ خودش · بی وصلهٔ صدای جمینای · زیروبمِ هر تکه', nospans: true, calm: true, segPitch: true },
-    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · آرام · گامِ دقیق · مبدأ Charon · مکث به اندازهٔ خودش · بی وصلهٔ صدای جمینای · زیروبمِ هر تکه', nospans: true, calm: true, colour: 'prev', segPitch: true }
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · آرام · گامِ دقیق · مبدأ Charon · مکث به اندازهٔ خودش · بی وصلهٔ صدای جمینای · زیروبمِ هر تکه', nospans: true, calm: true, colour: 'prev', segPitch: true },
+    /* ۱۲.۵: «گاهی صدا ناگهان زیر و زنانه می‌شود» — Charon حدودِ ۱۲۱ تا ۱۳۵ هرتز است و گلدوز ۱۵۸، پس کلِ صدا ۳ تا ۵ نیم‌پرده بالا
+       می‌رود و هر اوجِ جمینای (پرسش، هیجان، پایانِ جمله) با آن به محدودهٔ صدای زن می‌رسد. دو نمونهٔ آزمایشی، **فقط نمونه**:
+       (الف) مبدأِ مردانهٔ زیرتر (Puck) تا گام به صفر نزدیک شود + سقفِ اوج؛ (ب) همان Charon + سقفِ اوج — تا اثرِ هر کدام جدا
+       شنیده شود. سقف: جاهایی که زیروبمِ خروجی بیش از ۳ نیم‌پرده بالای هدفِ گوینده است، از تبدیلِ دومی با گامِ پایین‌تر برداشته
+       می‌شود. Alnilam (۱۵۸ هرتز) نزدیک‌ترین بود ولی او در آزمونِ شنیداری کنارش گذاشته. */
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · آزمایشِ زیروبم · مبدأ Puck · سقفِ اوج ۳ نیم‌پرده · مکث به اندازهٔ خودش', nospans: true, calm: true, colour: 'prev', voice: 'Puck', f0cap: 3 },
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · آزمایشِ زیروبم · مبدأ Charon · سقفِ اوج ۳ نیم‌پرده · مکث به اندازهٔ خودش', nospans: true, calm: true, colour: 'prev', f0cap: 3 }
   ],
   VBR_SEG_PITCH: false,          // ۱۱.۴: زیروبمِ هر تکه روی قسمت‌ها — آزمایشی، خاموش تا صاحبِ کانال نمونهٔ درسِ ۷۴ را بشنود و تأیید کند
   /* ══ سقف، شمارندهٔ **زمان‌بندی** است نه شمارندهٔ موفقیت (۷٫۹۱) ══
@@ -3499,6 +3506,7 @@ var PK = {
   YT_DESC_MINE: 'YT_DESC_MINE',
   YT_CHAN_MINE: 'YT_CHAN_MINE',    // ۱۱.۸: اثرِ انگشتِ «دربارهٔ کانال» و کلیدواژه‌هایی که موتور نوشت    // ۱۱.۶: اثرِ انگشتِ توضیحی که موتور نوشت {videoId: fp} — ویرایشِ Studio از روی آن شناخته می‌شود
   YT_DESC_ARCH: 'YT_DESC_ARCH',    // ۱۱.۰: بایگانیِ توضیحاتِ ویدئوهای بلند در تلگرام {rev, done[], at}
+  YT_CLAIMS: 'YT_CLAIMS',         // ۱۲.۵: ویدئوهای محدودشده (rejectionReason/regionRestriction) — فقط سنجش
   BIO_TG_AT: 'BIO_TG_AT',         // ۱۲.۲: آخرین فرستادنِ هفتگیِ پیشنهادِ بیوها به تلگرام
   IG_FMT: 'IG_FMT',                // ۱۲.۱: قالبِ هر ریلز (فقط غیرپیش‌فرض‌ها) — شناسهٔ ریلز ⇒ قالب، برای سنجشِ «جملهٔ کوتاه» در برابرِ «آموزشی»
   IG_PATTERN: 'IG_PATTERN',        // ۱۱.۰: الگوی ساعت/قالبِ ریلزها (igPattern_) — کلیدِ جدا از IG_STATE
@@ -20721,6 +20729,7 @@ function healthCheck() {
   try { var daL = ytDescArchLine_(); if (daL) notes.push(daL); } catch (eDa) {}   // ۱۱.۶
   try { var hyp = ytHypoRun_(); if (hyp && hyp.line) notes.push(hyp.line); } catch (eHy) {}   // ۱۲.۰: فقط سنجش
   try { bioSuggest_(false); } catch (eBio) {}   // ۱۲.۲: پیشنهادِ بیوها، هفتگی به تلگرام
+  try { var clL = ytClaimLine_(); if (clL) notes.push(clL); } catch (eCl) {}   // ۱۲.۵: فقط سنجش
   try { var fbS = fbStatus_(); if (fbS.on || fbS.queued) notes.push(fbS.line); } catch (eFs) {}
   try { var spS = seriesParStatus_(); if (spS.line) notes.push(spS.line); } catch (eSp) {}
   try { var ytOffL = ytShowsOffLine_(); if (ytOffL) notes.push(ytOffL); } catch (eYo) {}
@@ -26619,7 +26628,14 @@ function seriesQueuePlan_(hub, regOpt, partsOpt) {
   });
   var at = function (r) { var t = parseWhen_(String(r.vals[SC.LAST_EP_AT - 1] || '')); return isNaN(t) ? 0 : t; };
   act.sort(function (a, b) { return at(b) - at(a); });
-  que.sort(function (a, b) { return seriesEffOrder_(a.vals) - seriesEffOrder_(b.vals) || a.row - b.row; });
+  /* ۱۲.۵: همان گره‌گشاییِ `pickSeriesPlan_` — شمارهٔ برابر (مثلاً آئودی ۲ و خداشناسی ۲) ⇒ مقدماتی‌تر، بعد امتیازِ آموزشیِ بالاتر،
+     بعد ردیف. پیش‌بینی‌ای که گره را جورِ دیگری باز کند، ترتیبی می‌گوید که موتور نمی‌سازد. */
+  var lvR = { 'مقدماتی': 0, 'میانی': 1, 'پیشرفته': 2 };
+  var lvO = function (r) { var k = String(r.vals[SC.LEVEL - 1] || '').trim(); return Object.prototype.hasOwnProperty.call(lvR, k) ? lvR[k] : 1; };
+  que.sort(function (a, b) {
+    return seriesEffOrder_(a.vals) - seriesEffOrder_(b.vals) || lvO(a) - lvO(b) ||
+           (Number(b.vals[SC.CSCORE - 1]) || 0) - (Number(a.vals[SC.CSCORE - 1]) || 0) || a.row - b.row;
+  });
   var order = act.concat(reo, que), out = { rows: [], days: 0, held: held, medPer: Math.round(medPer * 10) / 10 }, day = 0;
   order.forEach(function (r) {
     var c = rowsOf(r);
@@ -28220,6 +28236,7 @@ function produceSpecialEpisode(opt) {
       'قسمت ' + ('000' + epNum).slice(-3) + ' — ' +
       Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyyMMdd') + ' — ' +
       String(ep.title || '').slice(0, 60));
+    ep.__seriesKey = seriesKey; ep.__seriesName = seriesName;   // ۱۲.۵: صدای «درس‌نامه: <مجموعه>» در تبِ «صداها»
     try { ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, seriesCatTrusted_(rec.vals)); }   // ۱۱.۷: فقط دستهٔ دستی
     catch (eCast) { logLine_('نقش‌گزینیِ درس‌نامه انجام نشد: ' + eCast.message); }
 
@@ -29220,6 +29237,7 @@ function renderSpecialAudioStep_() {
     if (!st.phase || st.phase === 'audio') {
       /* ساختِ تکه‌ها پیش از پاک‌سازی — چون رانشِ شمارِ تکه‌ها خودش ممکن است
          پاک‌سازی را لازم کند. داستانش کنارِ chunkDriftReset_ آمده. */
+      if (ep && meta && !ep.__seriesName && !ep.__seriesKey) { ep.__seriesName = String(meta.seriesName || ''); ep.__seriesKey = String(meta.seriesKey || ''); }
       var chunks = buildSpecialChunks_(ep, epNum, meta.cat || meta.seriesCat || '');
       chunkDriftReset_(st, chunks, 'درس‌نامه ' + epNum);
       // قرینهٔ همان خط در بخشِ ۳ — دو قرینه که یکی‌شان وصل نباشد، همان
@@ -63340,15 +63358,21 @@ function ytStatsFetch_(ids) {
   for (var i = 0; i < ids.length; i += 50) {
     var batch = ids.slice(i, i + 50);
     if (!ytQuotaTake_(YT_COST.videosList, false)) break;
-    var r = ytHttp_('https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=' +
+    /* ۱۲.۵: `status` و `contentDetails` هم — همان یک واحد؛ برای سنجشِ ادعای کپی‌رایت/مسدود (`ytClaimNote_`). */
+    var r = ytHttp_('https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet,status,contentDetails&id=' +
                     encodeURIComponent(batch.join(',')));
     if (r.code !== 200 || !r.json || !r.json.items) continue;
     for (var j = 0; j < r.json.items.length; j++) {
       var it = r.json.items[j], st = it.statistics || {}, sn = it.snippet || {};
+      var stt = it.status || {}, rr = (it.contentDetails || {}).regionRestriction || null;
       out[String(it.id)] = {
         views: Number(st.viewCount || 0), likes: Number(st.likeCount || 0),
         comments: Number(st.commentCount || 0),
-        title: String(sn.title || ''), at: String(sn.publishedAt || '')
+        title: String(sn.title || ''), at: String(sn.publishedAt || ''),
+        upload: String(stt.uploadStatus || ''), reject: String(stt.rejectionReason || ''),
+        privacy: String(stt.privacyStatus || ''),
+        blocked: rr && rr.blocked ? rr.blocked.length : 0,
+        allowed: rr && rr.allowed ? rr.allowed.length : -1
       };
     }
   }
@@ -63498,8 +63522,44 @@ function ytStatsRun_(budgetMs) {
     } catch (eC2) { out.why += (out.why ? ' · ' : '') + 'ثبتِ کامنت نشد'; }
   }
 
+  try { ytClaimNote_(rows, stats); } catch (eCl) {}
   try { props_().setProperty(PK.YT_STATS, nowStr_()); } catch (eP) {}
   return out;
+}
+
+/* ══ ادعای کپی‌رایت و «مسدود» (۱۲.۵) — فقط سنجش ══
+ * «قسمتِ ۸۲ ادعای کپی‌رایت خورده و برای همه مسدود است … آیا موتور این را می‌خوانَد؟» — تا ۱۲.۴ نه. جزئیاتِ ادعا (چه کسی، کدام
+ * ثانیه) فقط در Content ID API است که مالِ شرکای یوتیوب است؛ Data API فقط `status.rejectionReason`، `uploadStatus` و
+ * `contentDetails.regionRestriction` (کشورهای بسته/باز) را می‌دهد. همین‌ها ثبت می‌شوند، هیچ تصمیمی رویشان نیست، و خطِ روزانه
+ * صریح می‌گوید این عدد از کدام فیلد است — تا اگر «مسدود»ِ Studio در آن پیدا نشد، معلوم باشد که از این راه دیدنی نیست. */
+function ytClaimNote_(rows, stats) {
+  var m = {};
+  try { m = JSON.parse(props_().getProperty(PK.YT_CLAIMS) || '{}') || {}; } catch (e) { m = {}; }
+  var seen = 0;
+  (rows || []).forEach(function (r) {
+    var s = stats[r.id];
+    if (!s) return;
+    seen++;
+    var bad = s.reject || (s.upload && s.upload !== 'processed') || s.blocked > 0 || s.allowed >= 0;
+    if (bad) m[r.id] = { k: r.key, t: String(s.title || '').slice(0, 60), rj: s.reject, up: s.upload, bl: s.blocked, al: s.allowed, at: nowStr_() };
+    else delete m[r.id];
+  });
+  m.__seen = { n: seen, at: nowStr_() };
+  try { props_().setProperty(PK.YT_CLAIMS, JSON.stringify(m).slice(0, 8500)); } catch (e2) {}
+  return m;
+}
+function ytClaimLine_() {
+  var m = {};
+  try { m = JSON.parse(props_().getProperty(PK.YT_CLAIMS) || '{}') || {}; } catch (e) { m = {}; }
+  var sn = m.__seen;
+  if (!sn) return '';
+  var L = Object.keys(m).filter(function (k) { return k !== '__seen'; }).map(function (k) {
+    var x = m[k];
+    return String(x.k || k) + ' («' + x.t + '»: ' + [x.rj ? 'ردشده: ' + x.rj : '', x.up && x.up !== 'processed' ? 'بارگذاری: ' + x.up : '',
+      x.bl ? 'بسته در ' + x.bl + ' کشور' : '', x.al >= 0 ? 'فقط در ' + x.al + ' کشور باز' : ''].filter(Boolean).join('، ') + ')';
+  });
+  return '⚖️ محدودیت‌های یوتیوب (از rejectionReason/uploadStatus/regionRestriction، ' + sn.n + ' ویدئوی تازه): ' +
+         (L.length ? L.join(' · ') : 'هیچ‌کدام') + '. ادعای Content ID از این راه دیده نمی‌شود مگر محدودیتش در همین فیلدها بنشیند.';
 }
 
 /**
@@ -65528,6 +65588,7 @@ function ytPlDescSync_(budgetMs) {
          می‌گویند، نه نامِ تخته را. یک واحد در شب برای هر پلی‌لیست؛ نشد ⇒ نامِ تخته. */
       var lvT = ytPlLive_(yt, map[key].id), dn = nm;
       if (lvT && lvT.title) dn = String(lvT.title).replace(/\s*[—–-]\s*(درس‌نامه|درسنامه)\s*$/, '').trim() || nm;
+      if (lvT && lvT.title) map[key].liveTitle = String(lvT.title).slice(0, 150);   // ۱۲.۵: «درس‌نامه: <نامِ Studio>» در تبِ «صداها»
       var intro = String(reg.rows[r].vals[SC.PLINTRO - 1] || '').trim();
       var d = ytPlDescText_(dn, ytSeriesLessons_(DriveApp.getFolderById(fid)), pub, today, intro);
       if (!d.n) continue;
@@ -70864,7 +70925,7 @@ function personaOn_(v) {
  * نیم‌فاصله) انجام می‌شود، وگرنه یک نیم‌فاصله ردیف را بی‌صدا از کار
  * می‌اندازد.
  */
-function personaShowOk_(cell, show, key) {
+function personaShowOk_(cell, show, key, seriesOpt) {
   var t = String(cell == null ? '' : cell).trim();
   if (!t || t === 'همه' || t === '*') return true;
   var norm = function (s) {
@@ -70890,13 +70951,49 @@ function personaShowOk_(cell, show, key) {
       if (norm(L[s].key) === norm(show)) want.push(norm(L[s].name));
     }
   } catch (eK) {}
-  var parts = t.split(/[،,]/);
+  /* ══ مجموعه هم (۱۲.۵) ══ «درس‌نامه: آئودی» یعنی فقط مجموعه‌ای از درس‌نامه که نامش (یا نامِ پلی‌لیستش) «آئودی» دارد.
+     ⇒ 2 برای خوردنِ مجموعه، true برای خوردنِ برنامه، false. نشانهٔ بی «:» درست همان معنای پیشین را دارد — ردیف‌های موجود
+     دست نمی‌خورند. صدازننده‌ای که مجموعه را نمی‌داند (`seriesOpt` ندارد) هیچ نشانهٔ مجموعه‌ای را نمی‌خورد. */
+  var parts = t.split(/[،,]/), hit = false;
   for (var i = 0; i < parts.length; i++) {
-    var p = norm(parts[i]);
+    var raw = String(parts[i] || '');
+    var m = raw.split(/[:：]/);
+    if (m.length >= 2) {
+      if (want.indexOf(norm(m[0])) === -1) continue;
+      if (personaSeriesHit_(m.slice(1).join(':'), seriesOpt)) return 2;
+      continue;
+    }
+    var p = norm(raw);
     if (!p) continue;
-    if (want.indexOf(p) !== -1) return true;
+    if (want.indexOf(p) !== -1) hit = true;
   }
+  return hit;
+}
+
+/** «آئودی» در نامِ مجموعه، کلیدش یا نامِ پلی‌لیستش؟ — بی فاصله و نیم‌فاصله، ی/ک یکسان، حروفِ کوچک. */
+function personaSeriesHit_(want, s) {
+  if (!s) return false;
+  var n = function (x) {
+    var t = String(x == null ? '' : x);
+    try { if (typeof faDigits_ === 'function') t = faDigits_(t); } catch (e) {}
+    return t.replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/[\s‌‏‎]+/g, '').toLowerCase();
+  };
+  var w = n(want);
+  if (!w) return false;
+  var c = [s.name, s.key].concat(s.alt || []);
+  for (var i = 0; i < c.length; i++) { var v = n(c[i]); if (v && v.indexOf(w) !== -1) return true; }
   return false;
+}
+
+/** مجموعهٔ یک قسمتِ درس‌نامه برای انتخابِ صدا — نام، کلید، و نامِ زندهٔ پلی‌لیست اگر ثبت شده. ⇒ {name,key,alt} یا null */
+function personaSeriesOf_(name, key) {
+  if (!name && !key) return null;
+  var alt = [];
+  try {
+    var rec = ytPlMap_()[ytPlKey_(ENRICH_SHOW_SPECIAL, String(key || ''), String(name || ''))];
+    if (rec && rec.liveTitle) alt.push(String(rec.liveTitle));
+  } catch (e) {}
+  return { name: String(name || ''), key: String(key || ''), alt: alt };
 }
 
 /**
@@ -71308,7 +71405,7 @@ function personaModePick_(modes, tone) {
  * نبودِ تصمیم برای امروز یعنی این کد اصلاً اجرا نشده، که خبرِ دیگری
  * است — و بدتر.
  */
-function personaFor_(show, epNum) {
+function personaFor_(show, epNum, seriesOpt) {
   if (CFG.PERSONA_ENABLED === false) return null;
   var sh, rows;
   try {
@@ -71330,11 +71427,18 @@ function personaFor_(show, epNum) {
      جز همان «دوره‌ای» نبود: برای یک قسمت مجبور بودی ردیف را روشن کنی،
      که یعنی دائمی‌اش کنی. دقیقاً کاری که نمی‌خواست. */
   var pass, i, v, key, name, rowNo, cue;
-  for (pass = 0; pass < 2 && !picked; pass++) {
+  /* ۱۲.۵: سه پیمایش — موردی، ردیفِ **همین مجموعه** («درس‌نامه: آئودی»)، و ردیفِ برنامه. بی هیچ نشانهٔ مجموعه‌ای در جدول،
+     پیمایشِ دوم هیچ ردیفی نمی‌گیرد و سومی عیناً همان پیمایشِ دائمِ پیشین است. */
+  var pickedPass = -1;
+  for (pass = 0; pass < 3; pass++) {
+    /* پس از انتخاب در پیمایشِ «مجموعه»، پیمایشِ سوم فقط برای نوشتنِ «آخرین تصمیم»ِ بقیهٔ ردیف‌ها می‌رود — همان که پیش‌تر هر
+       قسمت برای همه نوشته می‌شد. */
+    if (picked && !(pass === 2 && pickedPass === 1)) break;
     for (i = 0; i < rows.length; i++) {
       v = rows[i];
       key = String(v[PC.KEY - 1] || '').trim();
       if (!key) continue;
+      if (picked && pass === 2 && key === picked.key) continue;
       name = String(v[PC.NAME - 1] || '').trim() || key;
       rowNo = i + 2;                         // ردیفِ ۱ سرصفحه است
       var once = false;
@@ -71344,10 +71448,14 @@ function personaFor_(show, epNum) {
 
       if (pass === 0) {
         if (!once) continue;                 // پیمایشِ موردی: فقط نام‌بردگان
+      } else if (pass === 1) {
+        if (once || !personaOn_(v[PC.ON - 1])) continue;
+        if (personaShowOk_(v[PC.SHOWS - 1], show, show, seriesOpt) !== 2) continue;
+        if (!personaTurn_(v[PC.EVERY - 1], epNum)) continue;
       } else {
         if (once) continue;                  // در پیمایشِ اول دیده شد
         if (!personaOn_(v[PC.ON - 1])) { notes.push([rowNo, 'خاموش']); continue; }
-        if (!personaShowOk_(v[PC.SHOWS - 1], show, show)) {
+        if (!personaShowOk_(v[PC.SHOWS - 1], show, show, seriesOpt)) {
           notes.push([rowNo, 'برای این برنامه نیست']); continue;
         }
         if (!personaTurn_(v[PC.EVERY - 1], epNum)) {
@@ -71358,6 +71466,7 @@ function personaFor_(show, epNum) {
       }
 
       cue = String(v[PC.STYLE - 1] || '').trim();
+      if (!cue && pass === 1) continue;      // در پیمایشِ سوم نام برده می‌شود
       if (!cue) {
         /* ردیفی که بی‌صدا کنار گذاشته شود، کسی را منتظرِ چیزی می‌گذارد
            که نمی‌آید — و در حالتِ موردی بدتر، چون او **این** قسمت را
@@ -71371,7 +71480,8 @@ function personaFor_(show, epNum) {
         picked = { key: key, name: name, cue: cue, once: once,
                    modes: personaModes_(v[PC.MODES - 1]) };
         pickedRow = rowNo;
-        pickedWhy = once ? 'انتخاب شد (موردی)' : 'انتخاب شد';
+        pickedPass = pass;
+        pickedWhy = once ? 'انتخاب شد (موردی)' : (pass === 1 ? 'انتخاب شد (همین مجموعه)' : 'انتخاب شد');
       } else {
         notes.push([rowNo, once
           ? 'صدای دیگری زودتر برای همین قسمت انتخاب شد'
@@ -71755,7 +71865,7 @@ function personaEnsure_(ep, show, epNum) {
   if (typeof ep.__persona !== 'undefined') return ep.__persona;
   var p = null;
   try {
-    p = personaFor_(show, epNum);
+    p = personaFor_(show, epNum, show === ENRICH_SHOW_SPECIAL ? personaSeriesOf_(ep.__seriesName, ep.__seriesKey) : null);
   } catch (e) {
     logLine_('انتخابِ صدای مهمان انجام نشد: ' + e.message);
     p = null;
@@ -79342,6 +79452,8 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   if (o.hx) row.hx = true;
   /* ۱۱.۴: زیروبمِ هر تکه — آزمایشی. نمونه با پرچمِ بذر؛ قسمت‌ها فقط وقتی `VBR_SEG_PITCH` روشن شود (پیش‌فرض خاموش، تا او بشنود). */
   if (o.segPitch || CFG.VBR_SEG_PITCH === true) row.segPitch = true;
+  /* ۱۲.۵: سقفِ اوج (نیم‌پرده بالای هدفِ گوینده) — فقط از بذرِ نمونه؛ هیچ قسمتی این را نمی‌گیرد. */
+  if (Number(o.f0cap) > 0) row.f0cap = Number(o.f0cap);
   if (o.tagBase) row.tagBase = String(o.tagBase);
   if (o.markHave != null || o.markMiss != null) {
     row.markHave = String(o.markHave == null ? '' : o.markHave);
@@ -79682,6 +79794,8 @@ function vbrIngest_(hub) {
       if (hit.riseEnd) it.riseEnd = hit.riseEnd;  // ۹.۶۳
       if (hit.hx) it.hxOut = hit.hx;
       if (hit.segPitch) it.segPOut = hit.segPitch;   // ۱۱.۴
+      if (hit.f0cap) it.f0capOut = hit.f0cap;        // ۱۲.۵
+      if (hit.f0Out) it.f0Out = hit.f0Out;
       out.unshared += vbrUnshare_(it);
       /* ══ سدِ پایانِ بالارونده (۹.۶۳) ══ «جمله‌های خبری را جوری تموم می‌کرد که اصلاً مناسب نبود» — اندازه‌اش (۴۳٪ گلدوز)
          در رکورد بود و هیچ تصمیمی رویش نبود. نمونه‌ای که از `VBR_RISE_MAX` بیشتر دارد به او نمی‌رسد و از نو ساخته
@@ -80039,6 +80153,14 @@ function vbrTgMeasure_(item, who) {
   if (h.khOut != null) L.push('«خ»ِ افزوده از تبدیل: ' + h.khOut + (h.khAlt != null ? (item.hx ? ' (پیش از درمان ' + h.khAlt + ')' : ' · تبدیلِ دوم ' + h.khAlt) : '') +
                               (x.ok ? ' · درمان ' + x.frames + ' قاب (' + x.pct + '٪)' : (x.why ? ' · درمان نشد: ' + x.why : '')));
   if (item.srcVoice) L.push('صدای مبدأِ جمینای: ' + item.srcVoice);
+  /* ۱۲.۵: سنجهٔ اوج — همان «ناگهان زیر» که او می‌شنود، به عدد. */
+  var fo = item.f0Out || {}, fc = item.f0capOut || null;
+  if (fo.p95Hz != null) L.push('📈 اوجِ زیروبم: میانه ' + fo.medianHz + ' هرتز · ۹۵٪ زیرِ ' + fo.p95Hz + ' هرتز · ' +
+                               (fo.highPct != null ? fo.highPct + '٪ قاب‌ها بیش از ۴ نیم‌پرده بالای میانه' : '') +
+                               (fo.overPct != null ? ' · ' + fo.overPct + '٪ بالای سقفِ ' + fo.capHz + ' هرتز' : ''));
+  if (fc) L.push(fc.why ? '🧢 سقفِ اوج نشد: ' + fc.why
+                        : '🧢 سقفِ اوج (' + fc.capSt + ' نیم‌پرده بالای ' + fc.targetHz + ' = ' + fc.capHz + ' هرتز): ' + fc.regions + ' جا، ' +
+                          fc.sec + ' ثانیه با گامِ ' + fc.pitch + ' جایگزین شد · پیش ' + fc.overBefore + '٪ ⇒ پس ' + fc.overAfter + '٪ بالای سقف');
   if (item.segPOut) L.push('🎚 زیروبمِ هر تکه (آزمایشی): ' + item.segPOut.moved + ' از ' + item.segPOut.of + ' تکه برگردانده شد — بیشترین فاصلهٔ تکه با صدای گوینده ' +
                           item.segPOut.maxDev + ' نیم‌پرده؛ تا ' + item.segPOut.tol + ' دست نخورد، بیشترش با سقفِ ' + item.segPOut.cap + ' جبران شد.');
   if (L.length) tgSend_('🔬 سنجشِ همین نمونه (' + who + ')\n' + L.join('\n'));
@@ -80837,7 +80959,7 @@ function vbrAskDue_(hub, opt) {
       if (opt.newestOnly) { if (seenShow[it.show]) continue; seenShow[it.show] = 1; }
       /* گوینده **به ازای هر قسمت** انتخاب می‌شود، نه یک بار برای همه:
          «موردی» دربارهٔ همین یک قسمت است (۷٫۴۵). */
-      var pick = vbrSpeakerPick_(rows, it.show, it.ep);
+      var pick = vbrSpeakerPick_(rows, it.show, it.ep, it.show === ENRICH_SHOW_SPECIAL ? personaSeriesOf_(it.series, it.seriesKey) : null);
       if (!pick.key) continue;
       var r = vbrAsk_(it.show, it.ep, it.folderId, pick.key, it.title);
       if (r.ok) n++;
@@ -80986,7 +81108,7 @@ function vbrSpeakerAny_(rows) {
  * «موردی» بر «دائم» می‌چربد چون دربارهٔ همین یک قسمت است و آن دیگری
  * دربارهٔ همه — و قسمتِ بعدی باز همان گویندهٔ دائم را می‌گیرد.
  */
-function vbrSpeakerPick_(rows, show, epRaw) {
+function vbrSpeakerPick_(rows, show, epRaw, seriesOpt) {
   var rs = rows || vbrSpeakerRows_();
   var e = String(epRaw == null ? '' : epRaw);
   try { if (typeof faDigits_ === 'function') e = faDigits_(e); } catch (eD) {}
@@ -81005,10 +81127,19 @@ function vbrSpeakerPick_(rows, show, epRaw) {
      ساخته شده بود با رنگِ صدای **رضوی** تبدیل می‌شد، و رنگِ گلدوز هرگز روی هیچ
      قسمتی نمی‌نشست — دو بخش، دو قاعده برای یک تصمیم. صاحبِ برنامه پیش از روشن
      کردنِ هر دو ردیف پرسید «جایی به تناقض نمی‌خوره؟» — همین‌جا می‌خورد. */
+  /* ۱۲.۵: ردیفِ همین مجموعه پیش از ردیفِ برنامه — همان ترتیبِ `personaFor_`، وگرنه رنگ و شیوهٔ خواندن از دو ردیف می‌آمد (۹.۲۸). */
+  for (var j0 = 0; j0 < rs.length; j0++) {
+    var k0 = String(rs[j0][PC.KEY - 1] || '').trim();
+    if (!k0 || !personaOn_(rs[j0][PC.ON - 1])) continue;
+    if (personaShowOk_(rs[j0][PC.SHOWS - 1], show, show, seriesOpt) !== 2) continue;
+    if (!personaTurn_(rs[j0][PC.EVERY - 1], e)) continue;
+    if (!String(rs[j0][PC.STYLE - 1] || '').trim()) continue;
+    return { key: k0, why: 'دائم (همین مجموعه)' };
+  }
   for (var j = 0; j < rs.length; j++) {
     var kj = String(rs[j][PC.KEY - 1] || '').trim();
     if (!kj || !personaOn_(rs[j][PC.ON - 1])) continue;
-    if (!personaShowOk_(rs[j][PC.SHOWS - 1], show, show)) continue;
+    if (!personaShowOk_(rs[j][PC.SHOWS - 1], show, show, seriesOpt)) continue;
     if (!personaTurn_(rs[j][PC.EVERY - 1], e)) continue;
     if (!String(rs[j][PC.STYLE - 1] || '').trim()) continue;
     return { key: kj, why: 'دائم' };
@@ -81306,7 +81437,7 @@ function vbrSoulPick_() {
     var seedNoSpans = {};
     var seedCalm = {};
     var seedVoice = {};
-    var seedHx = {}, seedSegP = {};
+    var seedHx = {}, seedSegP = {}, seedF0cap = {};
     var seedBase = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
@@ -81326,6 +81457,7 @@ function vbrSoulPick_() {
       if (se.voice) seedVoice[sk] = String(se.voice);   // ۹.۶۳: صدای مبدأِ جمینای برای همین نمونه
       if (se.hx) seedHx[sk] = true;                     // ۹.۶۳: «خ»ی که تبدیل افزود، از ورودی
       if (se.segPitch) seedSegP[sk] = true;             // ۱۱.۴: زیروبمِ هر تکه
+      if (se.f0cap) seedF0cap[sk] = Number(se.f0cap) || 3;   // ۱۲.۵: سقفِ اوجِ زیروبم، فقط نمونه
       seedBase[sk] = String(se.tagBase == null ? (se.tag || '') : se.tagBase);
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
       if (se.colour) seedColour[sk] = String(se.colour);
@@ -81382,7 +81514,7 @@ function vbrSoulPick_() {
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
                seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k], calm: !!seedCalm[k],
-               voice: seedVoice[k] || '', hx: !!seedHx[k], segPitch: !!seedSegP[k], tagBase: seedBase[k] || '' };
+               voice: seedVoice[k] || '', hx: !!seedHx[k], segPitch: !!seedSegP[k], f0cap: seedF0cap[k] || 0, tagBase: seedBase[k] || '' };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -81794,6 +81926,7 @@ function runVoiceSoulTest() {
     tagO.srcVoice = srcVoice;
     if (pick.hx) tagO.hx = true;
     if (pick.segPitch) tagO.segPitch = true;            // ۱۱.۴
+    if (pick.f0cap) tagO.f0cap = pick.f0cap;            // ۱۲.۵
     if (pick.tagBase) tagO.tagBase = pick.tagBase;
     if (pick.colour) tagO.colour = pick.colour;          // ۹.۰۵
     if (pick.ab) tagO.ab = pick.ab;                      // ۹.۱۱

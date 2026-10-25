@@ -12369,15 +12369,21 @@ function ytStatsFetch_(ids) {
   for (var i = 0; i < ids.length; i += 50) {
     var batch = ids.slice(i, i + 50);
     if (!ytQuotaTake_(YT_COST.videosList, false)) break;
-    var r = ytHttp_('https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=' +
+    /* ۱۲.۵: `status` و `contentDetails` هم — همان یک واحد؛ برای سنجشِ ادعای کپی‌رایت/مسدود (`ytClaimNote_`). */
+    var r = ytHttp_('https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet,status,contentDetails&id=' +
                     encodeURIComponent(batch.join(',')));
     if (r.code !== 200 || !r.json || !r.json.items) continue;
     for (var j = 0; j < r.json.items.length; j++) {
       var it = r.json.items[j], st = it.statistics || {}, sn = it.snippet || {};
+      var stt = it.status || {}, rr = (it.contentDetails || {}).regionRestriction || null;
       out[String(it.id)] = {
         views: Number(st.viewCount || 0), likes: Number(st.likeCount || 0),
         comments: Number(st.commentCount || 0),
-        title: String(sn.title || ''), at: String(sn.publishedAt || '')
+        title: String(sn.title || ''), at: String(sn.publishedAt || ''),
+        upload: String(stt.uploadStatus || ''), reject: String(stt.rejectionReason || ''),
+        privacy: String(stt.privacyStatus || ''),
+        blocked: rr && rr.blocked ? rr.blocked.length : 0,
+        allowed: rr && rr.allowed ? rr.allowed.length : -1
       };
     }
   }
@@ -12527,8 +12533,44 @@ function ytStatsRun_(budgetMs) {
     } catch (eC2) { out.why += (out.why ? ' · ' : '') + 'ثبتِ کامنت نشد'; }
   }
 
+  try { ytClaimNote_(rows, stats); } catch (eCl) {}
   try { props_().setProperty(PK.YT_STATS, nowStr_()); } catch (eP) {}
   return out;
+}
+
+/* ══ ادعای کپی‌رایت و «مسدود» (۱۲.۵) — فقط سنجش ══
+ * «قسمتِ ۸۲ ادعای کپی‌رایت خورده و برای همه مسدود است … آیا موتور این را می‌خوانَد؟» — تا ۱۲.۴ نه. جزئیاتِ ادعا (چه کسی، کدام
+ * ثانیه) فقط در Content ID API است که مالِ شرکای یوتیوب است؛ Data API فقط `status.rejectionReason`، `uploadStatus` و
+ * `contentDetails.regionRestriction` (کشورهای بسته/باز) را می‌دهد. همین‌ها ثبت می‌شوند، هیچ تصمیمی رویشان نیست، و خطِ روزانه
+ * صریح می‌گوید این عدد از کدام فیلد است — تا اگر «مسدود»ِ Studio در آن پیدا نشد، معلوم باشد که از این راه دیدنی نیست. */
+function ytClaimNote_(rows, stats) {
+  var m = {};
+  try { m = JSON.parse(props_().getProperty(PK.YT_CLAIMS) || '{}') || {}; } catch (e) { m = {}; }
+  var seen = 0;
+  (rows || []).forEach(function (r) {
+    var s = stats[r.id];
+    if (!s) return;
+    seen++;
+    var bad = s.reject || (s.upload && s.upload !== 'processed') || s.blocked > 0 || s.allowed >= 0;
+    if (bad) m[r.id] = { k: r.key, t: String(s.title || '').slice(0, 60), rj: s.reject, up: s.upload, bl: s.blocked, al: s.allowed, at: nowStr_() };
+    else delete m[r.id];
+  });
+  m.__seen = { n: seen, at: nowStr_() };
+  try { props_().setProperty(PK.YT_CLAIMS, JSON.stringify(m).slice(0, 8500)); } catch (e2) {}
+  return m;
+}
+function ytClaimLine_() {
+  var m = {};
+  try { m = JSON.parse(props_().getProperty(PK.YT_CLAIMS) || '{}') || {}; } catch (e) { m = {}; }
+  var sn = m.__seen;
+  if (!sn) return '';
+  var L = Object.keys(m).filter(function (k) { return k !== '__seen'; }).map(function (k) {
+    var x = m[k];
+    return String(x.k || k) + ' («' + x.t + '»: ' + [x.rj ? 'ردشده: ' + x.rj : '', x.up && x.up !== 'processed' ? 'بارگذاری: ' + x.up : '',
+      x.bl ? 'بسته در ' + x.bl + ' کشور' : '', x.al >= 0 ? 'فقط در ' + x.al + ' کشور باز' : ''].filter(Boolean).join('، ') + ')';
+  });
+  return '⚖️ محدودیت‌های یوتیوب (از rejectionReason/uploadStatus/regionRestriction، ' + sn.n + ' ویدئوی تازه): ' +
+         (L.length ? L.join(' · ') : 'هیچ‌کدام') + '. ادعای Content ID از این راه دیده نمی‌شود مگر محدودیتش در همین فیلدها بنشیند.';
 }
 
 /**
@@ -14557,6 +14599,7 @@ function ytPlDescSync_(budgetMs) {
          می‌گویند، نه نامِ تخته را. یک واحد در شب برای هر پلی‌لیست؛ نشد ⇒ نامِ تخته. */
       var lvT = ytPlLive_(yt, map[key].id), dn = nm;
       if (lvT && lvT.title) dn = String(lvT.title).replace(/\s*[—–-]\s*(درس‌نامه|درسنامه)\s*$/, '').trim() || nm;
+      if (lvT && lvT.title) map[key].liveTitle = String(lvT.title).slice(0, 150);   // ۱۲.۵: «درس‌نامه: <نامِ Studio>» در تبِ «صداها»
       var intro = String(reg.rows[r].vals[SC.PLINTRO - 1] || '').trim();
       var d = ytPlDescText_(dn, ytSeriesLessons_(DriveApp.getFolderById(fid)), pub, today, intro);
       if (!d.n) continue;

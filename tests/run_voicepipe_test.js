@@ -1552,7 +1552,7 @@ console.log('\n=== ۲۱) گامِ خودکار و زیروبمِ خروجی (۸.
   /* `--probe` بی numpy می‌دود (۷٫۷۸) — import در سطحِ پرونده آن را می‌شکند. */
   ok('۲۱.۴ numpy در سطحِ پرونده import نمی‌شود', !/^import numpy|^from numpy/m.test(src));
   ok('۲۱.۵ خروجی هم سنجیده و در نقشه ثبت می‌شود',
-     /stOut = f0Stats\(best\)/.test(src) && /rec\["f0Warn"\]/.test(src) && /rec\["f0Out"\]/.test(src));
+     /stOut = f0Stats\(best[,)]/.test(src) && /rec\["f0Warn"\]/.test(src) && /rec\["f0Out"\]/.test(src));
 
   /* ۱۴ اکتبر: A/Bِ گلدوز با «۰،۲،۴» رفت — گامِ مبدأِ ۱۲۹ هرتزیِ نمونهٔ ساعت‌ساز، روی مبدأیی
      ۱۹۸ هرتزی، برای گوینده‌ای ۱۵۱ هرتزی. گامِ درست ‎−۴ بود؛ هر دو مدل زنانه شنیده شدند.

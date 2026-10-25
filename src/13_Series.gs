@@ -1963,7 +1963,14 @@ function seriesQueuePlan_(hub, regOpt, partsOpt) {
   });
   var at = function (r) { var t = parseWhen_(String(r.vals[SC.LAST_EP_AT - 1] || '')); return isNaN(t) ? 0 : t; };
   act.sort(function (a, b) { return at(b) - at(a); });
-  que.sort(function (a, b) { return seriesEffOrder_(a.vals) - seriesEffOrder_(b.vals) || a.row - b.row; });
+  /* ۱۲.۵: همان گره‌گشاییِ `pickSeriesPlan_` — شمارهٔ برابر (مثلاً آئودی ۲ و خداشناسی ۲) ⇒ مقدماتی‌تر، بعد امتیازِ آموزشیِ بالاتر،
+     بعد ردیف. پیش‌بینی‌ای که گره را جورِ دیگری باز کند، ترتیبی می‌گوید که موتور نمی‌سازد. */
+  var lvR = { 'مقدماتی': 0, 'میانی': 1, 'پیشرفته': 2 };
+  var lvO = function (r) { var k = String(r.vals[SC.LEVEL - 1] || '').trim(); return Object.prototype.hasOwnProperty.call(lvR, k) ? lvR[k] : 1; };
+  que.sort(function (a, b) {
+    return seriesEffOrder_(a.vals) - seriesEffOrder_(b.vals) || lvO(a) - lvO(b) ||
+           (Number(b.vals[SC.CSCORE - 1]) || 0) - (Number(a.vals[SC.CSCORE - 1]) || 0) || a.row - b.row;
+  });
   var order = act.concat(reo, que), out = { rows: [], days: 0, held: held, medPer: Math.round(medPer * 10) / 10 }, day = 0;
   order.forEach(function (r) {
     var c = rowsOf(r);

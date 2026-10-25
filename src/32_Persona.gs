@@ -140,7 +140,7 @@ function personaOn_(v) {
  * نیم‌فاصله) انجام می‌شود، وگرنه یک نیم‌فاصله ردیف را بی‌صدا از کار
  * می‌اندازد.
  */
-function personaShowOk_(cell, show, key) {
+function personaShowOk_(cell, show, key, seriesOpt) {
   var t = String(cell == null ? '' : cell).trim();
   if (!t || t === 'همه' || t === '*') return true;
   var norm = function (s) {
@@ -166,13 +166,49 @@ function personaShowOk_(cell, show, key) {
       if (norm(L[s].key) === norm(show)) want.push(norm(L[s].name));
     }
   } catch (eK) {}
-  var parts = t.split(/[،,]/);
+  /* ══ مجموعه هم (۱۲.۵) ══ «درس‌نامه: آئودی» یعنی فقط مجموعه‌ای از درس‌نامه که نامش (یا نامِ پلی‌لیستش) «آئودی» دارد.
+     ⇒ 2 برای خوردنِ مجموعه، true برای خوردنِ برنامه، false. نشانهٔ بی «:» درست همان معنای پیشین را دارد — ردیف‌های موجود
+     دست نمی‌خورند. صدازننده‌ای که مجموعه را نمی‌داند (`seriesOpt` ندارد) هیچ نشانهٔ مجموعه‌ای را نمی‌خورد. */
+  var parts = t.split(/[،,]/), hit = false;
   for (var i = 0; i < parts.length; i++) {
-    var p = norm(parts[i]);
+    var raw = String(parts[i] || '');
+    var m = raw.split(/[:：]/);
+    if (m.length >= 2) {
+      if (want.indexOf(norm(m[0])) === -1) continue;
+      if (personaSeriesHit_(m.slice(1).join(':'), seriesOpt)) return 2;
+      continue;
+    }
+    var p = norm(raw);
     if (!p) continue;
-    if (want.indexOf(p) !== -1) return true;
+    if (want.indexOf(p) !== -1) hit = true;
   }
+  return hit;
+}
+
+/** «آئودی» در نامِ مجموعه، کلیدش یا نامِ پلی‌لیستش؟ — بی فاصله و نیم‌فاصله، ی/ک یکسان، حروفِ کوچک. */
+function personaSeriesHit_(want, s) {
+  if (!s) return false;
+  var n = function (x) {
+    var t = String(x == null ? '' : x);
+    try { if (typeof faDigits_ === 'function') t = faDigits_(t); } catch (e) {}
+    return t.replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/[\s‌‏‎]+/g, '').toLowerCase();
+  };
+  var w = n(want);
+  if (!w) return false;
+  var c = [s.name, s.key].concat(s.alt || []);
+  for (var i = 0; i < c.length; i++) { var v = n(c[i]); if (v && v.indexOf(w) !== -1) return true; }
   return false;
+}
+
+/** مجموعهٔ یک قسمتِ درس‌نامه برای انتخابِ صدا — نام، کلید، و نامِ زندهٔ پلی‌لیست اگر ثبت شده. ⇒ {name,key,alt} یا null */
+function personaSeriesOf_(name, key) {
+  if (!name && !key) return null;
+  var alt = [];
+  try {
+    var rec = ytPlMap_()[ytPlKey_(ENRICH_SHOW_SPECIAL, String(key || ''), String(name || ''))];
+    if (rec && rec.liveTitle) alt.push(String(rec.liveTitle));
+  } catch (e) {}
+  return { name: String(name || ''), key: String(key || ''), alt: alt };
 }
 
 /**
@@ -584,7 +620,7 @@ function personaModePick_(modes, tone) {
  * نبودِ تصمیم برای امروز یعنی این کد اصلاً اجرا نشده، که خبرِ دیگری
  * است — و بدتر.
  */
-function personaFor_(show, epNum) {
+function personaFor_(show, epNum, seriesOpt) {
   if (CFG.PERSONA_ENABLED === false) return null;
   var sh, rows;
   try {
@@ -606,11 +642,18 @@ function personaFor_(show, epNum) {
      جز همان «دوره‌ای» نبود: برای یک قسمت مجبور بودی ردیف را روشن کنی،
      که یعنی دائمی‌اش کنی. دقیقاً کاری که نمی‌خواست. */
   var pass, i, v, key, name, rowNo, cue;
-  for (pass = 0; pass < 2 && !picked; pass++) {
+  /* ۱۲.۵: سه پیمایش — موردی، ردیفِ **همین مجموعه** («درس‌نامه: آئودی»)، و ردیفِ برنامه. بی هیچ نشانهٔ مجموعه‌ای در جدول،
+     پیمایشِ دوم هیچ ردیفی نمی‌گیرد و سومی عیناً همان پیمایشِ دائمِ پیشین است. */
+  var pickedPass = -1;
+  for (pass = 0; pass < 3; pass++) {
+    /* پس از انتخاب در پیمایشِ «مجموعه»، پیمایشِ سوم فقط برای نوشتنِ «آخرین تصمیم»ِ بقیهٔ ردیف‌ها می‌رود — همان که پیش‌تر هر
+       قسمت برای همه نوشته می‌شد. */
+    if (picked && !(pass === 2 && pickedPass === 1)) break;
     for (i = 0; i < rows.length; i++) {
       v = rows[i];
       key = String(v[PC.KEY - 1] || '').trim();
       if (!key) continue;
+      if (picked && pass === 2 && key === picked.key) continue;
       name = String(v[PC.NAME - 1] || '').trim() || key;
       rowNo = i + 2;                         // ردیفِ ۱ سرصفحه است
       var once = false;
@@ -620,10 +663,14 @@ function personaFor_(show, epNum) {
 
       if (pass === 0) {
         if (!once) continue;                 // پیمایشِ موردی: فقط نام‌بردگان
+      } else if (pass === 1) {
+        if (once || !personaOn_(v[PC.ON - 1])) continue;
+        if (personaShowOk_(v[PC.SHOWS - 1], show, show, seriesOpt) !== 2) continue;
+        if (!personaTurn_(v[PC.EVERY - 1], epNum)) continue;
       } else {
         if (once) continue;                  // در پیمایشِ اول دیده شد
         if (!personaOn_(v[PC.ON - 1])) { notes.push([rowNo, 'خاموش']); continue; }
-        if (!personaShowOk_(v[PC.SHOWS - 1], show, show)) {
+        if (!personaShowOk_(v[PC.SHOWS - 1], show, show, seriesOpt)) {
           notes.push([rowNo, 'برای این برنامه نیست']); continue;
         }
         if (!personaTurn_(v[PC.EVERY - 1], epNum)) {
@@ -634,6 +681,7 @@ function personaFor_(show, epNum) {
       }
 
       cue = String(v[PC.STYLE - 1] || '').trim();
+      if (!cue && pass === 1) continue;      // در پیمایشِ سوم نام برده می‌شود
       if (!cue) {
         /* ردیفی که بی‌صدا کنار گذاشته شود، کسی را منتظرِ چیزی می‌گذارد
            که نمی‌آید — و در حالتِ موردی بدتر، چون او **این** قسمت را
@@ -647,7 +695,8 @@ function personaFor_(show, epNum) {
         picked = { key: key, name: name, cue: cue, once: once,
                    modes: personaModes_(v[PC.MODES - 1]) };
         pickedRow = rowNo;
-        pickedWhy = once ? 'انتخاب شد (موردی)' : 'انتخاب شد';
+        pickedPass = pass;
+        pickedWhy = once ? 'انتخاب شد (موردی)' : (pass === 1 ? 'انتخاب شد (همین مجموعه)' : 'انتخاب شد');
       } else {
         notes.push([rowNo, once
           ? 'صدای دیگری زودتر برای همین قسمت انتخاب شد'
@@ -1031,7 +1080,7 @@ function personaEnsure_(ep, show, epNum) {
   if (typeof ep.__persona !== 'undefined') return ep.__persona;
   var p = null;
   try {
-    p = personaFor_(show, epNum);
+    p = personaFor_(show, epNum, show === ENRICH_SHOW_SPECIAL ? personaSeriesOf_(ep.__seriesName, ep.__seriesKey) : null);
   } catch (e) {
     logLine_('انتخابِ صدای مهمان انجام نشد: ' + e.message);
     p = null;

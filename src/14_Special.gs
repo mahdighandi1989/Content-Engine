@@ -1572,6 +1572,7 @@ function produceSpecialEpisode(opt) {
       'قسمت ' + ('000' + epNum).slice(-3) + ' — ' +
       Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyyMMdd') + ' — ' +
       String(ep.title || '').slice(0, 60));
+    ep.__seriesKey = seriesKey; ep.__seriesName = seriesName;   // ۱۲.۵: صدای «درس‌نامه: <مجموعه>» در تبِ «صداها»
     try { ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, seriesCatTrusted_(rec.vals)); }   // ۱۱.۷: فقط دستهٔ دستی
     catch (eCast) { logLine_('نقش‌گزینیِ درس‌نامه انجام نشد: ' + eCast.message); }
 
@@ -2572,6 +2573,7 @@ function renderSpecialAudioStep_() {
     if (!st.phase || st.phase === 'audio') {
       /* ساختِ تکه‌ها پیش از پاک‌سازی — چون رانشِ شمارِ تکه‌ها خودش ممکن است
          پاک‌سازی را لازم کند. داستانش کنارِ chunkDriftReset_ آمده. */
+      if (ep && meta && !ep.__seriesName && !ep.__seriesKey) { ep.__seriesName = String(meta.seriesName || ''); ep.__seriesKey = String(meta.seriesKey || ''); }
       var chunks = buildSpecialChunks_(ep, epNum, meta.cat || meta.seriesCat || '');
       chunkDriftReset_(st, chunks, 'درس‌نامه ' + epNum);
       // قرینهٔ همان خط در بخشِ ۳ — دو قرینه که یکی‌شان وصل نباشد، همان

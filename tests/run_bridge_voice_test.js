@@ -345,7 +345,7 @@ console.log('\n══ ۱۱-ث) تا تأییدِ نمونه، قسمتِ تاز�
   /* ۹.۶۷: نمونه‌های درسِ ۷۴ ساخته و شنیده شدند و «در همهٔ ساحت‌ها افتضاح» بودند — بذرِ خودکارِ تازه‌ای نمی‌ماند و ساختِ
      دوبارهٔ خودکار صفر است، تا راهِ بعد با او تصمیم گرفته شود. */
   ok('۱۱-ث.۳ (۹.۶۸) بذرِ درسِ ۷۴ برای هر دو گوینده با «گامِ دقیق»، یکتا؛ ساختِ دوبارهٔ خودکار صفر',
-     Array.from(new Set(sd.map(x => x.speaker))).sort().join() === 'razavi,spk-1g0r95d' && sd.every(x => /گامِ دقیق/.test(x.tag)) &&
+     Array.from(new Set(sd.map(x => x.speaker))).sort().join() === 'razavi,spk-1g0r95d' && sd.every(x => /گامِ دقیق|آزمایشِ زیروبم/.test(x.tag)) /* ۱۲.۵: دو نمونهٔ آزمایشِ زیروبم */ &&
      new Set(sd.map(x => x.speaker + '|' + x.tag)).size === sd.length && Number(CFG.VBR_RISE_RETRY) === 0, sd.map(x => x.tag).join(' | '));
 }
 

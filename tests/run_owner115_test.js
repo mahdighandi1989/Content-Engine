@@ -654,4 +654,74 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
      /SC\.PLINTRO - 1/.test(y));
 }
 
+/* ── ۱۸) ۱۲.۵: صدا برای هر مجموعه — ردیف‌های موجود دقیقاً همان؛ ادعای کپی‌رایت فقط سنجش؛ سقفِ اوج فقط نمونه ── */
+{
+  const row = (key, name, shows, style) => { const v = new Array(PERSONA_HEADERS.length).fill(''); v[PC.KEY - 1] = key; v[PC.NAME - 1] = name; v[PC.ON - 1] = 'بله'; v[PC.SHOWS - 1] = shows; v[PC.STYLE - 1] = style || 'سبک'; return v; };
+  const kT = global.personaTab_, kR = global.personaRows_;
+  const fakeSh = { getRange: () => ({ setValue: () => {} }) };
+  global.personaTab_ = () => fakeSh;
+  let rows = [row('razavi', 'رضوی', 'درس‌نامه'), row('spk-g', 'گلدوز', 'از همه جا از همه رنگ')];
+  global.personaRows_ = () => rows;
+  const audi = { name: 'Audi (2011) Epistemology', key: 'audi 2011', alt: ['معرفت‌شناسیِ معاصر، با رابرت آئودی — درس‌نامه'] };
+  try {
+    const a1 = personaFor_('special', 80, audi), a2 = personaFor_('variety', 84, null), a3 = personaFor_('special', 81, null);
+    ok('۱۸.۱ ردیف‌های امروز دقیقاً همان: رضوی برای درس‌نامه (با و بی مجموعه)، گلدوز برای «از همه جا»', a1.key === 'razavi' && a3.key === 'razavi' && a2.key === 'spk-g', [a1.key, a3.key, a2.key].join());
+    const b1 = vbrSpeakerPick_(rows, 'special', '80', audi), b2 = vbrSpeakerPick_(rows, 'variety', '84', null);
+    ok('۱۸.۲ پلِ رنگ هم همان: رضوی/گلدوز', b1.key === 'razavi' && b2.key === 'spk-g', b1.key + ' ' + b2.key);
+    rows = rows.concat([row('spk-new', 'تازه', 'درس‌نامه: آئودی')]);
+    const c1 = personaFor_('special', 80, audi), c2 = personaFor_('special', 82, { name: 'معرفت شناسی مجتبی مصباح', key: 'mesbah', alt: [] });
+    ok('۱۸.۳ «درس‌نامه: آئودی» برای مجموعهٔ آئودی برنده است (با نامِ Studio)، حتی پایینِ رضوی؛ مصباح همان رضوی', c1.key === 'spk-new' && c2.key === 'razavi', c1.key + ' ' + c2.key);
+    ok('۱۸.۴ بی شناختِ مجموعه، ردیفِ مجموعه هیچ قسمتی نمی‌گیرد', personaFor_('special', 80, null).key === 'razavi' && personaFor_('variety', 80, audi).key === 'spk-g');
+    const d1 = vbrSpeakerPick_(rows, 'special', '80', audi);
+    ok('۱۸.۵ پلِ رنگ هم همان ردیفِ مجموعه را می‌گیرد', d1.key === 'spk-new' && /همین مجموعه/.test(d1.why), JSON.stringify(d1));
+    ok('۱۸.۶ نشانهٔ مجموعه با «برنامه»ٔ دیگر نمی‌خورد؛ «همه» و خالی همان', personaShowOk_('از همه جا: آئودی', 'special', 'special', audi) === false &&
+       personaShowOk_('همه', 'special', 'special') === true && personaShowOk_('', 'variety', 'variety') === true && personaShowOk_('درس‌نامه', 'special', 'special') === true &&
+       personaShowOk_('درس‌نامه: Audi', 'special', 'special', audi) === 2);
+  } finally { global.personaTab_ = kT; global.personaRows_ = kR; }
+  const s14 = fs.readFileSync('src/14_Special.gs', 'utf8'), s32 = fs.readFileSync('src/32_Persona.gs', 'utf8');
+  ok('۱۸.۷ سیم‌ها: قسمتِ درس‌نامه مجموعه‌اش را با خود دارد و انتخابِ صدا آن را می‌خوانَد',
+     /ep\.__seriesKey = seriesKey; ep\.__seriesName = seriesName;/.test(s14) && /personaSeriesOf_\(ep\.__seriesName, ep\.__seriesKey\)/.test(s32));
+
+  /* کپی‌رایت: فقط ثبت */
+  delete global.__PROPS[PK.YT_CLAIMS];
+  const st = { v82: { title: 'طلاق به خاطر خروپف', reject: '', upload: 'processed', blocked: 0, allowed: 0 },
+               v83: { title: 'سالم', reject: '', upload: 'processed', blocked: 0, allowed: -1 },
+               v84: { title: 'رد', reject: 'claim', upload: 'rejected', blocked: 0, allowed: -1 } };
+  ytClaimNote_([{ key: 'variety:82', id: 'v82' }, { key: 'variety:83', id: 'v83' }, { key: 'special:84', id: 'v84' }], st);
+  const cl = ytClaimLine_();
+  ok('۱۸.۸ محدودیت‌ها ثبت و در خطِ روزانه گفته می‌شوند؛ سالم نه؛ و صریح که Content ID از این راه دیدنی نیست', /variety:82/.test(cl) && /فقط در 0 کشور باز/.test(cl) &&
+     /special:84/.test(cl) && /ردشده: claim/.test(cl) && !/variety:83/.test(cl) && /Content ID/.test(cl), cl);
+  ytClaimNote_([{ key: 'variety:82', id: 'v82' }], { v82: { title: 'x', reject: '', upload: 'processed', blocked: 0, allowed: -1 } });
+  ok('۱۸.۹ رفع‌شده از فهرست می‌رود', !/variety:82/.test(ytClaimLine_()));
+  delete global.__PROPS[PK.YT_CLAIMS];
+  const y27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۱۸.۱۰ همان یک فراخوانِ آمار (هزینهٔ یکسان)، با status و contentDetails؛ وصل به ایمیل', /part=statistics,snippet,status,contentDetails&id=/.test(y27) &&
+     /ytClaimNote_\(rows, stats\)/.test(y27) && /ytClaimLine_\(\)/.test(fs.readFileSync('src/08_Health.gs', 'utf8')));
+
+  /* سقفِ اوج: فقط بذرِ نمونه؛ هیچ قسمتی نمی‌گیرد */
+  const seeds = (CFG.VOICE_SOUL_SEED || []).filter((x) => x.f0cap);
+  ok('۱۸.۱۱ دو نمونهٔ آزمایشی (Puck و Charon) با سقفِ اوج، روی درسِ ۷۴ِ گلدوز', seeds.length === 2 && seeds.every((x) => x.speaker === 'spk-1g0r95d' && String(x.ep) === '74') &&
+     seeds.some((x) => x.voice === 'Puck') && seeds.some((x) => !x.voice));
+  const s36 = fs.readFileSync('src/36_VoiceBridge.gs', 'utf8');
+  ok('۱۸.۱۲ f0cap فقط از بذر به ردیف می‌رسد (نه از تنظیمِ سراسری) و VBR_EP_HOLD دست نخورده', /if \(Number\(o\.f0cap\) > 0\) row\.f0cap = Number\(o\.f0cap\);/.test(s36) &&
+     /if \(pick\.f0cap\) tagO\.f0cap = pick\.f0cap;/.test(s36) && CFG.VBR_EP_HOLD === true && CFG.VBR_SEG_PITCH === false);
+  const py = require('child_process').execFileSync('python3', ['-c',
+    'import sys,json;sys.path.insert(0,"tools");import voicebridge as v\n' +
+    'tr=[(i*0.02, 260.0 if 75<=i<100 else 150.0) for i in range(200)]\n' +
+    'print(json.dumps([v.capRegions(tr,150*2**(3/12.0)), v.capRegions(tr,150*2**(3/12.0),spans=[(0,1.0)]), v.capRegions(tr,300)]))']).toString();
+  const R = JSON.parse(py);
+  ok('۱۸.۱۳ رانر: جای اوج پیدا می‌شود؛ بیرون از گفتار نه؛ بی اوج هیچ', R[0].length === 1 && R[0][0][0] < 1.5 && R[0][0][1] > 1.98 && R[1].length === 0 && R[2].length === 0, py);
+}
+
+/* ── ۱۹) ۱۲.۵: پیش‌بینیِ صف گره را همان‌طور باز می‌کند که موتور ── */
+{
+  const mk = (key, mo, lvl, sc, row) => { const v = new Array(SERIES_HEADERS.length).fill(''); v[SC.KEY - 1] = key; v[SC.NAME - 1] = key; v[SC.STATUS - 1] = SST.NEW;
+    v[SC.MORDER - 1] = mo; v[SC.LEVEL - 1] = lvl; v[SC.CSCORE - 1] = sc; v[SC.MANUAL - 1] = SMAN.YES; return { key, row, vals: v }; };
+  const reg = { rows: [mk('X', 2, 'پیشرفته', 90, 2), mk('Y', 2, 'مقدماتی', 10, 3), mk('Z', 2, 'مقدماتی', 50, 4)] };
+  const prt = () => { const v = new Array(20).fill(''); v[SP.CHUNKS - 1] = 6; v[SP.DONE_TO - 1] = 0; return { vals: v }; };
+  const keep = CFG.SERIES_AUTO_CAT_TRUST; CFG.SERIES_AUTO_CAT_TRUST = false;
+  let q; try { q = seriesQueuePlan_({}, reg, { byKey: { X: [prt()], Y: [prt()], Z: [prt()] } }); } finally { CFG.SERIES_AUTO_CAT_TRUST = keep; }
+  ok('۱۹.۱ شمارهٔ برابر ⇒ مقدماتی‌تر، بعد امتیازِ بالاتر (همان pickSeriesPlan_)', q.rows.map((x) => x.key).join() === 'Z,Y,X', q.rows.map((x) => x.key).join());
+}
+
 summary('owner115');

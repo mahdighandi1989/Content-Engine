@@ -336,7 +336,7 @@ def splitWav(path, cap):
     return out
 
 
-def f0Stats(path, maxFrames=3000):
+def f0Stats(path, maxFrames=3000, capHz=None):
     """زیروبمِ میانه و سهمِ قاب‌های زیرِ ۷۰ هرتز (۸٫۲۴).
 
     numpy و wave، نه کتابخانهٔ دیگر — و import همین‌جا، چون `--probe` باید
@@ -383,9 +383,17 @@ def f0Stats(path, maxFrames=3000):
     if len(F) < 20:
         return None
     F = np.array(F)
-    return {"medianHz": round(float(np.median(F)), 1),
-            "lowPct": int(round(100.0 * float((F < 70).mean()))),
-            "frames": int(len(F))}
+    med = float(np.median(F))
+    out = {"medianHz": round(med, 1),
+           "lowPct": int(round(100.0 * float((F < 70).mean()))),
+           "frames": int(len(F)),
+           # ۱۲.۵: سنجهٔ اوج — «گاهی ناگهان زیر و زنانه می‌شود». میانه آن را نمی‌بیند؛ این دو عدد می‌بینند.
+           "p95Hz": round(float(np.percentile(F, 95)), 1),
+           "highPct": round(100.0 * float((F > med * 2 ** (4 / 12.0)).mean()), 1)}
+    if capHz:
+        out["capHz"] = round(float(capHz), 1)
+        out["overPct"] = round(100.0 * float((F > float(capHz)).mean()), 1)
+    return out
 
 
 # ══ بلندیِ خروجی (۸.۳۷) ══
@@ -927,6 +935,86 @@ def f0Frames(x, sr, maxFrames=600):
         if c[k] / c[0] > 0.3:
             F.append(sr / k)
     return F
+
+
+def f0Track(x, sr, hop=0.02, win=0.06):
+    """⇒ [(ثانیه، هرتز یا ۰)] برای همهٔ قاب‌ها — همان روشِ `f0Frames`، بی سقفِ شمار، با زمان (۱۲.۵)."""
+    import numpy as np
+    d = max(1, int(sr // 8000))
+    x = x[:len(x) // d * d].reshape(-1, d).mean(1)
+    sr2 = float(sr) / d
+    w, h = int(sr2 * win), int(sr2 * hop)
+    lo, hi = int(sr2 / 300), int(sr2 / 40)
+    out = []
+    for s0 in range(0, max(0, len(x) - w), h):
+        fr = x[s0:s0 + w]
+        fr = fr - fr.mean()
+        hz = 0.0
+        if float((fr ** 2).mean()) >= 4e-4:
+            c = np.correlate(fr, fr, "full")[w - 1:]
+            if hi < len(c) and c[0] > 0:
+                k = lo + int(np.argmax(c[lo:hi]))
+                if c[k] / c[0] > 0.3:
+                    hz = sr2 / k
+        out.append(((s0 + w / 2.0) / sr2, hz))
+    return out
+
+
+# ══ سقفِ اوجِ زیروبم (۱۲.۵، فقط با `f0cap` روی ردیف — یعنی فقط نمونه) ══
+# Charon ~۱۲۵ هرتز است و گلدوز ۱۵۸؛ کلِ صدا چند نیم‌پرده بالا می‌رود و هر اوجِ جمینای با آن به محدودهٔ صدای زن می‌رسد. جاهایی
+# که زیروبمِ خروجی بیش از `f0cap` نیم‌پرده بالای هدفِ گوینده است، از تبدیلِ دومی با گامِ پایین‌تر برداشته می‌شوند — با هم‌ترازی
+# و محوِ کوتاه در دو لبه. RVC از بیرون دستی به منحنیِ زیروبمش نمی‌دهد؛ این راهِ ساختنی همان است که `segPitch` رفت: تبدیلِ دیگر،
+# و برداشتنِ تکه‌ها — این بار در اندازهٔ چند صد میلی‌ثانیه، نه کلِ جمله.
+def capRegions(track, capHz, minLen=0.08, gap=0.12, pad=0.05, spans=None):
+    """⇒ [(a,b)] جاهایی که زیروبم از `capHz` بالاتر است؛ فقط درونِ `spans` (گفتار) اگر داده شود."""
+    regs = []
+    for t, hz in track:
+        if hz > capHz:
+            if regs and t - regs[-1][1] <= gap:
+                regs[-1][1] = t
+            else:
+                regs.append([t, t])
+    out = []
+    for a, b in regs:
+        a, b = max(0.0, a - pad), b + pad
+        if b - a < minLen:
+            continue
+        if spans:
+            ins = [(max(a, sa), min(b, sb)) for sa, sb in spans if min(b, sb) - max(a, sa) > 0]
+            if not ins:
+                continue
+            a, b = min(x[0] for x in ins), max(x[1] for x in ins)
+        out.append((round(a, 3), round(b, 3)))
+    return out
+
+
+def capSplice(bestPath, altPath, regions, dst, fade=0.02):
+    """تکه‌های `regions` از `altPath` (هم‌تراز با `bestPath`) جای همان تکه‌ها می‌نشینند. ⇒ {"sec","lagSec","corr"}"""
+    import numpy as np
+    x, sr = readMono(bestPath)
+    q = "vb/capalt.wav"
+    subprocess.check_call(["ffmpeg", "-y", "-loglevel", "error", "-i", altPath, "-ac", "1", "-ar", str(sr), q])
+    v = readMono(q)[0]
+    dur = len(x) / float(sr)
+    L, c = alignLag(x, v, sr, [(0.0, dur)])
+    y = x.copy()
+    nf = max(1, int(fade * sr))
+    ramp = np.linspace(0.0, 1.0, nf, dtype=np.float32)
+    sec = 0.0
+    for a, b in regions:
+        i0, i1 = int(a * sr), min(int(b * sr), len(x))
+        if i0 + L < 0 or i1 + L > len(v) or i1 - i0 < 3 * nf:
+            continue
+        seg, ref = v[i0 + L:i1 + L].copy(), x[i0:i1]
+        rs, ro = float(np.sqrt((ref ** 2).mean())), float(np.sqrt((seg ** 2).mean()))
+        if ro > 1e-5 and rs > 1e-5:
+            seg *= min(4.0, rs / ro)
+        seg[:nf] = ref[:nf] * (1 - ramp) + seg[:nf] * ramp
+        seg[-nf:] = seg[-nf:] * (1 - ramp) + ref[-nf:] * ramp
+        y[i0:i1] = seg
+        sec += (i1 - i0) / float(sr)
+    writeMono(dst, y, sr)
+    return {"sec": round(sec, 1), "lagSec": round(L / float(sr), 3), "corr": round(c, 2)}
 
 
 VOICE_SPLIT = 1.25       # نسبتِ زیروبمِ دو گروه که از آن به بعد «دو صدا»ست، نه نوسانِ یک صدا
@@ -1622,6 +1710,52 @@ def runOne(it, mp):
             # تبدیلِ دوم یا چیدن نشد ⇒ ردیف بسته نمی‌شود: خروجیِ «موسیقیِ گلدوزی» همان چیزی است که این نسخه برای بستنش آمد.
             say("::error title=چیدنِ گفتار و موسیقی نشد::%s — ردیف بسته نمی‌شود." % str(e)[:200])
             return 1
+    # ══ سقفِ اوج (۱۲.۵) ══ فقط وقتی ردیف خواسته — نمونه؛ شکستش ردیف را نمی‌اندازد و علتش ثبت می‌شود.
+    f0capRes = None
+    if it.get("f0cap"):
+        try:
+            import math
+            import numpy as np
+            capSt = float(it.get("f0cap") or 3)
+            tHz = float((pitchAuto or {}).get("targetHz") or 0)
+            if not tHz:
+                raise RuntimeError("هدفِ زیروبمِ گوینده معلوم نیست")
+            capHz = tHz * 2 ** (capSt / 12.0)
+            xb, srb = readMono(best)
+            tr = f0Track(xb, srb)
+            spans = [sp for i, sp in enumerate(vg["speech"]) if vg["assign"][i] == 0] if vg else None
+            regs = capRegions(tr, capHz, spans=spans)
+            voiced = [h for _t, h in tr if h > 0]
+            before = round(100.0 * sum(1 for h in voiced if h > capHz) / max(1, len(voiced)), 1)
+            if not regs:
+                f0capRes = {"capSt": capSt, "targetHz": round(tHz, 1), "capHz": round(capHz, 1), "regions": 0, "sec": 0,
+                            "pitch": "—", "overBefore": before, "overAfter": before}
+            else:
+                over = [h for _t, h in tr if h > capHz]
+                k = int(min(5, max(2, math.ceil(12 * math.log2(float(np.median(over)) / capHz)) + 1)))
+                base = int((vg["groups"][0]["pitch"]) if vg else int(pitch))
+                a5 = list(args)
+                a5[a5.index("--out") + 1] = "vblab-cap"
+                a5[a5.index("--rvc-pitch") + 1] = str(base - k)
+                subprocess.check_call(a5)
+                o5 = []
+                for root, _dirs, files in os.walk("vblab-cap"):
+                    o5 += [os.path.join(root, f) for f in files if f.startswith("rvc-") and f.endswith(".wav")]
+                if not o5:
+                    raise RuntimeError("تبدیلِ گامِ %+d فایلی نداد" % (base - k))
+                sp5 = capSplice(best, sorted(o5, key=lambda q: -os.path.getsize(q))[0], regs, "vb/f0cap.wav")
+                best = "vb/f0cap.wav"
+                xa, sra = readMono(best)
+                va = [h for _t, h in f0Track(xa, sra) if h > 0]
+                after = round(100.0 * sum(1 for h in va if h > capHz) / max(1, len(va)), 1)
+                f0capRes = {"capSt": capSt, "targetHz": round(tHz, 1), "capHz": round(capHz, 1), "regions": len(regs),
+                            "sec": sp5["sec"], "pitch": "%+d" % (base - k), "lagSec": sp5["lagSec"], "corr": sp5["corr"],
+                            "overBefore": before, "overAfter": after}
+            say("  سقفِ اوج: %s" % json.dumps(f0capRes, ensure_ascii=False))
+        except Exception as e:
+            f0capRes = {"why": str(e)[:160]}
+            say("::warning title=سقفِ اوج نشد::%s" % str(e)[:200])
+
     size = os.path.getsize(best)
     outSec = wavSeconds(best)
     # ══ نگهبان باید با **ورودی** سنجیده شود ══
@@ -1803,6 +1937,8 @@ def runOne(it, mp):
         rec["hx"] = hxRes
     if segP:
         rec["segPitch"] = segP
+    if f0capRes:
+        rec["f0cap"] = f0capRes
     if altOut and (abRate or abProt or abIt.get("nocolour") or abIt.get("uv") or (hxRes and hxRes.get("ok"))):
         try:
             nm = assetName(key + " · ab" + (abRate or "") + ("p" + abProt if abProt else "") + ("nc" if abIt.get("nocolour") else "") + ("uv" if abIt.get("uv") else ""), 0, 1)
@@ -1817,7 +1953,7 @@ def runOne(it, mp):
     # «رضوی مثلِ قبل بود» تنها شاهدِ ۱ اکتبر بود — گوشِ او. این عدد همان را
     # پیش از او می‌گوید: میانهٔ زیرِ ۷۵ یا سهمِ بزرگِ زیرِ ۷۰ هرتز یعنی خروجی
     # در محدودهٔ خِرخِر نشسته.
-    stOut = f0Stats(best)
+    stOut = f0Stats(best, capHz=(float((pitchAuto or {}).get("targetHz") or 0) * 2 ** (3 / 12.0)) or None)
     if stOut:
         rec["f0Out"] = stOut
         # ══ سدِ گام (۲۰ اکتبر) ══ صدایی که گامش به هدف نرسیده، آن گوینده نیست؛ به شنونده نمی‌رسد.
