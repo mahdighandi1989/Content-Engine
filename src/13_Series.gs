@@ -1849,7 +1849,18 @@ function seriesParStatus_(hub, reg) {
    دکمهٔ «شماره و دستهٔ دستی»ِ تخته است (همان‌جا که `seriesCatOf_` می‌خوانَد؛ و دکمه پوشهٔ درایو را هم جابه‌جا می‌کند).
    همان فهرست به تلگرام هم می‌رود: صاحبِ کانال شیت باز نمی‌کند (۵.۹۰). */
 var SERIES_CAT_REVIEW_HEADERS = ['کلید', 'نامِ مجموعه', 'دستهٔ فعلی', 'منشأ', 'دستهٔ خودکار', 'دستهٔ دستی', 'موضوعِ واقعی (از محتوا)',
-                                 'آموزشی؟', 'وضعیت', 'قسمت‌های ساخته‌شده', 'فعال (موازی)', 'دلیلِ داوری'];
+                                 'آموزشی؟', 'وضعیت', 'قسمت‌های ساخته‌شده', 'فعال (موازی)', 'دلیلِ داوری', 'وضعِ داوری'];
+
+/** ۱۲.۶: وضعِ داوریِ یک ردیف برای تبِ بازبینی. نشانه‌ها همان‌هایی‌اند که بخشِ ۱۶ در «دلیلِ داوری» می‌نویسد
+    (این‌جا به‌شکلِ متن، چون بخشِ ۱۳ نباید به ۱۶ وابسته باشد). */
+function seriesJudgeState_(v) {
+  var why = String(v[SC.WHY - 1] || ''), cat = String(v[SC.CAT - 1] || '');
+  if (why.indexOf('داوریِ دوبارهٔ ۱۲٫۶') !== -1) return 'پیشنهادِ داور (اعمال‌نشده؛ ردیفِ دستی)';
+  if (why.indexOf('[بی‌مدل]') !== -1 || String(v[SC.ABOUT - 1] || '').indexOf('موضوع‌های پرتکرارِ متن') === 0) return 'داوریِ ناقص';
+  if (why.indexOf('نیازمند بازبینی') !== -1 || cat.indexOf('نیازمند بازبینی') !== -1 ||
+      String(v[SC.IS_COURSE - 1] || '') === SJ.UNSURE || !String(v[SC.IS_COURSE - 1] || '').trim()) return 'نیازمند بازبینی';
+  return '';
+}
 
 function seriesCatReviewRows_(reg) {
   var out = [];
@@ -1859,7 +1870,7 @@ function seriesCatReviewRows_(reg) {
               String(v[SC.CAT - 1] || ''), String(v[SC.MCAT - 1] || ''),
               String(v[SC.ABOUT - 1] || v[SC.TOPIC - 1] || '—'), String(v[SC.IS_COURSE - 1] || ''),
               String(v[SC.STATUS - 1] || ''), epNumsOf_(v[SC.EPISODES - 1]).length, seriesParOn_(v) ? 'بله' : '',
-              String(v[SC.WHY - 1] || '').slice(0, 300)]);
+              String(v[SC.WHY - 1] || '').slice(0, 300), seriesJudgeState_(v)]);
   }
   out.sort(function (a, b) {
     var ma = a[3] === 'دستی' ? 0 : 1, mb = b[3] === 'دستی' ? 0 : 1;
@@ -1887,7 +1898,7 @@ function seriesCatReview_(hub, tg) {
         L.push((i + 1) + ') ' + r[1] + '  [' + r[0] + ']');
         L.push('   دستهٔ فعلی: ' + r[2] + ' — ' + r[3] + (r[3] !== 'دستی' && r[4] ? '' : '') + ' · وضعیت: ' + r[8] + ' · قسمت: ' + r[9] +
                (r[10] ? ' · موازی' : ''));
-        L.push('   موضوعِ واقعی: ' + r[6]);
+        L.push('   موضوعِ واقعی: ' + r[6] + (r[12] ? '  ⚠ ' + r[12] : ''));
         L.push('');
       });
       /* ۱۲.۱: صفِ تولید و برآوردِ زمان، بالای همان فایل */

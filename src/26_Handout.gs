@@ -64,7 +64,7 @@ function handoutNew_(meta) {
   return {
     seriesKey: String((meta && meta.seriesKey) || ''),
     seriesName: String((meta && meta.seriesName) || ''),
-    cat: String((meta && meta.seriesCat) || ''),
+    cat: specialCatOf_(meta, 'sc'),   // ۱۲.۶: برچسبِ جزوه فقط از دستهٔ دستی
     level: String((meta && meta.level) || ''),
     createdAt: nowStr_(), updatedAt: '', revision: 0,
     roadmap: { intro: '', stages: [], note: '' },
@@ -1301,7 +1301,7 @@ function handoutRender_(folder, book) {
 function handoutFacts_(book, rec, folder) {
   if (!book || !rec || !rec.vals) return false;
   var changed = false;
-  var cat = seriesCatOf_(rec.vals);
+  var cat = seriesCatTrusted_(rec.vals);   // ۱۲.۶: برچسبِ جزوه فقط دستهٔ دستی؛ بی آن، همان که هست
   if (cat && String(book.cat || '') !== cat) { book.cat = cat; changed = true; }
   var lvl = String(rec.vals[SC.LEVEL - 1] || '').trim();
   if (lvl && String(book.level || '') !== lvl) { book.level = lvl; changed = true; }
@@ -1438,7 +1438,7 @@ function handoutUpdate_(folder, meta, hub, rec) {
   /* `||` یعنی «فقط یک بار، برای همیشه» — و دستهٔ مجموعه عوض می‌شود
      (۶٫۵۱). جلدِ جزوه دستهٔ قدیمی را تا ابد نگه می‌داشت. مقدارِ تازه اگر
      هست، می‌نشیند؛ خالی هرگز روی پرِ قبلی نمی‌نشیند. */
-  book.cat = String(meta.seriesCat || '') || book.cat || '';
+  book.cat = specialCatOf_(meta, 'sc') || book.cat || '';
   book.level = book.level || String(meta.level || '');
   /* و روی همهٔ این‌ها، خودِ رجیستری — چون meta از پروندهٔ قسمت می‌آید که
      خودش یک کپی است و می‌تواند مثلِ کتاب کهنه مانده باشد (۶٫۷۱). */

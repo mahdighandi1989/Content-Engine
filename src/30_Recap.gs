@@ -1064,6 +1064,7 @@ function runRecapEpisode(opt) {
     covers: [], fromNo: 0, toNo: 0, totalChunks: 0, more: false,
     chunkNos: [], enrich: [], enrichOffered: 0,
     seriesCat: seriesCatOf_(pick.rec.vals),
+    seriesCatT: seriesCatTrusted_(pick.rec.vals),   // ۱۲.۶
     level: String(pick.rec.vals[SC.LEVEL - 1] || ''),
     orders: [], epNum: epNum, date: todayWords_(),
     // این نشان دو کار می‌کند: جزوه فصلی از مرور نمی‌سازد، و گزارش‌ها

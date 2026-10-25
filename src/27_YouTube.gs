@@ -3343,7 +3343,7 @@ function lvStyleAt_(hub, item, meta, seriesName, look) {
       return st.key;
     }
     if (mdl) return mdl;
-    return lvStyleSuggest_(String((meta && (meta.seriesCat || meta.cat)) || ''),
+    return lvStyleSuggest_(specialCatOf_(meta, 'sc'),   // ۱۲.۶: دستهٔ خودکار سبکِ تصویر را پیشنهاد نمی‌دهد
                            '', String(seriesName || ''));
   } catch (e) { return ''; }
 }
@@ -5507,7 +5507,7 @@ function lvReplayChunks_(folder, meta, show) {
   /* ۹.۶۵: «از همه جا»ی بی رسانه هم صحنهٔ مصور می‌گیرد — تکه‌هایش از دوقلوی خودش. */
   var vari = String(show || '') === ENRICH_SHOW_VARIETY;
   try { tc = vari ? varietyTextChunks_((meta && meta.ep) || {}, (meta && meta.cat) || '')
-                  : specialTextChunks_((meta && meta.ep) || {}, (meta && (meta.cat || meta.seriesCat)) || ''); }
+                  : specialTextChunks_((meta && meta.ep) || {}, specialCatOf_(meta, 'cs')); }   // ۱۲.۶: همان دسته‌ای که صدا با آن ساخته شد
   catch (e) { out.why = 'تکه‌های گفتار دوباره ساخته نشد: ' + e.message; return out; }
   if (!tc || !tc.length) { out.why = 'تکه‌های گفتار دوباره ساخته نشد'; return out; }
   var secs = Number(tj.secs) || 0;
@@ -9985,7 +9985,7 @@ function ytUploadOne_(item, hub, pub) {
               seriesName: seriesName, epNum: faDigitsOut_(String(item.ep)),
               lesson: lessonNo ? faDigitsOut_(String(lessonNo)) : '',
               recap: !!meta.recap, recapRange: ytRecapRangeOf_(meta, folder),
-              title: String(ep.title || ''), cat: String(meta.cat || meta.seriesCat || ''),
+              title: String(ep.title || ''), cat: specialCatOf_(meta, 'cs'),   // ۱۲.۶: دستهٔ دستی؛ قسمتِ «از همه جا» و پیش از ۱۲.۶ همان پیشین
               duration: ytTime_(totalSec), headings: heads,
               hook: String(ep.hook || ''), summary: String(ep.summary || ''),
               sources: (ep.__extSources || []),
@@ -10313,7 +10313,7 @@ function ytUploadOne_(item, hub, pub) {
       if (lvLvl === 'خاموش') throw new Error('سطحِ تصویرسازیِ این مجموعه «خاموش» است');
       spCtx = {
         level: lvLvl, style: lvSty, bg: vis.bgIds || {},
-        show: item.show, cat: String(meta.cat || meta.seriesCat || ''),
+        show: item.show, cat: specialCatOf_(meta, 'cs'),   // ۱۲.۶: دستهٔ دستی؛ قسمتِ «از همه جا» و پیش از ۱۲.۶ همان پیشین
         seriesName: seriesName,
         foot: showName + (lessonNo ? '  ·  درس ' + faDigitsOut_(String(lessonNo)) : '')
       };
@@ -13390,7 +13390,7 @@ function ytRedoOne_(show, ep, opt) {
                 return L ? faDigitsOut_(String(L)) : '';
               })(),
               recap: !!meta.recap, recapRange: ytRecapRangeOf_(meta, folder),
-              cat: String(meta.cat || meta.seriesCat || ''), duration: ytTime_(audSec),
+              cat: specialCatOf_(meta, 'cs'),   // ۱۲.۶: دستهٔ دستی؛ قسمتِ «از همه جا» و پیش از ۱۲.۶ همان پیشین duration: ytTime_(audSec),
               headings: heads, hook: String(epo.hook || ''), summary: String(epo.summary || ''),
               sources: (epo.__extSources || []), sections: epo.sections || [],
               totalSec: audSec };

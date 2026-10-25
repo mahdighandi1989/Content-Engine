@@ -44,6 +44,7 @@ var JUDGE_SCHEMA = {
           topic: { type: 'string' },
           category: { type: 'string' },
           catSure: { type: 'string' },
+          courseSure: { type: 'string' },
           level: { type: 'string' },
           related: { type: 'string' },
           orderHint: { type: 'string' },
@@ -120,6 +121,10 @@ function seriesNeedingJudgement_(reg) {
   for (var i = 0; i < reg.rows.length; i++) {
     var v = reg.rows[i].vals;
     if (String(v[SC.STATUS - 1] || '') === SST.SKIPPED) continue;
+    /* ۱۲.۶: ردیفِ دستیِ داوری‌ناقص یک بار دوباره با مدل داوری می‌شود — applyVerdict_ فقط شرح/دلیل/دستهٔ خودکار را می‌نویسد. */
+    if ((String(v[SC.MANUAL - 1] || '').trim() || seriesManualLock_(v)) && judgeIncomplete_(v)) {
+      reg.rows[i].__redoLocked = true; out.push(reg.rows[i]); continue;
+    }
     if (String(v[SC.MANUAL - 1] || '').trim()) continue;   // نظرِ شما ثبت شده
     if (seriesManualLock_(v)) continue;   // شماره/دستهٔ دستی: داوری حق دخالت ندارد
     // داوریِ بی‌مدل موقتی است. همین که مدل در دسترس باشد باید بازبینی شود، نه
@@ -139,64 +144,83 @@ function seriesNeedingJudgement_(reg) {
 // -------------------------------------------------------- نمونه‌برداریِ متن
 
 /**
- * چند قطعهٔ نمایندهٔ یک مجموعه: از قسمتِ اول، وسط و آخر — تا هم شروع دیده شود
- * هم بدنه. متنِ خام از همان ستون‌هایی می‌آید که تولیدکننده استفاده می‌کند.
+ * چند قطعهٔ نمایندهٔ یک مجموعه: از ۱۰٪ و ۵۰٪ و ۹۰٪ِ آن — تا هم شروع دیده شود
+ * هم بدنه و هم پایان. متنِ خام از همان ستون‌هایی می‌آید که تولیدکننده استفاده می‌کند.
  */
 function sampleSeriesText_(rec, partsOfKey, optsOpt) {
   var opts = optsOpt || {};
   var list = partsOfKey || [];
-  var want = Math.max(1, opts.samples || CFG.JUDGE_SAMPLES || 3);
   var chars = Math.max(200, opts.chars || CFG.JUDGE_SAMPLE_CHARS || 2600);
-  var maxParts = Math.max(1, opts.maxParts || 3);
-  var picks = [];
-  if (list.length) {
-    var idxs = [0];
-    if (list.length > 2) idxs.push(Math.floor(list.length / 2));
-    if (list.length > 1) idxs.push(list.length - 1);
-    idxs = idxs.slice(0, maxParts);
-    for (var i = 0; i < idxs.length && picks.length < want; i++) {
-      if (picks.indexOf(idxs[i]) === -1) picks.push(idxs[i]);
+  /* ۱۲.۶: نمونه از ۱۰٪ و ۵۰٪ و ۹۰٪ِ کلِ مجموعه (بر حسبِ شمارِ قطعه)، نه قطعهٔ اولِ سه قسمت. قطعهٔ اولِ هر قسمت
+     معمولاً سلام و مقدمه است — مصباح با سه مقدمهٔ رسمی «سیاسی و خبری» خوانده شد. */
+  var fracs = opts.fracs || CFG.JUDGE_SAMPLE_FRACS || [0.1, 0.5, 0.9];
+  var want = Math.max(1, opts.samples || fracs.length);
+  var tot = 0, span = [];
+  for (var q = 0; q < list.length; q++) {
+    var nq = Math.max(1, Number(list[q].vals[SP.CHUNKS - 1]) || 1);
+    span.push({ i: q, from: tot, n: nq }); tot += nq;
+  }
+  var picks = [], seenPick = Object.create(null);
+  for (var f = 0; f < fracs.length && picks.length < want && tot; f++) {
+    var g = Math.min(tot - 1, Math.max(0, Math.floor(Number(fracs[f]) * tot)));
+    for (var z = 0; z < span.length; z++) {
+      if (g >= span[z].from && g < span[z].from + span[z].n) {
+        var pk = span[z].i + ':' + (g - span[z].from + 1);
+        if (!seenPick[pk]) { seenPick[pk] = 1; picks.push({ i: span[z].i, no: g - span[z].from + 1, pct: Math.round(Number(fracs[f]) * 100) }); }
+        break;
+      }
     }
   }
   var bits = [], errs = [], names = [], salvage = [];
-  // سهمیهٔ هر قسمت جداگانه است. پیش‌تر سقف «want» سراسری بود و وقتی قطعه‌ها
-  // کوتاه بودند — که در آرشیوِ واقعی خیلی رایج است — همان قسمتِ اول کلِ سهمیه
-  // را می‌خورد و داوری فقط از رویِ آغازِ جلسهٔ یک انجام می‌شد: مراسمی که با
-  // مقدمهٔ رسمی شروع می‌شود سخنرانی به نظر می‌رسید و دوره‌ای که جلسهٔ اولش
-  // معرفی است، گپ.
-  var perPart = Math.max(1, Math.ceil(want / Math.max(1, picks.length)));
   for (var p = 0; p < picks.length; p++) {
-    var pr = list[picks[p]];
-    names.push(String(pr.vals[SP.NAME - 1] || ''));
+    var pr = list[picks[p].i];
+    var nm = String(pr.vals[SP.NAME - 1] || '');
+    if (names.indexOf(nm) === -1) names.push(nm);
     var seg;
-    // از قطعهٔ اولِ همان قسمت، فقط به اندازهٔ نمونه
-    try { seg = readPartChunks_(pr, 1, chars, 1, 20); }
+    try {
+      seg = readPartChunks_(pr, picks[p].no, chars, 1, 20);
+      // شمارهٔ قطعه در شیت گاهی از ۱ پیوسته نیست؛ چیزی خوانده نشد ⇒ از آغازِ همان قسمت
+      if (seg && !seg.error && !seg.chunks.length && picks[p].no > 1) seg = readPartChunks_(pr, 1, chars, 1, 20);
+    }
     catch (e) { errs.push(e.message); continue; }
     if (!seg || seg.error) { errs.push((seg && seg.error) || 'نامعلوم'); continue; }
-    var took = 0;
-    for (var c = 0; c < seg.chunks.length && took < perPart; c++) {
+    var lbl = function (c) {
+      return '[قسمت ' + (Number(pr.vals[SP.SEQ - 1]) || (picks[p].i + 1)) + ' · قطعهٔ ' + seg.chunks[c].no +
+             ' · ~' + picks[p].pct + '٪ِ مجموعه]\n';
+    };
+    for (var c = 0; c < seg.chunks.length; c++) {
       var t = String(seg.chunks[c].text || '').trim();
-      // کفِ ۱۲۰ نویسه، فایل‌هایی را که قطعه‌هایشان کوتاه است کاملاً «بی‌متن»
-      // نشان می‌داد — و بی‌متن یعنی «مشکوک» یعنی واردِ نوبتِ درس‌نامه.
-      if (t.length < 60) {
-        if (t && salvage.length < 6) {
-          salvage.push('[قسمت ' + (Number(pr.vals[SP.SEQ - 1]) || (picks[p] + 1)) +
-                       ' · قطعهٔ ' + seg.chunks[c].no + ']\n' + t);
-        }
-        continue;
-      }
-      bits.push('[قسمت ' + (Number(pr.vals[SP.SEQ - 1]) || (picks[p] + 1)) +
-                ' · قطعهٔ ' + seg.chunks[c].no + ']\n' + t.slice(0, chars));
-      took++;
+      // کفِ ۶۰ نویسه؛ کوتاه‌تر فقط پشتوانه (مجلسی که قطعه‌هایش کوتاه‌اند نباید «بی‌متن» شود)
+      if (t.length < 60) { if (t && salvage.length < 6) salvage.push(lbl(c) + t); continue; }
+      bits.push(lbl(c) + t.slice(0, chars));
+      break;
     }
   }
-  // اگر هیچ قطعه‌ای از کفِ طول رد نشد، همان متنِ کوتاه بهتر از هیچ است: «بی‌متن»
-  // یعنی «مشکوک» یعنی ورود به نوبتِ درس‌نامه — و مجلسِ روضه‌ای که قطعه‌هایش
-  // کوتاه‌اند از همین راه می‌آمد.
-  if (!bits.length && salvage.length) {
-    bits = salvage.slice(0, Math.max(1, want));
-  }
-  return { text: bits.join('\n\n'), samples: bits.length, errors: errs, partNames: names };
+  if (!bits.length && salvage.length) bits = salvage.slice(0, Math.max(1, want));
+  /* ۱۲.۶: عنوانِ همهٔ قسمت‌ها — نام نشانهٔ فرعی است، ولی فهرستِ کاملِ نام‌ها سیرِ مجموعه را نشان می‌دهد. */
+  var all = [];
+  for (var w = 0; w < list.length; w++) all.push(String(list[w].vals[SP.NAME - 1] || '').trim());
+  var allT = all.filter(String).join(' ، ');
+  if (allT.length > 1500) allT = allT.slice(0, 1500) + ' …';
+  return { text: bits.join('\n\n'), samples: bits.length, errors: errs, partNames: names, allTitles: allT };
+}
+
+/** ۱۲.۶: سرفصل‌های جزوهٔ مجموعه (اگر هست) — فقط خواندن، و فقط وقتی پوشهٔ مجموعه از قبل ثبت است (هرگز پوشه نمی‌سازد). */
+function judgeHandoutHeads_(rec) {
+  try {
+    var fid = String(rec && rec.vals && rec.vals[SC.FOLDER - 1] || '');
+    if (!fid) return '';
+    var it = DriveApp.getFolderById(fid).getFilesByName(handoutJsonName_());
+    if (!it.hasNext()) return '';
+    var b = JSON.parse(it.next().getBlob().getDataAsString());
+    var L = [];
+    (b && b.chapters || []).forEach(function (ch) {
+      var secs = (ch.sections || []).map(function (x) { return String(x.title || ''); }).filter(String);
+      L.push('«' + String(ch.title || '') + '»' + (secs.length ? ': ' + secs.join('، ') : ''));
+    });
+    var s = L.join(' | ');
+    return s.length > 1200 ? s.slice(0, 1200) + ' …' : s;
+  } catch (e) { return ''; }
 }
 
 // ------------------------------------------- داوریِ بی‌مدل (پشتیبانِ همیشگی)
@@ -219,6 +243,17 @@ function sampleSeriesText_(rec, partsOfKey, optsOpt) {
  * حال می‌نویسد، چون فهرستِ بی‌نظم بدترین حالت است.
  */
 var JUDGE_LOCAL_MARK = '[بی‌مدل]';
+var JUDGE_PARTIAL_MARK = 'داوریِ ناقص';        // ۱۲.۶: شمارشِ واژه، نه فهمِ محتوا — دوباره با مدل داوری می‌شود
+var JUDGE_REVIEW_MARK = 'نیازمند بازبینی';     // ۱۲.۶: اطمینانِ کمِ داور
+var JUDGE_REDO_MARK = 'داوریِ دوبارهٔ ۱۲٫۶';   // ۱۲.۶: یک بار برای ردیف‌های دستیِ داوری‌ناقص
+
+/** ۱۲.۶: داوریِ این ردیف ناقص است؟ (بی‌مدل یا «موضوع‌های پرتکرار»؛ ردیفی که هرگز داوری نشده «ناقص» نیست) — و هنوز یک بار دوباره داوری نشده. */
+function judgeIncomplete_(v) {
+  var why = String(v[SC.WHY - 1] || '');
+  if (why.indexOf(JUDGE_REDO_MARK) !== -1) return false;
+  return why.indexOf(JUDGE_LOCAL_MARK) !== -1 ||
+         String(v[SC.ABOUT - 1] || '').indexOf('موضوع‌های پرتکرارِ متن') === 0;
+}
 
 // نشانه‌های «چیزی منظم آموزش داده می‌شود». «=» یعنی واژهٔ مستقل (تا «درس» در
 // «مدرسه» شمرده نشود).
@@ -500,13 +535,17 @@ function judgePrompt_(entries, catsOpt) {
            '   (نام صرفاً یک نشانهٔ فرعی است)');
     L.push('نوع: ' + e.kind + ' | شمارِ قسمت: ' + e.parts + ' | شمارِ قطعه: ' + e.chunks +
            ' | منبع: ' + e.src + (e.tab ? ' | تب/پوشهٔ منبع: ' + e.tab : ''));
-    L.push('— متنِ نمونه —');
+    if (e.allTitles) L.push('عنوانِ همهٔ قسمت‌ها به ترتیب: ' + e.allTitles);
+    if (e.heads) L.push('سرفصل‌های جزوه‌ای که از درس‌های ساخته‌شدهٔ همین مجموعه درآمده: ' + e.heads);
+    L.push('— متنِ نمونه (از ۱۰٪ و ۵۰٪ و ۹۰٪ِ مجموعه) —');
     L.push(e.text || '(هیچ متنی خوانده نشد)');
   }
   L.push('─────────────────────────────────');
   L.push('');
   L.push('برای هر key دقیقاً یک داوری بده:');
   L.push('• isCourse: «true» یا «false» (به‌شکلِ رشته) — بر پایهٔ قاعدهٔ بالا.');
+  L.push('• courseSure: اطمینانت به همین isCourse، عددِ ۰ تا ۱۰۰ به‌شکلِ رشته. مقدمه و سلامِ آغازِ جلسه را ملاکِ موضوع نگیر؛ ' +
+         'اگر سه نمونه با هم نمی‌خوانند یا متن کم است، پایین بگذار.');
   L.push('• score: عددِ ۰ تا ۱۰۰ به‌شکلِ رشته، «چقدر برای یک پادکستِ آموزشیِ ' +
          'درس‌به‌درس مناسب است». فقط رقمِ لاتین بنویس.');
   L.push('• kindOfContent: در دو-سه واژه بگو واقعاً چیست (مثلاً «دورهٔ آموزشی»، ' +
@@ -543,7 +582,8 @@ function entriesFor_(slice, parts, optsOpt) {
                kind: String(v[SC.KIND - 1] || ''),
                parts: v[SC.PARTS - 1], chunks: v[SC.CHUNKS - 1],
                src: String(v[SC.SRC - 1] || ''), hint: String(v[SC.TOPIC - 1] || ''), tab: String(v[SC.TAB - 1] || ''),
-               partNames: smp.partNames, text: smp.text, samples: smp.samples });
+               partNames: smp.partNames, text: smp.text, samples: smp.samples,
+               allTitles: smp.allTitles || '', heads: judgeHandoutHeads_(slice[i]) });
   }
   return out;
 }
@@ -635,7 +675,7 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
   // نمی‌شود: کارِ تکراری است و چیزی به آن اضافه نمی‌کند. بازبینیِ آن‌ها کارِ
   // مدل است، در دورهای عادی.
   if (localOnly) {
-    todo = todo.filter(function (r) { return !seriesJudged_(r.vals); });
+    todo = todo.filter(function (r) { return !r.__redoLocked && !seriesJudged_(r.vals); });
   }
   if (!todo.length) {
     // چیزی برای داوری نیست، ولی نظمِ فهرست همیشه باید درست باشد
@@ -711,7 +751,8 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
           var vd = Object.prototype.hasOwnProperty.call(byKey, rec.key) ? byKey[rec.key] : null;
           // کلیدی را که مدل جا انداخته، بی‌داوری رها نمی‌کنیم: با قاعده‌های خودی
           // داوری می‌شود و «مشکوک» می‌ماند تا دورِ بعد مدل دوباره امتحان کند.
-          if (!vd) { applyVerdict_(reg, rec, localVerdict_(entries[s2]), entries[s2], true); localN++; }
+          if (!vd && rec.__redoLocked) { awaiting++; }   // ردیفِ دستی فقط با داوریِ مدل (۱۲.۶)
+          else if (!vd) { applyVerdict_(reg, rec, localVerdict_(entries[s2]), entries[s2], true); localN++; }
           else applyVerdict_(reg, rec, vd, entries[s2], true);
           touched[rec.key] = 1;
           judged++; dirty = true;
@@ -743,7 +784,7 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
       // ولی اگر همین ردیف قبلاً با قاعده داوری شده، دوباره نوشتنش فقط مهرِ زمان
       // را تازه می‌کند و به کاربر می‌گوید «۱ مجموعه داوری شد» — هر اجرا، همان
       // یک ردیف، تا ابد.
-      if (seriesJudged_(slice[0].vals)) { awaiting++; }
+      if (slice[0].__redoLocked || seriesJudged_(slice[0].vals)) { awaiting++; }
       else {
         applyVerdict_(reg, slice[0], localVerdict_(entries[0]), entries[0], true);
         touched[slice[0].key] = 1;
@@ -794,7 +835,7 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
       // ردیفی که همین حالا با قاعده داوری شده، در فهرست است تا مدل بازبینی‌اش
       // کند — نه تا قاعده دوباره همان نتیجه را بنویسد. رد کردنش از هم کارِ
       // تکراری جلو می‌گیرد و هم مهرِ زمانِ داوری را بی‌دلیل تازه نمی‌کند.
-      if (seriesJudged_(rec2.vals)) { awaiting++; continue; }
+      if (rec2.__redoLocked || seriesJudged_(rec2.vals)) { awaiting++; continue; }   // ردیفِ دستی فقط با مدل (۱۲.۶)
       var e2 = entriesFor_([rec2], parts, lopts)[0];
       if (!e2.samples && !Object.prototype.hasOwnProperty.call(noTextSeen, e2.key)) {
         noTextSeen[e2.key] = 1; noText++;
@@ -837,6 +878,11 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
 /** نوشتنِ یک داوری در ردیفِ رجیستری. */
 function applyVerdict_(reg, rec, vd, entry, deferWrite) {
   var v = rec.vals;
+  /* ۱۲.۶: ردیفِ دستی (شماره/دسته/تصمیمِ دستی) فقط با داوریِ مدل بازنویسی می‌شود — و فقط شرح و دلیل و دستهٔ خودکار؛
+     پیشنهادِ داور در «دلیل» و تبِ بازبینی می‌آید، نه در صف. داوریِ بی‌مدل روی آن هیچ نمی‌نویسد. */
+  var lockedRedo = rec.__redoLocked === true;
+  if (lockedRedo && vd && vd.__local === true) return;
+  var before = lockedRedo ? v.slice() : null;
   // «بله/خیر» می‌تواند بولی باشد یا رشته («true»، «بله»، «yes»، «۱»)
   var yes = judgeYes_(vd.isCourse);
   // «رشتهٔ خالی» عدد نیست. Number('') صفر است، و همین صفرِ خاموش یک دورهٔ
@@ -860,7 +906,11 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
   // پاسخی که امتیاز یا شرح ندارد، پاسخِ کاملی نیست (پاسخِ بریده). «قطعی» ثبتش
   // نمی‌کنیم؛ مشکوک می‌ماند تا زود دوباره بررسی شود.
   var thinVerdict = scoreMissing || !String(vd.about || '').trim();
-  var unsure = noSample || thinVerdict || vd.__unsure === true;
+  /* ۱۲.۶: اطمینانِ کمِ داور به «آموزشی/نه» ⇒ مشکوک و «نیازمند بازبینی»، نه تصمیمِ قطعی. */
+  var cSureRaw = String(vd.courseSure === undefined || vd.courseSure === null ? '' : vd.courseSure).trim();
+  var cSure = Number(faDigits_(cSureRaw).replace(/[^0-9.]/g, ''));
+  var lowCourse = vd.__local !== true && cSureRaw !== '' && isFinite(cSure) && cSure < (Number(CFG.JUDGE_COURSE_MIN_SURE) || 60);
+  var unsure = noSample || thinVerdict || vd.__unsure === true || lowCourse;
   // «مشکوک» در صفِ درس‌نامه می‌ماند — و باید هم بماند، چون یک دورهٔ واقعیِ
   // نافهمیده نباید کنار گذاشته شود. ولی یک استثنا لازم است: وقتی هیچ متنِ
   // قابلِ استفاده‌ای خوانده نشده و نامِ فایل نشانهٔ صریحِ مراسم دارد
@@ -888,7 +938,8 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
   // داوریِ بی‌مدل باید صریح علامت بخورد: هم شما در تخته می‌بینید که این تصمیم
   // از قاعده‌های خودیِ موتور آمده نه از مدل، و هم خودِ موتور از همین نشانه
   // می‌فهمد که باید زود (سه روز، نه چهل‌وپنج روز) با مدل بازبینی‌اش کند.
-  v[SC.WHY - 1] = (vd.__local ? JUDGE_LOCAL_MARK + ' ' : '') +
+  v[SC.WHY - 1] = (vd.__local ? JUDGE_LOCAL_MARK + ' ' + JUDGE_PARTIAL_MARK + ' — ' : '') +
+                  (lowCourse ? '‹' + JUDGE_REVIEW_MARK + ': اطمینانِ داور ' + Math.round(cSure) + '› ' : '') +
                   (kind ? '[' + kind + '] ' : '') + why +
                   (ritualName
                      ? ' (متنِ قابلِ استفاده‌ای خوانده نشد — ' + sampleLen + ' نویسه؛ ' +
@@ -913,6 +964,8 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
     v[SC.CAT - 1] = String(CFG.SERIES_CAT_UNSURE || 'بدون دسته (نیازمند بازبینی)');
     v[SC.WHY - 1] = String(v[SC.WHY - 1] || '') + ' ‹دسته نامطمئن: «' + cat + '» با اطمینانِ ' + Math.round(sure) + '›';
   }
+  /* ۱۲.۶: دستهٔ داوریِ بی‌مدل (شمارشِ واژه) قطعی نیست — جای خالی را «نیازمند بازبینی» می‌گذارد، دستهٔ موجود را عوض نمی‌کند. */
+  else if (vd.__local === true) { if (!String(v[SC.CAT - 1] || '').trim()) v[SC.CAT - 1] = String(CFG.SERIES_CAT_UNSURE || 'بدون دسته (نیازمند بازبینی)'); }
   else if (okCat) v[SC.CAT - 1] = cat;
   else if (!String(v[SC.CAT - 1] || '').trim()) v[SC.CAT - 1] = MISC_TITLE;
   if (vd.related) v[SC.RELATED - 1] = String(vd.related).slice(0, 120);
@@ -926,6 +979,16 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
                     ' ‹ترتیب پیشنهادی=' + Math.round(hintNum) + '›';
   }
   v[SC.UPDATED - 1] = nowStr_();
+  if (lockedRedo) {
+    var sug = '‹' + JUDGE_REDO_MARK + ' — پیشنهادِ داور، اعمال‌نشده: آموزشی=' + (v[SC.IS_COURSE - 1] || '؟') + '، امتیاز=' + score +
+              (cat ? '، دسته=' + cat : '') + (lvl ? '، سطح=' + lvl : '') + '›';
+    var keep = [SC.ABOUT, SC.WHY, SC.CAT, SC.JUDGED, SC.UPDATED];
+    var nv = before.slice();
+    keep.forEach(function (c) { nv[c - 1] = v[c - 1]; });
+    nv[SC.WHY - 1] = String(v[SC.WHY - 1] || '').replace(/\s*‹ترتیب پیشنهادی=\d+›/g, '').slice(0, 300) + ' ' + sug;
+    for (var kk = 0; kk < v.length; kk++) v[kk] = nv[kk];
+    delete rec.__redoLocked;
+  }
   if (deferWrite) return;             // نوشتنِ یک‌بارهٔ کلِ جدول در پایانِ کار
   try {
     reg.sheet.getRange(rec.row, 1, 1, SERIES_HEADERS.length).setValues([v]);

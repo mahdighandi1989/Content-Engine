@@ -1697,6 +1697,7 @@ console.log('=== ۲۵) کپیِ کهنه از رجیستری، خودش را ت�
   const r = new Array(SERIES_HEADERS.length).fill('');
   r[SC.KEY - 1] = 'k25'; r[SC.NAME - 1] = 'معرفت‌شناسی';
   r[SC.CAT - 1] = 'فلسفی و اعتقادی'; r[SC.LEVEL - 1] = 'مقدماتی';
+  r[SC.MCAT - 1] = 'فلسفی و اعتقادی';   // ۱۲.۶: برچسبِ جزوه فقط از دستهٔ دستی
   r[SC.FOLDER - 1] = sf.getId();
   reg.getRange(2, 1, 1, SERIES_HEADERS.length).setValues([r]);
   const rec = readSeriesReg_(hub).byKey['k25'];

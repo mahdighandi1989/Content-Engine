@@ -1,21 +1,25 @@
 {
-  "version": "12.5",
+  "version": "12.6",
   "codeFile": "engine.gs",
-  "sha256": "ca4901e4cf1993605803a131ac1ba4e23ff55385ed2b56c6bec3a888b6948b5c",
-  "releasedAt": "2026-10-25T17:13:00Z",
-  "summary": "نمونهٔ آزمایشیِ سقفِ اوجِ زیروبم برای گلدوز، صدا برای هر مجموعه، ثبتِ محدودیت‌های یوتیوب — بی تغییر در تولید",
+  "sha256": "ae606b21b3daef54eef937e02785b2070227fe514d3d043bffb8b6d0cf0c8652",
+  "releasedAt": "2026-10-25T20:30:00Z",
+  "summary": "دستهٔ خودکار در هیچ تصمیمی نیست؛ داوری از دلِ مجموعه با اطمینان و «داوریِ ناقص»ِ یک‌باره بی دست‌زدن به ردیف‌های دستی؛ شمارِ روزانهٔ ریلز/شورتز؛ راهنما و آمادگیِ موازی در تخته",
   "fixes": [
-    "voicebridge: f0Stats با p95Hz/highPct/overPct؛ f0Track/capRegions/capSplice پشتِ f0cap (فقط بذر)",
-    "VOICE_SOUL_SEED: دو نمونهٔ «آزمایشِ زیروبم» (Puck، Charon) روی درسِ ۷۴ِ گلدوز؛ خطِ اوج در تلگرام",
-    "personaShowOk_/personaFor_/vbrSpeakerPick_: «برنامه: مجموعه»، ردیف‌های موجود بی تغییر",
-    "ytStatsFetch_ با status/contentDetails ⇒ ytClaimNote_/ytClaimLine_ (فقط سنجش)",
-    "seriesQueuePlan_: گره‌گشاییِ شمارهٔ برابر همان pickSeriesPlan_ (سطح، امتیاز، ردیف)"
+    "specialCatOf_ + meta.seriesCatT: لحنِ بخش‌ها، lvStyleSuggest_، جزوه و ytPlan فقط از دستهٔ دستی؛ قسمتِ قدیمی همان مسیر (بی بازسازی)",
+    "seriesFolder_: پوشهٔ مجموعهٔ تازه از seriesCatTrusted_",
+    "sampleSeriesText_: ۱۰/۵۰/۹۰٪ + allTitles؛ judgeHandoutHeads_؛ courseSure در JUDGE_SCHEMA",
+    "applyVerdict_: courseSure کم ⇒ مشکوک + «نیازمند بازبینی»؛ بی‌مدل ⇒ «داوریِ ناقص»؛ __redoLocked فقط ABOUT/WHY/CAT",
+    "seriesNeedingJudgement_/judgeIncomplete_: ردیفِ دستیِ داوری‌ناقص یک بار؛ ستونِ «وضعِ داوری» در تبِ بازبینی",
+    "igDayLine_/igDayTell_: «امروز N از ۶ ریلز و N از ۲ شورتز» در ایمیلِ ۱۰ و تلگرامِ ۲۳",
+    "تخته: parGuideHtml_ + ستونِ «آمادگیِ موازی» (seriesParMissing_)"
   ],
   "sourceReportIds": [],
   "answers": [
-    "R-20261025-59",
-    "R-20261025-60",
-    "R-20261025-61"
+    "R-20261025-62",
+    "R-20261025-63",
+    "R-20261025-64",
+    "R-20261025-65",
+    "R-20261025-66"
   ],
   "promptImpact": [],
   "promptImpactKinds": []

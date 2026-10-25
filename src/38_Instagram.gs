@@ -1665,6 +1665,7 @@ function igTick() {
     if (deadline - Date.now() > 40000) { try { igShortThumbRetro_(st, deadline); } catch (eTr) { st.thumbWhy = String(eTr.message || eTr).slice(0, 120); } }
     if (deadline - Date.now() > 60000) { try { igInsights_(st, deadline); } catch (eIn) { st.lastWhy = 'آمار: ' + String(eIn.message || eIn).slice(0, 120); } }
     try { igStuckTell_(st); } catch (eSt) {}
+    try { igDayTell_(st); } catch (eDt) {}
     /* گامی که برای وقتِ کم ایستاد، یک دقیقهٔ دیگر در اجرای تازه — نه یک ساعتِ دیگر پشتِ درِ ساعتی (۹.۸۷). سقف در ساعت، تا
        گامی که هیچ‌وقت در یک اجرا جا نمی‌شود چرخهٔ دقیقه‌ای نسازد. */
     if (again) {
@@ -1918,6 +1919,60 @@ function igStatus_() {
 }
 
 /**
+ * ══ «امروز N از ۶ ریلز و N از ۲ شورتز» (۱۲.۶) ══ سقف‌ها از همان‌جا که انتشار می‌خوانَد (`destCap_`/`IG_SHORTS_PER_DAY`)،
+ * شمار از همان شمارنده‌ها (`st.stats.dayN`، `ytQuota_().shorts`). کمتر از سقف ⇒ علت از وضعِ واقعی: چه چیزی در جریان است
+ * و منتظرِ چیست، شورتزِ در صف و علتش، درسِ کنارگذاشته، مقصدِ خاموش. هر اجرا رکوردِ روز را نگه می‌دارد تا ساعتِ ۱۰ِ فردا
+ * «دیروز» را با عددِ پایانی‌اش بگوید.
+ */
+function igDayLine_(st) {
+  var day = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  var rCap = Math.max(1, Number(CFG.IG_PER_DAY) || 4);
+  try { rCap = Math.max(1, destCap_('ig', rCap)); } catch (e1) {}
+  var sCap = CFG.IG_SHORTS === false ? 0 : Math.max(0, Number(CFG.IG_SHORTS_PER_DAY) || 0);
+  var r = (st.stats || {}).day === day ? Number(st.stats.dayN) || 0 : 0;
+  var sh = 0;
+  try { sh = Number(ytQuota_().shorts) || 0; } catch (e2) {}
+  var why = [];
+  if (r < rCap || sh < sCap) {
+    try { var dg = destGate_('ig', ENRICH_SHOW_SPECIAL); if (dg && !dg.ok) why.push('اینستاگرام: ' + dg.why); } catch (e3) {}
+    if (!igOn_()) why.push('اینستاگرام خاموش یا بی کلید');
+    var seen = Object.create(null);
+    (st.inflight || []).forEach(function (x) {
+      var w = (x.key || '').split(':').pop() + ' در گامِ «' + x.phase + '»' + (x.why ? ' — ' + x.why : '');
+      if (!seen[w]) { seen[w] = 1; why.push(w); }
+    });
+    if (!(st.inflight || []).length) why.push('هیچ ریلزی در جریان نیست' + (st.lastWhy ? ' (آخرین ایراد: ' + st.lastWhy + ')' : ' — صفِ درس‌های منتشرشده برای ریلز خالی است'));
+    igHeld_(st).forEach(function (h) { why.push('درسِ ' + h.ep + ' کنار تا تلاشِ بعد — ' + h.why); });
+    if (sh < sCap) why.push('شورتز: ' + ((st.shortQ || []).length ? st.shortQ.length + ' در صف — ' + (st.shortWhy || 'دورِ بعد') : (st.shortWhy || 'شورتزی در صف نیست')));
+  }
+  var line = 'امروز ' + faDigitsOut_(r) + ' از ' + faDigitsOut_(rCap) + ' ریلز و ' + faDigitsOut_(sh) + ' از ' + faDigitsOut_(sCap) + ' شورتز' +
+             (why.length ? ' — علت: ' + why.join(' · ').slice(0, 600) : '');
+  st.dayRec = st.dayRec || {};
+  st.dayRec[day] = { r: r, rc: rCap, s: sh, sc: sCap, why: why.join(' · ').slice(0, 600) };
+  var ks = Object.keys(st.dayRec).sort();
+  while (ks.length > 7) delete st.dayRec[ks.shift()];
+  var prev = '';
+  var pk = ks.filter(function (k) { return k < day; }).pop();
+  if (pk) {
+    var p = st.dayRec[pk];
+    prev = 'دیروز (' + pk + '): ' + faDigitsOut_(p.r) + ' از ' + faDigitsOut_(p.rc) + ' ریلز و ' + faDigitsOut_(p.s) + ' از ' + faDigitsOut_(p.sc) + ' شورتز' +
+           ((p.r < p.rc || p.s < p.sc) && p.why ? ' — علت: ' + p.why : '');
+  }
+  return { line: line, prev: prev, r: r, rCap: rCap, s: sh, sCap: sCap, why: why };
+}
+
+/** ۱۲.۶: پیامِ شبانه — یک بار در روز، از ساعتِ ۲۳ِ دبی. */
+function igDayTell_(st) {
+  var day = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  var hr = parseInt(Utilities.formatDate(new Date(), CFG.TIMEZONE, 'HH'), 10);
+  var d = igDayLine_(st);
+  if (!isFinite(hr) || hr < (Number(CFG.IG_DAY_TELL_H) || 23) || st.dayTold === day) return false;
+  try { tgSend_('📊 ' + tgEsc_(d.line)); } catch (e) { return false; }
+  st.dayTold = day;
+  return true;
+}
+
+/**
  * درس‌هایی که به سقفِ تلاش رسیده‌اند و تا `IG_RETRY_H` کنارند (۹.۵۷). پیش از این هیچ‌جا دیده نمی‌شدند: درس از
  * `inflight` بیرون می‌رفت، پس نه خطِ روزانه نامش را می‌برد نه `igHealth_` (که فقط `inflight` را می‌پایید) — درسِ ۱۳ِ
  * مصباح همین‌طور یک روزِ کامل ریلزها را نگه داشت و تنها نشانه‌اش «امروز ۰» بود.
@@ -1965,6 +2020,8 @@ function igStuckTell_(st) {
 function igHealth_(problems, notes) {
   var s = igStatus_();
   if (s.line) notes.push(s.line);
+  /* ۱۲.۶: شمارِ روز در برابرِ سقف — دیروزِ کامل (ساعتِ ۱۰ امروز هنوز روزِ تمام‌شده‌ای نیست) و امروز تا این ساعت. */
+  try { var dl = igDayLine_(igState_()); if (dl.prev) notes.push(dl.prev); notes.push(dl.line); } catch (eDl) {}
   if (!s.on) return s;
   var st = igState_(), now = Date.now(), bad = [];
   var ran = Number(st.ranMs) || 0;

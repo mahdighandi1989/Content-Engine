@@ -171,7 +171,7 @@ un = quiet(); const jr = judgeSeries(true, new Date().getTime() + 300000); un();
 console.log('  داوری‌شده:', jr.judged, '| مانده:', jr.left);
 ok('همهٔ مجموعه‌ها داوری شدند', jr.judged >= 3, JSON.stringify(jr));
 ok('پرامپتِ داوری واقعاً متنِ قطعه‌ها را برد، نه فقط نام را',
-   judgePrompts.length > 0 && judgePrompts[0].indexOf('— متنِ نمونه —') !== -1 &&
+   judgePrompts.length > 0 && judgePrompts[0].indexOf('— متنِ نمونه (از ۱۰٪ و ۵۰٪ و ۹۰٪ِ مجموعه) —') !== -1 &&
    (judgePrompts[0].indexOf('مرثیه') !== -1 || judgePrompts[0].indexOf('مدرس') !== -1));
 
 const reg1 = readSeriesReg_(hub);

@@ -614,7 +614,7 @@ console.log('=== ۶) خطِ وضعیت و سلامت ===');
     inflight: [{ key: 'ig:special:8', phase: 'ok', why: 'منتظرِ تأیید', sincePhase: 'ok', since: Date.now() - 90 * 3600000 }] });
   const pr = [], nt = [];
   igHealth_(pr, nt);
-  ok('۶.۱ خطِ روزانه همیشه هست و هایلایت را «کارِ شما» می‌گوید', nt.length === 1 && /@truth_trace1/.test(nt[0]) && /هایلایت/.test(nt[0]) && /⟨شما⟩/.test(nt[0]), nt[0]);
+  ok('۶.۱ خطِ روزانه همیشه هست و هایلایت را «کارِ شما» می‌گوید', nt.length === 2 && /^امروز . از . ریلز و . از . شورتز/.test(nt[1]) && /@truth_trace1/.test(nt[0]) && /هایلایت/.test(nt[0]) && /⟨شما⟩/.test(nt[0]), nt[0]);
   ok('۶.۲ «منتظرِ تأیید» حتی ۹۰ ساعت مسئلهٔ روز نیست — تصمیمِ اوست', pr.length === 0, pr.join(' | '));
   global.__PROPS[PK.IG_STATE] = JSON.stringify({ ranMs: Date.now() - 9 * 3600000,
     inflight: [{ key: 'ig:special:8', phase: 'got', why: 'رانر هنوز نساخته', sincePhase: 'got', since: Date.now() - 40 * 3600000 }] });

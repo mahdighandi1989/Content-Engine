@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 12.5
+ *  موتور محتوا و پادکست — نسخهٔ 12.6
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2144,6 +2144,8 @@ var CFG = {
            '(فلسفهٔ حقوق، سیاست، اخلاق، ذهن، علم). مرزش با «مذهبی و معنوی»: نظریه و استدلال ⇒ این دسته؛ مراسم، هیئت، مداحی، ' +
            'روضه، دعا، احکامِ عملی و کارِ تشکیلاتی ⇒ «مذهبی و معنوی».' }
   ],
+  JUDGE_COURSE_MIN_SURE: 60,         // ۱۲.۶: اطمینانِ داور به «آموزشی/نه» کمتر از این ⇒ مشکوک و «نیازمند بازبینی»
+  JUDGE_SAMPLE_FRACS: [0.1, 0.5, 0.9], // ۱۲.۶: جای نمونه‌ها در کلِ مجموعه (نه قطعهٔ اولِ هر قسمت)
   SERIES_CAT_MIN_SURE: 60,           // ۱۱.۹: اطمینانِ داور به دسته کمتر از این ⇒ «بدون دسته، نیازمند بازبینی»
   SERIES_CAT_UNSURE: 'بدون دسته (نیازمند بازبینی)',
   JUDGE_CAT_SINCE: '2026-10-26 00:00',   // ۱۱.۹: داوری‌های پیش از این با فهرستِ دستهٔ کهنه بودند ⇒ یک بار از نو (قفلِ دستی هرگز)   // ۱۱.۷: فهرستِ فقط‌خواندنی؛ هر بار از نو ساخته می‌شود
@@ -2313,7 +2315,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '12.5',
+  CODE_VERSION: '12.6',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -26514,7 +26516,18 @@ function seriesParStatus_(hub, reg) {
    دکمهٔ «شماره و دستهٔ دستی»ِ تخته است (همان‌جا که `seriesCatOf_` می‌خوانَد؛ و دکمه پوشهٔ درایو را هم جابه‌جا می‌کند).
    همان فهرست به تلگرام هم می‌رود: صاحبِ کانال شیت باز نمی‌کند (۵.۹۰). */
 var SERIES_CAT_REVIEW_HEADERS = ['کلید', 'نامِ مجموعه', 'دستهٔ فعلی', 'منشأ', 'دستهٔ خودکار', 'دستهٔ دستی', 'موضوعِ واقعی (از محتوا)',
-                                 'آموزشی؟', 'وضعیت', 'قسمت‌های ساخته‌شده', 'فعال (موازی)', 'دلیلِ داوری'];
+                                 'آموزشی؟', 'وضعیت', 'قسمت‌های ساخته‌شده', 'فعال (موازی)', 'دلیلِ داوری', 'وضعِ داوری'];
+
+/** ۱۲.۶: وضعِ داوریِ یک ردیف برای تبِ بازبینی. نشانه‌ها همان‌هایی‌اند که بخشِ ۱۶ در «دلیلِ داوری» می‌نویسد
+    (این‌جا به‌شکلِ متن، چون بخشِ ۱۳ نباید به ۱۶ وابسته باشد). */
+function seriesJudgeState_(v) {
+  var why = String(v[SC.WHY - 1] || ''), cat = String(v[SC.CAT - 1] || '');
+  if (why.indexOf('داوریِ دوبارهٔ ۱۲٫۶') !== -1) return 'پیشنهادِ داور (اعمال‌نشده؛ ردیفِ دستی)';
+  if (why.indexOf('[بی‌مدل]') !== -1 || String(v[SC.ABOUT - 1] || '').indexOf('موضوع‌های پرتکرارِ متن') === 0) return 'داوریِ ناقص';
+  if (why.indexOf('نیازمند بازبینی') !== -1 || cat.indexOf('نیازمند بازبینی') !== -1 ||
+      String(v[SC.IS_COURSE - 1] || '') === SJ.UNSURE || !String(v[SC.IS_COURSE - 1] || '').trim()) return 'نیازمند بازبینی';
+  return '';
+}
 
 function seriesCatReviewRows_(reg) {
   var out = [];
@@ -26524,7 +26537,7 @@ function seriesCatReviewRows_(reg) {
               String(v[SC.CAT - 1] || ''), String(v[SC.MCAT - 1] || ''),
               String(v[SC.ABOUT - 1] || v[SC.TOPIC - 1] || '—'), String(v[SC.IS_COURSE - 1] || ''),
               String(v[SC.STATUS - 1] || ''), epNumsOf_(v[SC.EPISODES - 1]).length, seriesParOn_(v) ? 'بله' : '',
-              String(v[SC.WHY - 1] || '').slice(0, 300)]);
+              String(v[SC.WHY - 1] || '').slice(0, 300), seriesJudgeState_(v)]);
   }
   out.sort(function (a, b) {
     var ma = a[3] === 'دستی' ? 0 : 1, mb = b[3] === 'دستی' ? 0 : 1;
@@ -26552,7 +26565,7 @@ function seriesCatReview_(hub, tg) {
         L.push((i + 1) + ') ' + r[1] + '  [' + r[0] + ']');
         L.push('   دستهٔ فعلی: ' + r[2] + ' — ' + r[3] + (r[3] !== 'دستی' && r[4] ? '' : '') + ' · وضعیت: ' + r[8] + ' · قسمت: ' + r[9] +
                (r[10] ? ' · موازی' : ''));
-        L.push('   موضوعِ واقعی: ' + r[6]);
+        L.push('   موضوعِ واقعی: ' + r[6] + (r[12] ? '  ⚠ ' + r[12] : ''));
         L.push('');
       });
       /* ۱۲.۱: صفِ تولید و برآوردِ زمان، بالای همان فایل */
@@ -27503,6 +27516,18 @@ function safeFolderName_(s) {
  * دستهٔ خالی یا «متفرقه» (یعنی هنوز دسته‌ای تعیین نشده) به خودِ ریشه می‌رود تا
  * پوشه‌ها بی‌جهت جابه‌جا نشوند تا وقتی دستهٔ واقعی معلوم شود.
  */
+/**
+ * دستهٔ یک قسمتِ درس‌نامه برای **تصمیم** (لحنِ بخش‌ها، سبکِ تصویر، جزوه، متنِ یوتیوب) — ۱۲.۶.
+ * قسمتِ ساخته‌شده از ۱۲.۶ `seriesCatT` دارد: دستهٔ دستی یا خالی، و خالی یعنی خنثی. قسمتِ پیش از آن همان عبارتِ پیشین را
+ * می‌گیرد (`order`: 'sc' = seriesCat||cat، 'cs' = cat||seriesCat) — چون صدا و زمان‌بندیِ ویدئوی آن قسمت با همان دسته
+ * ساخته شده و ساختِ دوبارهٔ تکه‌ها باید عیناً همان دربیاید؛ وگرنه زمان‌های تصویر از صدا جدا می‌شد.
+ */
+function specialCatOf_(meta, order) {
+  if (!meta) return '';
+  if (Object.prototype.hasOwnProperty.call(meta, 'seriesCatT')) return String(meta.seriesCatT || '');
+  return String((order === 'cs' ? (meta.cat || meta.seriesCat) : (meta.seriesCat || meta.cat)) || '');
+}
+
 function seriesCatFolder_(cat) {
   var root = showFolder_(CFG.SPECIAL_FOLDER);
   var c = String(cat || '').trim();
@@ -27521,7 +27546,9 @@ function seriesFolder_(reg, rec) {
   }
   // زیرِ پوشهٔ دستهٔ خودش ساخته می‌شود؛ دسته و شمارهٔ دستیِ شما هر دو از
   // همان اولین ساخت اثر می‌گذارند، نه فقط در اصلاحِ بعدی.
-  var root = seriesCatFolder_(seriesCatOf_(rec.vals));
+  /* ۱۲.۶: پوشهٔ مجموعهٔ **تازه** زیرِ دستهٔ دستی (یا ریشه)، نه دستهٔ خودکار — مجموعه‌های موجود پوشه دارند و این خط به آن‌ها
+     نمی‌رسد؛ جابه‌جاییِ پوشهٔ موجود فقط با تنظیمِ دستیِ خودِ او (`applyManualSeriesPast_`). */
+  var root = seriesCatFolder_(seriesCatTrusted_(rec.vals));
   var moF = seriesMOrder_(rec.vals);
   var order = isFinite(moF) ? moF : (Number(rec.vals[SC.ORDER - 1]) || (reg.rows.length + 1));
   var nm = seriesFolderNo_(order) + ' — ' + String(rec.vals[SC.NAME - 1] || rec.key).slice(0, 70);
@@ -28251,6 +28278,9 @@ function produceSpecialEpisode(opt) {
       enrich: usedEnrich, enrichOffered: enrich.length,
       // دستهٔ مجموعه، تا نقش‌گزینیِ گویندگان بداند این درس از چه جنسی است
       seriesCat: seriesCatOf_(rec.vals),
+      /* ۱۲.۶: دستهٔ **دستی** یا هیچ — همان که لحنِ بخش‌ها، سبکِ تصویر، جزوه و متنِ یوتیوب می‌خوانند (`specialCatOf_`).
+         `seriesCat` برای نمایش و برای قسمت‌های پیش از ۱۲.۶ می‌ماند. */
+      seriesCatT: seriesCatTrusted_(rec.vals),
       level: String(rec.vals[SC.LEVEL - 1] || ''),
       orders: orders, epNum: epNum, lesson: lessonNo, date: when,
       /* ارجاع‌ها در پروندهٔ خودِ قسمت هم می‌نشینند: «حتماً باید این ارجاعات
@@ -29151,7 +29181,7 @@ function renderSpecialAudioStep_() {
 
     // ── مرحلهٔ «متنِ صوتی» — اعراب‌گذاریِ کامل پیش از صدا (توضیح در speakStep_) ──
     if (st.phase === 'speak') {
-      var segsSp = specialSegments_(ep, meta.seriesCat || meta.cat || '');
+      var segsSp = specialSegments_(ep, specialCatOf_(meta, 'sc'));
       var rsp = speakStep_(ep, segsSp, deadline, function () {
         meta.ep = ep; writeSpecialJson_(folder, meta);
       });
@@ -29183,7 +29213,7 @@ function renderSpecialAudioStep_() {
 
     // ── مرحلهٔ «بازبینیِ متنِ صوتی» ──
     if (st.phase === 'speak2') {
-      var segsRv = specialSegments_(ep, meta.seriesCat || meta.cat || '');
+      var segsRv = specialSegments_(ep, specialCatOf_(meta, 'sc'));
       var persistRvS = function () { meta.ep = ep; writeSpecialJson_(folder, meta); };
       var rvS = { done: true, seen: 0, fixed: 0, learned: 0 };
       if (!st.revDone) {
@@ -29238,7 +29268,7 @@ function renderSpecialAudioStep_() {
       /* ساختِ تکه‌ها پیش از پاک‌سازی — چون رانشِ شمارِ تکه‌ها خودش ممکن است
          پاک‌سازی را لازم کند. داستانش کنارِ chunkDriftReset_ آمده. */
       if (ep && meta && !ep.__seriesName && !ep.__seriesKey) { ep.__seriesName = String(meta.seriesName || ''); ep.__seriesKey = String(meta.seriesKey || ''); }
-      var chunks = buildSpecialChunks_(ep, epNum, meta.cat || meta.seriesCat || '');
+      var chunks = buildSpecialChunks_(ep, epNum, specialCatOf_(meta, 'cs'));
       chunkDriftReset_(st, chunks, 'درس‌نامه ' + epNum);
       // قرینهٔ همان خط در بخشِ ۳ — دو قرینه که یکی‌شان وصل نباشد، همان
       // عیبِ «قرینه‌ای که یک‌بار درست شد» است (۵٫۹۵).
@@ -29609,6 +29639,7 @@ function seriesBoardData_(hub) {
       lvMotion: String(v[SC.LVMOTION - 1] || '').trim(),
       /* «فعال (تولیدِ موازی)» (۱۱.۵) — همان تابعی که انتخاب‌کننده می‌خوانَد. */
       par: seriesParOn_(v),
+      eligible: (function () { try { return seriesEligible_(v, key, null); } catch (eEl) { return null; } })(),   // بخشِ ۱۶ پس از ۱۵ است   // ۱۲.۶: برای ستونِ «آمادگیِ موازی» — همان سدِ seriesParPick_
       /* «مرورِ هر چند درس» (۸.۳۶) — خامِ خانه؛ خالی یعنی پیش‌فرض. */
       recapEvery: String(v[SC.RECAP_EVERY - 1] == null ? '' : v[SC.RECAP_EVERY - 1]).trim(),
       order: Number(v[SC.ORDER - 1]) || 999,
@@ -30084,6 +30115,7 @@ function seriesBoardHtml_(d) {
   H.push(catPanelHtml_());
   /* ۱۱.۵: مقصدها و نمای چهارحالته — هر دو فقط می‌خوانند/می‌نویسند همان جایی که تولید می‌خوانَد؛ شکستشان تخته را نمی‌خواباند. */
   try { H.push(destPanelHtml_()); } catch (eDp) {}
+  try { H.push(parGuideHtml_()); } catch (ePg) {}
   try { H.push(seriesStatesHtml_(d)); } catch (eSs) {}
   /* ۱۱.۷: «دسته‌بندیِ خودکار غلط بوده» — فهرستِ بازبینی یک دکمه فاصله دارد. */
   H.push('<div class="card"><b>🗂 دستهٔ مجموعه‌ها</b> <span class="sub">دستهٔ دستی فقط برچسب است و شمارهٔ دستی مجموعه را وارد نوبت می‌کند؛ دستهٔ خودکار هیچ تصمیمی نمی‌سازد' +
@@ -30206,7 +30238,7 @@ function seriesBoardHtml_(d) {
            '<th>پیشرفت</th><th>وضعیت</th><th>قسمت‌های ساخته‌شده</th>' +
            '<th>جزوه</th><th>مرورِ بزرگ</th><th>سبکِ تصویر</th><th>تصویرسازی</th>' +
            '<th>مجموعه‌های مرجع</th>' +
-           '<th>فعال (موازی)</th>' +
+           '<th>فعال (موازی)</th><th>آمادگیِ موازی</th>' +
            '<th></th></tr>');
     for (var i = 0; i < grp.series.length; i++) {
       var x = grp.series[i];
@@ -30251,6 +30283,7 @@ function seriesBoardHtml_(d) {
       try { H.push(bridgeCell_(x, d)); }
       catch (eBc) { H.push('<td class="sub">—</td>'); }
       H.push(parCell_(x));
+      H.push(parReadyCell_(x));
       H.push('<td class="act"><button ' + (x.isPinned ? 'class="pin" ' : '') +
              'data-key="' + bEsc_(x.key) + '" ' +
              'data-act="' + (x.isPinned ? 'unpin' : 'pin') + '" ' +
@@ -30273,7 +30306,7 @@ function seriesBoardHtml_(d) {
       // قسمت‌های همان مجموعه، به ترتیب، با جای ایستادن
       if (x.partRows.length) {
         H.push('<tr class="' + clsName.replace('srow', 'sdetail') + '"><td></td>' +
-               '<td colspan="13"><table style="font-size:11px">');
+               '<td colspan="14"><table style="font-size:11px">');
         for (var p = 0; p < x.partRows.length; p++) {
           var pr = x.partRows[p];
           H.push('<tr><td style="width:34px">' + faNum_(pr.seq || (p + 1)) + '</td>' +
@@ -32301,6 +32334,35 @@ function parCell_(x) {
          ' onchange="parTick(this)">' + (x.par ? '<div class="sub">⇄ در گردش</div>' : '') + '</td>';
 }
 
+/**
+ * ══ آمادگیِ موازی (۱۲.۶) ══ «از تنظیمِ «فعال (تولیدِ موازی)» نفهمید». هر شرط همان است که کد می‌سنجد: دستهٔ دستی و جزوهٔ روشن
+ * (`seriesParSave_`، پیش از ثبتِ تیک)، و کنارنگذاشته/اجازهٔ ورود/کارِ مانده (`seriesParPick_`، سرِ هر انتخاب). شمارهٔ دستی برای
+ * موازی لازم نیست (فقط برای ورودِ مجموعهٔ تازه به صفِ اصلی). ⇒ [شرطِ ناقص]
+ */
+function seriesParMissing_(x) {
+  var m = [];
+  if (x.status === SST.SKIPPED) m.push('نادیده گرفته شده');
+  else if (x.status === SST.DONE || !x.hasWork) m.push('قطعهٔ ساخته‌نشده‌ای نمانده');
+  if (CFG.SERIES_AUTO_CAT_TRUST === false && !x.mcat) m.push('دستهٔ دستی ندارد');
+  if (CFG.HANDOUT_ENABLED === false || CFG.HANDOUT_VIZ_ENABLED === false) m.push('جزوه در تنظیماتِ کد خاموش است');
+  if (x.eligible === false) m.push('داوری «آموزشی نیست» گفته — «آموزشی است» را بزنید یا شماره/دستهٔ دستی بگذارید');
+  return m;
+}
+function parReadyCell_(x) {
+  var m = seriesParMissing_(x);
+  return '<td class="sub">' + (m.length ? '⛔ ' + bEsc_(m.join('؛ ')) : (x.par ? '✓ در گردش' : '✓ آماده — تیک بزنید')) + '</td>';
+}
+/** راهنمای پنج‌خطیِ تولیدِ موازی، بالای تخته. */
+function parGuideHtml_() {
+  var mx = Math.max(1, Number(CFG.SERIES_PAR_MAX) || 3);
+  return '<div class="card"><b>⇄ تولیدِ موازی چیست و چطور روشن می‌شود</b><ol style="margin:6px 0 0 0;padding-right:18px">' +
+    '<li>هنوز روزی <b>یک</b> درس‌نامه ساخته می‌شود؛ موازی یعنی همان یک نوبت، هر روز به مجموعه‌ای می‌رسد که دیرتر قسمت گرفته (یک‌درمیان با مجموعهٔ جاری).</li>' +
+    '<li>شرط‌ها: <b>دستهٔ دستی</b> (دکمهٔ «شماره و دستهٔ دستی»)، جزوهٔ روشن، و قطعهٔ ساخته‌نشده. شمارهٔ دستی لازم نیست. ستونِ «آمادگیِ موازی» دقیقاً می‌گوید چه کم است.</li>' +
+    '<li>روشن کردن: در ردیفِ همان مجموعه، خانهٔ «فعال (موازی)» را تیک بزنید (حداکثر ' + faNum_(mx) + ' مجموعه کنارِ مجموعهٔ جاری).</li>' +
+    '<li>چه می‌شود: از تولیدِ بعدی، نوبت میانِ مجموعهٔ جاری و تیک‌خورده‌ها می‌چرخد؛ هر کدام جزوه و صدا و پلی‌لیستِ خودش را دارد.</li>' +
+    '<li>خاموش کردن: همان تیک را بردارید. هیچ تیکی = مثلِ پیش، یک مجموعه تا پایان.</li></ol></div>';
+}
+
 /** پنلِ مقصدها. */
 function destPanelHtml_() {
   var d = null;
@@ -32440,6 +32502,7 @@ var JUDGE_SCHEMA = {
           topic: { type: 'string' },
           category: { type: 'string' },
           catSure: { type: 'string' },
+          courseSure: { type: 'string' },
           level: { type: 'string' },
           related: { type: 'string' },
           orderHint: { type: 'string' },
@@ -32516,6 +32579,10 @@ function seriesNeedingJudgement_(reg) {
   for (var i = 0; i < reg.rows.length; i++) {
     var v = reg.rows[i].vals;
     if (String(v[SC.STATUS - 1] || '') === SST.SKIPPED) continue;
+    /* ۱۲.۶: ردیفِ دستیِ داوری‌ناقص یک بار دوباره با مدل داوری می‌شود — applyVerdict_ فقط شرح/دلیل/دستهٔ خودکار را می‌نویسد. */
+    if ((String(v[SC.MANUAL - 1] || '').trim() || seriesManualLock_(v)) && judgeIncomplete_(v)) {
+      reg.rows[i].__redoLocked = true; out.push(reg.rows[i]); continue;
+    }
     if (String(v[SC.MANUAL - 1] || '').trim()) continue;   // نظرِ شما ثبت شده
     if (seriesManualLock_(v)) continue;   // شماره/دستهٔ دستی: داوری حق دخالت ندارد
     // داوریِ بی‌مدل موقتی است. همین که مدل در دسترس باشد باید بازبینی شود، نه
@@ -32535,64 +32602,83 @@ function seriesNeedingJudgement_(reg) {
 // -------------------------------------------------------- نمونه‌برداریِ متن
 
 /**
- * چند قطعهٔ نمایندهٔ یک مجموعه: از قسمتِ اول، وسط و آخر — تا هم شروع دیده شود
- * هم بدنه. متنِ خام از همان ستون‌هایی می‌آید که تولیدکننده استفاده می‌کند.
+ * چند قطعهٔ نمایندهٔ یک مجموعه: از ۱۰٪ و ۵۰٪ و ۹۰٪ِ آن — تا هم شروع دیده شود
+ * هم بدنه و هم پایان. متنِ خام از همان ستون‌هایی می‌آید که تولیدکننده استفاده می‌کند.
  */
 function sampleSeriesText_(rec, partsOfKey, optsOpt) {
   var opts = optsOpt || {};
   var list = partsOfKey || [];
-  var want = Math.max(1, opts.samples || CFG.JUDGE_SAMPLES || 3);
   var chars = Math.max(200, opts.chars || CFG.JUDGE_SAMPLE_CHARS || 2600);
-  var maxParts = Math.max(1, opts.maxParts || 3);
-  var picks = [];
-  if (list.length) {
-    var idxs = [0];
-    if (list.length > 2) idxs.push(Math.floor(list.length / 2));
-    if (list.length > 1) idxs.push(list.length - 1);
-    idxs = idxs.slice(0, maxParts);
-    for (var i = 0; i < idxs.length && picks.length < want; i++) {
-      if (picks.indexOf(idxs[i]) === -1) picks.push(idxs[i]);
+  /* ۱۲.۶: نمونه از ۱۰٪ و ۵۰٪ و ۹۰٪ِ کلِ مجموعه (بر حسبِ شمارِ قطعه)، نه قطعهٔ اولِ سه قسمت. قطعهٔ اولِ هر قسمت
+     معمولاً سلام و مقدمه است — مصباح با سه مقدمهٔ رسمی «سیاسی و خبری» خوانده شد. */
+  var fracs = opts.fracs || CFG.JUDGE_SAMPLE_FRACS || [0.1, 0.5, 0.9];
+  var want = Math.max(1, opts.samples || fracs.length);
+  var tot = 0, span = [];
+  for (var q = 0; q < list.length; q++) {
+    var nq = Math.max(1, Number(list[q].vals[SP.CHUNKS - 1]) || 1);
+    span.push({ i: q, from: tot, n: nq }); tot += nq;
+  }
+  var picks = [], seenPick = Object.create(null);
+  for (var f = 0; f < fracs.length && picks.length < want && tot; f++) {
+    var g = Math.min(tot - 1, Math.max(0, Math.floor(Number(fracs[f]) * tot)));
+    for (var z = 0; z < span.length; z++) {
+      if (g >= span[z].from && g < span[z].from + span[z].n) {
+        var pk = span[z].i + ':' + (g - span[z].from + 1);
+        if (!seenPick[pk]) { seenPick[pk] = 1; picks.push({ i: span[z].i, no: g - span[z].from + 1, pct: Math.round(Number(fracs[f]) * 100) }); }
+        break;
+      }
     }
   }
   var bits = [], errs = [], names = [], salvage = [];
-  // سهمیهٔ هر قسمت جداگانه است. پیش‌تر سقف «want» سراسری بود و وقتی قطعه‌ها
-  // کوتاه بودند — که در آرشیوِ واقعی خیلی رایج است — همان قسمتِ اول کلِ سهمیه
-  // را می‌خورد و داوری فقط از رویِ آغازِ جلسهٔ یک انجام می‌شد: مراسمی که با
-  // مقدمهٔ رسمی شروع می‌شود سخنرانی به نظر می‌رسید و دوره‌ای که جلسهٔ اولش
-  // معرفی است، گپ.
-  var perPart = Math.max(1, Math.ceil(want / Math.max(1, picks.length)));
   for (var p = 0; p < picks.length; p++) {
-    var pr = list[picks[p]];
-    names.push(String(pr.vals[SP.NAME - 1] || ''));
+    var pr = list[picks[p].i];
+    var nm = String(pr.vals[SP.NAME - 1] || '');
+    if (names.indexOf(nm) === -1) names.push(nm);
     var seg;
-    // از قطعهٔ اولِ همان قسمت، فقط به اندازهٔ نمونه
-    try { seg = readPartChunks_(pr, 1, chars, 1, 20); }
+    try {
+      seg = readPartChunks_(pr, picks[p].no, chars, 1, 20);
+      // شمارهٔ قطعه در شیت گاهی از ۱ پیوسته نیست؛ چیزی خوانده نشد ⇒ از آغازِ همان قسمت
+      if (seg && !seg.error && !seg.chunks.length && picks[p].no > 1) seg = readPartChunks_(pr, 1, chars, 1, 20);
+    }
     catch (e) { errs.push(e.message); continue; }
     if (!seg || seg.error) { errs.push((seg && seg.error) || 'نامعلوم'); continue; }
-    var took = 0;
-    for (var c = 0; c < seg.chunks.length && took < perPart; c++) {
+    var lbl = function (c) {
+      return '[قسمت ' + (Number(pr.vals[SP.SEQ - 1]) || (picks[p].i + 1)) + ' · قطعهٔ ' + seg.chunks[c].no +
+             ' · ~' + picks[p].pct + '٪ِ مجموعه]\n';
+    };
+    for (var c = 0; c < seg.chunks.length; c++) {
       var t = String(seg.chunks[c].text || '').trim();
-      // کفِ ۱۲۰ نویسه، فایل‌هایی را که قطعه‌هایشان کوتاه است کاملاً «بی‌متن»
-      // نشان می‌داد — و بی‌متن یعنی «مشکوک» یعنی واردِ نوبتِ درس‌نامه.
-      if (t.length < 60) {
-        if (t && salvage.length < 6) {
-          salvage.push('[قسمت ' + (Number(pr.vals[SP.SEQ - 1]) || (picks[p] + 1)) +
-                       ' · قطعهٔ ' + seg.chunks[c].no + ']\n' + t);
-        }
-        continue;
-      }
-      bits.push('[قسمت ' + (Number(pr.vals[SP.SEQ - 1]) || (picks[p] + 1)) +
-                ' · قطعهٔ ' + seg.chunks[c].no + ']\n' + t.slice(0, chars));
-      took++;
+      // کفِ ۶۰ نویسه؛ کوتاه‌تر فقط پشتوانه (مجلسی که قطعه‌هایش کوتاه‌اند نباید «بی‌متن» شود)
+      if (t.length < 60) { if (t && salvage.length < 6) salvage.push(lbl(c) + t); continue; }
+      bits.push(lbl(c) + t.slice(0, chars));
+      break;
     }
   }
-  // اگر هیچ قطعه‌ای از کفِ طول رد نشد، همان متنِ کوتاه بهتر از هیچ است: «بی‌متن»
-  // یعنی «مشکوک» یعنی ورود به نوبتِ درس‌نامه — و مجلسِ روضه‌ای که قطعه‌هایش
-  // کوتاه‌اند از همین راه می‌آمد.
-  if (!bits.length && salvage.length) {
-    bits = salvage.slice(0, Math.max(1, want));
-  }
-  return { text: bits.join('\n\n'), samples: bits.length, errors: errs, partNames: names };
+  if (!bits.length && salvage.length) bits = salvage.slice(0, Math.max(1, want));
+  /* ۱۲.۶: عنوانِ همهٔ قسمت‌ها — نام نشانهٔ فرعی است، ولی فهرستِ کاملِ نام‌ها سیرِ مجموعه را نشان می‌دهد. */
+  var all = [];
+  for (var w = 0; w < list.length; w++) all.push(String(list[w].vals[SP.NAME - 1] || '').trim());
+  var allT = all.filter(String).join(' ، ');
+  if (allT.length > 1500) allT = allT.slice(0, 1500) + ' …';
+  return { text: bits.join('\n\n'), samples: bits.length, errors: errs, partNames: names, allTitles: allT };
+}
+
+/** ۱۲.۶: سرفصل‌های جزوهٔ مجموعه (اگر هست) — فقط خواندن، و فقط وقتی پوشهٔ مجموعه از قبل ثبت است (هرگز پوشه نمی‌سازد). */
+function judgeHandoutHeads_(rec) {
+  try {
+    var fid = String(rec && rec.vals && rec.vals[SC.FOLDER - 1] || '');
+    if (!fid) return '';
+    var it = DriveApp.getFolderById(fid).getFilesByName(handoutJsonName_());
+    if (!it.hasNext()) return '';
+    var b = JSON.parse(it.next().getBlob().getDataAsString());
+    var L = [];
+    (b && b.chapters || []).forEach(function (ch) {
+      var secs = (ch.sections || []).map(function (x) { return String(x.title || ''); }).filter(String);
+      L.push('«' + String(ch.title || '') + '»' + (secs.length ? ': ' + secs.join('، ') : ''));
+    });
+    var s = L.join(' | ');
+    return s.length > 1200 ? s.slice(0, 1200) + ' …' : s;
+  } catch (e) { return ''; }
 }
 
 // ------------------------------------------- داوریِ بی‌مدل (پشتیبانِ همیشگی)
@@ -32615,6 +32701,17 @@ function sampleSeriesText_(rec, partsOfKey, optsOpt) {
  * حال می‌نویسد، چون فهرستِ بی‌نظم بدترین حالت است.
  */
 var JUDGE_LOCAL_MARK = '[بی‌مدل]';
+var JUDGE_PARTIAL_MARK = 'داوریِ ناقص';        // ۱۲.۶: شمارشِ واژه، نه فهمِ محتوا — دوباره با مدل داوری می‌شود
+var JUDGE_REVIEW_MARK = 'نیازمند بازبینی';     // ۱۲.۶: اطمینانِ کمِ داور
+var JUDGE_REDO_MARK = 'داوریِ دوبارهٔ ۱۲٫۶';   // ۱۲.۶: یک بار برای ردیف‌های دستیِ داوری‌ناقص
+
+/** ۱۲.۶: داوریِ این ردیف ناقص است؟ (بی‌مدل یا «موضوع‌های پرتکرار»؛ ردیفی که هرگز داوری نشده «ناقص» نیست) — و هنوز یک بار دوباره داوری نشده. */
+function judgeIncomplete_(v) {
+  var why = String(v[SC.WHY - 1] || '');
+  if (why.indexOf(JUDGE_REDO_MARK) !== -1) return false;
+  return why.indexOf(JUDGE_LOCAL_MARK) !== -1 ||
+         String(v[SC.ABOUT - 1] || '').indexOf('موضوع‌های پرتکرارِ متن') === 0;
+}
 
 // نشانه‌های «چیزی منظم آموزش داده می‌شود». «=» یعنی واژهٔ مستقل (تا «درس» در
 // «مدرسه» شمرده نشود).
@@ -32896,13 +32993,17 @@ function judgePrompt_(entries, catsOpt) {
            '   (نام صرفاً یک نشانهٔ فرعی است)');
     L.push('نوع: ' + e.kind + ' | شمارِ قسمت: ' + e.parts + ' | شمارِ قطعه: ' + e.chunks +
            ' | منبع: ' + e.src + (e.tab ? ' | تب/پوشهٔ منبع: ' + e.tab : ''));
-    L.push('— متنِ نمونه —');
+    if (e.allTitles) L.push('عنوانِ همهٔ قسمت‌ها به ترتیب: ' + e.allTitles);
+    if (e.heads) L.push('سرفصل‌های جزوه‌ای که از درس‌های ساخته‌شدهٔ همین مجموعه درآمده: ' + e.heads);
+    L.push('— متنِ نمونه (از ۱۰٪ و ۵۰٪ و ۹۰٪ِ مجموعه) —');
     L.push(e.text || '(هیچ متنی خوانده نشد)');
   }
   L.push('─────────────────────────────────');
   L.push('');
   L.push('برای هر key دقیقاً یک داوری بده:');
   L.push('• isCourse: «true» یا «false» (به‌شکلِ رشته) — بر پایهٔ قاعدهٔ بالا.');
+  L.push('• courseSure: اطمینانت به همین isCourse، عددِ ۰ تا ۱۰۰ به‌شکلِ رشته. مقدمه و سلامِ آغازِ جلسه را ملاکِ موضوع نگیر؛ ' +
+         'اگر سه نمونه با هم نمی‌خوانند یا متن کم است، پایین بگذار.');
   L.push('• score: عددِ ۰ تا ۱۰۰ به‌شکلِ رشته، «چقدر برای یک پادکستِ آموزشیِ ' +
          'درس‌به‌درس مناسب است». فقط رقمِ لاتین بنویس.');
   L.push('• kindOfContent: در دو-سه واژه بگو واقعاً چیست (مثلاً «دورهٔ آموزشی»، ' +
@@ -32939,7 +33040,8 @@ function entriesFor_(slice, parts, optsOpt) {
                kind: String(v[SC.KIND - 1] || ''),
                parts: v[SC.PARTS - 1], chunks: v[SC.CHUNKS - 1],
                src: String(v[SC.SRC - 1] || ''), hint: String(v[SC.TOPIC - 1] || ''), tab: String(v[SC.TAB - 1] || ''),
-               partNames: smp.partNames, text: smp.text, samples: smp.samples });
+               partNames: smp.partNames, text: smp.text, samples: smp.samples,
+               allTitles: smp.allTitles || '', heads: judgeHandoutHeads_(slice[i]) });
   }
   return out;
 }
@@ -33031,7 +33133,7 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
   // نمی‌شود: کارِ تکراری است و چیزی به آن اضافه نمی‌کند. بازبینیِ آن‌ها کارِ
   // مدل است، در دورهای عادی.
   if (localOnly) {
-    todo = todo.filter(function (r) { return !seriesJudged_(r.vals); });
+    todo = todo.filter(function (r) { return !r.__redoLocked && !seriesJudged_(r.vals); });
   }
   if (!todo.length) {
     // چیزی برای داوری نیست، ولی نظمِ فهرست همیشه باید درست باشد
@@ -33107,7 +33209,8 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
           var vd = Object.prototype.hasOwnProperty.call(byKey, rec.key) ? byKey[rec.key] : null;
           // کلیدی را که مدل جا انداخته، بی‌داوری رها نمی‌کنیم: با قاعده‌های خودی
           // داوری می‌شود و «مشکوک» می‌ماند تا دورِ بعد مدل دوباره امتحان کند.
-          if (!vd) { applyVerdict_(reg, rec, localVerdict_(entries[s2]), entries[s2], true); localN++; }
+          if (!vd && rec.__redoLocked) { awaiting++; }   // ردیفِ دستی فقط با داوریِ مدل (۱۲.۶)
+          else if (!vd) { applyVerdict_(reg, rec, localVerdict_(entries[s2]), entries[s2], true); localN++; }
           else applyVerdict_(reg, rec, vd, entries[s2], true);
           touched[rec.key] = 1;
           judged++; dirty = true;
@@ -33139,7 +33242,7 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
       // ولی اگر همین ردیف قبلاً با قاعده داوری شده، دوباره نوشتنش فقط مهرِ زمان
       // را تازه می‌کند و به کاربر می‌گوید «۱ مجموعه داوری شد» — هر اجرا، همان
       // یک ردیف، تا ابد.
-      if (seriesJudged_(slice[0].vals)) { awaiting++; }
+      if (slice[0].__redoLocked || seriesJudged_(slice[0].vals)) { awaiting++; }
       else {
         applyVerdict_(reg, slice[0], localVerdict_(entries[0]), entries[0], true);
         touched[slice[0].key] = 1;
@@ -33190,7 +33293,7 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
       // ردیفی که همین حالا با قاعده داوری شده، در فهرست است تا مدل بازبینی‌اش
       // کند — نه تا قاعده دوباره همان نتیجه را بنویسد. رد کردنش از هم کارِ
       // تکراری جلو می‌گیرد و هم مهرِ زمانِ داوری را بی‌دلیل تازه نمی‌کند.
-      if (seriesJudged_(rec2.vals)) { awaiting++; continue; }
+      if (rec2.__redoLocked || seriesJudged_(rec2.vals)) { awaiting++; continue; }   // ردیفِ دستی فقط با مدل (۱۲.۶)
       var e2 = entriesFor_([rec2], parts, lopts)[0];
       if (!e2.samples && !Object.prototype.hasOwnProperty.call(noTextSeen, e2.key)) {
         noTextSeen[e2.key] = 1; noText++;
@@ -33233,6 +33336,11 @@ function judgeSeries(force, deadline, regOpt, localOnly) {
 /** نوشتنِ یک داوری در ردیفِ رجیستری. */
 function applyVerdict_(reg, rec, vd, entry, deferWrite) {
   var v = rec.vals;
+  /* ۱۲.۶: ردیفِ دستی (شماره/دسته/تصمیمِ دستی) فقط با داوریِ مدل بازنویسی می‌شود — و فقط شرح و دلیل و دستهٔ خودکار؛
+     پیشنهادِ داور در «دلیل» و تبِ بازبینی می‌آید، نه در صف. داوریِ بی‌مدل روی آن هیچ نمی‌نویسد. */
+  var lockedRedo = rec.__redoLocked === true;
+  if (lockedRedo && vd && vd.__local === true) return;
+  var before = lockedRedo ? v.slice() : null;
   // «بله/خیر» می‌تواند بولی باشد یا رشته («true»، «بله»، «yes»، «۱»)
   var yes = judgeYes_(vd.isCourse);
   // «رشتهٔ خالی» عدد نیست. Number('') صفر است، و همین صفرِ خاموش یک دورهٔ
@@ -33256,7 +33364,11 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
   // پاسخی که امتیاز یا شرح ندارد، پاسخِ کاملی نیست (پاسخِ بریده). «قطعی» ثبتش
   // نمی‌کنیم؛ مشکوک می‌ماند تا زود دوباره بررسی شود.
   var thinVerdict = scoreMissing || !String(vd.about || '').trim();
-  var unsure = noSample || thinVerdict || vd.__unsure === true;
+  /* ۱۲.۶: اطمینانِ کمِ داور به «آموزشی/نه» ⇒ مشکوک و «نیازمند بازبینی»، نه تصمیمِ قطعی. */
+  var cSureRaw = String(vd.courseSure === undefined || vd.courseSure === null ? '' : vd.courseSure).trim();
+  var cSure = Number(faDigits_(cSureRaw).replace(/[^0-9.]/g, ''));
+  var lowCourse = vd.__local !== true && cSureRaw !== '' && isFinite(cSure) && cSure < (Number(CFG.JUDGE_COURSE_MIN_SURE) || 60);
+  var unsure = noSample || thinVerdict || vd.__unsure === true || lowCourse;
   // «مشکوک» در صفِ درس‌نامه می‌ماند — و باید هم بماند، چون یک دورهٔ واقعیِ
   // نافهمیده نباید کنار گذاشته شود. ولی یک استثنا لازم است: وقتی هیچ متنِ
   // قابلِ استفاده‌ای خوانده نشده و نامِ فایل نشانهٔ صریحِ مراسم دارد
@@ -33284,7 +33396,8 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
   // داوریِ بی‌مدل باید صریح علامت بخورد: هم شما در تخته می‌بینید که این تصمیم
   // از قاعده‌های خودیِ موتور آمده نه از مدل، و هم خودِ موتور از همین نشانه
   // می‌فهمد که باید زود (سه روز، نه چهل‌وپنج روز) با مدل بازبینی‌اش کند.
-  v[SC.WHY - 1] = (vd.__local ? JUDGE_LOCAL_MARK + ' ' : '') +
+  v[SC.WHY - 1] = (vd.__local ? JUDGE_LOCAL_MARK + ' ' + JUDGE_PARTIAL_MARK + ' — ' : '') +
+                  (lowCourse ? '‹' + JUDGE_REVIEW_MARK + ': اطمینانِ داور ' + Math.round(cSure) + '› ' : '') +
                   (kind ? '[' + kind + '] ' : '') + why +
                   (ritualName
                      ? ' (متنِ قابلِ استفاده‌ای خوانده نشد — ' + sampleLen + ' نویسه؛ ' +
@@ -33309,6 +33422,8 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
     v[SC.CAT - 1] = String(CFG.SERIES_CAT_UNSURE || 'بدون دسته (نیازمند بازبینی)');
     v[SC.WHY - 1] = String(v[SC.WHY - 1] || '') + ' ‹دسته نامطمئن: «' + cat + '» با اطمینانِ ' + Math.round(sure) + '›';
   }
+  /* ۱۲.۶: دستهٔ داوریِ بی‌مدل (شمارشِ واژه) قطعی نیست — جای خالی را «نیازمند بازبینی» می‌گذارد، دستهٔ موجود را عوض نمی‌کند. */
+  else if (vd.__local === true) { if (!String(v[SC.CAT - 1] || '').trim()) v[SC.CAT - 1] = String(CFG.SERIES_CAT_UNSURE || 'بدون دسته (نیازمند بازبینی)'); }
   else if (okCat) v[SC.CAT - 1] = cat;
   else if (!String(v[SC.CAT - 1] || '').trim()) v[SC.CAT - 1] = MISC_TITLE;
   if (vd.related) v[SC.RELATED - 1] = String(vd.related).slice(0, 120);
@@ -33322,6 +33437,16 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
                     ' ‹ترتیب پیشنهادی=' + Math.round(hintNum) + '›';
   }
   v[SC.UPDATED - 1] = nowStr_();
+  if (lockedRedo) {
+    var sug = '‹' + JUDGE_REDO_MARK + ' — پیشنهادِ داور، اعمال‌نشده: آموزشی=' + (v[SC.IS_COURSE - 1] || '؟') + '، امتیاز=' + score +
+              (cat ? '، دسته=' + cat : '') + (lvl ? '، سطح=' + lvl : '') + '›';
+    var keep = [SC.ABOUT, SC.WHY, SC.CAT, SC.JUDGED, SC.UPDATED];
+    var nv = before.slice();
+    keep.forEach(function (c) { nv[c - 1] = v[c - 1]; });
+    nv[SC.WHY - 1] = String(v[SC.WHY - 1] || '').replace(/\s*‹ترتیب پیشنهادی=\d+›/g, '').slice(0, 300) + ' ' + sug;
+    for (var kk = 0; kk < v.length; kk++) v[kk] = nv[kk];
+    delete rec.__redoLocked;
+  }
   if (deferWrite) return;             // نوشتنِ یک‌بارهٔ کلِ جدول در پایانِ کار
   try {
     reg.sheet.getRange(rec.row, 1, 1, SERIES_HEADERS.length).setValues([v]);
@@ -47407,7 +47532,7 @@ function handoutNew_(meta) {
   return {
     seriesKey: String((meta && meta.seriesKey) || ''),
     seriesName: String((meta && meta.seriesName) || ''),
-    cat: String((meta && meta.seriesCat) || ''),
+    cat: specialCatOf_(meta, 'sc'),   // ۱۲.۶: برچسبِ جزوه فقط از دستهٔ دستی
     level: String((meta && meta.level) || ''),
     createdAt: nowStr_(), updatedAt: '', revision: 0,
     roadmap: { intro: '', stages: [], note: '' },
@@ -48644,7 +48769,7 @@ function handoutRender_(folder, book) {
 function handoutFacts_(book, rec, folder) {
   if (!book || !rec || !rec.vals) return false;
   var changed = false;
-  var cat = seriesCatOf_(rec.vals);
+  var cat = seriesCatTrusted_(rec.vals);   // ۱۲.۶: برچسبِ جزوه فقط دستهٔ دستی؛ بی آن، همان که هست
   if (cat && String(book.cat || '') !== cat) { book.cat = cat; changed = true; }
   var lvl = String(rec.vals[SC.LEVEL - 1] || '').trim();
   if (lvl && String(book.level || '') !== lvl) { book.level = lvl; changed = true; }
@@ -48781,7 +48906,7 @@ function handoutUpdate_(folder, meta, hub, rec) {
   /* `||` یعنی «فقط یک بار، برای همیشه» — و دستهٔ مجموعه عوض می‌شود
      (۶٫۵۱). جلدِ جزوه دستهٔ قدیمی را تا ابد نگه می‌داشت. مقدارِ تازه اگر
      هست، می‌نشیند؛ خالی هرگز روی پرِ قبلی نمی‌نشیند. */
-  book.cat = String(meta.seriesCat || '') || book.cat || '';
+  book.cat = specialCatOf_(meta, 'sc') || book.cat || '';
   book.level = book.level || String(meta.level || '');
   /* و روی همهٔ این‌ها، خودِ رجیستری — چون meta از پروندهٔ قسمت می‌آید که
      خودش یک کپی است و می‌تواند مثلِ کتاب کهنه مانده باشد (۶٫۷۱). */
@@ -54332,7 +54457,7 @@ function lvStyleAt_(hub, item, meta, seriesName, look) {
       return st.key;
     }
     if (mdl) return mdl;
-    return lvStyleSuggest_(String((meta && (meta.seriesCat || meta.cat)) || ''),
+    return lvStyleSuggest_(specialCatOf_(meta, 'sc'),   // ۱۲.۶: دستهٔ خودکار سبکِ تصویر را پیشنهاد نمی‌دهد
                            '', String(seriesName || ''));
   } catch (e) { return ''; }
 }
@@ -56496,7 +56621,7 @@ function lvReplayChunks_(folder, meta, show) {
   /* ۹.۶۵: «از همه جا»ی بی رسانه هم صحنهٔ مصور می‌گیرد — تکه‌هایش از دوقلوی خودش. */
   var vari = String(show || '') === ENRICH_SHOW_VARIETY;
   try { tc = vari ? varietyTextChunks_((meta && meta.ep) || {}, (meta && meta.cat) || '')
-                  : specialTextChunks_((meta && meta.ep) || {}, (meta && (meta.cat || meta.seriesCat)) || ''); }
+                  : specialTextChunks_((meta && meta.ep) || {}, specialCatOf_(meta, 'cs')); }   // ۱۲.۶: همان دسته‌ای که صدا با آن ساخته شد
   catch (e) { out.why = 'تکه‌های گفتار دوباره ساخته نشد: ' + e.message; return out; }
   if (!tc || !tc.length) { out.why = 'تکه‌های گفتار دوباره ساخته نشد'; return out; }
   var secs = Number(tj.secs) || 0;
@@ -60974,7 +61099,7 @@ function ytUploadOne_(item, hub, pub) {
               seriesName: seriesName, epNum: faDigitsOut_(String(item.ep)),
               lesson: lessonNo ? faDigitsOut_(String(lessonNo)) : '',
               recap: !!meta.recap, recapRange: ytRecapRangeOf_(meta, folder),
-              title: String(ep.title || ''), cat: String(meta.cat || meta.seriesCat || ''),
+              title: String(ep.title || ''), cat: specialCatOf_(meta, 'cs'),   // ۱۲.۶: دستهٔ دستی؛ قسمتِ «از همه جا» و پیش از ۱۲.۶ همان پیشین
               duration: ytTime_(totalSec), headings: heads,
               hook: String(ep.hook || ''), summary: String(ep.summary || ''),
               sources: (ep.__extSources || []),
@@ -61302,7 +61427,7 @@ function ytUploadOne_(item, hub, pub) {
       if (lvLvl === 'خاموش') throw new Error('سطحِ تصویرسازیِ این مجموعه «خاموش» است');
       spCtx = {
         level: lvLvl, style: lvSty, bg: vis.bgIds || {},
-        show: item.show, cat: String(meta.cat || meta.seriesCat || ''),
+        show: item.show, cat: specialCatOf_(meta, 'cs'),   // ۱۲.۶: دستهٔ دستی؛ قسمتِ «از همه جا» و پیش از ۱۲.۶ همان پیشین
         seriesName: seriesName,
         foot: showName + (lessonNo ? '  ·  درس ' + faDigitsOut_(String(lessonNo)) : '')
       };
@@ -64379,7 +64504,7 @@ function ytRedoOne_(show, ep, opt) {
                 return L ? faDigitsOut_(String(L)) : '';
               })(),
               recap: !!meta.recap, recapRange: ytRecapRangeOf_(meta, folder),
-              cat: String(meta.cat || meta.seriesCat || ''), duration: ytTime_(audSec),
+              cat: specialCatOf_(meta, 'cs'),   // ۱۲.۶: دستهٔ دستی؛ قسمتِ «از همه جا» و پیش از ۱۲.۶ همان پیشین duration: ytTime_(audSec),
               headings: heads, hook: String(epo.hook || ''), summary: String(epo.summary || ''),
               sources: (epo.__extSources || []), sections: epo.sections || [],
               totalSec: audSec };
@@ -68781,6 +68906,7 @@ function runRecapEpisode(opt) {
     covers: [], fromNo: 0, toNo: 0, totalChunks: 0, more: false,
     chunkNos: [], enrich: [], enrichOffered: 0,
     seriesCat: seriesCatOf_(pick.rec.vals),
+    seriesCatT: seriesCatTrusted_(pick.rec.vals),   // ۱۲.۶
     level: String(pick.rec.vals[SC.LEVEL - 1] || ''),
     orders: [], epNum: epNum, date: todayWords_(),
     // این نشان دو کار می‌کند: جزوه فصلی از مرور نمی‌سازد، و گزارش‌ها
@@ -84945,6 +85071,7 @@ function igTick() {
     if (deadline - Date.now() > 40000) { try { igShortThumbRetro_(st, deadline); } catch (eTr) { st.thumbWhy = String(eTr.message || eTr).slice(0, 120); } }
     if (deadline - Date.now() > 60000) { try { igInsights_(st, deadline); } catch (eIn) { st.lastWhy = 'آمار: ' + String(eIn.message || eIn).slice(0, 120); } }
     try { igStuckTell_(st); } catch (eSt) {}
+    try { igDayTell_(st); } catch (eDt) {}
     /* گامی که برای وقتِ کم ایستاد، یک دقیقهٔ دیگر در اجرای تازه — نه یک ساعتِ دیگر پشتِ درِ ساعتی (۹.۸۷). سقف در ساعت، تا
        گامی که هیچ‌وقت در یک اجرا جا نمی‌شود چرخهٔ دقیقه‌ای نسازد. */
     if (again) {
@@ -85198,6 +85325,60 @@ function igStatus_() {
 }
 
 /**
+ * ══ «امروز N از ۶ ریلز و N از ۲ شورتز» (۱۲.۶) ══ سقف‌ها از همان‌جا که انتشار می‌خوانَد (`destCap_`/`IG_SHORTS_PER_DAY`)،
+ * شمار از همان شمارنده‌ها (`st.stats.dayN`، `ytQuota_().shorts`). کمتر از سقف ⇒ علت از وضعِ واقعی: چه چیزی در جریان است
+ * و منتظرِ چیست، شورتزِ در صف و علتش، درسِ کنارگذاشته، مقصدِ خاموش. هر اجرا رکوردِ روز را نگه می‌دارد تا ساعتِ ۱۰ِ فردا
+ * «دیروز» را با عددِ پایانی‌اش بگوید.
+ */
+function igDayLine_(st) {
+  var day = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  var rCap = Math.max(1, Number(CFG.IG_PER_DAY) || 4);
+  try { rCap = Math.max(1, destCap_('ig', rCap)); } catch (e1) {}
+  var sCap = CFG.IG_SHORTS === false ? 0 : Math.max(0, Number(CFG.IG_SHORTS_PER_DAY) || 0);
+  var r = (st.stats || {}).day === day ? Number(st.stats.dayN) || 0 : 0;
+  var sh = 0;
+  try { sh = Number(ytQuota_().shorts) || 0; } catch (e2) {}
+  var why = [];
+  if (r < rCap || sh < sCap) {
+    try { var dg = destGate_('ig', ENRICH_SHOW_SPECIAL); if (dg && !dg.ok) why.push('اینستاگرام: ' + dg.why); } catch (e3) {}
+    if (!igOn_()) why.push('اینستاگرام خاموش یا بی کلید');
+    var seen = Object.create(null);
+    (st.inflight || []).forEach(function (x) {
+      var w = (x.key || '').split(':').pop() + ' در گامِ «' + x.phase + '»' + (x.why ? ' — ' + x.why : '');
+      if (!seen[w]) { seen[w] = 1; why.push(w); }
+    });
+    if (!(st.inflight || []).length) why.push('هیچ ریلزی در جریان نیست' + (st.lastWhy ? ' (آخرین ایراد: ' + st.lastWhy + ')' : ' — صفِ درس‌های منتشرشده برای ریلز خالی است'));
+    igHeld_(st).forEach(function (h) { why.push('درسِ ' + h.ep + ' کنار تا تلاشِ بعد — ' + h.why); });
+    if (sh < sCap) why.push('شورتز: ' + ((st.shortQ || []).length ? st.shortQ.length + ' در صف — ' + (st.shortWhy || 'دورِ بعد') : (st.shortWhy || 'شورتزی در صف نیست')));
+  }
+  var line = 'امروز ' + faDigitsOut_(r) + ' از ' + faDigitsOut_(rCap) + ' ریلز و ' + faDigitsOut_(sh) + ' از ' + faDigitsOut_(sCap) + ' شورتز' +
+             (why.length ? ' — علت: ' + why.join(' · ').slice(0, 600) : '');
+  st.dayRec = st.dayRec || {};
+  st.dayRec[day] = { r: r, rc: rCap, s: sh, sc: sCap, why: why.join(' · ').slice(0, 600) };
+  var ks = Object.keys(st.dayRec).sort();
+  while (ks.length > 7) delete st.dayRec[ks.shift()];
+  var prev = '';
+  var pk = ks.filter(function (k) { return k < day; }).pop();
+  if (pk) {
+    var p = st.dayRec[pk];
+    prev = 'دیروز (' + pk + '): ' + faDigitsOut_(p.r) + ' از ' + faDigitsOut_(p.rc) + ' ریلز و ' + faDigitsOut_(p.s) + ' از ' + faDigitsOut_(p.sc) + ' شورتز' +
+           ((p.r < p.rc || p.s < p.sc) && p.why ? ' — علت: ' + p.why : '');
+  }
+  return { line: line, prev: prev, r: r, rCap: rCap, s: sh, sCap: sCap, why: why };
+}
+
+/** ۱۲.۶: پیامِ شبانه — یک بار در روز، از ساعتِ ۲۳ِ دبی. */
+function igDayTell_(st) {
+  var day = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  var hr = parseInt(Utilities.formatDate(new Date(), CFG.TIMEZONE, 'HH'), 10);
+  var d = igDayLine_(st);
+  if (!isFinite(hr) || hr < (Number(CFG.IG_DAY_TELL_H) || 23) || st.dayTold === day) return false;
+  try { tgSend_('📊 ' + tgEsc_(d.line)); } catch (e) { return false; }
+  st.dayTold = day;
+  return true;
+}
+
+/**
  * درس‌هایی که به سقفِ تلاش رسیده‌اند و تا `IG_RETRY_H` کنارند (۹.۵۷). پیش از این هیچ‌جا دیده نمی‌شدند: درس از
  * `inflight` بیرون می‌رفت، پس نه خطِ روزانه نامش را می‌برد نه `igHealth_` (که فقط `inflight` را می‌پایید) — درسِ ۱۳ِ
  * مصباح همین‌طور یک روزِ کامل ریلزها را نگه داشت و تنها نشانه‌اش «امروز ۰» بود.
@@ -85245,6 +85426,8 @@ function igStuckTell_(st) {
 function igHealth_(problems, notes) {
   var s = igStatus_();
   if (s.line) notes.push(s.line);
+  /* ۱۲.۶: شمارِ روز در برابرِ سقف — دیروزِ کامل (ساعتِ ۱۰ امروز هنوز روزِ تمام‌شده‌ای نیست) و امروز تا این ساعت. */
+  try { var dl = igDayLine_(igState_()); if (dl.prev) notes.push(dl.prev); notes.push(dl.line); } catch (eDl) {}
   if (!s.on) return s;
   var st = igState_(), now = Date.now(), bad = [];
   var ran = Number(st.ranMs) || 0;

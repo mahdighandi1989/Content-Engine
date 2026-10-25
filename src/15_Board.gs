@@ -118,6 +118,7 @@ function seriesBoardData_(hub) {
       lvMotion: String(v[SC.LVMOTION - 1] || '').trim(),
       /* «فعال (تولیدِ موازی)» (۱۱.۵) — همان تابعی که انتخاب‌کننده می‌خوانَد. */
       par: seriesParOn_(v),
+      eligible: (function () { try { return seriesEligible_(v, key, null); } catch (eEl) { return null; } })(),   // بخشِ ۱۶ پس از ۱۵ است   // ۱۲.۶: برای ستونِ «آمادگیِ موازی» — همان سدِ seriesParPick_
       /* «مرورِ هر چند درس» (۸.۳۶) — خامِ خانه؛ خالی یعنی پیش‌فرض. */
       recapEvery: String(v[SC.RECAP_EVERY - 1] == null ? '' : v[SC.RECAP_EVERY - 1]).trim(),
       order: Number(v[SC.ORDER - 1]) || 999,
@@ -593,6 +594,7 @@ function seriesBoardHtml_(d) {
   H.push(catPanelHtml_());
   /* ۱۱.۵: مقصدها و نمای چهارحالته — هر دو فقط می‌خوانند/می‌نویسند همان جایی که تولید می‌خوانَد؛ شکستشان تخته را نمی‌خواباند. */
   try { H.push(destPanelHtml_()); } catch (eDp) {}
+  try { H.push(parGuideHtml_()); } catch (ePg) {}
   try { H.push(seriesStatesHtml_(d)); } catch (eSs) {}
   /* ۱۱.۷: «دسته‌بندیِ خودکار غلط بوده» — فهرستِ بازبینی یک دکمه فاصله دارد. */
   H.push('<div class="card"><b>🗂 دستهٔ مجموعه‌ها</b> <span class="sub">دستهٔ دستی فقط برچسب است و شمارهٔ دستی مجموعه را وارد نوبت می‌کند؛ دستهٔ خودکار هیچ تصمیمی نمی‌سازد' +
@@ -715,7 +717,7 @@ function seriesBoardHtml_(d) {
            '<th>پیشرفت</th><th>وضعیت</th><th>قسمت‌های ساخته‌شده</th>' +
            '<th>جزوه</th><th>مرورِ بزرگ</th><th>سبکِ تصویر</th><th>تصویرسازی</th>' +
            '<th>مجموعه‌های مرجع</th>' +
-           '<th>فعال (موازی)</th>' +
+           '<th>فعال (موازی)</th><th>آمادگیِ موازی</th>' +
            '<th></th></tr>');
     for (var i = 0; i < grp.series.length; i++) {
       var x = grp.series[i];
@@ -760,6 +762,7 @@ function seriesBoardHtml_(d) {
       try { H.push(bridgeCell_(x, d)); }
       catch (eBc) { H.push('<td class="sub">—</td>'); }
       H.push(parCell_(x));
+      H.push(parReadyCell_(x));
       H.push('<td class="act"><button ' + (x.isPinned ? 'class="pin" ' : '') +
              'data-key="' + bEsc_(x.key) + '" ' +
              'data-act="' + (x.isPinned ? 'unpin' : 'pin') + '" ' +
@@ -782,7 +785,7 @@ function seriesBoardHtml_(d) {
       // قسمت‌های همان مجموعه، به ترتیب، با جای ایستادن
       if (x.partRows.length) {
         H.push('<tr class="' + clsName.replace('srow', 'sdetail') + '"><td></td>' +
-               '<td colspan="13"><table style="font-size:11px">');
+               '<td colspan="14"><table style="font-size:11px">');
         for (var p = 0; p < x.partRows.length; p++) {
           var pr = x.partRows[p];
           H.push('<tr><td style="width:34px">' + faNum_(pr.seq || (p + 1)) + '</td>' +
@@ -2808,6 +2811,35 @@ function parCell_(x) {
          (x.par ? ' checked' : '') + (dis ? ' disabled title="کاری برای ساختن ندارد"' : '') +
          ' title="تولیدِ موازی: تیک = هر روز نوبتی کنارِ مجموعهٔ جاری. هیچ تیکی = یک مجموعه تا پایان (همان پیشین)."' +
          ' onchange="parTick(this)">' + (x.par ? '<div class="sub">⇄ در گردش</div>' : '') + '</td>';
+}
+
+/**
+ * ══ آمادگیِ موازی (۱۲.۶) ══ «از تنظیمِ «فعال (تولیدِ موازی)» نفهمید». هر شرط همان است که کد می‌سنجد: دستهٔ دستی و جزوهٔ روشن
+ * (`seriesParSave_`، پیش از ثبتِ تیک)، و کنارنگذاشته/اجازهٔ ورود/کارِ مانده (`seriesParPick_`، سرِ هر انتخاب). شمارهٔ دستی برای
+ * موازی لازم نیست (فقط برای ورودِ مجموعهٔ تازه به صفِ اصلی). ⇒ [شرطِ ناقص]
+ */
+function seriesParMissing_(x) {
+  var m = [];
+  if (x.status === SST.SKIPPED) m.push('نادیده گرفته شده');
+  else if (x.status === SST.DONE || !x.hasWork) m.push('قطعهٔ ساخته‌نشده‌ای نمانده');
+  if (CFG.SERIES_AUTO_CAT_TRUST === false && !x.mcat) m.push('دستهٔ دستی ندارد');
+  if (CFG.HANDOUT_ENABLED === false || CFG.HANDOUT_VIZ_ENABLED === false) m.push('جزوه در تنظیماتِ کد خاموش است');
+  if (x.eligible === false) m.push('داوری «آموزشی نیست» گفته — «آموزشی است» را بزنید یا شماره/دستهٔ دستی بگذارید');
+  return m;
+}
+function parReadyCell_(x) {
+  var m = seriesParMissing_(x);
+  return '<td class="sub">' + (m.length ? '⛔ ' + bEsc_(m.join('؛ ')) : (x.par ? '✓ در گردش' : '✓ آماده — تیک بزنید')) + '</td>';
+}
+/** راهنمای پنج‌خطیِ تولیدِ موازی، بالای تخته. */
+function parGuideHtml_() {
+  var mx = Math.max(1, Number(CFG.SERIES_PAR_MAX) || 3);
+  return '<div class="card"><b>⇄ تولیدِ موازی چیست و چطور روشن می‌شود</b><ol style="margin:6px 0 0 0;padding-right:18px">' +
+    '<li>هنوز روزی <b>یک</b> درس‌نامه ساخته می‌شود؛ موازی یعنی همان یک نوبت، هر روز به مجموعه‌ای می‌رسد که دیرتر قسمت گرفته (یک‌درمیان با مجموعهٔ جاری).</li>' +
+    '<li>شرط‌ها: <b>دستهٔ دستی</b> (دکمهٔ «شماره و دستهٔ دستی»)، جزوهٔ روشن، و قطعهٔ ساخته‌نشده. شمارهٔ دستی لازم نیست. ستونِ «آمادگیِ موازی» دقیقاً می‌گوید چه کم است.</li>' +
+    '<li>روشن کردن: در ردیفِ همان مجموعه، خانهٔ «فعال (موازی)» را تیک بزنید (حداکثر ' + faNum_(mx) + ' مجموعه کنارِ مجموعهٔ جاری).</li>' +
+    '<li>چه می‌شود: از تولیدِ بعدی، نوبت میانِ مجموعهٔ جاری و تیک‌خورده‌ها می‌چرخد؛ هر کدام جزوه و صدا و پلی‌لیستِ خودش را دارد.</li>' +
+    '<li>خاموش کردن: همان تیک را بردارید. هیچ تیکی = مثلِ پیش، یک مجموعه تا پایان.</li></ol></div>';
 }
 
 /** پنلِ مقصدها. */

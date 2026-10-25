@@ -839,6 +839,18 @@ function safeFolderName_(s) {
  * دستهٔ خالی یا «متفرقه» (یعنی هنوز دسته‌ای تعیین نشده) به خودِ ریشه می‌رود تا
  * پوشه‌ها بی‌جهت جابه‌جا نشوند تا وقتی دستهٔ واقعی معلوم شود.
  */
+/**
+ * دستهٔ یک قسمتِ درس‌نامه برای **تصمیم** (لحنِ بخش‌ها، سبکِ تصویر، جزوه، متنِ یوتیوب) — ۱۲.۶.
+ * قسمتِ ساخته‌شده از ۱۲.۶ `seriesCatT` دارد: دستهٔ دستی یا خالی، و خالی یعنی خنثی. قسمتِ پیش از آن همان عبارتِ پیشین را
+ * می‌گیرد (`order`: 'sc' = seriesCat||cat، 'cs' = cat||seriesCat) — چون صدا و زمان‌بندیِ ویدئوی آن قسمت با همان دسته
+ * ساخته شده و ساختِ دوبارهٔ تکه‌ها باید عیناً همان دربیاید؛ وگرنه زمان‌های تصویر از صدا جدا می‌شد.
+ */
+function specialCatOf_(meta, order) {
+  if (!meta) return '';
+  if (Object.prototype.hasOwnProperty.call(meta, 'seriesCatT')) return String(meta.seriesCatT || '');
+  return String((order === 'cs' ? (meta.cat || meta.seriesCat) : (meta.seriesCat || meta.cat)) || '');
+}
+
 function seriesCatFolder_(cat) {
   var root = showFolder_(CFG.SPECIAL_FOLDER);
   var c = String(cat || '').trim();
@@ -857,7 +869,9 @@ function seriesFolder_(reg, rec) {
   }
   // زیرِ پوشهٔ دستهٔ خودش ساخته می‌شود؛ دسته و شمارهٔ دستیِ شما هر دو از
   // همان اولین ساخت اثر می‌گذارند، نه فقط در اصلاحِ بعدی.
-  var root = seriesCatFolder_(seriesCatOf_(rec.vals));
+  /* ۱۲.۶: پوشهٔ مجموعهٔ **تازه** زیرِ دستهٔ دستی (یا ریشه)، نه دستهٔ خودکار — مجموعه‌های موجود پوشه دارند و این خط به آن‌ها
+     نمی‌رسد؛ جابه‌جاییِ پوشهٔ موجود فقط با تنظیمِ دستیِ خودِ او (`applyManualSeriesPast_`). */
+  var root = seriesCatFolder_(seriesCatTrusted_(rec.vals));
   var moF = seriesMOrder_(rec.vals);
   var order = isFinite(moF) ? moF : (Number(rec.vals[SC.ORDER - 1]) || (reg.rows.length + 1));
   var nm = seriesFolderNo_(order) + ' — ' + String(rec.vals[SC.NAME - 1] || rec.key).slice(0, 70);
@@ -1587,6 +1601,9 @@ function produceSpecialEpisode(opt) {
       enrich: usedEnrich, enrichOffered: enrich.length,
       // دستهٔ مجموعه، تا نقش‌گزینیِ گویندگان بداند این درس از چه جنسی است
       seriesCat: seriesCatOf_(rec.vals),
+      /* ۱۲.۶: دستهٔ **دستی** یا هیچ — همان که لحنِ بخش‌ها، سبکِ تصویر، جزوه و متنِ یوتیوب می‌خوانند (`specialCatOf_`).
+         `seriesCat` برای نمایش و برای قسمت‌های پیش از ۱۲.۶ می‌ماند. */
+      seriesCatT: seriesCatTrusted_(rec.vals),
       level: String(rec.vals[SC.LEVEL - 1] || ''),
       orders: orders, epNum: epNum, lesson: lessonNo, date: when,
       /* ارجاع‌ها در پروندهٔ خودِ قسمت هم می‌نشینند: «حتماً باید این ارجاعات
@@ -2487,7 +2504,7 @@ function renderSpecialAudioStep_() {
 
     // ── مرحلهٔ «متنِ صوتی» — اعراب‌گذاریِ کامل پیش از صدا (توضیح در speakStep_) ──
     if (st.phase === 'speak') {
-      var segsSp = specialSegments_(ep, meta.seriesCat || meta.cat || '');
+      var segsSp = specialSegments_(ep, specialCatOf_(meta, 'sc'));
       var rsp = speakStep_(ep, segsSp, deadline, function () {
         meta.ep = ep; writeSpecialJson_(folder, meta);
       });
@@ -2519,7 +2536,7 @@ function renderSpecialAudioStep_() {
 
     // ── مرحلهٔ «بازبینیِ متنِ صوتی» ──
     if (st.phase === 'speak2') {
-      var segsRv = specialSegments_(ep, meta.seriesCat || meta.cat || '');
+      var segsRv = specialSegments_(ep, specialCatOf_(meta, 'sc'));
       var persistRvS = function () { meta.ep = ep; writeSpecialJson_(folder, meta); };
       var rvS = { done: true, seen: 0, fixed: 0, learned: 0 };
       if (!st.revDone) {
@@ -2574,7 +2591,7 @@ function renderSpecialAudioStep_() {
       /* ساختِ تکه‌ها پیش از پاک‌سازی — چون رانشِ شمارِ تکه‌ها خودش ممکن است
          پاک‌سازی را لازم کند. داستانش کنارِ chunkDriftReset_ آمده. */
       if (ep && meta && !ep.__seriesName && !ep.__seriesKey) { ep.__seriesName = String(meta.seriesName || ''); ep.__seriesKey = String(meta.seriesKey || ''); }
-      var chunks = buildSpecialChunks_(ep, epNum, meta.cat || meta.seriesCat || '');
+      var chunks = buildSpecialChunks_(ep, epNum, specialCatOf_(meta, 'cs'));
       chunkDriftReset_(st, chunks, 'درس‌نامه ' + epNum);
       // قرینهٔ همان خط در بخشِ ۳ — دو قرینه که یکی‌شان وصل نباشد، همان
       // عیبِ «قرینه‌ای که یک‌بار درست شد» است (۵٫۹۵).
