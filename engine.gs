@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 12.3
+ *  موتور محتوا و پادکست — نسخهٔ 12.4
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2313,7 +2313,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '12.3',
+  CODE_VERSION: '12.4',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3257,7 +3257,10 @@ var SERIES_HEADERS = [
   'جان‌بخشیِ تصویر',
   /* ══ تولیدِ موازی (۱۱.۵) ══ «ستون/تیکِ «فعال» برای هر مجموعه … پیش‌فرض غیرفعال … تا او فعال نکرده هیچ مجموعهٔ تازه‌ای
      تولید نشود». خالی = بیرون از گردش؛ «بله» = هر روز نوبتی کنارِ مجموعهٔ جاری (`seriesParPick_`). در **انتها**. */
-  'فعال (تولیدِ موازی)'
+  'فعال (تولیدِ موازی)',
+  /* ══ معرفیِ پلی‌لیست (۱۲.۴) ══ «دو جملهٔ معرفی برای هر مجموعه … بالای متنِ موتور بنشیند». متنِ صاحبِ کانال، بالای فهرستِ
+     خودکارِ درس‌ها؛ پس معرفی می‌ماند و فهرست هر شب به‌روز می‌شود. خالی = بی معرفی. در **انتها**. */
+  'معرفیِ پلی‌لیست'
 ];
 var SC = { KEY: 1, NAME: 2, SRC: 3, TAB: 4, KIND: 5, PARTS: 6, CHUNKS: 7,
            LEVEL: 8, TOPIC: 9, ORDER: 10, STATUS: 11, CUR_PART: 12, CUR_CHUNK: 13,
@@ -3265,7 +3268,7 @@ var SC = { KEY: 1, NAME: 2, SRC: 3, TAB: 4, KIND: 5, PARTS: 6, CHUNKS: 7,
            STORY: 18, RELATED: 19, FOLDER: 20, NOTE: 21, CAT: 22,
            IS_COURSE: 23, CSCORE: 24, ABOUT: 25, WHY: 26, JUDGED: 27, MANUAL: 28,
            MORDER: 29, MCAT: 30, MSUB: 31, HANDOUT: 32, YT: 33, XREF: 34,
-           LVSTYLE: 35, LVLEVEL: 36, RECAP_EVERY: 37, LVTEXT: 38, LVMOTION: 39, PAR: 40 };
+           LVSTYLE: 35, LVLEVEL: 36, RECAP_EVERY: 37, LVTEXT: 38, LVMOTION: 39, PAR: 40, PLINTRO: 41 };
 
 var SST = { NEW: 'در نوبت', ACTIVE: 'در حال تولید', DONE: 'تمام‌شده',
             REOPENED: 'قسمت تازه اضافه شد', SKIPPED: 'نادیده گرفته شد' };
@@ -65431,7 +65434,7 @@ function ytListTitle_(t) {
  * متنِ توضیحِ پلی‌لیستِ یک مجموعه — تابعِ خالص (آزمون‌پذیر): نام، `lessons` (همان `ytSeriesLessons_`) و `pub`.
  * ⇒ {text, n, recaps, last}. سقفِ ۴۵۰۰ نویسه: فهرستِ بلند از وسط کوتاه می‌شود («…»)، سر و تهش می‌ماند.
  */
-function ytPlDescText_(name, lessons, pub, today) {
+function ytPlDescText_(name, lessons, pub, today, intro) {
   var rows = [], n = 0, rc = 0, last = '';
   for (var i = 0; i < (lessons || []).length; i++) {
     var x = lessons[i], r = pub[ENRICH_SHOW_SPECIAL + ':' + x.ep];
@@ -65450,6 +65453,9 @@ function ytPlDescText_(name, lessons, pub, today) {
                 (today ? ' · به‌روزشده: ' + today : ''),
               last ? 'تازه‌ترین: ' + last : '',
               '', 'فهرستِ درس‌ها:'].filter(function (x, k) { return x !== '' || k === 2 || k === 6; });
+  /* ۱۲.۴: معرفیِ صاحبِ کانال (ستونِ «معرفیِ پلی‌لیست») بالای متنِ موتور — پیش از سطرِ «درس‌به‌درس». */
+  var intr = String(intro || '').replace(/\s+/g, ' ').trim().slice(0, 600);
+  if (intr) { for (var hi = 0; hi < head.length; hi++) if (/^درس‌به‌درس و به ترتیب/.test(head[hi])) { head.splice(hi, 0, intr, ''); break; } }
   var body = rows.slice(), text = head.concat(body).join('\n');
   while (text.length > 4500 && body.length > 12) {
     if (body[6] !== '…') body.splice(6, 1, '…');      // نخستین بار: یک سطر جایش را به «…» می‌دهد
@@ -65486,7 +65492,7 @@ function ytPlDescSync_(budgetMs) {
   try { today = faDigitsOut_(String(calToday_().j).replace(/^(\d{4})(\d{2})(\d{2})$/, '$1/$2/$3')); } catch (eT) {}
   try { reg = readSeriesReg_(hub); } catch (eR) { out.why.push('رجیستری خوانده نشد'); }
   var summary = { at: nowStr_(), series: [], variety: null };
-  var push = function (key, title, text) {
+  var push = function (key, title, text, liveIn) {
     var rec = map[key];
     if (!rec || !rec.id) return;
     out.checked++;
@@ -65495,7 +65501,7 @@ function ytPlDescSync_(budgetMs) {
     /* ۱۱.۸: «اگر من در Studio دستی عوض کنم موتور برمی‌گرداند؟» — تا ۱۱.۷ بله: هر شب توضیح را، و **نامِ** حافظهٔ خودش را،
        روی پلی‌لیست می‌نشاند. حالا اول متنِ زنده خوانده می‌شود (۱ واحد): نامِ زنده همیشه می‌ماند، و توضیحی که با آنچه موتور
        نوشته بود نمی‌خوانَد دست نمی‌خورد. */
-    var live = ytPlLive_(yt, rec.id);
+    var live = liveIn || ytPlLive_(yt, rec.id);
     if (!live) { out.why.push(String(title).slice(0, 30) + ': متنِ زنده خوانده نشد — دست نخورد'); return; }
     if (ytPlHuman_(rec, live.desc)) { rec.descHuman = nowStr_(); map[key] = rec; out.kept = (out.kept || 0) + 1; return; }
     if (!ytQuotaTake_(YT_COST.playlistsUpdate, false)) { out.why.push('سهمیه'); return; }
@@ -65518,10 +65524,15 @@ function ytPlDescSync_(budgetMs) {
     var key = ytPlKey_(ENRICH_SHOW_SPECIAL, reg.rows[r].key, nm);
     if (!map[key] || !map[key].id) continue;
     try {
-      var d = ytPlDescText_(nm, ytSeriesLessons_(DriveApp.getFolderById(fid)), pub, today);
+      /* ۱۲.۴: نامی که در Studio گذاشته شد همان است که بیننده می‌بیند — پس سرِ توضیح و فهرستِ «دربارهٔ کانال» هم همان را
+         می‌گویند، نه نامِ تخته را. یک واحد در شب برای هر پلی‌لیست؛ نشد ⇒ نامِ تخته. */
+      var lvT = ytPlLive_(yt, map[key].id), dn = nm;
+      if (lvT && lvT.title) dn = String(lvT.title).replace(/\s*[—–-]\s*(درس‌نامه|درسنامه)\s*$/, '').trim() || nm;
+      var intro = String(reg.rows[r].vals[SC.PLINTRO - 1] || '').trim();
+      var d = ytPlDescText_(dn, ytSeriesLessons_(DriveApp.getFolderById(fid)), pub, today, intro);
       if (!d.n) continue;
-      summary.series.push({ name: nm, n: d.n, recaps: d.recaps, last: d.last.slice(0, 70) });
-      push(key, nm, d.text);
+      summary.series.push({ name: dn, n: d.n, recaps: d.recaps, last: d.last.slice(0, 70) });
+      push(key, nm, d.text, lvT);
     } catch (eS) { out.why.push(nm.slice(0, 30) + ': ' + String(eS.message || eS).slice(0, 60)); }
   }
   ytPlMapSave_(map);
@@ -83344,13 +83355,18 @@ function igNextEp_(pub, st, orderIn) {
     return !!(r && r.videoId && String(r.privacy || '').toLowerCase() === 'public');
   };
   var gaps = [], caught = [];
+  /* ۱۲.۴: «جملهٔ کوتاه» فقط از جایی که روشن شد، رو به جلو — نه برای درس‌های گذشته. بی این، روشن کردنش صف را به درسِ ۳ِ مصباح
+     برمی‌گرداند و پیش از هر ریلزِ تازه ده‌ها ریلزِ کهنه می‌ساخت. `st.quoteStart` = نخستین درسِ ناتمام در همان لحظه. */
+  var qStart = String(st.quoteStart || ''), qOpen = false;
   for (var s = 0; s < order.length; s++) {
     var S = order[s], eps = S.eps || [];
     for (var i = 0; i < eps.length; i++) {
       var x = eps[i], e = Number(x.ep), np = igPartsFor_(s, x.recap);
+      if (qStart && igUid_({ ep: e, part: 1 }) === qStart) qOpen = true;
       for (var pt = 1; pt <= np; pt++) {
       var uid = igUid_({ ep: e, part: pt });
       if (done[uid]) continue;
+      if (!qStart && CFG.IG_QUOTE_ON === true) { qStart = st.quoteStart = igUid_({ ep: e, part: 1 }); qOpen = true; }
       if (busy[uid]) continue;
       var label = (x.recap ? 'مرورِ بزرگ (' + e + ')' : 'درسِ ' + x.lesson) + (np > 1 ? ' (' + igPartLabel_({ part: pt, parts: np }) + ')' : '');
       /* ۹.۵۱: مجموعه‌ای که گیر کرده، مجموعهٔ بعدی را **راه نمی‌دهد** — «مگه ریلزها برای مصباح تموم شده؟ … برای ائودی
@@ -83375,7 +83391,7 @@ function igNextEp_(pub, st, orderIn) {
       }
       /* ۱۲.۲: ریلزِ «جملهٔ کوتاه» — پس از همهٔ بخش‌های آموزشیِ همین درس، و **هرگز مانع**: شکست یا گیرش رد می‌شود، نه صف را
          نگه می‌دارد. آزمایشی که کلِ مجموعه را بخواباند، هزینه‌اش از سودش بیشتر است. */
-      if (igQuoteFor_(x)) {
+      if (qOpen && igQuoteFor_(x)) {
         var qu = igUid_({ ep: e, part: igQuotePart_() }), allDone = true;
         for (var pq = 1; pq <= np; pq++) if (!done[igUid_({ ep: e, part: pq })]) allDone = false;
         if (allDone && !done[qu] && !busy[qu] && !igFailHold_(st, qu) && isPub(e)) {
@@ -84718,6 +84734,13 @@ function igTick() {
        ریلزی که فقط منتظرِ درسِ پیشین است کار نمی‌کند، پس جا نمی‌گیرد؛ سقفِ کل سه برابر، تا صف بی‌حد نشود. */
     /* ۹.۶۹: حافظهٔ ایده‌های مصباح پیش از نخستین ریلزِ آئودی — یک بار. */
     if (!st.seenSeeded && st.order && deadline - Date.now() > 120000) { try { igSeenSeed_(st, Date.now() + 60000); } catch (eSs) {} }
+    /* ۱۲.۴: ریلزِ «جملهٔ کوتاه»ی که ۱۲.۳ برای درسی گذشته پذیرفته بود (نشانِ `qs` ندارد) کنار می‌رود، پیش از هر ساخت یا انتشار —
+       درمانِ صف فقط پذیرشِ تازه را می‌بندد، نه آنچه از پیش در جریان است. */
+    var qDrop = st.inflight.filter(function (x) { return x && x.quote && !x.qs; });
+    if (qDrop.length) {
+      st.inflight = st.inflight.filter(function (x) { return !(x && x.quote && !x.qs); });
+      try { logLine_('جملهٔ کوتاهِ پذیرفته در ۱۲.۳ کنار رفت: ' + qDrop.map(function (x) { return igUid_(x); }).join('، ')); } catch (eQd) {}
+    }
     var capIn = Math.max(1, Number(CFG.IG_INFLIGHT) || 2);
     var activeIn = st.inflight.filter(function (x) { return !igWaitsEarlier_(st, x); }).length;
     if (activeIn < capIn && st.inflight.length < capIn * 3) {
@@ -84727,7 +84750,7 @@ function igTick() {
         if (fo0) st.inflight.push({ key: 'ig:' + ENRICH_SHOW_SPECIAL + ':' + nUid, ep: nx.ep, part: nx.part || 1, parts: nx.parts || 1,
                                     sIdx: nx.sIdx || 0, series: nx.series,
                                     folderId: fo0.getId(), yt: nx.url, phase: igResumePhase_(fo0, nx.part), at: nowStr_(),
-                                    recap: nx.recap ? 1 : 0, lesson: nx.lesson || 0, quote: nx.quote ? 1 : 0 });
+                                    recap: nx.recap ? 1 : 0, lesson: nx.lesson || 0, quote: nx.quote ? 1 : 0, qs: nx.quote ? 1 : 0 });
         else { st.fails = st.fails || {}; st.fails[nUid] = 9; st.lastWhy = 'پوشهٔ قسمتِ ' + nx.ep + ' پیدا نشد'; }
       }
     }

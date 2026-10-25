@@ -14463,7 +14463,7 @@ function ytListTitle_(t) {
  * متنِ توضیحِ پلی‌لیستِ یک مجموعه — تابعِ خالص (آزمون‌پذیر): نام، `lessons` (همان `ytSeriesLessons_`) و `pub`.
  * ⇒ {text, n, recaps, last}. سقفِ ۴۵۰۰ نویسه: فهرستِ بلند از وسط کوتاه می‌شود («…»)، سر و تهش می‌ماند.
  */
-function ytPlDescText_(name, lessons, pub, today) {
+function ytPlDescText_(name, lessons, pub, today, intro) {
   var rows = [], n = 0, rc = 0, last = '';
   for (var i = 0; i < (lessons || []).length; i++) {
     var x = lessons[i], r = pub[ENRICH_SHOW_SPECIAL + ':' + x.ep];
@@ -14482,6 +14482,9 @@ function ytPlDescText_(name, lessons, pub, today) {
                 (today ? ' · به‌روزشده: ' + today : ''),
               last ? 'تازه‌ترین: ' + last : '',
               '', 'فهرستِ درس‌ها:'].filter(function (x, k) { return x !== '' || k === 2 || k === 6; });
+  /* ۱۲.۴: معرفیِ صاحبِ کانال (ستونِ «معرفیِ پلی‌لیست») بالای متنِ موتور — پیش از سطرِ «درس‌به‌درس». */
+  var intr = String(intro || '').replace(/\s+/g, ' ').trim().slice(0, 600);
+  if (intr) { for (var hi = 0; hi < head.length; hi++) if (/^درس‌به‌درس و به ترتیب/.test(head[hi])) { head.splice(hi, 0, intr, ''); break; } }
   var body = rows.slice(), text = head.concat(body).join('\n');
   while (text.length > 4500 && body.length > 12) {
     if (body[6] !== '…') body.splice(6, 1, '…');      // نخستین بار: یک سطر جایش را به «…» می‌دهد
@@ -14518,7 +14521,7 @@ function ytPlDescSync_(budgetMs) {
   try { today = faDigitsOut_(String(calToday_().j).replace(/^(\d{4})(\d{2})(\d{2})$/, '$1/$2/$3')); } catch (eT) {}
   try { reg = readSeriesReg_(hub); } catch (eR) { out.why.push('رجیستری خوانده نشد'); }
   var summary = { at: nowStr_(), series: [], variety: null };
-  var push = function (key, title, text) {
+  var push = function (key, title, text, liveIn) {
     var rec = map[key];
     if (!rec || !rec.id) return;
     out.checked++;
@@ -14527,7 +14530,7 @@ function ytPlDescSync_(budgetMs) {
     /* ۱۱.۸: «اگر من در Studio دستی عوض کنم موتور برمی‌گرداند؟» — تا ۱۱.۷ بله: هر شب توضیح را، و **نامِ** حافظهٔ خودش را،
        روی پلی‌لیست می‌نشاند. حالا اول متنِ زنده خوانده می‌شود (۱ واحد): نامِ زنده همیشه می‌ماند، و توضیحی که با آنچه موتور
        نوشته بود نمی‌خوانَد دست نمی‌خورد. */
-    var live = ytPlLive_(yt, rec.id);
+    var live = liveIn || ytPlLive_(yt, rec.id);
     if (!live) { out.why.push(String(title).slice(0, 30) + ': متنِ زنده خوانده نشد — دست نخورد'); return; }
     if (ytPlHuman_(rec, live.desc)) { rec.descHuman = nowStr_(); map[key] = rec; out.kept = (out.kept || 0) + 1; return; }
     if (!ytQuotaTake_(YT_COST.playlistsUpdate, false)) { out.why.push('سهمیه'); return; }
@@ -14550,10 +14553,15 @@ function ytPlDescSync_(budgetMs) {
     var key = ytPlKey_(ENRICH_SHOW_SPECIAL, reg.rows[r].key, nm);
     if (!map[key] || !map[key].id) continue;
     try {
-      var d = ytPlDescText_(nm, ytSeriesLessons_(DriveApp.getFolderById(fid)), pub, today);
+      /* ۱۲.۴: نامی که در Studio گذاشته شد همان است که بیننده می‌بیند — پس سرِ توضیح و فهرستِ «دربارهٔ کانال» هم همان را
+         می‌گویند، نه نامِ تخته را. یک واحد در شب برای هر پلی‌لیست؛ نشد ⇒ نامِ تخته. */
+      var lvT = ytPlLive_(yt, map[key].id), dn = nm;
+      if (lvT && lvT.title) dn = String(lvT.title).replace(/\s*[—–-]\s*(درس‌نامه|درسنامه)\s*$/, '').trim() || nm;
+      var intro = String(reg.rows[r].vals[SC.PLINTRO - 1] || '').trim();
+      var d = ytPlDescText_(dn, ytSeriesLessons_(DriveApp.getFolderById(fid)), pub, today, intro);
       if (!d.n) continue;
-      summary.series.push({ name: nm, n: d.n, recaps: d.recaps, last: d.last.slice(0, 70) });
-      push(key, nm, d.text);
+      summary.series.push({ name: dn, n: d.n, recaps: d.recaps, last: d.last.slice(0, 70) });
+      push(key, nm, d.text, lvT);
     } catch (eS) { out.why.push(nm.slice(0, 30) + ': ' + String(eS.message || eS).slice(0, 60)); }
   }
   ytPlMapSave_(map);

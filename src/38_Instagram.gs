@@ -208,13 +208,18 @@ function igNextEp_(pub, st, orderIn) {
     return !!(r && r.videoId && String(r.privacy || '').toLowerCase() === 'public');
   };
   var gaps = [], caught = [];
+  /* ۱۲.۴: «جملهٔ کوتاه» فقط از جایی که روشن شد، رو به جلو — نه برای درس‌های گذشته. بی این، روشن کردنش صف را به درسِ ۳ِ مصباح
+     برمی‌گرداند و پیش از هر ریلزِ تازه ده‌ها ریلزِ کهنه می‌ساخت. `st.quoteStart` = نخستین درسِ ناتمام در همان لحظه. */
+  var qStart = String(st.quoteStart || ''), qOpen = false;
   for (var s = 0; s < order.length; s++) {
     var S = order[s], eps = S.eps || [];
     for (var i = 0; i < eps.length; i++) {
       var x = eps[i], e = Number(x.ep), np = igPartsFor_(s, x.recap);
+      if (qStart && igUid_({ ep: e, part: 1 }) === qStart) qOpen = true;
       for (var pt = 1; pt <= np; pt++) {
       var uid = igUid_({ ep: e, part: pt });
       if (done[uid]) continue;
+      if (!qStart && CFG.IG_QUOTE_ON === true) { qStart = st.quoteStart = igUid_({ ep: e, part: 1 }); qOpen = true; }
       if (busy[uid]) continue;
       var label = (x.recap ? 'مرورِ بزرگ (' + e + ')' : 'درسِ ' + x.lesson) + (np > 1 ? ' (' + igPartLabel_({ part: pt, parts: np }) + ')' : '');
       /* ۹.۵۱: مجموعه‌ای که گیر کرده، مجموعهٔ بعدی را **راه نمی‌دهد** — «مگه ریلزها برای مصباح تموم شده؟ … برای ائودی
@@ -239,7 +244,7 @@ function igNextEp_(pub, st, orderIn) {
       }
       /* ۱۲.۲: ریلزِ «جملهٔ کوتاه» — پس از همهٔ بخش‌های آموزشیِ همین درس، و **هرگز مانع**: شکست یا گیرش رد می‌شود، نه صف را
          نگه می‌دارد. آزمایشی که کلِ مجموعه را بخواباند، هزینه‌اش از سودش بیشتر است. */
-      if (igQuoteFor_(x)) {
+      if (qOpen && igQuoteFor_(x)) {
         var qu = igUid_({ ep: e, part: igQuotePart_() }), allDone = true;
         for (var pq = 1; pq <= np; pq++) if (!done[igUid_({ ep: e, part: pq })]) allDone = false;
         if (allDone && !done[qu] && !busy[qu] && !igFailHold_(st, qu) && isPub(e)) {
@@ -1582,6 +1587,13 @@ function igTick() {
        ریلزی که فقط منتظرِ درسِ پیشین است کار نمی‌کند، پس جا نمی‌گیرد؛ سقفِ کل سه برابر، تا صف بی‌حد نشود. */
     /* ۹.۶۹: حافظهٔ ایده‌های مصباح پیش از نخستین ریلزِ آئودی — یک بار. */
     if (!st.seenSeeded && st.order && deadline - Date.now() > 120000) { try { igSeenSeed_(st, Date.now() + 60000); } catch (eSs) {} }
+    /* ۱۲.۴: ریلزِ «جملهٔ کوتاه»ی که ۱۲.۳ برای درسی گذشته پذیرفته بود (نشانِ `qs` ندارد) کنار می‌رود، پیش از هر ساخت یا انتشار —
+       درمانِ صف فقط پذیرشِ تازه را می‌بندد، نه آنچه از پیش در جریان است. */
+    var qDrop = st.inflight.filter(function (x) { return x && x.quote && !x.qs; });
+    if (qDrop.length) {
+      st.inflight = st.inflight.filter(function (x) { return !(x && x.quote && !x.qs); });
+      try { logLine_('جملهٔ کوتاهِ پذیرفته در ۱۲.۳ کنار رفت: ' + qDrop.map(function (x) { return igUid_(x); }).join('، ')); } catch (eQd) {}
+    }
     var capIn = Math.max(1, Number(CFG.IG_INFLIGHT) || 2);
     var activeIn = st.inflight.filter(function (x) { return !igWaitsEarlier_(st, x); }).length;
     if (activeIn < capIn && st.inflight.length < capIn * 3) {
@@ -1591,7 +1603,7 @@ function igTick() {
         if (fo0) st.inflight.push({ key: 'ig:' + ENRICH_SHOW_SPECIAL + ':' + nUid, ep: nx.ep, part: nx.part || 1, parts: nx.parts || 1,
                                     sIdx: nx.sIdx || 0, series: nx.series,
                                     folderId: fo0.getId(), yt: nx.url, phase: igResumePhase_(fo0, nx.part), at: nowStr_(),
-                                    recap: nx.recap ? 1 : 0, lesson: nx.lesson || 0, quote: nx.quote ? 1 : 0 });
+                                    recap: nx.recap ? 1 : 0, lesson: nx.lesson || 0, quote: nx.quote ? 1 : 0, qs: nx.quote ? 1 : 0 });
         else { st.fails = st.fails || {}; st.fails[nUid] = 9; st.lastWhy = 'پوشهٔ قسمتِ ' + nx.ep + ' پیدا نشد'; }
       }
     }

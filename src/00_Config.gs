@@ -2294,7 +2294,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '12.3',
+  CODE_VERSION: '12.4',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3238,7 +3238,10 @@ var SERIES_HEADERS = [
   'جان‌بخشیِ تصویر',
   /* ══ تولیدِ موازی (۱۱.۵) ══ «ستون/تیکِ «فعال» برای هر مجموعه … پیش‌فرض غیرفعال … تا او فعال نکرده هیچ مجموعهٔ تازه‌ای
      تولید نشود». خالی = بیرون از گردش؛ «بله» = هر روز نوبتی کنارِ مجموعهٔ جاری (`seriesParPick_`). در **انتها**. */
-  'فعال (تولیدِ موازی)'
+  'فعال (تولیدِ موازی)',
+  /* ══ معرفیِ پلی‌لیست (۱۲.۴) ══ «دو جملهٔ معرفی برای هر مجموعه … بالای متنِ موتور بنشیند». متنِ صاحبِ کانال، بالای فهرستِ
+     خودکارِ درس‌ها؛ پس معرفی می‌ماند و فهرست هر شب به‌روز می‌شود. خالی = بی معرفی. در **انتها**. */
+  'معرفیِ پلی‌لیست'
 ];
 var SC = { KEY: 1, NAME: 2, SRC: 3, TAB: 4, KIND: 5, PARTS: 6, CHUNKS: 7,
            LEVEL: 8, TOPIC: 9, ORDER: 10, STATUS: 11, CUR_PART: 12, CUR_CHUNK: 13,
@@ -3246,7 +3249,7 @@ var SC = { KEY: 1, NAME: 2, SRC: 3, TAB: 4, KIND: 5, PARTS: 6, CHUNKS: 7,
            STORY: 18, RELATED: 19, FOLDER: 20, NOTE: 21, CAT: 22,
            IS_COURSE: 23, CSCORE: 24, ABOUT: 25, WHY: 26, JUDGED: 27, MANUAL: 28,
            MORDER: 29, MCAT: 30, MSUB: 31, HANDOUT: 32, YT: 33, XREF: 34,
-           LVSTYLE: 35, LVLEVEL: 36, RECAP_EVERY: 37, LVTEXT: 38, LVMOTION: 39, PAR: 40 };
+           LVSTYLE: 35, LVLEVEL: 36, RECAP_EVERY: 37, LVTEXT: 38, LVMOTION: 39, PAR: 40, PLINTRO: 41 };
 
 var SST = { NEW: 'در نوبت', ACTIVE: 'در حال تولید', DONE: 'تمام‌شده',
             REOPENED: 'قسمت تازه اضافه شد', SKIPPED: 'نادیده گرفته شد' };

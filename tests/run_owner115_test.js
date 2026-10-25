@@ -560,13 +560,16 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
     const doneOf = (eps) => eps.join(',');
     const parts41 = Array.from({ length: np }, (_, i) => igUid_({ ep: 41, part: i + 1 }));
     const parts40 = Array.from({ length: np }, (_, i) => igUid_({ ep: 40, part: i + 1 }));
-    const n1 = igNextEp_(pub, { done: doneOf(parts40.concat(parts41)), inflight: [] }, order);
+    const stPast = { done: doneOf(parts40.concat(parts41)), inflight: [] };
+    const n0 = igNextEp_(pub, stPast, order);
+    ok('۱۵.۱۲-ب ۱۲.۴: روشن‌کردن به گذشته برنمی‌گردد — درسِ ۳ِ تمام‌شده جملهٔ کوتاه نمی‌گیرد؛ نقطهٔ شروع = نخستین درسِ ناتمام', n0 && n0.ep === 42 && !n0.quote && stPast.quoteStart === '42', JSON.stringify(n0) + ' ' + stPast.quoteStart);
+    const n1 = igNextEp_(pub, { done: doneOf(parts40.concat(parts41)), inflight: [], quoteStart: '41' }, order);
     ok('۱۵.۱۳ درسِ ۳ (مضربِ ۳) پس از بخش‌های آموزشی‌اش یک ریلزِ جملهٔ کوتاه می‌گیرد', n1 && n1.ep === 41 && n1.quote === 1 && n1.part === igQuotePart_() && n1.parts === 1, JSON.stringify(n1));
-    const stF = { done: doneOf(parts40.concat(parts41)), inflight: [], fails: {} };
+    const stF = { done: doneOf(parts40.concat(parts41)), inflight: [], fails: {}, quoteStart: '40' };
     stF.fails[igUid_({ ep: 41, part: igQuotePart_() })] = 9;
     const n2 = igNextEp_(pub, stF, order);
     ok('۱۵.۱۴ جملهٔ کوتاهِ گیرکرده صف را نگه نمی‌دارد: درسِ بعد می‌آید', n2 && n2.ep === 42 && !n2.quote, JSON.stringify(n2));
-    const n3 = igNextEp_(pub, { done: doneOf(parts40), inflight: [] }, order);
+    const n3 = igNextEp_(pub, { done: doneOf(parts40), inflight: [], quoteStart: '40' }, order);
     ok('۱۵.۱۵ پیش از بخش‌های آموزشیِ همان درس نمی‌آید', n3 && n3.ep === 41 && !n3.quote && n3.part === 1, JSON.stringify(n3));
     const enc = { s: [{ n: 'آئودی', e: '40:2,41:3,42:4' }] };
     const pOk = igEarlierPending_({ done: doneOf(parts40.concat(parts41)), order: enc }, 41, igQuotePart_());
@@ -605,6 +608,11 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
   const s38 = fs.readFileSync('src/38_Instagram.gs', 'utf8');
   ok('۱۵.۲۱ سیم‌ها: گامِ برنامه شاخهٔ جملهٔ کوتاه دارد و صف پرچمش را با خود می‌برد',
      /if \(it\.quote \|\| Number\(it\.part\) === igQuotePart_\(\)\) return igQuotePlan_\(/.test(s38) && /quote: nx\.quote \? 1 : 0/.test(s38));
+  const s38b = fs.readFileSync('src/38_Instagram.gs', 'utf8');
+  const tick = s38b.slice(s38b.indexOf('function igTick()'));
+  ok('۱۵.۲۲ ۱۲.۴: ریلزِ جملهٔ کوتاهِ پذیرفته در ۱۲.۳ (بی qs) پیش از حلقهٔ ساخت کنار می‌رود؛ تازه‌ها qs دارند',
+     tick.indexOf('st.inflight.filter(function (x) { return !(x && x.quote && !x.qs); })') !== -1 &&
+     tick.indexOf('!(x && x.quote && !x.qs)') < tick.indexOf('var it = st.inflight[i]') && /qs: nx\.quote \? 1 : 0/.test(s38b));
   delete global.__PROPS[PK.YT_SUMMARY];
 }
 
@@ -624,6 +632,26 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
   const s38 = fs.readFileSync('src/38_Instagram.gs', 'utf8');
   const pub = s38.slice(s38.indexOf('function igStepPub_'), s38.indexOf('function igShortPub_'));
   ok('۱۶.۴ انتشارِ ریلز هیچ‌جا pages_manage_posts یا کلیدِ صفحه نمی‌خواهد', !/pages_manage_posts|fbPageToken_/.test(pub) && /fbAfterReel_/.test(pub));
+}
+
+/* ── ۱۷) ۱۲.۴: معرفیِ پلی‌لیست از تخته، بالای متنِ موتور؛ و نامِ Studio در سرِ توضیح ── */
+{
+  ok('۱۷.۱ ستونِ «معرفیِ پلی‌لیست» در انتهای رجیستری', SERIES_HEADERS[SC.PLINTRO - 1] === 'معرفیِ پلی‌لیست' && SC.PLINTRO === SERIES_HEADERS.length);
+  const pub = { 'special:40': { videoId: 'a', privacy: 'public', title: 'معرفت چیست؟ | x - درس 1' } };
+  const L = [{ ep: 40, lesson: 1 }];
+  const intro = 'مجتبی مصباح پرسش‌های بنیادینِ شناخت را گام‌به‌گام باز می‌کند. از تعریفِ معرفت تا ارزشِ عقل و حس.';
+  const d = ytPlDescText_('معرفت‌شناسی، با مجتبی مصباح', L, pub, '', intro);
+  const t = d.text.split('\n');
+  const iI = t.indexOf(intro), iS = t.findIndex((x) => /^درس‌به‌درس و به ترتیب/.test(x));
+  ok('۱۷.۲ معرفی پس از سر و پیش از «درس‌به‌درس»، و فهرستِ خودکار سرِ جایش', t[0] === 'معرفت‌شناسی، با مجتبی مصباح — درس‌نامه' && iI > 0 && iS === iI + 2 && /فهرستِ درس‌ها:/.test(d.text) && /درسِ ۱ — معرفت چیست؟/.test(d.text), d.text);
+  const d0 = ytPlDescText_('x', L, pub, '');
+  ok('۱۷.۳ بی معرفی همان متنِ پیشین', !/مصباح پرسش/.test(d0.text) && /^x — درس‌نامه/.test(d0.text));
+  ok('۱۷.۴ متنِ با معرفی هنوز «متنِ موتور» است (قفلِ Studio آن را دست‌نوشته نمی‌خواند)', ytPlEngineText_(d.text));
+  const y = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const strip = (x) => String(x).replace(/\s*[—–-]\s*(درس‌نامه|درسنامه)\s*$/, '').trim();
+  ok('۱۷.۵ نامِ زندهٔ Studio بی پسوند ⇒ سرِ توضیح و فهرستِ About؛ سیم‌ها', strip('معرفت‌شناسیِ معاصر، با رابرت آئودی — درس‌نامه') === 'معرفت‌شناسیِ معاصر، با رابرت آئودی' &&
+     /var lvT = ytPlLive_\(yt, map\[key\]\.id\), dn = nm;/.test(y) && /summary\.series\.push\(\{ name: dn,/.test(y) && /push\(key, nm, d\.text, lvT\)/.test(y) &&
+     /SC\.PLINTRO - 1/.test(y));
 }
 
 summary('owner115');
