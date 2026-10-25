@@ -7,13 +7,14 @@ const fs = require('fs');
 const L = require('./lib/probe_r4_lib.js');
 const { ok, summary } = L;
 
+/* ۱۳.۱: سه بذرِ ۱۲.۹ پیش از ساخته شدن جایشان را به دو نمونهٔ خام با دستورِ تازهٔ او دادند — شکلِ «بی پردازش» همان ماند. */
 const seeds = (CFG.VOICE_SOUL_SEED || []).filter((x) => x.pitchFix !== undefined);
-ok('۱ سه نمونهٔ گلدوز روی درسِ ۷۴، سه مبدأِ مردانهٔ متفاوت', seeds.length === 3 && seeds.every((x) => x.speaker === 'spk-1g0r95d' && String(x.ep) === '74') &&
-   new Set(seeds.map((x) => x.voice)).size === 3 && seeds.some((x) => x.voice === 'Charon'));
+ok('۱ نمونه‌های گلدوز روی درسِ ۷۴، هر کدام مبدأِ مردانهٔ دیگر، Charon در میانشان', seeds.length >= 2 && seeds.every((x) => x.speaker === 'spk-1g0r95d' && String(x.ep) === '74') &&
+   new Set(seeds.map((x) => x.voice)).size === seeds.length && seeds.some((x) => x.voice === 'Charon'));
 ok('۲ هیچ پردازشی: گامِ ۰، بی سقفِ اوج، بی رنگ، بی زیروبمِ هر تکه، بی «آرام»ِ کارتِ سبک، بی حالت‌ها', seeds.every((x) => x.pitchFix === '0' && !x.f0cap && !x.colour && !x.segPitch && !x.calm && !x.hx && x.nospans === true));
-ok('۳ دستورِ سبک عینِ خواستهٔ او', seeds.every((x) => x.cueFix === 'آرام، روشن، بدونِ لرزش، لحنِ گرم و ثابت'));
-ok('۴ برچسب‌ها یکتا (هر نمونه جدا ساخته می‌شود) و هر کدام «بی پردازش» و «گامِ ۰» می‌گوید', new Set(seeds.map((x) => x.tag)).size === 3 &&
-   seeds.every((x) => /بی پردازش/.test(x.tag) && /گامِ ۰/.test(x.tag)));
+ok('۳ دستورِ سبک عینِ خواستهٔ او (۱۳.۱: دستورِ تازه)', seeds.every((x) => x.cueFix === 'آرام، پایدار، بدونِ لرزش، با پایان‌بندیِ طبیعی'));
+ok('۴ برچسب‌ها یکتا (هر نمونه جدا ساخته می‌شود) و هر کدام «خام» و «گامِ ۰» می‌گوید', new Set(seeds.map((x) => x.tag)).size === seeds.length &&
+   seeds.every((x) => /خام/.test(x.tag) && /گامِ ۰/.test(x.tag)));
 ok('۵ سقفِ روزانهٔ بذر جا دارد', (Number(CFG.VOICE_SOUL_SEED_MAX_DAY) || 0) >= seeds.length);
 
 const s36 = fs.readFileSync('src/36_VoiceBridge.gs', 'utf8');

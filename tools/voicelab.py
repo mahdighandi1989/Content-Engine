@@ -2668,8 +2668,8 @@ def run_rvc(ref, src, text, out):
         # قابلیتی که برای سه چیز نوشته شود و برای یکی آزموده، برای
         # همان یکی کار می‌کند.
         "file_index": index,
-        "respiration_median_filtering": 3,
-        "envelope_ratio": 0.25,
+        "respiration_median_filtering": int(float(OPT.get("rvc_filter_radius") or 3)),
+        "envelope_ratio": float(OPT.get("rvc_rms_mix") or 0.25),
         "resample_sr": 0,
     }
     print("تنظیمات:", json.dumps(conf, ensure_ascii=False), flush=True)
@@ -3088,6 +3088,11 @@ def main():
     ap.add_argument("--rvc-index-rate", default="0.66")
     ap.add_argument("--rvc-protect", default="0.33",
                     help="محافظِ همخوان و نفس؛ پایین‌تر = رضوی‌تر و جویده‌تر")
+    # ۱۳.۱: صاف‌کردنِ منحنیِ زیروبم و سهمِ پوشِ بلندیِ مبدأ — برای ساختِ دوبارهٔ تکه‌ای که لرزید یا «شکست»
+    ap.add_argument("--rvc-filter-radius", default="3",
+                    help="شعاعِ صافیِ میانهٔ زیروبم (۳ پیش‌فرض؛ بیشتر = صاف‌تر، لرزشِ کمتر، شکستنِ کمتر)")
+    ap.add_argument("--rvc-rms-mix", default="0.25",
+                    help="سهمِ پوشِ بلندی (۰ = از مدل، ۱ = از مبدأ)")
     ap.add_argument("--no-sim", action="store_true",
                     help="شباهتِ گوینده را نسنج — برای مصرفِ تولیدی که "
                          "عدد را نمی‌خوانَد و فقط خروجی می‌خواهد")
@@ -3130,6 +3135,8 @@ def main():
     OPT["rvc_pitch_exact"] = bool(a.rvc_pitch_exact)
     OPT["rvc_index_rate"] = a.rvc_index_rate
     OPT["rvc_protect"] = a.rvc_protect
+    OPT["rvc_filter_radius"] = a.rvc_filter_radius
+    OPT["rvc_rms_mix"] = a.rvc_rms_mix
     OPT["no_sim"] = bool(a.no_sim)
     # برگردان اینجا انجام می‌شود، نه در run_f5: این آزمایشِ **متن** است، نه
     # آزمایشِ f5. Chatterbox و XTTS هم انگلیسی می‌دانند و فارسی نه — یعنی

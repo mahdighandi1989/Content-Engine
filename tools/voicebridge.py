@@ -937,14 +937,15 @@ def f0Frames(x, sr, maxFrames=600):
     return F
 
 
-def f0Track(x, sr, hop=0.02, win=0.06):
-    """⇒ [(ثانیه، هرتز یا ۰)] برای همهٔ قاب‌ها — همان روشِ `f0Frames`، بی سقفِ شمار، با زمان (۱۲.۵)."""
+def f0Track(x, sr, hop=0.02, win=0.06, fmax=300.0):
+    """⇒ [(ثانیه، هرتز یا ۰)] برای همهٔ قاب‌ها — همان روشِ `f0Frames`، بی سقفِ شمار، با زمان (۱۲.۵).
+    `fmax` (۱۳.۱): سقفِ ۳۰۰ هرتز برای میانه بس بود، ولی «شکستن» به ۳۲۰ تا ۵۰۰ هرتز می‌پرد و با آن سقف اصلاً دیده نمی‌شد."""
     import numpy as np
     d = max(1, int(sr // 8000))
     x = x[:len(x) // d * d].reshape(-1, d).mean(1)
     sr2 = float(sr) / d
     w, h = int(sr2 * win), int(sr2 * hop)
-    lo, hi = int(sr2 / 300), int(sr2 / 40)
+    lo, hi = max(2, int(sr2 / float(fmax))), int(sr2 / 40)
     out = []
     for s0 in range(0, max(0, len(x) - w), h):
         fr = x[s0:s0 + w]
@@ -965,6 +966,87 @@ def f0Track(x, sr, hop=0.02, win=0.06):
 # که زیروبمِ خروجی بیش از `f0cap` نیم‌پرده بالای هدفِ گوینده است، از تبدیلِ دومی با گامِ پایین‌تر برداشته می‌شوند — با هم‌ترازی
 # و محوِ کوتاه در دو لبه. RVC از بیرون دستی به منحنیِ زیروبمش نمی‌دهد؛ این راهِ ساختنی همان است که `segPitch` رفت: تبدیلِ دیگر،
 # و برداشتنِ تکه‌ها — این بار در اندازهٔ چند صد میلی‌ثانیه، نه کلِ جمله.
+# ══ وارسیِ کیفیتِ صدا (۱۳.۱) ══
+# صاحبِ کانال گلدوز را شنید: «لرزشِ خفیفِ مداوم»، «خروسی: ته‌ِ صدا ناگهان می‌شکند و به سوتِ نازک می‌پرد»، و مرزِ تکه‌ها. هیچ‌کدام
+# سنجه‌ای نداشت — `f0Stats` فقط میانه و درصدِ بالا را می‌گفت. این تابع همان منحنیِ `f0Track` را می‌خوانَد و سه چیز را **با جا** می‌گوید:
+#   • شکستن: پرشِ رو به بالای ≥ `crackSt` نیم‌پرده میانِ دو قابِ پیاپیِ واک‌دار (۲۰ میلی‌ثانیه)، به بالای ۱٫۳۵ برابرِ میانه؛
+#   • لرزش: میانگینِ |Δ نیم‌پرده| از قابی به قابِ بعد درونِ واک‌دارهای پیوسته (صدای پایدار ≈ ۰٫۲ تا ۰٫۳)؛
+#   • مرزها: اگر `bounds` (ثانیه‌های مرزِ تکه) داده شود، پرشِ زیروبم یا بلندی سرِ همان مرز.
+def qualityScan(path, bounds=None, crackSt=6.0, hop=0.02, minRun=3, fac=1.6):
+    """⇒ {sec, voicedPct, medianHz, cracks[], crackPerMin, jitterSt, bounds[]} — سنجیده روی نمونه‌های واقعی (۱۳.۱):
+    شکستن = دستِ‌کم `minRun` قابِ پیاپی (۶۰ میلی‌ثانیه) بالای `fac` برابرِ میانهٔ **همسایه** (±۰٫۵ ثانیه) با ورودِ ≥ `crackSt`
+    نیم‌پرده — قابِ تکِ ۲۰ میلی‌ثانیه‌ای خطای ردیابِ زیروبم است نه شکستنِ صدا (نسخهٔ اولِ همین تابع روی گفتارِ واقعی ۲۰ تا ۴۷ در
+    دقیقه می‌دید). لرزش = میانگینِ |فاصله تا میانهٔ پنج‌قابی| درونِ واک‌دارهای پیوسته — آهنگِ جمله (کند) در آن نیست، لرزش (۵ تا ۸
+    هرتز) هست. عددهای مبنا: رضوی ۱٫۸ شکستن در دقیقه و لرزش ۰٫۱۲؛ گلدوز ۳٫۳ تا ۶٫۶ و ۰٫۱۲ تا ۰٫۱۳؛ لرزشِ ساختگیِ ±۱٫۲ نیم‌پرده ۰٫۲۱."""
+    import numpy as np
+    x, sr = readMono(path)
+    tr = f0Track(x, sr, hop=hop, fmax=600.0)
+    hz = np.array([h for _t, h in tr], dtype=np.float64)
+    v = hz > 0
+    n = len(hz)
+    out = {"sec": round(len(x) / float(sr), 1), "voicedPct": round(100.0 * v.mean(), 1) if n else 0.0,
+           "cracks": [], "crackPerMin": 0.0, "jitterSt": 0.0, "bounds": []}
+    if v.sum() < 20:
+        return out
+    med = float(np.median(hz[v]))
+    W = int(0.5 / hop)
+    loc = np.zeros(n)
+    for i in range(n):
+        if v[i]:
+            sg = hz[max(0, i - W):i + W + 1]
+            loc[i] = float(np.median(sg[sg > 0]))
+    i = 1
+    while i < n:
+        if v[i] and v[i - 1] and hz[i] > fac * loc[i] and 12.0 * np.log2(hz[i] / hz[i - 1]) >= crackSt:
+            j = i
+            while j + 1 < n and v[j + 1] and hz[j + 1] > fac * loc[j + 1]:
+                j += 1
+            if j - i + 1 >= minRun:
+                out["cracks"].append({"t": round(tr[i][0], 2), "fromHz": round(float(hz[i - 1]), 1), "toHz": round(float(hz[i]), 1),
+                                      "ms": int((j - i + 1) * hop * 1000)})
+            i = j + 1
+            continue
+        i += 1
+    st = np.where(v, 12.0 * np.log2(np.where(v, hz, 1.0) / med), 0.0)
+    res, s0 = [], None
+    for k in range(n + 1):
+        on = k < n and v[k]
+        if on and s0 is None:
+            s0 = k
+        if not on and s0 is not None:
+            if k - s0 >= 7:
+                r = st[s0:k]
+                for q in range(2, len(r) - 2):
+                    d = abs(r[q] - float(np.median(r[q - 2:q + 3])))
+                    if d < crackSt:
+                        res.append(d)
+            s0 = None
+    out["jitterSt"] = round(float(np.mean(res)), 3) if res else 0.0
+    out["crackPerMin"] = round(len(out["cracks"]) / max(out["sec"] / 60.0, 0.1), 2)
+    out["medianHz"] = round(med, 1)
+    for b in (bounds or []):
+        k = int(round(float(b) / hop))
+        if 2 <= k < n - 2 and hz[k - 2] > 0 and hz[k + 1] > 0:
+            jump = abs(12.0 * np.log2(hz[k + 1] / hz[k - 2]))
+            if jump >= 4.0:
+                out["bounds"].append({"t": round(float(b), 2), "jumpSt": round(float(jump), 1)})
+    out["cracks"] = out["cracks"][:40]
+    out["bounds"] = out["bounds"][:40]
+    return out
+
+
+def qualityBad(q, maxCrackPerMin=2.5, maxJitterSt=0.18):
+    """⇒ علت (رشته) یا خالی."""
+    if not q or not q.get("sec"):
+        return ""
+    why = []
+    if q.get("crackPerMin", 0) > maxCrackPerMin:
+        why.append("شکستنِ صدا %.1f بار در دقیقه (سقف %.1f)" % (q["crackPerMin"], maxCrackPerMin))
+    if q.get("jitterSt", 0) > maxJitterSt:
+        why.append("لرزشِ میانگین %.2f نیم‌پرده (سقف %.2f)" % (q["jitterSt"], maxJitterSt))
+    return " · ".join(why)
+
+
 def capRegions(track, capHz, minLen=0.08, gap=0.12, pad=0.05, spans=None):
     """⇒ [(a,b)] جاهایی که زیروبم از `capHz` بالاتر است؛ فقط درونِ `spans` (گفتار) اگر داده شود."""
     regs = []
@@ -1606,6 +1688,8 @@ def runOne(it, mp):
             "--rvc-pitch-exact",
             "--rvc-index-rate", str(pr.get("indexRate", "1.0")),
             "--rvc-protect", str(pr.get("protect", "0.33")),
+            "--rvc-filter-radius", str(pr.get("filterRadius", "3")),
+            "--rvc-rms-mix", str(pr.get("rmsMix", "0.25")),
             # ══ عددِ شباهت کارِ آزمایشگاه است، نه کارِ تولید ══
             # `rvcSim_` جاسازیِ گویندهٔ speechbrain را روی **کلِ** فایل
             # حساب می‌کند. در آزمایشگاه همان چیزی است که «بهترین ترکیب»
@@ -1658,6 +1742,38 @@ def runOne(it, mp):
         return 1
     outs.sort(key=lambda p: -os.path.getsize(p))
     best = outs[0]
+    # ══ وارسیِ کیفیت و ساختِ دوباره (۱۳.۱) ══ تبدیلی که «شکست» یا لرزید، یک بار با صافیِ زیروبمِ قوی‌تر و پوشِ بلندیِ بیشتر از مبدأ
+    # از نو ساخته می‌شود و بهتر از دو می‌مانَد. با نقشهٔ گفتار/موسیقی (`vg`) فقط سنجیده و گزارش می‌شود: آن راه چند تبدیل را
+    # کنارِ هم می‌چیند و جابه‌جاییِ یکی چیدن را به هم می‌زند. `qNoRetry` = نمونهٔ «بی پردازش».
+    qMax = (float(pr.get("qCrackPerMin", 2.5)), float(pr.get("qJitterSt", 0.18)))
+    qual = None
+    try:
+        qual = qualityScan(best, bounds=[s0 for s0, _s1 in (it.get("pieceBounds") or [])] if it.get("pieceBounds") else None)
+        qual["bad"] = qualityBad(qual, *qMax)
+        say("  کیفیت: شکستن %.1f/دقیقه · لرزش %.2f نیم‌پرده · %s" % (qual.get("crackPerMin", 0), qual.get("jitterSt", 0), qual["bad"] or "سالم"))
+        if qual["bad"] and not vg and not it.get("qNoRetry"):
+            a6 = list(args)
+            a6[a6.index("--out") + 1] = "vblab-q"
+            a6[a6.index("--rvc-filter-radius") + 1] = str(pr.get("qRetryFilter", "7"))
+            a6[a6.index("--rvc-rms-mix") + 1] = str(pr.get("qRetryRms", "0.5"))
+            subprocess.check_call(a6)
+            o6 = []
+            for root, _dirs, files in os.walk("vblab-q"):
+                o6 += [os.path.join(root, f) for f in files if f.startswith("rvc-") and f.endswith(".wav")]
+            if o6:
+                alt = sorted(o6, key=lambda q: -os.path.getsize(q))[0]
+                q2 = qualityScan(alt)
+                q2["bad"] = qualityBad(q2, *qMax)
+                score = lambda q: q.get("crackPerMin", 0) * 2 + q.get("jitterSt", 0) * 10
+                keep = score(q2) < score(qual)
+                qual["retry"] = {"filterRadius": a6[a6.index("--rvc-filter-radius") + 1], "rmsMix": a6[a6.index("--rvc-rms-mix") + 1],
+                                 "crackPerMin": q2.get("crackPerMin"), "jitterSt": q2.get("jitterSt"), "bad": q2["bad"], "kept": keep}
+                say("  ساختِ دوباره: شکستن %.1f · لرزش %.2f ⇒ %s" % (q2.get("crackPerMin", 0), q2.get("jitterSt", 0), "همین ماند" if keep else "اولی ماند"))
+                if keep:
+                    best = alt
+                    qual["bad"] = q2["bad"]
+    except Exception as e:
+        say("::warning title=وارسیِ کیفیت نشد::%s" % str(e)[:200])
     mix = None
     segP = None
     if vg:
@@ -1939,6 +2055,11 @@ def runOne(it, mp):
         rec["segPitch"] = segP
     if f0capRes:
         rec["f0cap"] = f0capRes
+    if qual:
+        rec["quality"] = qual
+        # ۱۳.۱: خروجیِ قسمتی که از وارسی رد شد، جای صدای اصلی نمی‌نشیند (موتور `qualityFail` را می‌خوانَد)؛ نمونه می‌رود، با گزارش.
+        if qual.get("bad"):
+            rec["qualityFail"] = qual["bad"]
     if altOut and (abRate or abProt or abIt.get("nocolour") or abIt.get("uv") or (hxRes and hxRes.get("ok"))):
         try:
             nm = assetName(key + " · ab" + (abRate or "") + ("p" + abProt if abProt else "") + ("nc" if abIt.get("nocolour") else "") + ("uv" if abIt.get("uv") else ""), 0, 1)

@@ -271,7 +271,7 @@ console.log('\n=== ۸) شبانه: مدلی که **دستی** گذاشته شد 
   ok('۸.۴ برچسبِ بذرهای دستی «مکث به اندازهٔ خودش» را دارد — نمونهٔ تازه ساخته می‌شود (۷٫۸۶)',
      (CFG.VOICE_SOUL_SEED || []).every(s => /مکث به اندازهٔ خودش/.test(String(s.tag || '')) ||
        /* ۱۲.۹: «بی پردازش» عمداً کششِ مکث ندارد (cueFix)، و برچسبش همین را می‌گوید — نه ادعای مکثی که نیست */
-       (s.cueFix && /بی پردازش/.test(String(s.tag || '')))));
+       (s.cueFix && /بی پردازش|خام/.test(String(s.tag || '')))));
   const k0 = CFG.VOICE_SOUL_AUTO; CFG.VOICE_SOUL_AUTO = false;
   try { ok('۸.۵ کلیدِ خاموش یعنی فقط بذرهای دستی', vbrSoulSeeds_().every(s => !s.auto)); }
   finally { CFG.VOICE_SOUL_AUTO = k0; }

@@ -1003,6 +1003,10 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
     row.pitchFix = String(o.pitchFix);
   }
   if (o.cueFix) row.cueFix = String(o.cueFix).slice(0, 160);
+  /* ۱۳.۱: آستانه‌های وارسیِ کیفیت (رانر می‌سنجد و یک بار با صافیِ قوی‌تر از نو می‌سازد)؛ «بی پردازش» ساختِ دوباره ندارد. */
+  row.params.qCrackPerMin = String(CFG.VBR_Q_CRACK_PER_MIN || 2);
+  row.params.qJitterSt = String(CFG.VBR_Q_JITTER_ST || 0.5);
+  if (o.qNoRetry) row.qNoRetry = true;
   /* برچسبِ نمایشی، وقتی این ردیف «خودِ قسمت» نیست بلکه نمونه‌ای از آن است
      (۷٫۷۴). بی آن، فایل و کپشنِ تلگرام «قسمت ۴۹ با صدای …» می‌شدند برای
      چیزی که چهار دقیقه از آن قسمت است — همان ادعای نیمه‌ای که این نسخه و
@@ -1393,6 +1397,7 @@ function vbrIngest_(hub) {
       if (hit.hx) it.hxOut = hit.hx;
       if (hit.segPitch) it.segPOut = hit.segPitch;   // ۱۱.۴
       if (hit.f0cap) it.f0capOut = hit.f0cap;        // ۱۲.۵
+      if (hit.quality) it.qualityOut = hit.quality;  // ۱۳.۱: شکستن، لرزش، مرزها
       if (hit.f0Out) it.f0Out = hit.f0Out;
       out.unshared += vbrUnshare_(it);
       /* ══ سدِ پایانِ بالارونده (۹.۶۳) ══ «جمله‌های خبری را جوری تموم می‌کرد که اصلاً مناسب نبود» — اندازه‌اش (۴۳٪ گلدوز)
@@ -1403,6 +1408,16 @@ function vbrIngest_(hub) {
         vbrLog_(hub, it, 'رسید', r.name + ' · نگه داشته شد: ' + rh.why);
         out.got.push({ key: it.key, name: r.name, bytes: r.bytes, seconds: it.seconds, minutes: it.jobMinutes,
                        told: false, how: 'نگه داشته شد — ' + rh.why });
+        changed = true;
+        continue;
+      }
+      /* ══ سدِ کیفیت (۱۳.۱) ══ «قطعهٔ خراب دوباره ساخته شود، نه اینکه واردِ قسمت شود.» رانر یک بار با صافیِ قوی‌تر از نو ساخته
+         است؛ اگر باز رد شد، صوتِ **قسمت** جای اصلی نمی‌نشیند — اصلی می‌ماند و علت ثبت می‌شود. نمونه با گزارشش می‌رود: او باید بشنود. */
+      if (hit.qualityFail && !/^نمونه/.test(String(it.key || ''))) {
+        it.status = 'ردِ کیفیت'; it.qualityWhy = String(hit.qualityFail).slice(0, 200);
+        vbrLog_(hub, it, 'ردِ کیفیت', r.name + ' · ' + it.qualityWhy + ' — صدای اصلیِ قسمت می‌ماند');
+        out.got.push({ key: it.key, name: r.name, bytes: r.bytes, seconds: it.seconds, minutes: it.jobMinutes,
+                       told: false, how: 'ردِ کیفیت — ' + it.qualityWhy });
         changed = true;
         continue;
       }
@@ -1751,6 +1766,15 @@ function vbrTgMeasure_(item, who) {
   if (h.khOut != null) L.push('«خ»ِ افزوده از تبدیل: ' + h.khOut + (h.khAlt != null ? (item.hx ? ' (پیش از درمان ' + h.khAlt + ')' : ' · تبدیلِ دوم ' + h.khAlt) : '') +
                               (x.ok ? ' · درمان ' + x.frames + ' قاب (' + x.pct + '٪)' : (x.why ? ' · درمان نشد: ' + x.why : '')));
   if (item.srcVoice) L.push('صدای مبدأِ جمینای: ' + item.srcVoice);
+  /* ۱۳.۱: وارسیِ کیفیت — همان «لرزش» و «خروسی» که او می‌شنود، به عدد و با جا. */
+  var qo = item.qualityOut || null;
+  if (qo && qo.sec) {
+    L.push('🔬 کیفیت: شکستنِ صدا ' + qo.crackPerMin + ' بار در دقیقه (' + (qo.cracks || []).length + ' جا' +
+           ((qo.cracks || []).length ? '، نخستین‌ها: ' + qo.cracks.slice(0, 5).map(function (c) { return c.t + 'ث ' + c.fromHz + '⇐' + c.toHz; }).join('، ') : '') +
+           ') · لرزش ' + qo.jitterSt + ' نیم‌پرده' + ((qo.bounds || []).length ? ' · مرزِ ناهموار ' + qo.bounds.length : '') +
+           (qo.bad ? ' — ❌ ' + qo.bad : ' — سالم') +
+           (qo.retry ? ' · ساختِ دوباره (صافی ' + qo.retry.filterRadius + '): شکستن ' + qo.retry.crackPerMin + '، لرزش ' + qo.retry.jitterSt + (qo.retry.kept ? ' ⇐ همین ماند' : ' ⇐ اولی ماند') : ''));
+  }
   /* ۱۲.۵: سنجهٔ اوج — همان «ناگهان زیر» که او می‌شنود، به عدد. */
   var fo = item.f0Out || {}, fc = item.f0capOut || null;
   if (fo.p95Hz != null) L.push('📈 اوجِ زیروبم: میانه ' + fo.medianHz + ' هرتز · ۹۵٪ زیرِ ' + fo.p95Hz + ' هرتز · ' +
@@ -3035,7 +3059,7 @@ function vbrSoulPick_() {
     var seedNoSpans = {};
     var seedCalm = {};
     var seedVoice = {};
-    var seedHx = {}, seedSegP = {}, seedF0cap = {}, seedPitchFix = {}, seedCueFix = {};
+    var seedHx = {}, seedSegP = {}, seedF0cap = {}, seedPitchFix = {}, seedCueFix = {}, seedQNo = {};
     var seedBase = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
@@ -3058,6 +3082,7 @@ function vbrSoulPick_() {
       if (se.f0cap) seedF0cap[sk] = Number(se.f0cap) || 3;   // ۱۲.۵: سقفِ اوجِ زیروبم، فقط نمونه
       if (se.pitchFix != null && se.pitchFix !== '') seedPitchFix[sk] = String(se.pitchFix);   // ۱۲.۹: گامِ ثابت (مثلاً «0»)، بی گامِ خودکار — فقط نمونه
       if (se.cueFix) seedCueFix[sk] = String(se.cueFix);   // ۱۲.۹: دستورِ سبکِ آماده، به‌جای کارتِ سبکِ گوینده — فقط نمونه
+      if (se.qNoRetry) seedQNo[sk] = true;                // ۱۳.۱: بی ساختِ دوبارهٔ کیفیت (نمونهٔ خام)
       seedBase[sk] = String(se.tagBase == null ? (se.tag || '') : se.tagBase);
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
       if (se.colour) seedColour[sk] = String(se.colour);
@@ -3115,7 +3140,7 @@ function vbrSoulPick_() {
       return { ok: true, key: key, name: name, cue: cue, item: item,
                seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k], calm: !!seedCalm[k],
                voice: seedVoice[k] || '', hx: !!seedHx[k], segPitch: !!seedSegP[k], f0cap: seedF0cap[k] || 0, tagBase: seedBase[k] || '',
-               pitchFix: seedPitchFix[k] != null ? seedPitchFix[k] : '', cueFix: seedCueFix[k] || '' };
+               pitchFix: seedPitchFix[k] != null ? seedPitchFix[k] : '', cueFix: seedCueFix[k] || '', qNoRetry: !!seedQNo[k] };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -3531,6 +3556,7 @@ function runVoiceSoulTest() {
     if (pick.f0cap) tagO.f0cap = pick.f0cap;            // ۱۲.۵
     if (pick.pitchFix !== '' && pick.pitchFix != null) tagO.pitchFix = pick.pitchFix;   // ۱۲.۹
     if (pick.cueFix) tagO.cueFix = pick.cueFix;          // ۱۲.۹: برای کپشن
+    if (pick.qNoRetry) tagO.qNoRetry = true;              // ۱۳.۱
     if (pick.tagBase) tagO.tagBase = pick.tagBase;
     if (pick.colour) tagO.colour = pick.colour;          // ۹.۰۵
     if (pick.ab) tagO.ab = pick.ab;                      // ۹.۱۱
