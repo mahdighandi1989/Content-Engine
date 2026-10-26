@@ -3537,9 +3537,9 @@ function musicQPage_(q, setTo) {
   return m[k].p;
 }
 
-function musicSeek_(slots, sfxOnly) {
+function musicSeek_(slots, sfxOnly, optS) {
   var out = { added: 0, looked: 0, notes: [] };
-  var seekEnd = Date.now() + Math.max(15000, Number(CFG.MUSIC_SEEK_MS) || 60000);
+  var seekEnd = Date.now() + Math.max(15000, Number(optS && optS.ms) || Number(CFG.MUSIC_SEEK_MS) || 60000);
   var tries = Math.max(1, Number(CFG.MUSIC_SEEK_PAGE_TRIES) || 3);
   if (CFG.MUSIC_ENABLED === false || CFG.MUSIC_SEEK === false) return out;
 

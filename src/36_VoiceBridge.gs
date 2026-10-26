@@ -1004,8 +1004,9 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   }
   if (o.cueFix) row.cueFix = String(o.cueFix).slice(0, 160);
   /* ۱۳.۱: آستانه‌های وارسیِ کیفیت (رانر می‌سنجد و یک بار با صافیِ قوی‌تر از نو می‌سازد)؛ «بی پردازش» ساختِ دوباره ندارد. */
-  row.params.qCrackPerMin = String(CFG.VBR_Q_CRACK_PER_MIN || 2);
-  row.params.qJitterSt = String(CFG.VBR_Q_JITTER_ST || 0.5);
+  row.params.qCrackPerMin = String(CFG.VBR_Q_CRACK_PER_MIN || 2.5);
+  row.params.qJitterSt = String(CFG.VBR_Q_JITTER_ST || 0.18);
+  row.params.qShimmerDb = String(CFG.VBR_Q_SHIMMER_DB || 2.8);   // ۱۳.۲
   if (o.qNoRetry) row.qNoRetry = true;
   /* برچسبِ نمایشی، وقتی این ردیف «خودِ قسمت» نیست بلکه نمونه‌ای از آن است
      (۷٫۷۴). بی آن، فایل و کپشنِ تلگرام «قسمت ۴۹ با صدای …» می‌شدند برای
@@ -1771,7 +1772,7 @@ function vbrTgMeasure_(item, who) {
   if (qo && qo.sec) {
     L.push('🔬 کیفیت: شکستنِ صدا ' + qo.crackPerMin + ' بار در دقیقه (' + (qo.cracks || []).length + ' جا' +
            ((qo.cracks || []).length ? '، نخستین‌ها: ' + qo.cracks.slice(0, 5).map(function (c) { return c.t + 'ث ' + c.fromHz + '⇐' + c.toHz; }).join('، ') : '') +
-           ') · لرزش ' + qo.jitterSt + ' نیم‌پرده' + ((qo.bounds || []).length ? ' · مرزِ ناهموار ' + qo.bounds.length : '') +
+           ') · لرزش ' + qo.jitterSt + ' نیم‌پرده' + (qo.shimmerDb != null ? ' · لرزشِ بلندی ' + qo.shimmerDb + ' دسی‌بل' : '') + ((qo.bounds || []).length ? ' · مرزِ ناهموار ' + qo.bounds.length : '') +
            (qo.bad ? ' — ❌ ' + qo.bad : ' — سالم') +
            (qo.retry ? ' · ساختِ دوباره (صافی ' + qo.retry.filterRadius + '): شکستن ' + qo.retry.crackPerMin + '، لرزش ' + qo.retry.jitterSt + (qo.retry.kept ? ' ⇐ همین ماند' : ' ⇐ اولی ماند') : ''));
   }

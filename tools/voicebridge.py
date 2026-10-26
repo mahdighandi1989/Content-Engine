@@ -973,7 +973,7 @@ def f0Track(x, sr, hop=0.02, win=0.06, fmax=300.0):
 #   • لرزش: میانگینِ |Δ نیم‌پرده| از قابی به قابِ بعد درونِ واک‌دارهای پیوسته (صدای پایدار ≈ ۰٫۲ تا ۰٫۳)؛
 #   • مرزها: اگر `bounds` (ثانیه‌های مرزِ تکه) داده شود، پرشِ زیروبم یا بلندی سرِ همان مرز.
 def qualityScan(path, bounds=None, crackSt=6.0, hop=0.02, minRun=3, fac=1.6):
-    """⇒ {sec, voicedPct, medianHz, cracks[], crackPerMin, jitterSt, bounds[]} — سنجیده روی نمونه‌های واقعی (۱۳.۱):
+    """⇒ {sec, voicedPct, medianHz, cracks[], crackPerMin, jitterSt, shimmerDb, bounds[]} — سنجیده روی نمونه‌های واقعی (۱۳.۱):
     شکستن = دستِ‌کم `minRun` قابِ پیاپی (۶۰ میلی‌ثانیه) بالای `fac` برابرِ میانهٔ **همسایه** (±۰٫۵ ثانیه) با ورودِ ≥ `crackSt`
     نیم‌پرده — قابِ تکِ ۲۰ میلی‌ثانیه‌ای خطای ردیابِ زیروبم است نه شکستنِ صدا (نسخهٔ اولِ همین تابع روی گفتارِ واقعی ۲۰ تا ۴۷ در
     دقیقه می‌دید). لرزش = میانگینِ |فاصله تا میانهٔ پنج‌قابی| درونِ واک‌دارهای پیوسته — آهنگِ جمله (کند) در آن نیست، لرزش (۵ تا ۸
@@ -985,7 +985,7 @@ def qualityScan(path, bounds=None, crackSt=6.0, hop=0.02, minRun=3, fac=1.6):
     v = hz > 0
     n = len(hz)
     out = {"sec": round(len(x) / float(sr), 1), "voicedPct": round(100.0 * v.mean(), 1) if n else 0.0,
-           "cracks": [], "crackPerMin": 0.0, "jitterSt": 0.0, "bounds": []}
+           "cracks": [], "crackPerMin": 0.0, "jitterSt": 0.0, "shimmerDb": 0.0, "bounds": []}
     if v.sum() < 20:
         return out
     med = float(np.median(hz[v]))
@@ -1022,6 +1022,28 @@ def qualityScan(path, bounds=None, crackSt=6.0, hop=0.02, minRun=3, fac=1.6):
                         res.append(d)
             s0 = None
     out["jitterSt"] = round(float(np.mean(res)), 3) if res else 0.0
+    # ۱۳.۲: لرزشِ بلندی (shimmer) — همان چیزی که گوش «لرزش» می‌شنود و لرزشِ زیروبم نمی‌دید: رضوی ۰٫۷۳۹ و گلدوز ۰٫۷۳۳ نیم‌پرده
+    # (یکسان)، ولی بلندی ۲٫۰ در برابرِ ۲٫۷ تا ۲٫۹ دسی‌بل. انحرافِ دسی‌بلِ هر قاب از میانگینِ متحرکِ ۱۶۰ میلی‌ثانیه‌ای، درونِ
+    # واک‌دارهای پیوستهٔ ≥ ۰٫۶ ثانیه (کوتاه‌تر فقط لبهٔ هجاست)؛ میانه روی همهٔ آن‌ها.
+    fr = int(0.02 * sr)
+    env = np.zeros(n)
+    for q in range(n):
+        c = int(tr[q][0] * sr)
+        seg = x[max(0, c - fr // 2):c + fr // 2]
+        env[q] = 20.0 * np.log10(np.sqrt(np.mean(seg * seg) + 1e-12) + 1e-9) if len(seg) else -120.0
+    shim, s0, W8 = [], None, 8
+    for k in range(n + 1):
+        on = k < n and v[k]
+        if on and s0 is None:
+            s0 = k
+        if not on and s0 is not None:
+            if k - s0 >= 30:
+                e = env[s0:k]
+                r = (e - np.convolve(e, np.ones(W8) / W8, mode="same"))[W8:-W8]
+                if len(r) >= 8:
+                    shim.append(float(np.std(r)))
+            s0 = None
+    out["shimmerDb"] = round(float(np.median(shim)), 2) if shim else 0.0
     out["crackPerMin"] = round(len(out["cracks"]) / max(out["sec"] / 60.0, 0.1), 2)
     out["medianHz"] = round(med, 1)
     for b in (bounds or []):
@@ -1035,7 +1057,7 @@ def qualityScan(path, bounds=None, crackSt=6.0, hop=0.02, minRun=3, fac=1.6):
     return out
 
 
-def qualityBad(q, maxCrackPerMin=2.5, maxJitterSt=0.18):
+def qualityBad(q, maxCrackPerMin=2.5, maxJitterSt=0.18, maxShimmerDb=2.8):
     """⇒ علت (رشته) یا خالی."""
     if not q or not q.get("sec"):
         return ""
@@ -1044,6 +1066,8 @@ def qualityBad(q, maxCrackPerMin=2.5, maxJitterSt=0.18):
         why.append("شکستنِ صدا %.1f بار در دقیقه (سقف %.1f)" % (q["crackPerMin"], maxCrackPerMin))
     if q.get("jitterSt", 0) > maxJitterSt:
         why.append("لرزشِ میانگین %.2f نیم‌پرده (سقف %.2f)" % (q["jitterSt"], maxJitterSt))
+    if q.get("shimmerDb", 0) > maxShimmerDb:
+        why.append("لرزشِ بلندی %.2f دسی‌بل (سقف %.2f)" % (q["shimmerDb"], maxShimmerDb))
     return " · ".join(why)
 
 
@@ -1745,12 +1769,12 @@ def runOne(it, mp):
     # ══ وارسیِ کیفیت و ساختِ دوباره (۱۳.۱) ══ تبدیلی که «شکست» یا لرزید، یک بار با صافیِ زیروبمِ قوی‌تر و پوشِ بلندیِ بیشتر از مبدأ
     # از نو ساخته می‌شود و بهتر از دو می‌مانَد. با نقشهٔ گفتار/موسیقی (`vg`) فقط سنجیده و گزارش می‌شود: آن راه چند تبدیل را
     # کنارِ هم می‌چیند و جابه‌جاییِ یکی چیدن را به هم می‌زند. `qNoRetry` = نمونهٔ «بی پردازش».
-    qMax = (float(pr.get("qCrackPerMin", 2.5)), float(pr.get("qJitterSt", 0.18)))
+    qMax = (float(pr.get("qCrackPerMin", 2.5)), float(pr.get("qJitterSt", 0.18)), float(pr.get("qShimmerDb", 2.8)))
     qual = None
     try:
         qual = qualityScan(best, bounds=[s0 for s0, _s1 in (it.get("pieceBounds") or [])] if it.get("pieceBounds") else None)
         qual["bad"] = qualityBad(qual, *qMax)
-        say("  کیفیت: شکستن %.1f/دقیقه · لرزش %.2f نیم‌پرده · %s" % (qual.get("crackPerMin", 0), qual.get("jitterSt", 0), qual["bad"] or "سالم"))
+        say("  کیفیت: شکستن %.1f/دقیقه · لرزش %.2f نیم‌پرده · لرزشِ بلندی %.2f دسی‌بل · %s" % (qual.get("crackPerMin", 0), qual.get("jitterSt", 0), qual.get("shimmerDb", 0), qual["bad"] or "سالم"))
         if qual["bad"] and not vg and not it.get("qNoRetry"):
             a6 = list(args)
             a6[a6.index("--out") + 1] = "vblab-q"
@@ -1764,10 +1788,10 @@ def runOne(it, mp):
                 alt = sorted(o6, key=lambda q: -os.path.getsize(q))[0]
                 q2 = qualityScan(alt)
                 q2["bad"] = qualityBad(q2, *qMax)
-                score = lambda q: q.get("crackPerMin", 0) * 2 + q.get("jitterSt", 0) * 10
+                score = lambda q: q.get("crackPerMin", 0) * 2 + q.get("jitterSt", 0) * 10 + q.get("shimmerDb", 0)
                 keep = score(q2) < score(qual)
                 qual["retry"] = {"filterRadius": a6[a6.index("--rvc-filter-radius") + 1], "rmsMix": a6[a6.index("--rvc-rms-mix") + 1],
-                                 "crackPerMin": q2.get("crackPerMin"), "jitterSt": q2.get("jitterSt"), "bad": q2["bad"], "kept": keep}
+                                 "crackPerMin": q2.get("crackPerMin"), "jitterSt": q2.get("jitterSt"), "shimmerDb": q2.get("shimmerDb"), "bad": q2["bad"], "kept": keep}
                 say("  ساختِ دوباره: شکستن %.1f · لرزش %.2f ⇒ %s" % (q2.get("crackPerMin", 0), q2.get("jitterSt", 0), "همین ماند" if keep else "اولی ماند"))
                 if keep:
                     best = alt

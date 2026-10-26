@@ -57,7 +57,7 @@ const row = (o) => { const v = new Array(SERIES_HEADERS.length).fill(''); Object
   const st = musicStatus_();
   ok('۴.۴ در musicStatus_ (همان که _STATUS.music می‌شود)', st.seekLast && st.seekLast.looked === 5 && /۵ نامزد/.test(st.line), st.line);
   const su = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
-  ok('۴.۵ شبانه: نتیجهٔ musicSeek_ و musicFetch_ و ردشدن‌ها ثبت می‌شود', /var sk = musicSeek_\(miss\)/.test(su) && /setProperty\(PK\.MUSIC_SEEK_LAST/.test(su) && /mLog\.skip = 'وقتِ کارِ شبانه نماند/.test(su));
+  ok('۴.۵ شبانه: نتیجهٔ musicSeek_ و musicFetch_ و ردشدن‌ها ثبت می‌شود', /var sk = musicSeek_\(miss/.test(su) && /setProperty\(PK\.MUSIC_SEEK_LAST/.test(su) && /mLog\.skip = 'وقتِ این اجرا تمام شد/.test(su));
 }
 
 /* ── ۵) جبرانِ مشخصات زیرِ سقفِ شش‌دقیقه ── */

@@ -590,6 +590,10 @@ var _nightT0 = 0;
 var _nightSkipTo = null;    // تا رسیدن به این بلوک، رد شو (ادامهٔ همین شب)
 var _nightMore = '';        // این‌جا ایستادیم؛ ادامه لازم است
 var _nightKiller = null;    // بلوکی که اجرای پیشینِ همین شب را کُشت؛ این بار رد می‌شود (۸.۵۳)
+/* ۱۳.۲: چرا آخرین `nightHas_` «نه» گفت — 'done' (اجرای پیشینِ امشب انجامش داد)، 'killed' (اجرای پیشین وسطِ همین بلوک
+   کشته شد)، 'more' (وقتِ این اجرا تمام است؛ ادامه می‌آید). بی این، شاهدِ هر بلوک یک «وقت نماند»ِ واحد می‌نوشت و اجرای ادامه
+   — که موسیقی را دیگر نمی‌دید چون اجرای اول انجامش داده بود — نتیجهٔ واقعی را با «وقت نماند» بازنویسی می‌کرد. */
+var _nightNo = '';
 /* ضربانِ بخشِ نخست (داوری، نصب، خانه‌داری) — پیش از هر بلوکِ `nightHas_`.
    ۶ اکتبر اجرای اول همین‌جا کشته شد و ضربانِ دیشب سرِ جایش ماند: شاهدی که
    بخشی از شب را نمی‌بیند، همان بخش را بی‌نام می‌گذارد (۷.۴۴). */
@@ -777,16 +781,18 @@ function nightKilledNote_(what) {
  * می‌کرد.
  */
 function nightHas_(needMs, what) {
+  _nightNo = '';
   if (_nightSkipTo) {
-    if (what !== _nightSkipTo) return false;   // اجرای پیشینِ امشب انجامش داده
+    if (what !== _nightSkipTo) { _nightNo = 'done'; return false; }   // اجرای پیشینِ امشب انجامش داده
     _nightSkipTo = null;                       // رسیدیم؛ از این‌جا عادی
     if (_nightKiller && what === _nightKiller) {
       _nightKiller = null;                     // همین بلوک اجرای پیشین را کُشت (۸.۵۳)
       nightKilledNote_(what);
+      _nightNo = 'killed';
       return false;
     }
   }
-  if (_nightMore) return false;                // این اجرا تمام است؛ بقیه در ادامه
+  if (_nightMore) { _nightNo = 'more'; return false; }   // این اجرا تمام است؛ بقیه در ادامه
   if (nightLeft_() >= needMs) {
     /* ══ ضربان، **پیش** از کار ══
        اگر پس از کار نوشته شود، دقیقاً بلوکی که وقت را خورد و اجرا را به
@@ -796,6 +802,7 @@ function nightHas_(needMs, what) {
     return true;
   }
   _nightMore = what;                           // نقطهٔ توقف
+  _nightNo = 'more';
   return false;
 }
 
@@ -1033,6 +1040,80 @@ function nightStarveFinding_(hub, bad, need) {
  * ۳) خانه‌داریِ ارزان و کران‌دار
  * ۴) کارِ سنگین، هرکدام با نگهبانِ زمان
  */
+/* ══ گشتن و آوردنِ موسیقی، و «سهمِ تضمینی»اش (۱۳.۲) ══
+   ۲۶ اکتبر `music.seekLast`: «ran=false، وقتِ کارِ شبانه نماند». این بلوک پشتِ ده بلوکِ دیگر است؛ هر شبی که آن‌ها وقت را
+   بخورند، بانک پر نمی‌شود — بی صدا و هر شب. حالا اگر دیشب گشتن اجرا نشد، امشب **پیش از** بلوک‌های سنگین می‌رود
+   (`musicNightDue_`)، و جای همیشگی‌اش فقط وقتی کار می‌کند که امروز هنوز نرفته. */
+function musicNightDue_() {
+  try {
+    var v = JSON.parse(props_().getProperty(PK.MUSIC_SEEK_LAST) || 'null');
+    if (!v || !v.at) return false;
+    if (String(v.at).slice(0, 10) === nowStr_().slice(0, 10)) return false;   // امروز رفته (یا رد شده)
+    return v.ran === false && String(v.skip || '').indexOf('شنیده‌نشده') === -1;
+  } catch (e) { return false; }
+}
+function musicNightToday_() {
+  try {
+    var v = JSON.parse(props_().getProperty(PK.MUSIC_SEEK_LAST) || 'null');
+    if (!v || String(v.at || '').slice(0, 10) !== nowStr_().slice(0, 10)) return false;
+    /* رفته، یا امشب یک بار وسطش کشته شد — دومی را همان شب دوباره امتحان نمی‌کنیم (فردا شب بدهی است و اول می‌رود). */
+    return v.ran === true || String(v.skip || '').indexOf('کشته') !== -1;
+  } catch (e) { return false; }
+}
+function musicNight_(what) {
+  if (musicNightToday_()) return false;
+  /* و **آوردن، وقتی انبارِ شنیده‌نشده پر است، اصلاً شروع نمی‌شود.**
+     آوردنِ چیزی که نمی‌توانیم پخشش کنیم نه بانک را بهتر می‌کند نه عدد را —
+     فقط هر دو را بدتر می‌کند، و از بیرون شبیهِ «داریم کار می‌کنیم» است. */
+  var mUnheard = 0;
+  try { mUnheard = Number((musicStatus_() || {}).unheard) || 0; } catch (eMu) {}
+  /* رهاشده‌ها (مدل چهار بار نشنیدشان) جلوی آوردنِ قطعهٔ تازه را نمی‌گیرند (۸.۵۴):
+     تا ۸.۵۳ اگر انبار از سقف بالا بود و بخشی از آن هرگز شنیده نمی‌شد، بانک برای
+     همیشه نه شنیده می‌شد نه پُر — قفلی که از بیرون فقط «۷۱ شنیده‌نشده» بود. */
+  try {
+    var wSk = JSON.parse(props_().getProperty(PK.MUSIC_REHEAR_LAST) || 'null');
+    if (wSk && Number(wSk.skipped) > 0) mUnheard = Math.max(0, mUnheard - Number(wSk.skipped));
+  } catch (eSk) {}
+  var mStop = Math.max(1, Number(CFG.MUSIC_UNHEARD_STOP) || 25);
+  /* ۱۲.۸: نتیجهٔ گشتنِ هر شب در `_STATUS.json` (`music.seekLast`) — «چرا چیزی نیامد» تا امروز هیچ ردی نداشت. */
+  var mLog = { at: nowStr_(), ran: false, skip: '', why: '', slots: [], looked: 0, added: 0, notes: [], fetch: null };
+  if (mUnheard >= mStop) {
+    mLog.skip = mUnheard + ' قطعهٔ شنیده‌نشده (سقف ' + mStop + ')';
+    logLine_('آوردنِ موسیقی امشب رد شد: ' + mUnheard + ' قطعهٔ شنیده‌نشده در بانک ' +
+             '(سقف ' + mStop + '). اول همان‌ها شنیده می‌شوند.');
+  } else if (nightHas_(90000, what)) {
+    mLog.ran = true;
+    /* ۱۳.۲: سهمِ زمان از **باقی‌ماندهٔ همین اجرا**، نه از عددهای ثابت: نگهبان ۹۰ ثانیه می‌خواست ولی گشتن تا ۶۰ و آوردن تا
+       ۱۵۰ ثانیه می‌توانست بخورد — ۲۱۰ ثانیه پشتِ دری که ۹۰ را می‌سنجید، یعنی کشته‌شدن سرِ شش دقیقه و ردشدنِ بلوک در اجرای بعد. */
+    var mLeft = Math.max(20000, nightLeft_() - 15000);
+    try {
+      var miss = musicThinSlots_();
+      // کمبودی نبود یعنی «پوشش کامل است»، نه «کار تمام است». بانکی که همهٔ
+      // قطعه‌هایش ده بار پخش شده‌اند، برای شنونده همان بانکِ خالی است. پس
+      // شبی که کمبودی نیست، سراغِ فرسوده‌ترین خانواده می‌رویم.
+      var why = 'کمبود';
+      if (!miss.length) { miss = musicRotateSlots_(); why = 'چرخش'; }
+      mLog.why = why; mLog.slots = miss.slice(0, 6);
+      if (miss.length) {
+        logLine_('گشتنِ موسیقی (' + why + '): ' + miss.join('، '));
+        var sk = musicSeek_(miss, false, { ms: Math.min(Number(CFG.MUSIC_SEEK_MS) || 60000, Math.round(mLeft * 0.4)) }) || {};
+        mLog.looked = Number(sk.looked) || 0; mLog.added = Number(sk.added) || 0;
+        mLog.notes = (sk.notes || []).slice(0, 4).map(function (x) { return String(x).slice(0, 140); });
+      }
+    } catch (eMS) { mLog.notes.push('خطا: ' + String(eMS.message).slice(0, 140)); logLine_('گشتنِ موسیقی انجام نشد: ' + eMS.message); }
+    try { var fr = musicFetch_({ budget: Math.max(20000, Math.min(Number(CFG.MUSIC_FETCH_BUDGET_MS) || 150000, nightLeft_() - 15000)) }) || {}; mLog.fetch = { read: Number(fr.read) || 0, added: Number(fr.added) || 0, failed: Number(fr.failed) || 0 }; }
+    catch (eMF) { mLog.notes.push('آوردن: ' + String(eMF.message).slice(0, 140)); logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }
+  } else if (_nightNo === 'done') {
+    return false;                 // اجرای پیشینِ امشب انجامش داد — شاهدش را بازنویسی نکن
+  } else if (_nightNo === 'killed') {
+    mLog.skip = 'اجرای پیشینِ امشب وسطِ همین بلوک کشته شد (شش دقیقه)';
+  } else {
+    mLog.skip = 'وقتِ این اجرا تمام شد — در اجرای ادامهٔ همین شب';
+  }
+  try { props_().setProperty(PK.MUSIC_SEEK_LAST, JSON.stringify(mLog).slice(0, 4000)); } catch (eMl) {}
+  return mLog.ran;
+}
+
 function selfUpdateDaily() {
   /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
      به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
@@ -1127,6 +1208,9 @@ function selfUpdateDaily() {
   try { musicFeedDedup_(); } catch (eFD) {}
 
   }   // ── پایانِ کارهای ارزان؛ این‌ها فقط در نخستین اجرای هر شب می‌دوند ──
+
+  /* ۱۳.۲: دیشب گشتنِ موسیقی اجرا نشد ⇒ امشب پیش از همهٔ بلوک‌های سنگین (بیرون از «نخستین اجرا»، تا شبِ نصب و اجرای ادامه هم برسد). */
+  if (musicNightDue_()) musicNight_('گشتن و آوردنِ موسیقی (بدهیِ دیشب)');
 
   /* ══ گویندهٔ تازه (بخشِ ۳۳) — و چرا از بلوکِ «نخستین اجرا» بیرون آمد (۷٫۲۹) ══
 
@@ -1232,48 +1316,9 @@ function selfUpdateDaily() {
     } catch (eRH) { logLine_('بازبینیِ شنیداری انجام نشد: ' + eRH.message); }
   }
 
-  /* و **آوردن، وقتی انبارِ شنیده‌نشده پر است، اصلاً شروع نمی‌شود.**
-     آوردنِ چیزی که نمی‌توانیم پخشش کنیم نه بانک را بهتر می‌کند نه عدد را —
-     فقط هر دو را بدتر می‌کند، و از بیرون شبیهِ «داریم کار می‌کنیم» است. */
-  var mUnheard = 0;
-  try { mUnheard = Number((musicStatus_() || {}).unheard) || 0; } catch (eMu) {}
-  /* رهاشده‌ها (مدل چهار بار نشنیدشان) جلوی آوردنِ قطعهٔ تازه را نمی‌گیرند (۸.۵۴):
-     تا ۸.۵۳ اگر انبار از سقف بالا بود و بخشی از آن هرگز شنیده نمی‌شد، بانک برای
-     همیشه نه شنیده می‌شد نه پُر — قفلی که از بیرون فقط «۷۱ شنیده‌نشده» بود. */
-  try {
-    var wSk = JSON.parse(props_().getProperty(PK.MUSIC_REHEAR_LAST) || 'null');
-    if (wSk && Number(wSk.skipped) > 0) mUnheard = Math.max(0, mUnheard - Number(wSk.skipped));
-  } catch (eSk) {}
-  var mStop = Math.max(1, Number(CFG.MUSIC_UNHEARD_STOP) || 25);
-  /* ۱۲.۸: نتیجهٔ گشتنِ هر شب در `_STATUS.json` (`music.seekLast`) — «چرا چیزی نیامد» تا امروز هیچ ردی نداشت. */
-  var mLog = { at: nowStr_(), ran: false, skip: '', why: '', slots: [], looked: 0, added: 0, notes: [], fetch: null };
-  if (mUnheard >= mStop) {
-    mLog.skip = mUnheard + ' قطعهٔ شنیده‌نشده (سقف ' + mStop + ')';
-    logLine_('آوردنِ موسیقی امشب رد شد: ' + mUnheard + ' قطعهٔ شنیده‌نشده در بانک ' +
-             '(سقف ' + mStop + '). اول همان‌ها شنیده می‌شوند.');
-  } else if (nightHas_(90000, 'گشتن و آوردنِ موسیقی')) {
-    mLog.ran = true;
-    try {
-      var miss = musicThinSlots_();
-      // کمبودی نبود یعنی «پوشش کامل است»، نه «کار تمام است». بانکی که همهٔ
-      // قطعه‌هایش ده بار پخش شده‌اند، برای شنونده همان بانکِ خالی است. پس
-      // شبی که کمبودی نیست، سراغِ فرسوده‌ترین خانواده می‌رویم.
-      var why = 'کمبود';
-      if (!miss.length) { miss = musicRotateSlots_(); why = 'چرخش'; }
-      mLog.why = why; mLog.slots = miss.slice(0, 6);
-      if (miss.length) {
-        logLine_('گشتنِ موسیقی (' + why + '): ' + miss.join('، '));
-        var sk = musicSeek_(miss) || {};
-        mLog.looked = Number(sk.looked) || 0; mLog.added = Number(sk.added) || 0;
-        mLog.notes = (sk.notes || []).slice(0, 4).map(function (x) { return String(x).slice(0, 140); });
-      }
-    } catch (eMS) { mLog.notes.push('خطا: ' + String(eMS.message).slice(0, 140)); logLine_('گشتنِ موسیقی انجام نشد: ' + eMS.message); }
-    try { var fr = musicFetch_() || {}; mLog.fetch = { read: Number(fr.read) || 0, added: Number(fr.added) || 0, failed: Number(fr.failed) || 0 }; }
-    catch (eMF) { mLog.notes.push('آوردن: ' + String(eMF.message).slice(0, 140)); logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }
-  } else {
-    mLog.skip = 'وقتِ کارِ شبانه نماند (nightHas_)';
-  }
-  try { props_().setProperty(PK.MUSIC_SEEK_LAST, JSON.stringify(mLog).slice(0, 4000)); } catch (eMl) {}
+  musicNight_('گشتن و آوردنِ موسیقی');
+  /* ۱۳.۲: شبه‌علم هرگز «آموزشیِ مطمئن» نمی‌ماند — ردیف‌هایی که پیش از این نسخه داوری شدند هم (یک خواندنِ رجیستری). */
+  if (nightHas_(15000, 'نشانِ شبه‌علم')) { try { judgePseudoSweep_(); } catch (ePs) { logLine_('نشانِ شبه‌علم: ' + ePs.message); } }
   // پویش جداست: ارزان‌تر از آوردن است و فایلی که کاربر دستی گذاشته را هم
   // می‌بیند، پس حتی در شبِ شلوغ هم ارزشِ تلاش دارد.
   if (nightHas_(30000, 'پویش و برچسبِ بانکِ موسیقی')) {

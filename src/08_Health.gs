@@ -2481,6 +2481,10 @@ function healthCheck() {
     if (muS && muS.line) {
       if (Number(muS.unheard) > 0) problems.push(muS.line); else notes.push(muS.line);
     }
+    /* ۱۳.۲: شبی که گشتن اصلاً نرفت، خبر است نه یادداشت — «بانک پر نمی‌شود» هفته‌ها فقط در یک سطرِ عادی بود. */
+    var mSl = muS && muS.seekLast;
+    if (mSl && mSl.ran === false && String(mSl.skip || '').indexOf('شنیده‌نشده') === -1 && String(mSl.skip || '').indexOf('ادامهٔ همین شب') === -1)
+      problems.push('🎵 گشتنِ موسیقیِ دیشب اجرا نشد: ' + String(mSl.skip || 'بی علت') + ' — امشب پیش از بلوک‌های سنگین می‌رود.');
     musicUnheardCheck_(hub, muS);
     try { musicEdgeMissCheck_(hub); } catch (eEm) {}
   } catch (eMu) {}

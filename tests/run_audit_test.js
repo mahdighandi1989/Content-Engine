@@ -434,7 +434,9 @@ console.log('\n=== صفِ داوری که رشد می‌کند، باید خود
   /* و ترتیبِ کارِ شبانه: داوری باید جلوتر از کارهای «امشب نشد، فردا» باشد. */
   const nightly = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
   const iAudit = nightly.indexOf("nightHas_(45000, 'سنجهٔ محتوا')");
-  const iMusic = nightly.indexOf("nightHas_(90000, 'گشتن و آوردنِ موسیقی')");
+  /* ۱۳.۲: گشتن در `musicNight_` است؛ جای همیشگی‌اش همان فراخوان است. استثنای عمدی: شبی که شبِ پیش گشتن اصلاً نرفت
+     (`musicNightDue_`)، پیش از همه می‌رود — بدهی، نه ترتیبِ عادی. */
+  const iMusic = nightly.indexOf("  musicNight_('گشتن و آوردنِ موسیقی');");
   const iRecap = nightly.indexOf("nightHas_(60000, 'قسمتِ مرورِ بزرگ')");
   ok('سنجهٔ محتوا پیش از گشتنِ موسیقی می‌آید', iAudit > 0 && iAudit < iMusic,
      iAudit + ' < ' + iMusic);

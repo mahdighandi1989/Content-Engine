@@ -51,6 +51,7 @@ var JUDGE_SCHEMA = {
           level: { type: 'string' },
           related: { type: 'string' },
           orderHint: { type: 'string' },
+          pseudo: { type: 'string' },
           why: { type: 'string' }
         },
         required: ['key', 'isCourse', 'score', 'about', 'topic', 'category', 'level', 'why']
@@ -300,6 +301,50 @@ var JUDGE_LOCAL_MARK = '[بی‌مدل]';
 var JUDGE_PARTIAL_MARK = 'داوریِ ناقص';        // ۱۲.۶: شمارشِ واژه، نه فهمِ محتوا — دوباره با مدل داوری می‌شود
 var JUDGE_REVIEW_MARK = 'نیازمند بازبینی';     // ۱۲.۶: اطمینانِ کمِ داور
 var JUDGE_REDO_MARK = 'داوریِ دوبارهٔ ۱۲٫۶';   // ۱۲.۶: یک بار برای ردیف‌های دستیِ داوری‌ناقص
+var JUDGE_PSEUDO_MARK = 'احتمالاً شبه‌علم';     // ۱۳.۲
+
+/** ۱۳.۲: شبه‌علم یا غیبی؟ ⇒ رشتهٔ دلیل («داور: شبه‌علم» / «نشانه: astrolog») یا ''. دو شاهدِ جدا: برچسبِ خودِ داور، و
+    نشانه‌های `CFG.JUDGE_PSEUDO_SIGNS` در نام و موضوع و شرح — هر نشانه از **آغازِ یک واژه** (وگرنه «فال» درونِ «فعال» می‌نشست). */
+function judgePseudo_(vd, entry, v) {
+  var tag = String((vd && vd.pseudo) || '').trim();
+  if (vd && vd.__local !== true && /شبه|غیب|pseudo|occult/i.test(tag)) return 'داور: ' + tag.slice(0, 20);
+  var txt = String((entry && entry.name) || '') + ' ' + ((entry && entry.partNames) || []).join(' ') + ' ' +
+            (v ? String(v[SC.NAME - 1] || '') + ' ' + String(v[SC.TOPIC - 1] || '') + ' ' + String(v[SC.ABOUT - 1] || '') : '') + ' ' +
+            String((vd && (vd.topic || '')) || '') + ' ' + String((vd && (vd.about || '')) || '');
+  var hit = judgePseudoSign_(txt);
+  return hit ? 'نشانه: ' + hit : '';
+}
+function judgePseudoSign_(txt) {
+  var t = ' ' + txNorm(String(txt || '')).toLowerCase().replace(/[^\p{L}\p{N}‌]+/gu, ' ') + ' ';
+  var signs = CFG.JUDGE_PSEUDO_SIGNS || [];
+  for (var i = 0; i < signs.length; i++) {
+    var sg = txNorm(String(signs[i] || '')).toLowerCase().trim();
+    if (sg && t.indexOf(' ' + sg) !== -1) return sg;
+  }
+  return '';
+}
+
+/** ۱۳.۲: ردیف‌هایی که پیش از این نسخه «آموزشی = بله» خورده‌اند و نشانهٔ شبه‌علم دارند ⇒ «مشکوک» + نشانِ بازبینی.
+    ردیفِ دستی (judgeKeep_) و «نادیده» دست نمی‌خورند؛ فقط ردیفِ عوض‌شده نوشته می‌شود. ⇒ {checked, flagged, keys[]} */
+function judgePseudoSweep_(regOpt) {
+  var reg = regOpt || readSeriesReg_(getHub_()), out = { checked: 0, flagged: 0, keys: [] };
+  for (var i = 0; i < reg.rows.length; i++) {
+    var rec = reg.rows[i], v = rec.vals;
+    if (String(v[SC.IS_COURSE - 1] || '') !== SJ.YES || judgeKeep_(v) || String(v[SC.STATUS - 1] || '') === SST.SKIPPED) continue;
+    out.checked++;
+    var why = String(v[SC.WHY - 1] || '');
+    if (why.indexOf(JUDGE_PSEUDO_MARK) !== -1) continue;
+    var hit = judgePseudoSign_(String(v[SC.NAME - 1] || '') + ' ' + String(v[SC.TOPIC - 1] || '') + ' ' + String(v[SC.ABOUT - 1] || ''));
+    if (!hit) continue;
+    v[SC.IS_COURSE - 1] = SJ.UNSURE;
+    v[SC.WHY - 1] = ('‹' + JUDGE_REVIEW_MARK + ': ' + JUDGE_PSEUDO_MARK + ' (نشانه: ' + hit + ')› ' + why).slice(0, 300);
+    v[SC.UPDATED - 1] = nowStr_();
+    try { reg.sheet.getRange(rec.row, 1, 1, SERIES_HEADERS.length).setValues([v]); out.flagged++; out.keys.push(rec.key); }
+    catch (e) { logLine_('نشانِ شبه‌علم نوشته نشد: ' + e.message); }
+  }
+  if (out.flagged) logLine_('🧪 ' + out.flagged + ' مجموعه با نشانهٔ شبه‌علم از «آموزشی = بله» به «مشکوک» رفت: ' + out.keys.join('، '));
+  return out;
+}
 
 /** ۱۲.۶: داوریِ این ردیف ناقص است؟ (بی‌مدل یا «موضوع‌های پرتکرار»؛ ردیفی که هرگز داوری نشده «ناقص» نیست) — و هنوز یک بار دوباره داوری نشده. */
 function judgeIncomplete_(v) {
@@ -634,6 +679,10 @@ function judgePrompt_(entries, catsOpt) {
   L.push('• form: قالبِ ارائه در یکی-دو واژه: «درسِ کلاسی»، «سخنرانی»، «مناظره»، «گفت‌وگو»، «داستان/روایت»، «مراسم»، «خبر»، «کتابِ صوتی»، «پادکست»، …');
   L.push('• audience: مخاطب در چند واژه (مثلاً «دانشجوی فلسفه»، «عمومی»، «طلبه»، «کودک»، «علاقه‌مندِ بورس»).');
   L.push('• evidence: یک جملهٔ کوتاه (حداکثر ۲۰ واژه) **عیناً از خودِ متنِ نمونه** که موضوع و قالب را نشان می‌دهد — نه از نامِ فایل.');
+  /* ۱۳.۲: آسترولوژیِ مالی و «زاویه‌های گان» آموزشیِ مطمئن خورده بودند — قالب درس‌گونه است، ادعا علمی نیست. */
+  L.push('• pseudo: «علمی» یا «شبه‌علم» یا «غیبی» — آیا ادعای اصلیِ مجموعه بر روشِ علمیِ پذیرفته تکیه دارد؟ آسترولوژی و طالع‌بینی ' +
+         '(از جمله «آسترولوژیِ مالی»)، پیش‌بینیِ بازار با سیاره‌ها یا «زاویه‌های گان»، اعدادشناسی، تاروت، فال، رمل و جفر، کف‌بینی، ' +
+         'انرژی‌درمانی و قانونِ جذب ⇒ «شبه‌علم» یا «غیبی»، حتی اگر قالبش درسِ مرتب باشد. آموزشِ **دربارهٔ** تاریخ یا نقدِ این‌ها «علمی» است.');
   L.push('• why: در یک جملهٔ کوتاهِ فارسی بگو چرا این تصمیم را گرفتی. اگر آموزشی ' +
          'نیست، صریح بگو چه چیزی هست — این جمله عیناً به کاربر نشان داده می‌شود.');
   L.push('');
@@ -1013,6 +1062,9 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
   v[SC.IS_COURSE - 1] = ritualName ? SJ.NO : (unsure ? SJ.UNSURE : (isC ? SJ.YES : SJ.NO));
   /* ۱۳.۰: شمارشِ واژه هیچ‌وقت «آموزشی است/نیست» را قطعی نمی‌کند — فقط «مشکوک»، تا مدل بسنجد. */
   if (vd.__local === true) v[SC.IS_COURSE - 1] = SJ.UNSURE;
+  /* ۱۳.۲: شبه‌علم و غیبی هرگز «آموزشیِ مطمئن» نیست — «مشکوک» و نشانِ بازبینی؛ تصمیم با صاحبِ کانال. */
+  var pseudo = judgePseudo_(vd, entry, v);
+  if (pseudo && v[SC.IS_COURSE - 1] === SJ.YES) v[SC.IS_COURSE - 1] = SJ.UNSURE;
   v[SC.CSCORE - 1] = score;
   v[SC.ABOUT - 1] = String(vd.about || '').slice(0, 300);
   var why = String(vd.why || '').slice(0, 300);
@@ -1025,6 +1077,7 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
   v[SC.WHY - 1] = (vd.__local ? JUDGE_LOCAL_MARK + ' ' + JUDGE_PARTIAL_MARK + ' — ' : '') +
                   (fmF || auF ? '[' + (fmF ? 'قالب: ' + fmF : '') + (fmF && auF ? '؛ ' : '') + (auF ? 'مخاطب: ' + auF : '') + '] ' : '') +
                   (lowCourse ? '‹' + JUDGE_REVIEW_MARK + ': اطمینانِ داور ' + Math.round(cSure) + '› ' : '') +
+                  (pseudo ? '‹' + JUDGE_REVIEW_MARK + ': ' + JUDGE_PSEUDO_MARK + ' (' + pseudo + ')› ' : '') +
                   (kind ? '[' + kind + '] ' : '') + why +
                   (ritualName
                      ? ' (متنِ قابلِ استفاده‌ای خوانده نشد — ' + sampleLen + ' نویسه؛ ' +
@@ -1121,9 +1174,13 @@ function judgeTickArm_(mins) {
   } catch (e) { return false; }
 }
 function judgeTickQuiet_() {
-  var q = CFG.JUDGE_TICK_QUIET || [6.5, 9.5];
+  /* ۱۳.۲: چند بازه — شبِ ۲۶ اکتبر داوری از ۰۱:۵۸ تا ۰۳:۱۲ پشتِ‌هم قفل گرفت، درست روی کارِ شبانه. */
+  var q = CFG.JUDGE_TICK_QUIET || [[2.4, 3.6], [6.5, 9.5]];
+  if (!(q[0] instanceof Array)) q = [q];
   var d = new Date(), h = Number(Utilities.formatDate(d, CFG.TIMEZONE, 'HH')) + Number(Utilities.formatDate(d, CFG.TIMEZONE, 'mm')) / 60;
-  return isFinite(h) && h >= Number(q[0]) && h < Number(q[1]);
+  if (!isFinite(h)) return false;
+  for (var i = 0; i < q.length; i++) if (h >= Number(q[i][0]) && h < Number(q[i][1])) return true;
+  return false;
 }
 function judgeTick() {
   runEnter_('judgeTick');

@@ -2160,7 +2160,12 @@ var CFG = {
   JUDGE_ROUND_TAB: 'داوریِ مفهومی — قبلی و تازه',
   JUDGE_TICK_MIN: 12,                // فاصلهٔ اجراهای پیاپیِ داوری تا خالی شدنِ صف
   JUDGE_TICK_MS: 230000,             // بودجهٔ هر اجرا (زیرِ سقفِ شش‌دقیقه)
-  JUDGE_TICK_QUIET: [6.5, 9.5],      // ساعت‌های تولید (دبی): داوری قفل نمی‌گیرد
+  JUDGE_TICK_QUIET: [[2.4, 3.6], [6.5, 9.5]],   // ۱۳.۲: کارِ شبانه (۰۲:۳۰) و ساعت‌های تولید (دبی): داوری قفل نمی‌گیرد
+  /* ۱۳.۲: نشانه‌های شبه‌علم و غیبی — هر کدام از آغازِ یک واژه. «Financial Astrology» و «Gann» آموزشیِ مطمئن خورده بودند. */
+  JUDGE_PSEUDO_SIGNS: ['astrolog', 'آسترولوژ', 'اخترگوی', 'طالع', 'تاروت', 'tarot', 'numerolog', 'اعدادشناس', 'علم الاعداد', 'gann',
+                       'فال ', 'فالگیر', 'رمل', 'جفر', 'کف‌بین', 'palmist', 'chakra', 'چاکرا', 'قانون جذب', 'law of attraction',
+                       'انرژی درمانی', 'انرژی‌درمانی', 'reiki', 'ریکی', 'homeopath', 'هومیوپات', 'هوموپات', 'علوم غریبه', 'احضار', 'طلسم',
+                       'دعانویس', 'horoscope', 'occult', 'esoteric'],
   JUDGE_COURSE_MIN_SURE: 60,         // ۱۲.۶: اطمینانِ داور به «آموزشی/نه» کمتر از این ⇒ مشکوک و «نیازمند بازبینی»
   JUDGE_SAMPLE_FRACS: [0.1, 0.5, 0.9], // ۱۲.۶: جای نمونه‌ها در کلِ مجموعه (نه قطعهٔ اولِ هر قسمت)
   SERIES_CAT_MIN_SURE: 60,           // ۱۱.۹: اطمینانِ داور به دسته کمتر از این ⇒ «بدون دسته، نیازمند بازبینی»
@@ -2745,6 +2750,7 @@ var CFG = {
   ],
   VBR_Q_CRACK_PER_MIN: 2.5,       // ۱۳.۱ (سنجیده: رضوی ۱٫۸، گلدوز ۳٫۳ تا ۶٫۶): بیش از این شکستنِ صدا در دقیقه ⇒ ساختِ دوباره، و اگر باز ⇒ صوتِ قسمت جای اصلی نمی‌نشیند
   VBR_Q_JITTER_ST: 0.18,          // ۱۳.۱ (سنجیده: گفتارِ واقعی ۰٫۱۲ تا ۰٫۱۳، لرزشِ ساختگیِ ±۱٫۲ نیم‌پرده ۰٫۲۱): میانگینِ لرزشِ زیروبم (نیم‌پرده بینِ دو قابِ ۲۰ میلی‌ثانیه‌ای)
+  VBR_Q_SHIMMER_DB: 2.8,          // ۱۳.۲: لرزشِ بلندی (سنجیده: رضوی ۲٫۳۲، گلدوز ۳٫۴۱ و ۳٫۴۴) — لرزشِ زیروبم این دو را جدا نمی‌کرد
   VBR_SEG_PITCH: false,          // ۱۱.۴: زیروبمِ هر تکه روی قسمت‌ها — آزمایشی، خاموش تا صاحبِ کانال نمونهٔ درسِ ۷۴ را بشنود و تأیید کند
   /* ══ سقف، شمارندهٔ **زمان‌بندی** است نه شمارندهٔ موفقیت (۷٫۹۱) ══
      `vbrSoulSeedDue_` شمارنده را همان‌جا که کار را زمان‌بندی می‌کند یک
@@ -20504,6 +20510,10 @@ function healthCheck() {
     if (muS && muS.line) {
       if (Number(muS.unheard) > 0) problems.push(muS.line); else notes.push(muS.line);
     }
+    /* ۱۳.۲: شبی که گشتن اصلاً نرفت، خبر است نه یادداشت — «بانک پر نمی‌شود» هفته‌ها فقط در یک سطرِ عادی بود. */
+    var mSl = muS && muS.seekLast;
+    if (mSl && mSl.ran === false && String(mSl.skip || '').indexOf('شنیده‌نشده') === -1 && String(mSl.skip || '').indexOf('ادامهٔ همین شب') === -1)
+      problems.push('🎵 گشتنِ موسیقیِ دیشب اجرا نشد: ' + String(mSl.skip || 'بی علت') + ' — امشب پیش از بلوک‌های سنگین می‌رود.');
     musicUnheardCheck_(hub, muS);
     try { musicEdgeMissCheck_(hub); } catch (eEm) {}
   } catch (eMu) {}
@@ -32556,6 +32566,7 @@ var JUDGE_SCHEMA = {
           level: { type: 'string' },
           related: { type: 'string' },
           orderHint: { type: 'string' },
+          pseudo: { type: 'string' },
           why: { type: 'string' }
         },
         required: ['key', 'isCourse', 'score', 'about', 'topic', 'category', 'level', 'why']
@@ -32805,6 +32816,50 @@ var JUDGE_LOCAL_MARK = '[بی‌مدل]';
 var JUDGE_PARTIAL_MARK = 'داوریِ ناقص';        // ۱۲.۶: شمارشِ واژه، نه فهمِ محتوا — دوباره با مدل داوری می‌شود
 var JUDGE_REVIEW_MARK = 'نیازمند بازبینی';     // ۱۲.۶: اطمینانِ کمِ داور
 var JUDGE_REDO_MARK = 'داوریِ دوبارهٔ ۱۲٫۶';   // ۱۲.۶: یک بار برای ردیف‌های دستیِ داوری‌ناقص
+var JUDGE_PSEUDO_MARK = 'احتمالاً شبه‌علم';     // ۱۳.۲
+
+/** ۱۳.۲: شبه‌علم یا غیبی؟ ⇒ رشتهٔ دلیل («داور: شبه‌علم» / «نشانه: astrolog») یا ''. دو شاهدِ جدا: برچسبِ خودِ داور، و
+    نشانه‌های `CFG.JUDGE_PSEUDO_SIGNS` در نام و موضوع و شرح — هر نشانه از **آغازِ یک واژه** (وگرنه «فال» درونِ «فعال» می‌نشست). */
+function judgePseudo_(vd, entry, v) {
+  var tag = String((vd && vd.pseudo) || '').trim();
+  if (vd && vd.__local !== true && /شبه|غیب|pseudo|occult/i.test(tag)) return 'داور: ' + tag.slice(0, 20);
+  var txt = String((entry && entry.name) || '') + ' ' + ((entry && entry.partNames) || []).join(' ') + ' ' +
+            (v ? String(v[SC.NAME - 1] || '') + ' ' + String(v[SC.TOPIC - 1] || '') + ' ' + String(v[SC.ABOUT - 1] || '') : '') + ' ' +
+            String((vd && (vd.topic || '')) || '') + ' ' + String((vd && (vd.about || '')) || '');
+  var hit = judgePseudoSign_(txt);
+  return hit ? 'نشانه: ' + hit : '';
+}
+function judgePseudoSign_(txt) {
+  var t = ' ' + txNorm(String(txt || '')).toLowerCase().replace(/[^\p{L}\p{N}‌]+/gu, ' ') + ' ';
+  var signs = CFG.JUDGE_PSEUDO_SIGNS || [];
+  for (var i = 0; i < signs.length; i++) {
+    var sg = txNorm(String(signs[i] || '')).toLowerCase().trim();
+    if (sg && t.indexOf(' ' + sg) !== -1) return sg;
+  }
+  return '';
+}
+
+/** ۱۳.۲: ردیف‌هایی که پیش از این نسخه «آموزشی = بله» خورده‌اند و نشانهٔ شبه‌علم دارند ⇒ «مشکوک» + نشانِ بازبینی.
+    ردیفِ دستی (judgeKeep_) و «نادیده» دست نمی‌خورند؛ فقط ردیفِ عوض‌شده نوشته می‌شود. ⇒ {checked, flagged, keys[]} */
+function judgePseudoSweep_(regOpt) {
+  var reg = regOpt || readSeriesReg_(getHub_()), out = { checked: 0, flagged: 0, keys: [] };
+  for (var i = 0; i < reg.rows.length; i++) {
+    var rec = reg.rows[i], v = rec.vals;
+    if (String(v[SC.IS_COURSE - 1] || '') !== SJ.YES || judgeKeep_(v) || String(v[SC.STATUS - 1] || '') === SST.SKIPPED) continue;
+    out.checked++;
+    var why = String(v[SC.WHY - 1] || '');
+    if (why.indexOf(JUDGE_PSEUDO_MARK) !== -1) continue;
+    var hit = judgePseudoSign_(String(v[SC.NAME - 1] || '') + ' ' + String(v[SC.TOPIC - 1] || '') + ' ' + String(v[SC.ABOUT - 1] || ''));
+    if (!hit) continue;
+    v[SC.IS_COURSE - 1] = SJ.UNSURE;
+    v[SC.WHY - 1] = ('‹' + JUDGE_REVIEW_MARK + ': ' + JUDGE_PSEUDO_MARK + ' (نشانه: ' + hit + ')› ' + why).slice(0, 300);
+    v[SC.UPDATED - 1] = nowStr_();
+    try { reg.sheet.getRange(rec.row, 1, 1, SERIES_HEADERS.length).setValues([v]); out.flagged++; out.keys.push(rec.key); }
+    catch (e) { logLine_('نشانِ شبه‌علم نوشته نشد: ' + e.message); }
+  }
+  if (out.flagged) logLine_('🧪 ' + out.flagged + ' مجموعه با نشانهٔ شبه‌علم از «آموزشی = بله» به «مشکوک» رفت: ' + out.keys.join('، '));
+  return out;
+}
 
 /** ۱۲.۶: داوریِ این ردیف ناقص است؟ (بی‌مدل یا «موضوع‌های پرتکرار»؛ ردیفی که هرگز داوری نشده «ناقص» نیست) — و هنوز یک بار دوباره داوری نشده. */
 function judgeIncomplete_(v) {
@@ -33139,6 +33194,10 @@ function judgePrompt_(entries, catsOpt) {
   L.push('• form: قالبِ ارائه در یکی-دو واژه: «درسِ کلاسی»، «سخنرانی»، «مناظره»، «گفت‌وگو»، «داستان/روایت»، «مراسم»، «خبر»، «کتابِ صوتی»، «پادکست»، …');
   L.push('• audience: مخاطب در چند واژه (مثلاً «دانشجوی فلسفه»، «عمومی»، «طلبه»، «کودک»، «علاقه‌مندِ بورس»).');
   L.push('• evidence: یک جملهٔ کوتاه (حداکثر ۲۰ واژه) **عیناً از خودِ متنِ نمونه** که موضوع و قالب را نشان می‌دهد — نه از نامِ فایل.');
+  /* ۱۳.۲: آسترولوژیِ مالی و «زاویه‌های گان» آموزشیِ مطمئن خورده بودند — قالب درس‌گونه است، ادعا علمی نیست. */
+  L.push('• pseudo: «علمی» یا «شبه‌علم» یا «غیبی» — آیا ادعای اصلیِ مجموعه بر روشِ علمیِ پذیرفته تکیه دارد؟ آسترولوژی و طالع‌بینی ' +
+         '(از جمله «آسترولوژیِ مالی»)، پیش‌بینیِ بازار با سیاره‌ها یا «زاویه‌های گان»، اعدادشناسی، تاروت، فال، رمل و جفر، کف‌بینی، ' +
+         'انرژی‌درمانی و قانونِ جذب ⇒ «شبه‌علم» یا «غیبی»، حتی اگر قالبش درسِ مرتب باشد. آموزشِ **دربارهٔ** تاریخ یا نقدِ این‌ها «علمی» است.');
   L.push('• why: در یک جملهٔ کوتاهِ فارسی بگو چرا این تصمیم را گرفتی. اگر آموزشی ' +
          'نیست، صریح بگو چه چیزی هست — این جمله عیناً به کاربر نشان داده می‌شود.');
   L.push('');
@@ -33518,6 +33577,9 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
   v[SC.IS_COURSE - 1] = ritualName ? SJ.NO : (unsure ? SJ.UNSURE : (isC ? SJ.YES : SJ.NO));
   /* ۱۳.۰: شمارشِ واژه هیچ‌وقت «آموزشی است/نیست» را قطعی نمی‌کند — فقط «مشکوک»، تا مدل بسنجد. */
   if (vd.__local === true) v[SC.IS_COURSE - 1] = SJ.UNSURE;
+  /* ۱۳.۲: شبه‌علم و غیبی هرگز «آموزشیِ مطمئن» نیست — «مشکوک» و نشانِ بازبینی؛ تصمیم با صاحبِ کانال. */
+  var pseudo = judgePseudo_(vd, entry, v);
+  if (pseudo && v[SC.IS_COURSE - 1] === SJ.YES) v[SC.IS_COURSE - 1] = SJ.UNSURE;
   v[SC.CSCORE - 1] = score;
   v[SC.ABOUT - 1] = String(vd.about || '').slice(0, 300);
   var why = String(vd.why || '').slice(0, 300);
@@ -33530,6 +33592,7 @@ function applyVerdict_(reg, rec, vd, entry, deferWrite) {
   v[SC.WHY - 1] = (vd.__local ? JUDGE_LOCAL_MARK + ' ' + JUDGE_PARTIAL_MARK + ' — ' : '') +
                   (fmF || auF ? '[' + (fmF ? 'قالب: ' + fmF : '') + (fmF && auF ? '؛ ' : '') + (auF ? 'مخاطب: ' + auF : '') + '] ' : '') +
                   (lowCourse ? '‹' + JUDGE_REVIEW_MARK + ': اطمینانِ داور ' + Math.round(cSure) + '› ' : '') +
+                  (pseudo ? '‹' + JUDGE_REVIEW_MARK + ': ' + JUDGE_PSEUDO_MARK + ' (' + pseudo + ')› ' : '') +
                   (kind ? '[' + kind + '] ' : '') + why +
                   (ritualName
                      ? ' (متنِ قابلِ استفاده‌ای خوانده نشد — ' + sampleLen + ' نویسه؛ ' +
@@ -33626,9 +33689,13 @@ function judgeTickArm_(mins) {
   } catch (e) { return false; }
 }
 function judgeTickQuiet_() {
-  var q = CFG.JUDGE_TICK_QUIET || [6.5, 9.5];
+  /* ۱۳.۲: چند بازه — شبِ ۲۶ اکتبر داوری از ۰۱:۵۸ تا ۰۳:۱۲ پشتِ‌هم قفل گرفت، درست روی کارِ شبانه. */
+  var q = CFG.JUDGE_TICK_QUIET || [[2.4, 3.6], [6.5, 9.5]];
+  if (!(q[0] instanceof Array)) q = [q];
   var d = new Date(), h = Number(Utilities.formatDate(d, CFG.TIMEZONE, 'HH')) + Number(Utilities.formatDate(d, CFG.TIMEZONE, 'mm')) / 60;
-  return isFinite(h) && h >= Number(q[0]) && h < Number(q[1]);
+  if (!isFinite(h)) return false;
+  for (var i = 0; i < q.length; i++) if (h >= Number(q[i][0]) && h < Number(q[i][1])) return true;
+  return false;
 }
 function judgeTick() {
   runEnter_('judgeTick');
@@ -37714,6 +37781,10 @@ var _nightT0 = 0;
 var _nightSkipTo = null;    // تا رسیدن به این بلوک، رد شو (ادامهٔ همین شب)
 var _nightMore = '';        // این‌جا ایستادیم؛ ادامه لازم است
 var _nightKiller = null;    // بلوکی که اجرای پیشینِ همین شب را کُشت؛ این بار رد می‌شود (۸.۵۳)
+/* ۱۳.۲: چرا آخرین `nightHas_` «نه» گفت — 'done' (اجرای پیشینِ امشب انجامش داد)، 'killed' (اجرای پیشین وسطِ همین بلوک
+   کشته شد)، 'more' (وقتِ این اجرا تمام است؛ ادامه می‌آید). بی این، شاهدِ هر بلوک یک «وقت نماند»ِ واحد می‌نوشت و اجرای ادامه
+   — که موسیقی را دیگر نمی‌دید چون اجرای اول انجامش داده بود — نتیجهٔ واقعی را با «وقت نماند» بازنویسی می‌کرد. */
+var _nightNo = '';
 /* ضربانِ بخشِ نخست (داوری، نصب، خانه‌داری) — پیش از هر بلوکِ `nightHas_`.
    ۶ اکتبر اجرای اول همین‌جا کشته شد و ضربانِ دیشب سرِ جایش ماند: شاهدی که
    بخشی از شب را نمی‌بیند، همان بخش را بی‌نام می‌گذارد (۷.۴۴). */
@@ -37901,16 +37972,18 @@ function nightKilledNote_(what) {
  * می‌کرد.
  */
 function nightHas_(needMs, what) {
+  _nightNo = '';
   if (_nightSkipTo) {
-    if (what !== _nightSkipTo) return false;   // اجرای پیشینِ امشب انجامش داده
+    if (what !== _nightSkipTo) { _nightNo = 'done'; return false; }   // اجرای پیشینِ امشب انجامش داده
     _nightSkipTo = null;                       // رسیدیم؛ از این‌جا عادی
     if (_nightKiller && what === _nightKiller) {
       _nightKiller = null;                     // همین بلوک اجرای پیشین را کُشت (۸.۵۳)
       nightKilledNote_(what);
+      _nightNo = 'killed';
       return false;
     }
   }
-  if (_nightMore) return false;                // این اجرا تمام است؛ بقیه در ادامه
+  if (_nightMore) { _nightNo = 'more'; return false; }   // این اجرا تمام است؛ بقیه در ادامه
   if (nightLeft_() >= needMs) {
     /* ══ ضربان، **پیش** از کار ══
        اگر پس از کار نوشته شود، دقیقاً بلوکی که وقت را خورد و اجرا را به
@@ -37920,6 +37993,7 @@ function nightHas_(needMs, what) {
     return true;
   }
   _nightMore = what;                           // نقطهٔ توقف
+  _nightNo = 'more';
   return false;
 }
 
@@ -38157,6 +38231,80 @@ function nightStarveFinding_(hub, bad, need) {
  * ۳) خانه‌داریِ ارزان و کران‌دار
  * ۴) کارِ سنگین، هرکدام با نگهبانِ زمان
  */
+/* ══ گشتن و آوردنِ موسیقی، و «سهمِ تضمینی»اش (۱۳.۲) ══
+   ۲۶ اکتبر `music.seekLast`: «ran=false، وقتِ کارِ شبانه نماند». این بلوک پشتِ ده بلوکِ دیگر است؛ هر شبی که آن‌ها وقت را
+   بخورند، بانک پر نمی‌شود — بی صدا و هر شب. حالا اگر دیشب گشتن اجرا نشد، امشب **پیش از** بلوک‌های سنگین می‌رود
+   (`musicNightDue_`)، و جای همیشگی‌اش فقط وقتی کار می‌کند که امروز هنوز نرفته. */
+function musicNightDue_() {
+  try {
+    var v = JSON.parse(props_().getProperty(PK.MUSIC_SEEK_LAST) || 'null');
+    if (!v || !v.at) return false;
+    if (String(v.at).slice(0, 10) === nowStr_().slice(0, 10)) return false;   // امروز رفته (یا رد شده)
+    return v.ran === false && String(v.skip || '').indexOf('شنیده‌نشده') === -1;
+  } catch (e) { return false; }
+}
+function musicNightToday_() {
+  try {
+    var v = JSON.parse(props_().getProperty(PK.MUSIC_SEEK_LAST) || 'null');
+    if (!v || String(v.at || '').slice(0, 10) !== nowStr_().slice(0, 10)) return false;
+    /* رفته، یا امشب یک بار وسطش کشته شد — دومی را همان شب دوباره امتحان نمی‌کنیم (فردا شب بدهی است و اول می‌رود). */
+    return v.ran === true || String(v.skip || '').indexOf('کشته') !== -1;
+  } catch (e) { return false; }
+}
+function musicNight_(what) {
+  if (musicNightToday_()) return false;
+  /* و **آوردن، وقتی انبارِ شنیده‌نشده پر است، اصلاً شروع نمی‌شود.**
+     آوردنِ چیزی که نمی‌توانیم پخشش کنیم نه بانک را بهتر می‌کند نه عدد را —
+     فقط هر دو را بدتر می‌کند، و از بیرون شبیهِ «داریم کار می‌کنیم» است. */
+  var mUnheard = 0;
+  try { mUnheard = Number((musicStatus_() || {}).unheard) || 0; } catch (eMu) {}
+  /* رهاشده‌ها (مدل چهار بار نشنیدشان) جلوی آوردنِ قطعهٔ تازه را نمی‌گیرند (۸.۵۴):
+     تا ۸.۵۳ اگر انبار از سقف بالا بود و بخشی از آن هرگز شنیده نمی‌شد، بانک برای
+     همیشه نه شنیده می‌شد نه پُر — قفلی که از بیرون فقط «۷۱ شنیده‌نشده» بود. */
+  try {
+    var wSk = JSON.parse(props_().getProperty(PK.MUSIC_REHEAR_LAST) || 'null');
+    if (wSk && Number(wSk.skipped) > 0) mUnheard = Math.max(0, mUnheard - Number(wSk.skipped));
+  } catch (eSk) {}
+  var mStop = Math.max(1, Number(CFG.MUSIC_UNHEARD_STOP) || 25);
+  /* ۱۲.۸: نتیجهٔ گشتنِ هر شب در `_STATUS.json` (`music.seekLast`) — «چرا چیزی نیامد» تا امروز هیچ ردی نداشت. */
+  var mLog = { at: nowStr_(), ran: false, skip: '', why: '', slots: [], looked: 0, added: 0, notes: [], fetch: null };
+  if (mUnheard >= mStop) {
+    mLog.skip = mUnheard + ' قطعهٔ شنیده‌نشده (سقف ' + mStop + ')';
+    logLine_('آوردنِ موسیقی امشب رد شد: ' + mUnheard + ' قطعهٔ شنیده‌نشده در بانک ' +
+             '(سقف ' + mStop + '). اول همان‌ها شنیده می‌شوند.');
+  } else if (nightHas_(90000, what)) {
+    mLog.ran = true;
+    /* ۱۳.۲: سهمِ زمان از **باقی‌ماندهٔ همین اجرا**، نه از عددهای ثابت: نگهبان ۹۰ ثانیه می‌خواست ولی گشتن تا ۶۰ و آوردن تا
+       ۱۵۰ ثانیه می‌توانست بخورد — ۲۱۰ ثانیه پشتِ دری که ۹۰ را می‌سنجید، یعنی کشته‌شدن سرِ شش دقیقه و ردشدنِ بلوک در اجرای بعد. */
+    var mLeft = Math.max(20000, nightLeft_() - 15000);
+    try {
+      var miss = musicThinSlots_();
+      // کمبودی نبود یعنی «پوشش کامل است»، نه «کار تمام است». بانکی که همهٔ
+      // قطعه‌هایش ده بار پخش شده‌اند، برای شنونده همان بانکِ خالی است. پس
+      // شبی که کمبودی نیست، سراغِ فرسوده‌ترین خانواده می‌رویم.
+      var why = 'کمبود';
+      if (!miss.length) { miss = musicRotateSlots_(); why = 'چرخش'; }
+      mLog.why = why; mLog.slots = miss.slice(0, 6);
+      if (miss.length) {
+        logLine_('گشتنِ موسیقی (' + why + '): ' + miss.join('، '));
+        var sk = musicSeek_(miss, false, { ms: Math.min(Number(CFG.MUSIC_SEEK_MS) || 60000, Math.round(mLeft * 0.4)) }) || {};
+        mLog.looked = Number(sk.looked) || 0; mLog.added = Number(sk.added) || 0;
+        mLog.notes = (sk.notes || []).slice(0, 4).map(function (x) { return String(x).slice(0, 140); });
+      }
+    } catch (eMS) { mLog.notes.push('خطا: ' + String(eMS.message).slice(0, 140)); logLine_('گشتنِ موسیقی انجام نشد: ' + eMS.message); }
+    try { var fr = musicFetch_({ budget: Math.max(20000, Math.min(Number(CFG.MUSIC_FETCH_BUDGET_MS) || 150000, nightLeft_() - 15000)) }) || {}; mLog.fetch = { read: Number(fr.read) || 0, added: Number(fr.added) || 0, failed: Number(fr.failed) || 0 }; }
+    catch (eMF) { mLog.notes.push('آوردن: ' + String(eMF.message).slice(0, 140)); logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }
+  } else if (_nightNo === 'done') {
+    return false;                 // اجرای پیشینِ امشب انجامش داد — شاهدش را بازنویسی نکن
+  } else if (_nightNo === 'killed') {
+    mLog.skip = 'اجرای پیشینِ امشب وسطِ همین بلوک کشته شد (شش دقیقه)';
+  } else {
+    mLog.skip = 'وقتِ این اجرا تمام شد — در اجرای ادامهٔ همین شب';
+  }
+  try { props_().setProperty(PK.MUSIC_SEEK_LAST, JSON.stringify(mLog).slice(0, 4000)); } catch (eMl) {}
+  return mLog.ran;
+}
+
 function selfUpdateDaily() {
   /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
      به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
@@ -38251,6 +38399,9 @@ function selfUpdateDaily() {
   try { musicFeedDedup_(); } catch (eFD) {}
 
   }   // ── پایانِ کارهای ارزان؛ این‌ها فقط در نخستین اجرای هر شب می‌دوند ──
+
+  /* ۱۳.۲: دیشب گشتنِ موسیقی اجرا نشد ⇒ امشب پیش از همهٔ بلوک‌های سنگین (بیرون از «نخستین اجرا»، تا شبِ نصب و اجرای ادامه هم برسد). */
+  if (musicNightDue_()) musicNight_('گشتن و آوردنِ موسیقی (بدهیِ دیشب)');
 
   /* ══ گویندهٔ تازه (بخشِ ۳۳) — و چرا از بلوکِ «نخستین اجرا» بیرون آمد (۷٫۲۹) ══
 
@@ -38356,48 +38507,9 @@ function selfUpdateDaily() {
     } catch (eRH) { logLine_('بازبینیِ شنیداری انجام نشد: ' + eRH.message); }
   }
 
-  /* و **آوردن، وقتی انبارِ شنیده‌نشده پر است، اصلاً شروع نمی‌شود.**
-     آوردنِ چیزی که نمی‌توانیم پخشش کنیم نه بانک را بهتر می‌کند نه عدد را —
-     فقط هر دو را بدتر می‌کند، و از بیرون شبیهِ «داریم کار می‌کنیم» است. */
-  var mUnheard = 0;
-  try { mUnheard = Number((musicStatus_() || {}).unheard) || 0; } catch (eMu) {}
-  /* رهاشده‌ها (مدل چهار بار نشنیدشان) جلوی آوردنِ قطعهٔ تازه را نمی‌گیرند (۸.۵۴):
-     تا ۸.۵۳ اگر انبار از سقف بالا بود و بخشی از آن هرگز شنیده نمی‌شد، بانک برای
-     همیشه نه شنیده می‌شد نه پُر — قفلی که از بیرون فقط «۷۱ شنیده‌نشده» بود. */
-  try {
-    var wSk = JSON.parse(props_().getProperty(PK.MUSIC_REHEAR_LAST) || 'null');
-    if (wSk && Number(wSk.skipped) > 0) mUnheard = Math.max(0, mUnheard - Number(wSk.skipped));
-  } catch (eSk) {}
-  var mStop = Math.max(1, Number(CFG.MUSIC_UNHEARD_STOP) || 25);
-  /* ۱۲.۸: نتیجهٔ گشتنِ هر شب در `_STATUS.json` (`music.seekLast`) — «چرا چیزی نیامد» تا امروز هیچ ردی نداشت. */
-  var mLog = { at: nowStr_(), ran: false, skip: '', why: '', slots: [], looked: 0, added: 0, notes: [], fetch: null };
-  if (mUnheard >= mStop) {
-    mLog.skip = mUnheard + ' قطعهٔ شنیده‌نشده (سقف ' + mStop + ')';
-    logLine_('آوردنِ موسیقی امشب رد شد: ' + mUnheard + ' قطعهٔ شنیده‌نشده در بانک ' +
-             '(سقف ' + mStop + '). اول همان‌ها شنیده می‌شوند.');
-  } else if (nightHas_(90000, 'گشتن و آوردنِ موسیقی')) {
-    mLog.ran = true;
-    try {
-      var miss = musicThinSlots_();
-      // کمبودی نبود یعنی «پوشش کامل است»، نه «کار تمام است». بانکی که همهٔ
-      // قطعه‌هایش ده بار پخش شده‌اند، برای شنونده همان بانکِ خالی است. پس
-      // شبی که کمبودی نیست، سراغِ فرسوده‌ترین خانواده می‌رویم.
-      var why = 'کمبود';
-      if (!miss.length) { miss = musicRotateSlots_(); why = 'چرخش'; }
-      mLog.why = why; mLog.slots = miss.slice(0, 6);
-      if (miss.length) {
-        logLine_('گشتنِ موسیقی (' + why + '): ' + miss.join('، '));
-        var sk = musicSeek_(miss) || {};
-        mLog.looked = Number(sk.looked) || 0; mLog.added = Number(sk.added) || 0;
-        mLog.notes = (sk.notes || []).slice(0, 4).map(function (x) { return String(x).slice(0, 140); });
-      }
-    } catch (eMS) { mLog.notes.push('خطا: ' + String(eMS.message).slice(0, 140)); logLine_('گشتنِ موسیقی انجام نشد: ' + eMS.message); }
-    try { var fr = musicFetch_() || {}; mLog.fetch = { read: Number(fr.read) || 0, added: Number(fr.added) || 0, failed: Number(fr.failed) || 0 }; }
-    catch (eMF) { mLog.notes.push('آوردن: ' + String(eMF.message).slice(0, 140)); logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }
-  } else {
-    mLog.skip = 'وقتِ کارِ شبانه نماند (nightHas_)';
-  }
-  try { props_().setProperty(PK.MUSIC_SEEK_LAST, JSON.stringify(mLog).slice(0, 4000)); } catch (eMl) {}
+  musicNight_('گشتن و آوردنِ موسیقی');
+  /* ۱۳.۲: شبه‌علم هرگز «آموزشیِ مطمئن» نمی‌ماند — ردیف‌هایی که پیش از این نسخه داوری شدند هم (یک خواندنِ رجیستری). */
+  if (nightHas_(15000, 'نشانِ شبه‌علم')) { try { judgePseudoSweep_(); } catch (ePs) { logLine_('نشانِ شبه‌علم: ' + ePs.message); } }
   // پویش جداست: ارزان‌تر از آوردن است و فایلی که کاربر دستی گذاشته را هم
   // می‌بیند، پس حتی در شبِ شلوغ هم ارزشِ تلاش دارد.
   if (nightHas_(30000, 'پویش و برچسبِ بانکِ موسیقی')) {
@@ -44675,9 +44787,9 @@ function musicQPage_(q, setTo) {
   return m[k].p;
 }
 
-function musicSeek_(slots, sfxOnly) {
+function musicSeek_(slots, sfxOnly, optS) {
   var out = { added: 0, looked: 0, notes: [] };
-  var seekEnd = Date.now() + Math.max(15000, Number(CFG.MUSIC_SEEK_MS) || 60000);
+  var seekEnd = Date.now() + Math.max(15000, Number(optS && optS.ms) || Number(CFG.MUSIC_SEEK_MS) || 60000);
   var tries = Math.max(1, Number(CFG.MUSIC_SEEK_PAGE_TRIES) || 3);
   if (CFG.MUSIC_ENABLED === false || CFG.MUSIC_SEEK === false) return out;
 
@@ -79868,8 +79980,9 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   }
   if (o.cueFix) row.cueFix = String(o.cueFix).slice(0, 160);
   /* ۱۳.۱: آستانه‌های وارسیِ کیفیت (رانر می‌سنجد و یک بار با صافیِ قوی‌تر از نو می‌سازد)؛ «بی پردازش» ساختِ دوباره ندارد. */
-  row.params.qCrackPerMin = String(CFG.VBR_Q_CRACK_PER_MIN || 2);
-  row.params.qJitterSt = String(CFG.VBR_Q_JITTER_ST || 0.5);
+  row.params.qCrackPerMin = String(CFG.VBR_Q_CRACK_PER_MIN || 2.5);
+  row.params.qJitterSt = String(CFG.VBR_Q_JITTER_ST || 0.18);
+  row.params.qShimmerDb = String(CFG.VBR_Q_SHIMMER_DB || 2.8);   // ۱۳.۲
   if (o.qNoRetry) row.qNoRetry = true;
   /* برچسبِ نمایشی، وقتی این ردیف «خودِ قسمت» نیست بلکه نمونه‌ای از آن است
      (۷٫۷۴). بی آن، فایل و کپشنِ تلگرام «قسمت ۴۹ با صدای …» می‌شدند برای
@@ -80635,7 +80748,7 @@ function vbrTgMeasure_(item, who) {
   if (qo && qo.sec) {
     L.push('🔬 کیفیت: شکستنِ صدا ' + qo.crackPerMin + ' بار در دقیقه (' + (qo.cracks || []).length + ' جا' +
            ((qo.cracks || []).length ? '، نخستین‌ها: ' + qo.cracks.slice(0, 5).map(function (c) { return c.t + 'ث ' + c.fromHz + '⇐' + c.toHz; }).join('، ') : '') +
-           ') · لرزش ' + qo.jitterSt + ' نیم‌پرده' + ((qo.bounds || []).length ? ' · مرزِ ناهموار ' + qo.bounds.length : '') +
+           ') · لرزش ' + qo.jitterSt + ' نیم‌پرده' + (qo.shimmerDb != null ? ' · لرزشِ بلندی ' + qo.shimmerDb + ' دسی‌بل' : '') + ((qo.bounds || []).length ? ' · مرزِ ناهموار ' + qo.bounds.length : '') +
            (qo.bad ? ' — ❌ ' + qo.bad : ' — سالم') +
            (qo.retry ? ' · ساختِ دوباره (صافی ' + qo.retry.filterRadius + '): شکستن ' + qo.retry.crackPerMin + '، لرزش ' + qo.retry.jitterSt + (qo.retry.kept ? ' ⇐ همین ماند' : ' ⇐ اولی ماند') : ''));
   }

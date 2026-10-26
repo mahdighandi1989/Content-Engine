@@ -441,8 +441,8 @@ console.log('=== ۶) موسیقی از اینترنت می‌آید، نه از 
   {
     const p21f = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
     ok('۶.۱۲ در کارِ شبانه پیش از پویش صدا زده می‌شود',
-       p21f.indexOf('musicFetch_()') > 0 &&     // ۱۲.۸: نتیجه‌اش هم ثبت می‌شود (`musicFetch_() || {}`)، ترتیب همان
-       p21f.indexOf('musicFetch_()') < p21f.indexOf('musicScan_(); musicAutoTag_()'));
+       p21f.indexOf('musicFetch_({') > 0 &&     // ۱۳.۲: با سهمِ زمانِ باقی‌مانده (`musicFetch_({ budget: … })`)، ترتیب همان
+       p21f.indexOf('musicFetch_({') < p21f.indexOf('musicScan_(); musicAutoTag_()'));
   }
   ok('۶.۱۳ و از منو هم در دسترس است',
      /runMusicFetch/.test(fs.readFileSync('src/05_Setup.gs', 'utf8')));
@@ -536,7 +536,7 @@ console.log('=== ۷) موتور خودش می‌گردد — بی وابستگی
   const p21 = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
   ok('۷.۱۳ در کارِ شبانه، گشتن پیش از آوردن می‌آید',
      p21.indexOf('musicSeek_') !== -1 &&
-     p21.indexOf('musicSeek_') < p21.indexOf('musicFetch_()'));
+     p21.indexOf('musicSeek_') < p21.indexOf('musicFetch_({'));   // ۱۳.۲: با سهمِ زمان
   ok('۷.۱۴ و فقط برای جایگاهِ کم گشته می‌شود', /musicThinSlots_\(\)/.test(p21));
   ok('۷.۱۵ منو هر سه مرحله را در یک زدن انجام می‌دهد',
      /musicSeek_[\s\S]{0,400}musicFetch_[\s\S]{0,200}musicScan_/.test(
@@ -1392,13 +1392,13 @@ console.log('=== ۲۰) کارِ شبانه: نصبِ کد پشتِ صفِ سنگ
   ok('۲۰.۱ داوریِ نصبِ دیشب هنوز پیش از نصبِ امشب است',
      at('engVerdict_()') < at('installed = selfUpdateStep(false)'));
   ok('۲۰.۲ نصبِ کد پیش از کارِ سنگین انجام می‌شود، نه بعدش',
-     at('installed = selfUpdateStep(false)') < at('musicSeek_(miss)'),
+     at('installed = selfUpdateStep(false)') < at('musicNight_('),
      'نصب باید جلوتر از موسیقی باشد');
   ok('۲۰.۳ بایگانیِ پرامپت‌ها هم پیش از کارِ سنگین',
-     at('promptPrune_()') < at('musicSeek_(miss)'));
+     at('promptPrune_()') < at('musicNight_('));
   ok('۲۰.۴ و هرسِ گزارش و پرونده‌های غنی‌سازی همین‌طور',
-     at('pruneReportArchive_()') < at('musicSeek_(miss)') &&
-     at('pruneEnrichFiles_()') < at('musicSeek_(miss)'));
+     at('pruneReportArchive_()') < at('musicNight_(') &&
+     at('pruneEnrichFiles_()') < at('musicNight_('));
   ok('۲۰.۵ سنجهٔ محتوا هنوز در همان اجرا هست',
      /auditRun_\(/.test(p21) && /auditPrune_\(\)/.test(p21));   // ۸.۶۶: با مهلت صدا زده می‌شود
   ok('۲۰.۶ و نتیجهٔ نصب همچنان برگردانده می‌شود',
@@ -1845,7 +1845,7 @@ console.log('=== ۲۷) افکت، درست بعد از آماده‌شدنِ م�
   ok('۲۷.۸ خواسته **اول** ثبت می‌شود تا تلاشِ امروز هدر نرود',
      p23i.indexOf('sfxWish_(need,') < p23i.indexOf('musicSeek_(null, true)'));
   ok('۲۷.۹ گشتن فقط برای افکت است، نه دوباره برای موسیقی',
-     /function musicSeek_\(slots, sfxOnly\)/.test(p23i) &&
+     /function musicSeek_\(slots, sfxOnly(, optS)?\)/.test(p23i) &&
      /out\.added < cap && !sfxOnly/.test(p23i));
 
   // رفتارِ واقعیِ پرسش: مدل می‌گوید چه صدایی لازم است
