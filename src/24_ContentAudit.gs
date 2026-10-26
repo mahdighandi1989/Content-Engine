@@ -627,31 +627,28 @@ function auditQueueStatus_(hub) {
   var out = { line: '', ok: true, n: 0, days: 0 };
   try {
     var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
-    var n = 0;
-    try { n = auditPending_().length; } catch (eP) { return out; }
+    /* ══ «کوتاه نشده» با «گیر کرده» یکی نبود (۱۳.۷) ══
+       `audit-queue-stuck` چهارده بار تکرار شد، و سنجه‌اش این بود: «صف از روزی که دیده شد کوتاه‌تر نشده». صفی که هر روز دو
+       قسمت می‌گیرد و هر شب دو قسمت داوری می‌کند، هر روزِ ساعتِ ۱۰ همان عدد را دارد — روان است و «گیر» خوانده می‌شد؛ و صفی
+       که یک قسمتش هفته‌ها نوبت نگیرد ولی بقیه بیایند و بروند، گاهی کوتاه‌تر می‌شد و شمارنده صفر می‌گرفت. پرسشِ درست
+       «قدیمی‌ترین قسمتِ در صف چند روز است منتظر است؟» است: داوری هر شب از قدیمی‌ترین شروع می‌کند (`donePending_`)،
+       پس اگر آن یکی دو شب مانده، داوری واقعاً نوبت نمی‌گیرد. */
+    var files = [];
+    try { files = auditPending_(); } catch (eP) { return out; }
+    var n = files.length;
     out.n = n;
-
-    var prev = null;
-    try { prev = JSON.parse(props_().getProperty(PK.AUDIT_QSEEN) || 'null'); } catch (eJ) {}
-    var today = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
-    if (!prev || !prev.since || n < (Number(prev.n) || 0)) {
-      prev = { n: n, since: today };                       // کوتاه‌تر شد یا اولین بار
-    } else if (n > (Number(prev.n) || 0)) {
-      prev = { n: n, since: prev.since || today };          // بلندتر شد، ولی از همان روز
+    var tMin = 0;
+    for (var fi = 0; fi < files.length; fi++) {
+      var tc = 0;
+      try { tc = files[fi].getDateCreated().getTime(); } catch (eT) { tc = 0; }
+      if (tc && (!tMin || tc < tMin)) tMin = tc;
     }
-    try { props_().setProperty(PK.AUDIT_QSEEN, JSON.stringify(prev)); } catch (eS) {}
-
-    var days = 0;
-    try {
-      var t0 = Date.parse(String(prev.since) + 'T00:00:00Z');
-      var t1 = Date.parse(today + 'T00:00:00Z');
-      if (!isNaN(t0) && !isNaN(t1)) days = Math.round((t1 - t0) / 86400000);
-    } catch (eD) {}
+    var days = (n && tMin) ? Math.max(0, Math.floor((Date.now() - tMin) / 86400000)) : 0;
     out.days = days;
 
     if (!n) { out.line = 'سنجهٔ محتوا: صفِ داوری خالی است.'; return out; }
     out.line = 'سنجهٔ محتوا: ' + fa(n) + ' قسمت در صفِ داوری' +
-               (days ? '؛ ' + fa(days) + ' روز است کوتاه‌تر نشده' : '') + '.';
+               (days ? '؛ قدیمی‌ترینش ' + fa(days) + ' روز است منتظر است' : '') + '.';
     var lim = Math.max(1, Number(CFG.AUDIT_STUCK_DAYS) || 2);
     if (days >= lim) {
       out.ok = false;
@@ -660,10 +657,9 @@ function auditQueueStatus_(hub) {
         try {
           logSelfFinding_(hub, {
             priority: 'جدی', category: 'سنجهٔ محتوا', key: 'audit-queue-stuck',
-            title: 'صفِ داوریِ محتوا ' + days + ' روز است کوتاه نشده (' + n + ' قسمت)',
-            detail: 'صف هر روز دو تا رشد می‌کند (یک قسمت از هر برنامه). ' +
-                    'صفی که کوتاه نمی‌شود یعنی `auditRun_` در کارِ شبانه ' +
-                    'نوبت نمی‌گیرد یا خطا می‌دهد.',
+            title: 'قدیمی‌ترین قسمتِ صفِ داوریِ محتوا ' + days + ' روز است منتظر است (' + n + ' قسمت در صف)',
+            detail: 'داوری هر شب از قدیمی‌ترین شروع می‌کند؛ قسمتی که ' + days + ' شب مانده یعنی `auditRun_` در کارِ شبانه ' +
+                    'نوبت نمی‌گیرد یا روی همان قسمت خطا می‌دهد.',
             instruction: 'ترتیبِ کارِ شبانه را ببین: سنجهٔ محتوا باید جلوتر از ' +
                          'کارهای اختیاری باشد. و سیاههٔ شب را برای سطرِ ' +
                          '«وقت نرسید: سنجهٔ محتوا» بگرد.',

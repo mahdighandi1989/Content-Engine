@@ -1576,6 +1576,25 @@ function selfUpdateDaily() {
     } catch (eRc) { logLine_('مرورِ بزرگ اجرا نشد: ' + eRc.message); }
   }
 
+  /* ۱۳.۷: دفترِ NotebookLM (فقط خواندن) پیش از ریلزِ فردا، و نشانیِ ویدئوهای قسمت‌های پیشین در «فایل تصویری». هر دو بخشِ
+     ۲۷/۳۸اند (جلوتر از این بخش)، پس با typeof و try — شکستشان شب را نمی‌اندازد. */
+  if (nightHas_(20000, 'دفترِ NotebookLM')) {
+    try {
+      if (typeof extNlmSync_ === 'function') {
+        var xn = extNlmSync_();
+        logLine_('دفترِ NotebookLM (فقط خواندن): ' + (xn && xn.series ? xn.series.length : 0) + ' مجموعه' + (xn && xn.why ? ' — ' + xn.why : '') + '.');
+      }
+    } catch (eXn) { logLine_('دفترِ NotebookLM: ' + eXn.message); }
+  }
+  if (nightHas_(45000, 'نشانیِ ویدئوها در شیت')) {
+    try {
+      if (typeof vidLinkBackfill_ === 'function') {
+        var vb = vidLinkBackfill_(40000);
+        if (vb && (vb.rows || vb.wrote)) logLine_('«فایل تصویری»: ' + vb.rows + ' ردیف سنجیده، ' + vb.wrote + ' نوشته' + (vb.done ? ' — دورِ قسمت‌های پیشین تمام شد' : '') + '.');
+      }
+    } catch (eVb) { logLine_('«فایل تصویری»: ' + eVb.message); }
+  }
+
   try { nightEnd_(night.runs); }
   catch (eNE) { logLine_('پایانِ کارِ شبانه ثبت نشد: ' + eNE.message); }
   return installed;

@@ -1436,13 +1436,17 @@ var TTS_LB_SCHEMA_ = {
       word: { type: 'string' }, heard: { type: 'string' },
       kind: { type: 'string' }, fix: { type: 'string' },
       heardLat: { type: 'string' }, rightLat: { type: 'string' } },
-      required: ['word', 'heard', 'kind'] } }
+      required: ['word', 'heard', 'kind'] } },
+    /* ۱۳.۷: گوشِ موتور برای لحن — همان فراخوان، بی هزینهٔ تازه. فقط شمرده و گزارش می‌شود؛ هیچ تکه‌ای به خاطرش از نو
+       ساخته نمی‌شود (درمانِ لحن تصمیمِ دیگری است و این‌جا فقط «شنیدن» کم بود). همه رشته — قاعدهٔ طرح‌واره. */
+    pros: { type: 'object', properties: {
+      q: { type: 'string' }, mark: { type: 'string' }, jump: { type: 'string' }, mood: { type: 'string' } } }
   },
   required: ['errs']
 };
 
 /** شنیدنِ یک تکه در برابرِ متنش ⇒ {errs:[{word,heard,kind,fix}], failed}. */
-function ttsListenCheck_(pcmB64, text) {
+function ttsListenCheck_(pcmB64, text, mood) {
   try {
     var raw = Utilities.base64Decode(pcmB64);
     var secs = raw.length / (2 * (CFG.SAMPLE_RATE || 24000));
@@ -1470,14 +1474,22 @@ function ttsListenCheck_(pcmB64, text) {
               'madrese است هم madrasa): heardLat = آنچه **از صدا** شنیدی با همهٔ واکه‌ها (مثلاً madrasa)، و rightLat = ' +
               'تلفظِ درستِ تهرانی در همین جمله (مثلاً madrese). واکه‌ها را از **صدا** بنویس، نه از املایی که می‌شناسی؛ ' +
               'به‌ویژه واژه‌های آشنا را — گوش آن‌ها را درست «می‌شنود» حتی وقتی غلط گفته شده‌اند.\n\n' +
-              'متن:\n' + stripTashkil_(String(text || '')) },
+              /* ۱۳.۷: وارسی‌های «شنیده شد»ِ ناظر (§۴٫۱۴، §۴٫۱۶) هر روز «نشد» می‌خوردند چون سشنِ ناظر گوش ندارد؛ این
+                 شنونده دارد و همین حالا همین صدا را می‌شنود. پس همان‌جا، جدا از errs: */
+              '\nجدا از errs، در pros (هر کدام یک واژه، و فقط اگر واقعاً شنیدی بعدش یک توضیحِ کوتاه):\n' +
+              '• q: اگر متن «؟» دارد، آهنگِ پایانِ پرسش «بالا» رفت یا «صاف» ماند؟ اگر متن پرسش ندارد، خالی.\n' +
+              '• mark: نشانه‌ای (گیومه، پرانتز، علامتِ سؤال، خط‌تیره…) **به‌صورتِ واژه** خوانده شد؟ «نه» یا «بله: …».\n' +
+              '• jump: پرشِ ناگهانیِ زیروبم یا بلندی وسطِ جمله؟ «نه» یا «بله: …».\n' +
+              (mood ? '• mood: حالتِ خواسته‌شده برای این تکه «' + String(mood).slice(0, 80) + '» بود — شنیده می‌شود؟ «بله» یا «نه: …».\n'
+                    : '• mood: خالی.\n') +
+              '\nمتن:\n' + stripTashkil_(String(text || '')) },
       { inlineData: { mimeType: 'audio/wav', data: wav } }
     ], { min: 2048, think: 512, schema: TTS_LB_SCHEMA_ });
     wav = null;
     var t = String(extractText_(j) || '').trim();
     if (!t) return { errs: [], failed: true, why: String(j && j._why || 'پاسخ خالی') };
     var o = JSON.parse(t);
-    return { errs: ttsListenTrim_(o && o.errs, text), failed: false };
+    return { errs: ttsListenTrim_(o && o.errs, text), failed: false, pros: (o && o.pros) || null };
   } catch (e) {
     return { errs: [], failed: true, why: String(e.message || e).slice(0, 100) };
   }
@@ -1588,9 +1600,59 @@ function ttsListenNote_(ev) {
   } catch (e) { return null; }
 }
 
+/**
+ * گوشِ لحن (۱۳.۷) — شمارِ روز و چند نمونه، در `_STATUS.json` → `ttsListen.pros`. «پرسشِ صاف» فقط از تکه‌ای شمرده می‌شود
+ * که متنش واقعاً «؟» دارد: مدلی که برای جملهٔ خبری «صاف» بگوید، چیزی نگفته است.
+ */
+function ttsProsNote_(p, text, mood) {
+  if (!p || typeof p !== 'object') return null;
+  var day = Utilities.formatDate(new Date(), CFG.TIMEZONE || 'Asia/Dubai', 'yyyy-MM-dd');
+  var st = {};
+  try { st = JSON.parse(props_().getProperty(PK.TTS_PROS) || '{}') || {}; } catch (e0) { st = {}; }
+  if (st.day !== day) st = { day: day, prev: st.day ? { day: st.day, n: st.n, qAsk: st.qAsk, qFlat: st.qFlat, mark: st.mark,
+                                                       jump: st.jump, moodN: st.moodN, moodNo: st.moodNo } : (st.prev || null),
+                             n: 0, qAsk: 0, qFlat: 0, mark: 0, jump: 0, moodN: 0, moodNo: 0, ex: [] };
+  var yes = function (v) { return /^\s*(بله|آری|yes)/i.test(String(v || '')); };
+  var t = String(text || ''), ex = null;
+  st.n++;
+  if (/[؟?]/.test(t)) {
+    st.qAsk++;
+    if (/صاف|flat/i.test(String(p.q || ''))) { st.qFlat++; ex = 'پرسشِ صاف'; }
+  }
+  if (yes(p.mark)) { st.mark++; ex = 'نشانه خوانده شد: ' + String(p.mark).replace(/^\s*بله\s*:?\s*/, ''); }
+  if (yes(p.jump)) { st.jump++; ex = 'پرش: ' + String(p.jump).replace(/^\s*بله\s*:?\s*/, ''); }
+  if (mood && String(p.mood || '').trim()) {
+    st.moodN++;
+    if (/^\s*نه/.test(String(p.mood))) { st.moodNo++; ex = ex || ('حالتِ «' + String(mood).slice(0, 30) + '» شنیده نشد'); }
+  }
+  if (ex) {
+    st.ex = [{ at: nowStr_(), w: ex.slice(0, 80), t: stripTashkil_(t).replace(/\s+/g, ' ').slice(0, 70) }].concat(st.ex || []).slice(0, 6);
+  }
+  st.at = nowStr_();
+  try { props_().setProperty(PK.TTS_PROS, JSON.stringify(st)); } catch (e1) {}
+  return st;
+}
+
+/** خطِ گوشِ لحن — همان چیزی که ناظر برای «شنیده شد» می‌آورد. */
+function ttsProsLine_(st) {
+  if (!st || !st.n) return 'گوشِ موتور برای لحن: امروز هنوز تکه‌ای شنیده نشده.';
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  return 'گوشِ موتور برای لحن (' + st.day + '): ' + fa(st.n) + ' تکه شنیده شد — ' +
+    (st.qAsk ? fa(st.qAsk - st.qFlat) + ' از ' + fa(st.qAsk) + ' پرسش با آهنگِ بالارونده' : 'پرسشی نبود') +
+    '، نشانهٔ خوانده‌شده ' + fa(st.mark) + '، پرشِ ناگهانی ' + fa(st.jump) +
+    (st.moodN ? '، حالتِ خواسته‌شده ' + fa(st.moodN - st.moodNo) + ' از ' + fa(st.moodN) + ' شنیده شد' : '') +
+    ((st.ex || []).length ? ' · نمونه: ' + st.ex.slice(0, 2).map(function (x) { return x.w + ' («' + x.t + '»)'; }).join(' · ') : '') + '.';
+}
+
 /** برای `_STATUS.json` — فقط Properties. */
 function ttsListenStatus_() {
-  try { return JSON.parse(props_().getProperty(PK.TTS_LISTEN) || 'null'); } catch (e) { return null; }
+  var st = null;
+  try { st = JSON.parse(props_().getProperty(PK.TTS_LISTEN) || 'null'); } catch (e) { st = null; }
+  try {
+    var pr = JSON.parse(props_().getProperty(PK.TTS_PROS) || 'null');
+    if (pr) { st = st || {}; st.pros = pr; st.prosLine = ttsProsLine_(pr); }
+  } catch (eP) {}
+  return st;
 }
 
 /** تکهٔ ساخته‌شده ⇒ شنیدن ⇒ در صورتِ خطا یک بار دوباره ⇒ کم‌خطاتر. */
@@ -1602,8 +1664,9 @@ function ttsListenGuard_(b64, text, sectionStyle, voice) {
     return b64;
   }
   runStage_('صدا: شنیدنِ دوبارهٔ تکه');
-  var v1 = ttsListenCheck_(b64, text);
+  var v1 = ttsListenCheck_(b64, text, sectionStyle);
   if (v1.failed) { ttsListenNote_({ what: 'failed', why: v1.why }); return b64; }
+  try { ttsProsNote_(v1.pros, text, sectionStyle); } catch (ePr) {}
   if (!v1.errs.length) { ttsListenNote_({ what: 'clean' }); return b64; }
 
   if (new Date().getTime() > TTS_LB_DEADLINE_ - (Number(CFG.TTS_LISTEN_RETRY_MS) || 60000)) {

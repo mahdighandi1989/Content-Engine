@@ -208,11 +208,18 @@ function igNextEp_(pub, st, orderIn) {
     return !!(r && r.videoId && String(r.privacy || '').toLowerCase() === 'public');
   };
   var gaps = [], caught = [];
+  st.extSkip = [];
   /* ۱۲.۴: «جملهٔ کوتاه» فقط از جایی که روشن شد، رو به جلو — نه برای درس‌های گذشته. بی این، روشن کردنش صف را به درسِ ۳ِ مصباح
      برمی‌گرداند و پیش از هر ریلزِ تازه ده‌ها ریلزِ کهنه می‌ساخت. `st.quoteStart` = نخستین درسِ ناتمام در همان لحظه. */
   var qStart = String(st.quoteStart || ''), qOpen = false;
+  /* ۱۳.۷: مجموعه‌ای که دفترِ بیرونیِ NotebookLM برایش شورت و ریلز می‌سازد، این‌جا رد می‌شود — نه «گیر»، نه «جاافتاده». */
+  var extM = extNlmMem_();
+  if (!extM && CFG.EXT_NLM_SHEET) { try { extM = extNlmSync_(); if (!extM || !extM.ok) extM = extNlmMem_(); } catch (eXs) {} }
+  var extKeys = (extM && extM.series && extM.series.length) ? extNlmRegKeys_() : {}, extSkip = [];
   for (var s = 0; s < order.length; s++) {
     var S = order[s], eps = S.eps || [];
+    var extBy = extM ? extNlmCovers_(extM, S.name, extKeys[S.name] || '') : '';
+    if (extBy) { extSkip.push(S.name); st.extSkip = extSkip; continue; }
     for (var i = 0; i < eps.length; i++) {
       var x = eps[i], e = Number(x.ep), np = igPartsFor_(s, x.recap);
       if (qStart && igUid_({ ep: e, part: 1 }) === qStart) qOpen = true;
@@ -1003,6 +1010,17 @@ function igStepVoice_(it, fo, plan, deadline) {
   delete plan.tts;
   plan.times = times;
   plan.seconds = Math.round(bytes.length / (sr * 2) * 10) / 10;
+  /* ۱۳.۷: گوشِ موتور روی صدای همین ریلز — فقط شنیدن و ثبت، هیچ ساختِ دوباره‌ای (صدای ریلز همان است که او پسندید، ۹.۷۴).
+     وارسیِ «ریلز دیده و شنیده شد»ِ ناظر سه روزِ پیاپی «نشد» خورد چون سشنِ ناظر گوش ندارد؛ این شنونده دارد. */
+  try {
+    if (CFG.IG_EAR !== false && plan.earFor !== plan.audioId && !(deadline && Date.now() > deadline - 60000)) {
+      var ev = ttsListenCheck_(Utilities.base64Encode(p1), plain, String(CFG.IG_VOICE_STYLE || ''));
+      plan.earFor = plan.audioId;
+      plan.ear = { at: nowStr_(), failed: !!ev.failed, why: ev.why || '', n: (ev.errs || []).length,
+                   w: (ev.errs || []).slice(0, 4).map(function (x) { return x.word + '←' + x.heard; }), pros: ev.pros || null };
+      igEarNote_(it.key, plan.ear);
+    }
+  } catch (eEar) {}
   /* سقفِ سه دقیقه (۹.۳۰): شورتزِ یوتیوب تا ۱۸۰ ثانیه است. بلندتر ⇒ از نو با متنی که به همان نسبت کوتاه‌تر است. */
   var capS = Math.max(30, Number(CFG.IG_MAX_SEC) || 178);
   if (plan.seconds > capS) {
@@ -1176,18 +1194,29 @@ function igStepGot_(it, fo, plan) {
   }
   plan.video = r.url; plan.cover = r.cover; plan.seconds = r.seconds || plan.seconds;
   plan.short = String(r.short || ''); plan.shortSeconds = Number(r.shortSeconds) || 0; plan.align = String(r.align || '');
+  /* ۱۳.۷: هر سه برداشت کدِ پاسخش را می‌گوید — تا امروز کدِ غیرِ ۲۰۰ بی‌صدا رد می‌شد و پوشه بی ریلز می‌ماند بی آنکه
+     `saveWhy` چیزی بگوید. و نشانیِ درایوِ ریلز و شورتز در ستونِ «فایل تصویری»ِ همان درس می‌نشیند. */
+  var miss = [], made = {};
   try {
     var b = UrlFetchApp.fetch(r.url, { muteHttpExceptions: true, followRedirects: true });
-    if (b.getResponseCode() === 200) fo.createFile(b.getBlob().setName('ریلز — ' + String(plan.title || it.key).slice(0, 60) + '.mp4'));
+    if (b.getResponseCode() === 200) made.reel = fo.createFile(b.getBlob().setName('ریلز — ' + String(plan.title || it.key).slice(0, 60) + '.mp4'));
+    else miss.push('ریلز: کدِ ' + b.getResponseCode());
     var c = UrlFetchApp.fetch(r.cover, { muteHttpExceptions: true, followRedirects: true });
     if (c.getResponseCode() === 200) fo.createFile(c.getBlob().setName('ریلز — کاور.jpg'));
+    else miss.push('کاور: کدِ ' + c.getResponseCode());
     /* نسخهٔ شورتزِ یوتیوب هم در همین پوشه (۹.۲۶: «نسخهٔ شورتز هم ذیلِ همون فولدر») — زیرپوشه، نه خودِ پوشهٔ قسمت:
        `ytVideoIn_` هر mp4ِ پوشهٔ قسمت را ویدئوی قسمت می‌گیرد. */
     if (plan.short) {
       var sh = UrlFetchApp.fetch(plan.short, { muteHttpExceptions: true, followRedirects: true });
-      if (sh.getResponseCode() === 200) fo.createFile(sh.getBlob().setName('شورتز — ' + String(plan.title || it.key).slice(0, 60) + '.mp4'));
+      if (sh.getResponseCode() === 200) made.short = fo.createFile(sh.getBlob().setName('شورتز — ' + String(plan.title || it.key).slice(0, 60) + '.mp4'));
+      else miss.push('شورتز: کدِ ' + sh.getResponseCode());
     }
-  } catch (eS) { plan.saveWhy = String(eS.message || eS).slice(0, 100); }
+  } catch (eS) { miss.push(String(eS.message || eS).slice(0, 100)); }
+  if (miss.length) plan.saveWhy = miss.join(' · ').slice(0, 160);
+  try {
+    if (made.reel) vidLinkNote_(ENRICH_SHOW_SPECIAL, it.ep, vidLinkKind_('ریلز', it.part), made.reel.getUrl());
+    if (made.short) vidLinkNote_(ENRICH_SHOW_SPECIAL, it.ep, vidLinkKind_('شورتز', it.part), made.short.getUrl());
+  } catch (eVl) { plan.linkWhy = String(eVl.message || eVl).slice(0, 100); }
   ytShareOff_(plan.audioId);
   (plan.imgs || []).forEach(function (x) { ytShareOff_(x.id); });
   var d = ytRenderRead_();
@@ -1915,6 +1944,9 @@ function igStatus_() {
       (out.held.length ? '. ⏸ کنار تا تلاشِ بعد: ' + out.held.map(function (h) { return 'درسِ ' + h.ep + ' (' + h.tries + ' بار، ' + h.ageH + ' ساعت؛ ' + h.why + ')'; }).join(' · ') : '') +
       (igBookUrl_() ? '. دفتر: ' + igBookUrl_() : '') +
       '. ⟨شما⟩ هایلایت، بیو و برچسبِ پیوندِ استوری از API در دسترس نیست — از خودِ اپ.';
+  /* ۱۳.۷: دفترِ بیرونیِ NotebookLM — چه چیزی خوانده شد و کدام مجموعه کنار رفت، در همان خط. */
+  try { out.ext = extNlmStatus_(); if (a && out.ext && out.ext.line) out.line += ' · ' + out.ext.line; } catch (eX) {}
+  try { out.ear = igEarStatus_(); if (a && out.ear && out.ear.list.length) out.line += ' · ' + out.ear.line; } catch (eE) {}
   return out;
 }
 
@@ -2792,4 +2824,162 @@ function fbStatus_() {
   return { on: !!g.ok, why: g.ok ? '' : g.why, today: today, queued: q.length,
            line: g.ok ? '📘 فیسبوک: روشن، امروز ' + today + ' ریلز' + (q.length ? '، ' + q.length + ' در صفِ تلاشِ دوباره' : '') + '.'
                       : '📘 فیسبوک: خاموش (' + g.why + ').' };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ *  دفترِ بیرونیِ NotebookLM — فقط خواندن، هر شب (۱۳.۷)
+ *
+ *  صاحبِ کانال: «موتور فهرست EXT-NOTEBOOKLM-STATE را هر شب فقط-خواندنی بخواند تا شورت/ریلزِ تکراری نسازد؛ هیچ چیزی
+ *  در آن شیت ننویس.» آن دفتر را کارگرِ دیگری می‌نویسد (مسیرِ دستیِ NotebookLM) و مجموعه به مجموعه شورت و ریلز می‌سازد —
+ *  با واحدهای خودش (AYLO-001 ← قطعه‌های ۰۲ و ۰۳)، نه با درس‌های موتور. واحدِ مشترکی برای «همین درس» نیست؛ آنچه مشترک
+ *  است **مجموعه** است (کلیدِ CONTENT-HUB). پس مجموعه‌ای که آن دفتر برایش برنامه دارد، در صفِ ریلز و شورتزِ موتور رد
+ *  می‌شود — رد، نه «گیر»: مجموعهٔ بعدی همان‌طور نوبت می‌گیرد که اگر این یکی تمام شده بود.
+ *
+ *  تنها دسترسی `SpreadsheetApp.openById(…).getSheetByName(…)` و `getRange(…).getValues()` است (`extNlmVals_`). هیچ `set*`، `append*`،
+ *  `insert*` یا `delete*`ی روی آن شیت در این بخش نیست و `run_v137_test.js` همین را از متنِ کد می‌سنجد. شکستِ خواندن
+ *  حافظهٔ دیشب را پاک نمی‌کند: «نتوانستم بخوانم» یعنی «همان دیروز»، نه «هیچ مجموعه‌ای بیرونی نیست».
+ * ══════════════════════════════════════════════════════════════════════════ */
+/** کلید/نام ⇒ شکلِ مقایسه: کوچک، بی پرانتز، فقط حرف و عدد با یک فاصله. */
+function extNlmNorm_(s) {
+  return faDigits_(String(s || '')).toLowerCase().replace(/\([^)]*\)/g, ' ')
+    .replace(/[^a-z0-9؀-ۿ]+/g, ' ').replace(/[ً-ْ‌]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/** همهٔ مقدارهای یک تب — تنها خواندنِ این بخش از آن دفتر. */
+function extNlmVals_(sh) {
+  var r = sh.getLastRow(), c = sh.getLastColumn();
+  if (r < 1 || c < 1) return [];
+  return sh.getRange(1, 1, r, Math.min(c, 30)).getValues();
+}
+
+/** ستونی با این سرستون (یا ستونِ پیش‌فرض) ⇒ اندیسِ صفرپایه. */
+function extNlmColOf_(head, re, dflt) {
+  for (var c = 0; c < head.length; c++) if (re.test(String(head[c] || ''))) return c;
+  return dflt;
+}
+
+/**
+ * خواندن ⇒ {ok, at, series:[{k, n, u, p}], why}. `k` کلیدِ CONTENT-HUB، `n` نام‌ها، `u` شمارِ واحد، `p` منتشر یا
+ * زمان‌بندی‌شده. فقط تبِ «منابع» و «واحدها» — دو خواندن.
+ */
+function extNlmRead_() {
+  var out = { ok: false, at: nowStr_(), series: [], why: '' };
+  var id = String(CFG.EXT_NLM_SHEET || '').trim();
+  if (!id) { out.why = 'شناسهٔ دفتر تنظیم نشده'; return out; }
+  var ss;
+  try { ss = SpreadsheetApp.openById(id); } catch (e) { out.why = 'باز نشد: ' + String(e.message || e).slice(0, 80); return out; }
+  var by = {};
+  var add = function (k, n) {
+    var kk = extNlmNorm_(k), nn = extNlmNorm_(n);
+    var id2 = kk || nn;
+    if (!id2) return null;
+    var S = by[id2] = by[id2] || { k: kk, n: [], u: 0, p: 0 };
+    /* «پولیا — How to Solve It»: هر پاره جدا هم نگه داشته می‌شود، چون نامِ مجموعهٔ موتور معمولاً فقط یکی از آن‌هاست */
+    var parts = [nn].concat(String(n || '').split(/\s*[—–]\s*/).map(extNlmNorm_));
+    for (var q = 0; q < parts.length; q++) if (parts[q] && S.n.indexOf(parts[q]) === -1) S.n.push(parts[q]);
+    return S;
+  };
+  try {
+    var sr = ss.getSheetByName('منابع');
+    if (sr) {
+      var v = extNlmVals_(sr), h = v[0] || [];
+      var cN = extNlmColOf_(h, /منبع|کتاب/, 0), cK = extNlmColOf_(h, /کلید/, 1), cS = extNlmColOf_(h, /وضعیت متن/, 7);
+      for (var i = 1; i < v.length; i++) {
+        /* «در انتظار متن» یعنی آن دفتر هنوز چیزی نمی‌سازد — مجموعه‌اش مالِ موتور می‌ماند تا متن برسد */
+        if (/در انتظار/.test(String(v[i][cS] || ''))) continue;
+        add(v[i][cK], v[i][cN]);
+      }
+    }
+    var su = ss.getSheetByName('واحدها');
+    if (su) {
+      var w = extNlmVals_(su), hu = w[0] || [];
+      var uK = extNlmColOf_(hu, /کلید مجموعه/, 0), uS = extNlmColOf_(hu, /^وضعیت$/, 7);
+      for (var j = 1; j < w.length; j++) {
+        var S = add(w[j][uK], '');
+        if (!S) continue;
+        S.u++;
+        if (/منتشر|زمان‌بندی/.test(String(w[j][uS] || ''))) S.p++;
+      }
+    }
+  } catch (eR) { out.why = 'خوانده نشد: ' + String(eR.message || eR).slice(0, 80); return out; }
+  for (var key in by) if (Object.prototype.hasOwnProperty.call(by, key)) out.series.push(by[key]);
+  out.ok = true;
+  return out;
+}
+
+/** هر شب: بخوان و در Properties بگذار؛ شکست حافظهٔ قبلی را نگه می‌دارد و فقط علتش را می‌افزاید. ⇒ همان شیء */
+function extNlmSync_() {
+  var r = extNlmRead_(), prev = extNlmMem_();
+  var keep = r.ok ? r : (prev ? (prev.why = r.why, prev.failAt = r.at, prev) : r);
+  try { props_().setProperty(PK.EXT_NLM, JSON.stringify(keep).slice(0, 8500)); } catch (e) {}
+  return keep;
+}
+function extNlmMem_() {
+  try { return JSON.parse(props_().getProperty(PK.EXT_NLM) || 'null'); } catch (e) { return null; }
+}
+
+/**
+ * این مجموعهٔ موتور را دفترِ بیرونی پوشش می‌دهد؟ ⇒ نامِ بیرونی یا ''. هم‌خوانی با کلیدِ رجیستری (برابر)، یا نامی که
+ * دست‌کم ۶ نویسه دارد و یکی درونِ دیگری است — «پولیا — How to Solve It» با «How to Solve It» می‌خوانَد، «Audi» با هیچ.
+ */
+function extNlmCovers_(mem, seriesName, regKey) {
+  if (!mem || !mem.series || !mem.series.length) return '';
+  var nm = extNlmNorm_(seriesName), rk = extNlmNorm_(regKey);
+  for (var i = 0; i < mem.series.length; i++) {
+    var S = mem.series[i];
+    if (S.k && (S.k === rk || S.k === nm)) return (S.n && S.n[0]) || S.k;
+    var cands = (S.n || []).concat(S.k ? [S.k] : []);
+    for (var c = 0; c < cands.length; c++) {
+      var x = String(cands[c] || '').trim();
+      if (x.length < 6 || !nm) continue;
+      if (nm === x || (nm.length >= 6 && (nm.indexOf(x) !== -1 || x.indexOf(nm) !== -1))) return (S.n && S.n[0]) || S.k;
+    }
+  }
+  return '';
+}
+
+/** نامِ مجموعه ⇒ کلیدِ رجیستری، یک خواندن برای همه. */
+function extNlmRegKeys_() {
+  var m = {};
+  try {
+    var reg = readSeriesReg_(getHub_());
+    for (var r = 0; r < reg.rows.length; r++) m[String(reg.rows[r].vals[SC.NAME - 1] || '')] = String(reg.rows[r].vals[SC.KEY - 1] || '');
+  } catch (e) {}
+  return m;
+}
+
+/** خطِ وضعیت — فقط Properties. */
+function extNlmStatus_() {
+  var m = extNlmMem_(), st = igState_();
+  var skip = st.extSkip || [];
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (eF) { return String(x); } };
+  if (!m) return { ok: true, read: false, line: 'دفترِ NotebookLM: هنوز خوانده نشده (هر شب، فقط خواندن).' };
+  var u = 0, p = 0;
+  (m.series || []).forEach(function (S) { u += Number(S.u) || 0; p += Number(S.p) || 0; });
+  return { ok: !m.why, read: true, at: m.at || '', series: (m.series || []).length, units: u, published: p, skip: skip,
+           line: 'دفترِ NotebookLM (فقط خواندن، ' + String(m.at || '').slice(0, 16) + '): ' + fa((m.series || []).length) +
+                 ' مجموعه، ' + fa(u) + ' واحد، ' + fa(p) + ' منتشر یا زمان‌بندی‌شده' +
+                 (skip.length ? '؛ ریلز و شورتزِ موتور برای این‌ها ساخته نمی‌شود: ' + skip.map(function (s) { return '«' + s + '»'; }).join('، ')
+                              : '؛ هیچ‌کدام با مجموعه‌های ریلزِ موتور یکی نیست') +
+                 (m.why ? ' · ⚠ خواندنِ آخر نشد (' + m.why + ') — همان فهرستِ پیشین' : '') + '.' };
+}
+
+/* ══ گوشِ ریلز (۱۳.۷) — آخرین شنیده‌ها، برای `_STATUS.json` → `instagram.ear` ══ */
+function igEarNote_(key, ear) {
+  var a = [];
+  try { a = JSON.parse(props_().getProperty(PK.IG_EAR) || '[]') || []; } catch (e) { a = []; }
+  a = [{ key: String(key || ''), at: ear.at, failed: ear.failed, why: ear.why, n: ear.n, w: ear.w, pros: ear.pros }]
+        .concat(a.filter(function (x) { return x && x.key !== key; })).slice(0, 6);
+  try { props_().setProperty(PK.IG_EAR, JSON.stringify(a).slice(0, 6000)); } catch (e2) {}
+  return a;
+}
+function igEarStatus_() {
+  var a = [];
+  try { a = JSON.parse(props_().getProperty(PK.IG_EAR) || '[]') || []; } catch (e) { a = []; }
+  if (!a.length) return { list: [], line: 'گوشِ ریلز: هنوز ریلزی شنیده نشده.' };
+  var x = a[0], p = x.pros || {};
+  return { list: a, line: 'گوشِ ریلز (آخرین: ' + x.key.split(':').pop() + '، ' + String(x.at || '').slice(0, 16) + '): ' +
+    (x.failed ? 'شنیده نشد — ' + (x.why || 'بی علت') : (x.n ? x.n + ' واژهٔ بدخوانده (' + (x.w || []).join('، ') + ')' : 'هیچ واژهٔ بدخوانده‌ای') +
+     (p.q ? '، پرسش: ' + p.q : '') + (p.mark && !/^\s*نه/.test(p.mark) ? '، نشانهٔ خوانده‌شده: ' + p.mark : '') +
+     (p.jump && !/^\s*نه/.test(p.jump) ? '، پرش: ' + p.jump : '')) + '.' };
 }

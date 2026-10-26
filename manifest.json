@@ -1,16 +1,31 @@
 {
-  "version": "13.6",
+  "version": "13.7",
   "codeFile": "engine.gs",
-  "sha256": "886e8230b54175f690561041e7cf9ba5093f1aa4849414d2b4be771e81ab4f72",
-  "releasedAt": "2026-10-26T19:10:00Z",
-  "summary": "ایرادِ مزمنِ «کم‌تصویر» special:76 (۲۱ از ۲۱): ردیفِ کامل ثبت و شمرده نمی‌شود",
+  "sha256": "37ae08b9717a2783528cd389ee190f2799939c931f403082790e92c6b7b20c4f",
+  "releasedAt": "2026-10-26T21:30:00Z",
+  "summary": "«فایل تصویری»: نشانیِ درایوِ ویدئو، ریلز و شورتز (و قسمت‌های پیشین)؛ EXT-NOTEBOOKLM-STATE هر شب فقط‌خواندنی و مجموعه‌اش بی ریلزِ موتور؛ پنج ردیفِ پرتکرارِ صفِ کد از ریشه.",
   "fixes": [
-    "lvShortNote_: ready ≥ want ثبت نمی‌شود و ردیفِ کهنه پاک می‌شود",
-    "lvStatus_: ردیفِ کامل در short شمرده نمی‌شود"
+    "vidLinkNote_/vidLinkBackfill_: «فایل تصویری» در Podcasts (ستونِ ۱۰) و درس‌نامه (ستونِ تازهٔ ته) — از ytRenderFetch_ و igStepGot_، و یک دورِ شبانه برای پیشین‌ها (فقط خواندنِ فایل‌ها)",
+    "igStepGot_: کدِ پاسخِ غیرِ ۲۰۰ در saveWhy (تا امروز بی‌صدا)",
+    "extNlmSync_/extNlmCovers_: دفترِ NotebookLM هر شب فقط خوانده می‌شود؛ igNextEp_ مجموعهٔ پوشش‌داده را رد می‌کند؛ شکستِ خواندن فهرستِ دیشب را نگه می‌دارد",
+    "monitor-check-silent: روزِ بی‌گزارش دیگر تک‌تکِ وارسی‌ها را ساکت نمی‌شمارد (repMissing)؛ سنجنده فقط silent را می‌سنجد، نه ok که «نشد» هم پایینش می‌آورد",
+    "monitor-check-skipped: شنوندهٔ تلفظ در همان فراخوان لحن را هم می‌شنود (ttsListen.pros/prosLine) و صدای ریلز یک بار شنیده می‌شود (instagram.ear) — فقط ثبت؛ دستورِ ناظر v115 «شنیدن» را از این‌ها می‌گیرد",
+    "audit-queue-stuck: سنجه = عمرِ قدیمی‌ترین قسمتِ صف، نه «کوتاه‌تر نشده» که صفِ روان را گیر می‌خواند",
+    "chronic-7df6bcbc: ردیف‌های صفِ کد در شمارِ «تکرارشده» نیستند (repeatedCode جدا) — یافتهٔ موتور هر روز دوباره دیده می‌شود",
+    "tts-pin-drift: صاحبش «کاربر» و بی دستور؛ ردیفِ قدیمی خودش از صفِ کد بیرون می‌رود؛ نمونه یک بار به تلگرام؛ برداشتِ دور از مرجع یک بار دیگر؛ ردیفِ سنجاق در audits عددِ واقعی"
   ],
   "sourceReportIds": [
-    "health.chronic: special:76 (21/21)"
+    "ENG-20260913-1007#monitor-check-silent",
+    "ENG-20261007-1007#monitor-check-skipped",
+    "ENG-20260902-1007#audit-queue-stuck",
+    "ENG-20261007-1008#chronic-7df6bcbc",
+    "tts-pin-drift"
   ],
   "answers": [],
-  "promptImpact": []
+  "promptImpact": [
+    "monitor: وارسی‌های speak-prosody/speak-moods/instagram «شنیدن» را از ttsListen.prosLine و instagram.ear می‌گیرند؛ دو خطِ تازهٔ vidLink و instagram.ext — _PROMPT-monitor-v115.md"
+  ],
+  "promptImpactKinds": [
+    "monitor"
+  ]
 }

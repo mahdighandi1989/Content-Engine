@@ -685,6 +685,8 @@ function writeStatus_(hub, note) {
     catLock: (function () { try { return { on: catLockOn_(), order: catLockList_(), fromBoard: !!catLockUi_(), line: catLockLine_() }; } catch (e) { return null; } })(),
     ytShowsOff: (function () { try { return { shows: CFG.YT_SHOWS_OFF || [], line: ytShowsOffLine_(), parked: ytDueParked_().length }; } catch (e) { return null; } })(),
     /* ۱۳.۴: دروازهٔ منبعِ «از همه جا» — آخرین گزارش، دسته‌های کنارِ امروز، و ویدئوهای کنار از صف. */
+    vidLink: (function () { try { return typeof vidLinkStatus_ === 'function' ? vidLinkStatus_() : null; } catch (e) { return null; } })(),
+    extNlm: (function () { try { return typeof extNlmStatus_ === 'function' ? extNlmStatus_() : null; } catch (e) { return null; } })(),
     varietyGate: (function () { try { return typeof vgStatus_ === 'function' ? vgStatus_() : null; } catch (e) { return null; } })(),
     /* ۱۱.۵: مقصدها، فیسبوک و تولیدِ موازی — فراخوانِ رو به جلو (۸ → ۲۵/۱۳/۳۸) در try. */
     destinations: (function () { try { return destStatus_(); } catch (e) { return null; } })(),
@@ -2773,6 +2775,8 @@ function healthCheck() {
   try { var fbS = fbStatus_(); if (fbS.on || fbS.queued) notes.push(fbS.line); } catch (eFs) {}
   try { var spS = seriesParStatus_(); if (spS.line) notes.push(spS.line); } catch (eSp) {}
   try { var ytOffL = ytShowsOffLine_(); if (ytOffL) notes.push(ytOffL); } catch (eYo) {}
+  try { if (typeof vidLinkStatus_ === 'function') notes.push(vidLinkStatus_().line); } catch (eVl) {}
+  try { if (typeof extNlmStatus_ === 'function') notes.push(extNlmStatus_().line); } catch (eXn) {}
   try { if (typeof vgStatus_ === 'function') { var vgL = vgStatus_().line; if (vgL) notes.push(vgL.split('\n')[0]); } } catch (eVg) {}
   try { var ytPrivL = ytOwnerPrivLine_(); if (ytPrivL) notes.push(ytPrivL); } catch (eYp) {}
   try { vmHealth_(problems, notes); } catch (eVmH) {}    // بخشِ ۳۷ پس از این بخش است ⇒ درونِ try

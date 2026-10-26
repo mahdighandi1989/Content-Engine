@@ -537,6 +537,24 @@ function ttsAuditionRun_(opt) {
         /* دگرگونیِ خودِ سنجاق — زنجیرهٔ پیاپی، چون یک آزمونِ بد می‌تواند
            یک آزمونِ بد بماند (گفتارسازِ گوگل هر بار کمی فرق می‌خوانَد). */
         var ftP = ttsFitOf_(rec, prof);
+        /* ══ یک برداشت، یک داوری نیست (۱۳.۷) ══ گفتارسازِ گوگل هر بار کمی فرق می‌خوانَد و مرجع خودش **یک** برداشت
+           است. پس برداشتِ دور از مرجع همان‌جا یک بار دیگر گرفته می‌شود (فقط همین وقت، یک فراخوانِ گفتارساز) و نزدیک‌ترِ
+           آن دو داوری می‌شود: اگر یکی هم‌خوان بود، مدل هنوز می‌تواند همان صدا را بدهد و «دگرگون شد» گفته نمی‌شود. */
+        if (ftP.fit === false && new Date().getTime() - t0 < budget) {
+          try {
+            var g2 = ttsAuditionPcm_(md), pr2 = ttsPcmProfile_(g2.bytes, sr, letters);
+            if (pr2.rate > 0) {
+              var rec2 = { at: nowStr_(), rate: pr2.rate, f0: pr2.f0, pause: pr2.pauseShare, ppm: pr2.ppm, secs: pr2.secs };
+              var ft2 = ttsFitOf_(rec2, prof);
+              rec.take2 = { rate: rec2.rate, f0: rec2.f0, fit: ft2.fit, why: ft2.why };
+              if (ft2.fit === true || ft2.dist < ftP.dist) {
+                try { rec2.clip = ttsAuditClipSave_(md, g2.b64, g2.bytes.length); } catch (eC2) { rec2.clip = rec.clip; }
+                rec2.take2 = { rate: rec.rate, f0: rec.f0, fit: false, why: ftP.why };
+                rec = rec2; ftP = ft2;
+              }
+            }
+          } catch (eT2) { rec.take2 = { err: String((eT2 && eT2.message) || eT2).slice(0, 80) }; }
+        }
         prof.drift = (ftP.fit === false) ? (Number(prof.drift) || 0) + 1 : 0;
         prof.driftWhy = ftP.why || '';
         prof.checkedAt = rec.at;
@@ -658,8 +676,14 @@ function ttsModelStatus_() {
     if (a.at && (!out.auditAt || String(a.at) > out.auditAt)) out.auditAt = String(a.at);
     var ft = (prof && k === prof.model) ? { fit: true, dRate: 0, dF0: 0, why: '', dist: 0 }
                                          : ttsFitOf_(a, prof);
-    out.audits.push({ model: k, at: a.at || '', fit: ft.fit, dRate: ft.dRate, dF0: ft.dF0,
-                      why: ft.why, clip: a.clip || '', err: a.err || '' });
+    /* ۱۳.۷: ردیفِ خودِ سنجاق در فهرست «هم‌خوان، ۰٪، ۰ نیم‌پرده» نشان داده می‌شد — درست کنارِ «۳ آزمونِ پیاپی ۴٫۴
+       نیم‌پرده زیرتر». جانشینی همان «هم‌خوان با خودش» را لازم دارد (`liveFit`)، ولی آنچه **خوانده** می‌شود باید عددِ
+       آخرین آزمونِ واقعی در برابرِ مرجع باشد، نه صفرِ قراردادی. */
+    var shown = ft;
+    if (prof && k === prof.model && a.at && String(a.at) !== String(prof.at)) shown = ttsFitOf_(a, prof);
+    out.audits.push({ model: k, at: a.at || '', fit: shown.fit, dRate: shown.dRate, dF0: shown.dF0,
+                      why: shown.why, clip: a.clip || '', err: a.err || '', self: k === (prof && prof.model) ? true : undefined,
+                      take2: a.take2 || undefined });
     if (k === out.live) out.liveFit = ft.fit;
     if (k === pin) continue;
     if (avail && avail.indexOf(k) === -1) continue;    // رفته‌ها جانشین نیستند
@@ -754,17 +778,34 @@ function ttsModelGates_(hub, st) {
     } catch (eT) {}
   }
   if (st.drift >= runs) {
+    /* ══ پرسشی که در صفِ کد نشسته بود (۱۳.۷) ══ این ردیف هشت بار تکرار شد و هیچ نسخه‌ای نمی‌توانست ببندَدش: دستورش
+       خودش می‌گفت «به صاحبِ برنامه برسان … خودکار عوض نکن» — یعنی جوابش تصمیمِ اوست، نه کد. و آن پرسش هرگز به او نرسید:
+       برای «سنجاق رفت» تلگرام بود، برای «سنجاق دگرگون شد» نه. حالا یافته مالِ «کاربر» است (از صفِ کد بیرون) و نمونهٔ تازه
+       **یک بار** برای هر دورِ دگرگونی به تلگرام می‌رود، با دو جوابِ ممکن. */
+    var selfA = null;
+    for (var sa = 0; sa < (st.audits || []).length; sa++) if (st.audits[sa].self) selfA = st.audits[sa];
     try {
       logSelfFinding_(hub, {
         priority: 'جدی', category: 'مدلِ صوتی', key: 'tts-pin-drift',
-        title: 'مدلِ صوتیِ سنجاق‌شده دیگر مثلِ مرجعش نمی‌خوانَد',
-        detail: st.line,
-        instruction: 'نمونهٔ آزمونِ تازهٔ همین مدل را (پوشهٔ «' + (CFG.VOICE_AUDIT_FOLDER || '') +
-                     '») به صاحبِ برنامه برسان. اگر هنوز می‌پسندد، TTS_PROFILE_VER را یکی بالا ببر تا ' +
-                     'مرجع از نو گرفته شود؛ اگر نه، جانشینِ هم‌خوان را پیشنهاد کن. خودکار عوض نکن.',
-        owner: 'کد'
+        title: 'مدلِ صوتیِ سنجاق‌شده دیگر مثلِ مرجعش نمی‌خوانَد — تصمیمِ شما',
+        /* دستور خالی، عمداً: ردیفِ «کاربر» با دستور به پرامپتِ نویسندهٔ قسمت تزریق می‌شود (`openInstructions_`) و
+           نویسنده نمی‌تواند صدایی گوش کند. پرسش در `detail` و در تلگرام است. */
+        detail: st.line + ' — تصمیمِ شما: نمونهٔ تازه' + (selfA && selfA.clip ? ' (' + selfA.clip + ')' : '') +
+                ' را گوش کنید؛ اگر هنوز همان صدایی است که می‌پسندید، بگویید «مرجعِ صدا تازه شود» (TTS_PROFILE_VER یکی ' +
+                'بالا می‌رود)، وگرنه بگویید تا جانشین پیشنهاد شود. موتور خودکار عوض نمی‌کند.',
+        instruction: '',
+        owner: 'کاربر'
       });
     } catch (eD) {}
+    try {
+      var dTag = String(st.pin) + '|' + String((st.base || {}).at || '') + '|' + String(CFG.TTS_PROFILE_VER || 1);
+      if (String(props_().getProperty(PK.TTS_DRIFT_TOLD) || '') !== dTag) {
+        if (tgSend_('🎙 ' + st.line + (selfA && selfA.clip ? '\nنمونهٔ تازه: ' + selfA.clip : '') +
+                    '\nاگر هنوز همین صدا را می‌پسندید بگویید «مرجعِ صدا تازه شود»؛ اگر نه، بگویید تا جانشین پیشنهاد شود.')) {
+          props_().setProperty(PK.TTS_DRIFT_TOLD, dTag);
+        }
+      }
+    } catch (eT) {}
   }
   return st;
 }

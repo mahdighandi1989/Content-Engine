@@ -1268,6 +1268,13 @@ function monChecksStatus_(hub, raise) {
   var need = Math.max(1, Number(CFG.MONITOR_CHECK_DAYS) || 2);
   // چند روز است که *گزارشِ روزانه* می‌آید — پنجره‌ای که سکوت در آن معنا دارد
   var repAge = monCheckDays_((m.__rep || {}).firstAt ? { at: m.__rep.firstAt } : null);
+  /* ══ کلِ گزارش نیامده ≠ وارسی گزارش نشده (۱۳.۷) ══
+     `monitor-check-silent` پانزده بار تکرار شد و بیشترش روزهایی بود که **خودِ گزارشِ روزانه** نیامده بود (۲۲ تا ۲۴ اکتبر،
+     سقفِ مصرفِ سشنِ ناظر): همهٔ کلیدها با هم «ساکت» می‌شدند و یافته‌ای ثبت می‌شد که دستورش «کلیدِ checks را بنویس» بود —
+     برای ناظری که اصلاً ندویده بود. آن خبر مالِ دیده‌بانِ ناظر است (`watchdogHeartbeats_`، ردیفِ `monitor`)، با علتِ
+     خودش. پس سکوتِ یک کلید فقط وقتی شمرده می‌شود که گزارشِ روزانه **در همین پنجره رسیده** و آن کلید در آن نبوده. */
+  var repLast = monCheckDays_((m.__rep || {}).lastAt ? { at: m.__rep.lastAt } : null);
+  var repMissing = repAge !== null && (repLast === null || repLast >= need);
   var rows = [], silent = [], skipped = [];
   var skipNeed = Math.max(1, Number(CFG.MONITOR_SKIP_DAYS) || 2);
   for (var i = 0; i < want.length; i++) {
@@ -1284,6 +1291,7 @@ function monChecksStatus_(hub, raise) {
        و جای دیگری گفته می‌شود — یک ایراد، یک جمله. */
     if (/نشد/.test(r.verdict) && r.skipDays >= skipNeed && d !== null && d < need) skipped.push(r);
     if (repAge === null || repAge < need) continue;   // هنوز پنجره‌ای نیست
+    if (repMissing) continue;                          // خودِ گزارش نیامده — یک ایراد، جای دیگر
     if (d === null || d >= need) silent.push(r);
   }
   var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
@@ -1297,6 +1305,10 @@ function monChecksStatus_(hub, raise) {
            '(گزارشِ روزانه ' + (function (n) {
              try { return faDigitsOut_(String(n)); } catch (x) { return String(n); }
            })(repAge) + ' روز است می‌آید).';
+  } else if (repMissing) {
+    line = 'وارسی‌های روزانهٔ ناظر: گزارشِ روزانه ' +
+           (repLast === null ? 'ثبت نشده' : fa(repLast) + ' روز است نیامده') +
+           ' — پس هیچ وارسی‌ای امروز گزارش نشده؛ علتش در ردیفِ «ناظر»ِ دیده‌بان است، نه در تک‌تکِ وارسی‌ها.';
   } else if (!silent.length) {
     line = 'وارسی‌های روزانهٔ ناظر: هر ' + fa(want.length) + ' وارسی گزارش شده.';
   } else {
@@ -1358,7 +1370,7 @@ function monChecksStatus_(hub, raise) {
      نیاز دارد که **فقط** گزارشِ روزانهٔ ناظر بنویسدش (۸٫۱۷) — `__rep` تنها با
      نامِ `_REPORT-YYYYMMDD.json` مهر می‌خورد، نه با `_REPORT-tts-*` و نه با
      یافته‌های خودِ موتور. اینجا هیچ خواندنِ تازه‌ای نیست؛ همان `m`ِ بالا. */
-  return { rows: rows, silent: silent, skipped: skipped,
+  return { rows: rows, silent: silent, skipped: skipped, repMissing: repMissing,
            ok: !silent.length && !skipped.length, line: line,
            repAt: String((m.__rep || {}).lastAt || ''),
            repFirstAt: String((m.__rep || {}).firstAt || '') };
@@ -1758,7 +1770,14 @@ function selfVerifyMap_() {
     } },
     'voice-intake-stuck':  { what: 'voiceIntake', still: bad('voiceIntake') },
     'audit-queue-stuck':   { what: 'auditQueue', still: bad('auditQueue') },
-    'monitor-check-silent':{ what: 'monChecks', still: bad('monChecks') },
+    /* ۱۳.۷: سنجندهٔ «ساکت» تا امروز `ok` را می‌خواند، و `ok` با «نشد»های پیاپی هم نادرست است — پس تا یک وارسی «نشد»
+       می‌خورد، این ردیف هرگز بسته نمی‌شد، حتی وقتی همهٔ ۱۷ وارسی گزارش شده بودند. هر کلید شرطِ خودش را می‌سنجد. */
+    'monitor-check-silent':{ what: 'monChecks', still: function (st) {
+      var o = st && st.monChecks;
+      if (!o || typeof o !== 'object' || Object.prototype.toString.call(o.silent) !== '[object Array]') return null;
+      return o.silent.length > 0;
+    } },
+
     /* «گزارشِ روزانه نرفت» (۷٫۶۳). سنجنده‌اش از همان `healthStale` می‌آید
        که خودِ شرط را می‌سازد، پس چیزِ دیگری را نمی‌سنجد. و سرِ ۰۲:۳۰ —
        یعنی همان لحظه‌ای که نصب مُهر می‌زند — مهرِ دیروز «سالم» است، پس
@@ -1968,6 +1987,23 @@ function logSelfFinding_(hub, f) {
       if (stt === RST.APPLIED || stt === RST.CLOSED || stt === RST.INSTALLED) {
         prev.vals[RC.STATUS - 1] = RST.NEW + ' (تکرار)';
       }
+      /* ══ صاحبِ یافته عوض شد (۱۳.۷) ══ `tts-pin-drift` با صاحبِ «کد» ثبت شده بود و پرسشی برای صاحبِ برنامه بود؛ حالا که
+         صاحبش «کاربر» است، ردیفِ قدیمی نباید در صفِ کد بماند — وگرنه همان ردیف تا ابد «نیازمند تعویض کد» می‌خورد و هیچ
+         نسخه‌ای نمی‌تواند ببندَدش. فقط یک جهت: از صفِ کد بیرون، هرگز به آن (ورود به صفِ کد کارِ `reportRow_` است). */
+      try {
+        if (f.owner && String(prev.vals[RC.STATUS - 1]) === RST.NEEDS_CODE && !/کد/.test(String(f.owner))) {
+          var fresh = reportRow_({ reportId: 'x', at: nowStr_(), episode: f.episode || '' }, f, 0, fp);
+          if (String(fresh[RC.STATUS - 1]) !== RST.NEEDS_CODE) {
+            prev.vals[RC.OWNER - 1] = fresh[RC.OWNER - 1];
+            prev.vals[RC.STATUS - 1] = fresh[RC.STATUS - 1];
+            prev.vals[RC.INSTR - 1] = fresh[RC.INSTR - 1];
+            prev.vals[RC.TITLE - 1] = fresh[RC.TITLE - 1];
+            prev.vals[RC.DETAIL - 1] = fresh[RC.DETAIL - 1];
+            prev.vals[RC.DONE - 1] = fresh[RC.DONE - 1] || ('از صفِ کد بیرون رفت: صاحبش «' + String(f.owner) + '» است');
+            prev.vals[RC.DONE_AT - 1] = fresh[RC.DONE_AT - 1] || nowStr_();
+          }
+        }
+      } catch (eOw) {}
       sh.getRange(prev.row, 1, 1, REPORT_HEADERS.length).setValues([prev.vals]);
       return;
     }
@@ -2119,7 +2155,13 @@ function reportSummary_(hub) {
         // شده — چه با نصبِ خودکار، چه با چسباندنِ دستی.
         if (codeRowSatisfied_(v)) { out.applied++; continue; }
         out.needsCode++;
-        if (rep2) out.repeated++;
+        /* ۱۳.۷: ردیفِ صفِ کد در شمارِ «تکرارشده» نیست. یافته‌ای که خودِ موتور ثبت می‌کند **هر روز** دوباره دیده می‌شود
+           (`logSelfFinding_` شمارنده را بالا می‌برد) تا وقتی نسخه‌ای ببندَدش — پس هر ردیفِ این صف، دیر یا زود «تکرارشده»
+           بود و عدد (۱۱۰) فقط با بزرگ شدنِ صف بالا می‌رفت. همین ایرادِ مزمنِ `chronic-7df6bcbc` را یازده بار ساخت: هشداری
+           که هیچ کارِ ناظر خاموشش نمی‌کرد، چون حلقه‌اش «گزارش ← دستور» نبود، «یافته ← نسخه» بود. صفِ کد سنجهٔ خودش را دارد
+           (`codeQueue_`، `code-queue-stuck`) و این عدد فقط دستورهای باز را می‌شمارد — همان جایی که تکرار یعنی دستورِ قبلی
+           جواب نداده. */
+        out.repeatedCode = (out.repeatedCode || 0) + (rep2 ? 1 : 0);
         out.codeItems.push({ id: String(v[RC.ID - 1]), title: String(v[RC.TITLE - 1]),
                              at: at, telegram: String(v[RC.TG - 1]) });
         continue;

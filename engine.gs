@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 13.6
+ *  موتور محتوا و پادکست — نسخهٔ 13.7
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2169,6 +2169,11 @@ var CFG = {
            'روضه، دعا، احکامِ عملی و کارِ تشکیلاتی ⇒ «مذهبی و معنوی».' }
   ],
   EXT_TAG: 'ext-notebooklm',         // ۱۲.۷: تگِ پنهانِ ویدئوی دستیِ بیرونی در یوتیوب
+  /* ۱۳.۷: دفترِ کارگرِ دستیِ NotebookLM — **فقط خواندن**، هر شب؛ مجموعه‌ای که آن‌جا برنامه دارد ریلز و شورتزِ موتور نمی‌گیرد. */
+  EXT_NLM_SHEET: '1UjSXl2aKjhhk3wvm4jtthNvbHJZ7huFhIhyyPW8heEg',
+  /* ۱۳.۷: نشانیِ ویدئوها در ستونِ «فایل تصویری» — دورِ یک‌بارهٔ قسمت‌های پیشین؛ بالا بردنِ VER دورِ تازه می‌سازد. */
+  VIDLINK_BF_VER: '1',
+  VIDLINK_BF_MAX: 30,
   EXT_SINCE: '2026-10-25',           // ۱۲.۷: ویدئوی بی‌تگِ بیرون از دفتر فقط از این روز «بیرونی» است (۱۱۷ ویدئوی پیش از موتور نه)
   /* ۱۳.۰: دورِ داوریِ مفهومی — هر ردیفِ غیردستی یک بار با مدل از نو (نشانِ دور در «دلیل»). خالی = خاموش. */
   JUDGE_ROUND: '13.0',
@@ -2353,7 +2358,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '13.6',
+  CODE_VERSION: '13.7',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3502,6 +3507,8 @@ var PK = {
   AUTOUPDATE_HOURLY_AT: 'AUTOUPDATE_HOURLY_AT', // ۸.۷۶: آخرین پرسشِ ساعتی از manifest
   SPEAK_AB: 'SPEAK_AB_STATE',                   // ۸.۷۹: آزمونِ شنیداریِ با/بی اعراب
   QA_AUTO_LAST: 'QA_AUTO_LAST',                 // ۸.۸۰: آخرین رندری که وارسی‌هایش خودکار ثبت شد
+  TTS_DRIFT_TOLD: 'TTS_DRIFT_TOLD',             // ۱۳.۷: دورِ دگرگونیِ سنجاق یک بار به تلگرام گفته شد
+  TTS_PROS: 'TTS_PROS_STATE',                   // ۱۳.۷: گوشِ موتور برای لحن — پرسش، نشانهٔ خوانده‌شده، پرش، حالت
   TTS_LISTEN: 'TTS_LISTEN_STATE',               // ۸.۸۲: شمارِ شنیدنِ دوبارهٔ تکه‌ها
   SRCH_PROBE: 'SRCH_PROBE_STATE',               // ۸.۸۱: نتیجهٔ کاوشِ کاملِ عبارت
   HANDOUT_SCAN: 'HANDOUT_SCAN_CUR', // مکان‌نمای واردکردنِ قسمت‌های گذشته
@@ -3570,6 +3577,9 @@ var PK = {
   MUSIC_SEEK_LAST: 'MUSIC_SEEK_LAST', // ۱۲.۸: نتیجهٔ گشتن و آوردنِ موسیقیِ آخرین شب — در _STATUS.music.seekLast
   JUDGE_TICK_AT: 'JUDGE_TICK_AT',    // ۱۳.۰: آخرین زمان‌بندیِ داوریِ ادامه‌دار
   JUDGE_ROUND_TOLD: 'JUDGE_ROUND_TOLD', // ۱۳.۰: پایانِ کدام دور به تلگرام گفته شد
+  IG_EAR: 'IG_EAR',                // ۱۳.۷: گوشِ موتور روی صدای ریلزها (فقط ثبت)
+  EXT_NLM: 'EXT_NLM',              // ۱۳.۷: آخرین خواندنِ دفترِ NotebookLM (فقط خواندن)
+  VIDLINK_BF: 'VIDLINK_BF',        // ۱۳.۷: نشانگرِ پرکردنِ «فایل تصویری» برای قسمت‌های پیشین
   IG_EXT: 'IG_EXT',                // ۱۲.۷: پست‌های بیرونیِ اینستاگرام (نه در دفترِ موتور) — فقط شمارش
   YT_EXT: 'YT_EXT',                // ۱۲.۷: ویدئوهای بیرونیِ یوتیوب (نه در دفترِ موتور، یا تگِ ext-notebooklm) — فقط شمارش
   IG_FMT: 'IG_FMT',                // ۱۲.۱: قالبِ هر ریلز (فقط غیرپیش‌فرض‌ها) — شناسهٔ ریلز ⇒ قالب، برای سنجشِ «جملهٔ کوتاه» در برابرِ «آموزشی»
@@ -6344,13 +6354,17 @@ var TTS_LB_SCHEMA_ = {
       word: { type: 'string' }, heard: { type: 'string' },
       kind: { type: 'string' }, fix: { type: 'string' },
       heardLat: { type: 'string' }, rightLat: { type: 'string' } },
-      required: ['word', 'heard', 'kind'] } }
+      required: ['word', 'heard', 'kind'] } },
+    /* ۱۳.۷: گوشِ موتور برای لحن — همان فراخوان، بی هزینهٔ تازه. فقط شمرده و گزارش می‌شود؛ هیچ تکه‌ای به خاطرش از نو
+       ساخته نمی‌شود (درمانِ لحن تصمیمِ دیگری است و این‌جا فقط «شنیدن» کم بود). همه رشته — قاعدهٔ طرح‌واره. */
+    pros: { type: 'object', properties: {
+      q: { type: 'string' }, mark: { type: 'string' }, jump: { type: 'string' }, mood: { type: 'string' } } }
   },
   required: ['errs']
 };
 
 /** شنیدنِ یک تکه در برابرِ متنش ⇒ {errs:[{word,heard,kind,fix}], failed}. */
-function ttsListenCheck_(pcmB64, text) {
+function ttsListenCheck_(pcmB64, text, mood) {
   try {
     var raw = Utilities.base64Decode(pcmB64);
     var secs = raw.length / (2 * (CFG.SAMPLE_RATE || 24000));
@@ -6378,14 +6392,22 @@ function ttsListenCheck_(pcmB64, text) {
               'madrese است هم madrasa): heardLat = آنچه **از صدا** شنیدی با همهٔ واکه‌ها (مثلاً madrasa)، و rightLat = ' +
               'تلفظِ درستِ تهرانی در همین جمله (مثلاً madrese). واکه‌ها را از **صدا** بنویس، نه از املایی که می‌شناسی؛ ' +
               'به‌ویژه واژه‌های آشنا را — گوش آن‌ها را درست «می‌شنود» حتی وقتی غلط گفته شده‌اند.\n\n' +
-              'متن:\n' + stripTashkil_(String(text || '')) },
+              /* ۱۳.۷: وارسی‌های «شنیده شد»ِ ناظر (§۴٫۱۴، §۴٫۱۶) هر روز «نشد» می‌خوردند چون سشنِ ناظر گوش ندارد؛ این
+                 شنونده دارد و همین حالا همین صدا را می‌شنود. پس همان‌جا، جدا از errs: */
+              '\nجدا از errs، در pros (هر کدام یک واژه، و فقط اگر واقعاً شنیدی بعدش یک توضیحِ کوتاه):\n' +
+              '• q: اگر متن «؟» دارد، آهنگِ پایانِ پرسش «بالا» رفت یا «صاف» ماند؟ اگر متن پرسش ندارد، خالی.\n' +
+              '• mark: نشانه‌ای (گیومه، پرانتز، علامتِ سؤال، خط‌تیره…) **به‌صورتِ واژه** خوانده شد؟ «نه» یا «بله: …».\n' +
+              '• jump: پرشِ ناگهانیِ زیروبم یا بلندی وسطِ جمله؟ «نه» یا «بله: …».\n' +
+              (mood ? '• mood: حالتِ خواسته‌شده برای این تکه «' + String(mood).slice(0, 80) + '» بود — شنیده می‌شود؟ «بله» یا «نه: …».\n'
+                    : '• mood: خالی.\n') +
+              '\nمتن:\n' + stripTashkil_(String(text || '')) },
       { inlineData: { mimeType: 'audio/wav', data: wav } }
     ], { min: 2048, think: 512, schema: TTS_LB_SCHEMA_ });
     wav = null;
     var t = String(extractText_(j) || '').trim();
     if (!t) return { errs: [], failed: true, why: String(j && j._why || 'پاسخ خالی') };
     var o = JSON.parse(t);
-    return { errs: ttsListenTrim_(o && o.errs, text), failed: false };
+    return { errs: ttsListenTrim_(o && o.errs, text), failed: false, pros: (o && o.pros) || null };
   } catch (e) {
     return { errs: [], failed: true, why: String(e.message || e).slice(0, 100) };
   }
@@ -6496,9 +6518,59 @@ function ttsListenNote_(ev) {
   } catch (e) { return null; }
 }
 
+/**
+ * گوشِ لحن (۱۳.۷) — شمارِ روز و چند نمونه، در `_STATUS.json` → `ttsListen.pros`. «پرسشِ صاف» فقط از تکه‌ای شمرده می‌شود
+ * که متنش واقعاً «؟» دارد: مدلی که برای جملهٔ خبری «صاف» بگوید، چیزی نگفته است.
+ */
+function ttsProsNote_(p, text, mood) {
+  if (!p || typeof p !== 'object') return null;
+  var day = Utilities.formatDate(new Date(), CFG.TIMEZONE || 'Asia/Dubai', 'yyyy-MM-dd');
+  var st = {};
+  try { st = JSON.parse(props_().getProperty(PK.TTS_PROS) || '{}') || {}; } catch (e0) { st = {}; }
+  if (st.day !== day) st = { day: day, prev: st.day ? { day: st.day, n: st.n, qAsk: st.qAsk, qFlat: st.qFlat, mark: st.mark,
+                                                       jump: st.jump, moodN: st.moodN, moodNo: st.moodNo } : (st.prev || null),
+                             n: 0, qAsk: 0, qFlat: 0, mark: 0, jump: 0, moodN: 0, moodNo: 0, ex: [] };
+  var yes = function (v) { return /^\s*(بله|آری|yes)/i.test(String(v || '')); };
+  var t = String(text || ''), ex = null;
+  st.n++;
+  if (/[؟?]/.test(t)) {
+    st.qAsk++;
+    if (/صاف|flat/i.test(String(p.q || ''))) { st.qFlat++; ex = 'پرسشِ صاف'; }
+  }
+  if (yes(p.mark)) { st.mark++; ex = 'نشانه خوانده شد: ' + String(p.mark).replace(/^\s*بله\s*:?\s*/, ''); }
+  if (yes(p.jump)) { st.jump++; ex = 'پرش: ' + String(p.jump).replace(/^\s*بله\s*:?\s*/, ''); }
+  if (mood && String(p.mood || '').trim()) {
+    st.moodN++;
+    if (/^\s*نه/.test(String(p.mood))) { st.moodNo++; ex = ex || ('حالتِ «' + String(mood).slice(0, 30) + '» شنیده نشد'); }
+  }
+  if (ex) {
+    st.ex = [{ at: nowStr_(), w: ex.slice(0, 80), t: stripTashkil_(t).replace(/\s+/g, ' ').slice(0, 70) }].concat(st.ex || []).slice(0, 6);
+  }
+  st.at = nowStr_();
+  try { props_().setProperty(PK.TTS_PROS, JSON.stringify(st)); } catch (e1) {}
+  return st;
+}
+
+/** خطِ گوشِ لحن — همان چیزی که ناظر برای «شنیده شد» می‌آورد. */
+function ttsProsLine_(st) {
+  if (!st || !st.n) return 'گوشِ موتور برای لحن: امروز هنوز تکه‌ای شنیده نشده.';
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  return 'گوشِ موتور برای لحن (' + st.day + '): ' + fa(st.n) + ' تکه شنیده شد — ' +
+    (st.qAsk ? fa(st.qAsk - st.qFlat) + ' از ' + fa(st.qAsk) + ' پرسش با آهنگِ بالارونده' : 'پرسشی نبود') +
+    '، نشانهٔ خوانده‌شده ' + fa(st.mark) + '، پرشِ ناگهانی ' + fa(st.jump) +
+    (st.moodN ? '، حالتِ خواسته‌شده ' + fa(st.moodN - st.moodNo) + ' از ' + fa(st.moodN) + ' شنیده شد' : '') +
+    ((st.ex || []).length ? ' · نمونه: ' + st.ex.slice(0, 2).map(function (x) { return x.w + ' («' + x.t + '»)'; }).join(' · ') : '') + '.';
+}
+
 /** برای `_STATUS.json` — فقط Properties. */
 function ttsListenStatus_() {
-  try { return JSON.parse(props_().getProperty(PK.TTS_LISTEN) || 'null'); } catch (e) { return null; }
+  var st = null;
+  try { st = JSON.parse(props_().getProperty(PK.TTS_LISTEN) || 'null'); } catch (e) { st = null; }
+  try {
+    var pr = JSON.parse(props_().getProperty(PK.TTS_PROS) || 'null');
+    if (pr) { st = st || {}; st.pros = pr; st.prosLine = ttsProsLine_(pr); }
+  } catch (eP) {}
+  return st;
 }
 
 /** تکهٔ ساخته‌شده ⇒ شنیدن ⇒ در صورتِ خطا یک بار دوباره ⇒ کم‌خطاتر. */
@@ -6510,8 +6582,9 @@ function ttsListenGuard_(b64, text, sectionStyle, voice) {
     return b64;
   }
   runStage_('صدا: شنیدنِ دوبارهٔ تکه');
-  var v1 = ttsListenCheck_(b64, text);
+  var v1 = ttsListenCheck_(b64, text, sectionStyle);
   if (v1.failed) { ttsListenNote_({ what: 'failed', why: v1.why }); return b64; }
+  try { ttsProsNote_(v1.pros, text, sectionStyle); } catch (ePr) {}
   if (!v1.errs.length) { ttsListenNote_({ what: 'clean' }); return b64; }
 
   if (new Date().getTime() > TTS_LB_DEADLINE_ - (Number(CFG.TTS_LISTEN_RETRY_MS) || 60000)) {
@@ -17051,6 +17124,24 @@ function ttsAuditionRun_(opt) {
         /* دگرگونیِ خودِ سنجاق — زنجیرهٔ پیاپی، چون یک آزمونِ بد می‌تواند
            یک آزمونِ بد بماند (گفتارسازِ گوگل هر بار کمی فرق می‌خوانَد). */
         var ftP = ttsFitOf_(rec, prof);
+        /* ══ یک برداشت، یک داوری نیست (۱۳.۷) ══ گفتارسازِ گوگل هر بار کمی فرق می‌خوانَد و مرجع خودش **یک** برداشت
+           است. پس برداشتِ دور از مرجع همان‌جا یک بار دیگر گرفته می‌شود (فقط همین وقت، یک فراخوانِ گفتارساز) و نزدیک‌ترِ
+           آن دو داوری می‌شود: اگر یکی هم‌خوان بود، مدل هنوز می‌تواند همان صدا را بدهد و «دگرگون شد» گفته نمی‌شود. */
+        if (ftP.fit === false && new Date().getTime() - t0 < budget) {
+          try {
+            var g2 = ttsAuditionPcm_(md), pr2 = ttsPcmProfile_(g2.bytes, sr, letters);
+            if (pr2.rate > 0) {
+              var rec2 = { at: nowStr_(), rate: pr2.rate, f0: pr2.f0, pause: pr2.pauseShare, ppm: pr2.ppm, secs: pr2.secs };
+              var ft2 = ttsFitOf_(rec2, prof);
+              rec.take2 = { rate: rec2.rate, f0: rec2.f0, fit: ft2.fit, why: ft2.why };
+              if (ft2.fit === true || ft2.dist < ftP.dist) {
+                try { rec2.clip = ttsAuditClipSave_(md, g2.b64, g2.bytes.length); } catch (eC2) { rec2.clip = rec.clip; }
+                rec2.take2 = { rate: rec.rate, f0: rec.f0, fit: false, why: ftP.why };
+                rec = rec2; ftP = ft2;
+              }
+            }
+          } catch (eT2) { rec.take2 = { err: String((eT2 && eT2.message) || eT2).slice(0, 80) }; }
+        }
         prof.drift = (ftP.fit === false) ? (Number(prof.drift) || 0) + 1 : 0;
         prof.driftWhy = ftP.why || '';
         prof.checkedAt = rec.at;
@@ -17172,8 +17263,14 @@ function ttsModelStatus_() {
     if (a.at && (!out.auditAt || String(a.at) > out.auditAt)) out.auditAt = String(a.at);
     var ft = (prof && k === prof.model) ? { fit: true, dRate: 0, dF0: 0, why: '', dist: 0 }
                                          : ttsFitOf_(a, prof);
-    out.audits.push({ model: k, at: a.at || '', fit: ft.fit, dRate: ft.dRate, dF0: ft.dF0,
-                      why: ft.why, clip: a.clip || '', err: a.err || '' });
+    /* ۱۳.۷: ردیفِ خودِ سنجاق در فهرست «هم‌خوان، ۰٪، ۰ نیم‌پرده» نشان داده می‌شد — درست کنارِ «۳ آزمونِ پیاپی ۴٫۴
+       نیم‌پرده زیرتر». جانشینی همان «هم‌خوان با خودش» را لازم دارد (`liveFit`)، ولی آنچه **خوانده** می‌شود باید عددِ
+       آخرین آزمونِ واقعی در برابرِ مرجع باشد، نه صفرِ قراردادی. */
+    var shown = ft;
+    if (prof && k === prof.model && a.at && String(a.at) !== String(prof.at)) shown = ttsFitOf_(a, prof);
+    out.audits.push({ model: k, at: a.at || '', fit: shown.fit, dRate: shown.dRate, dF0: shown.dF0,
+                      why: shown.why, clip: a.clip || '', err: a.err || '', self: k === (prof && prof.model) ? true : undefined,
+                      take2: a.take2 || undefined });
     if (k === out.live) out.liveFit = ft.fit;
     if (k === pin) continue;
     if (avail && avail.indexOf(k) === -1) continue;    // رفته‌ها جانشین نیستند
@@ -17268,17 +17365,34 @@ function ttsModelGates_(hub, st) {
     } catch (eT) {}
   }
   if (st.drift >= runs) {
+    /* ══ پرسشی که در صفِ کد نشسته بود (۱۳.۷) ══ این ردیف هشت بار تکرار شد و هیچ نسخه‌ای نمی‌توانست ببندَدش: دستورش
+       خودش می‌گفت «به صاحبِ برنامه برسان … خودکار عوض نکن» — یعنی جوابش تصمیمِ اوست، نه کد. و آن پرسش هرگز به او نرسید:
+       برای «سنجاق رفت» تلگرام بود، برای «سنجاق دگرگون شد» نه. حالا یافته مالِ «کاربر» است (از صفِ کد بیرون) و نمونهٔ تازه
+       **یک بار** برای هر دورِ دگرگونی به تلگرام می‌رود، با دو جوابِ ممکن. */
+    var selfA = null;
+    for (var sa = 0; sa < (st.audits || []).length; sa++) if (st.audits[sa].self) selfA = st.audits[sa];
     try {
       logSelfFinding_(hub, {
         priority: 'جدی', category: 'مدلِ صوتی', key: 'tts-pin-drift',
-        title: 'مدلِ صوتیِ سنجاق‌شده دیگر مثلِ مرجعش نمی‌خوانَد',
-        detail: st.line,
-        instruction: 'نمونهٔ آزمونِ تازهٔ همین مدل را (پوشهٔ «' + (CFG.VOICE_AUDIT_FOLDER || '') +
-                     '») به صاحبِ برنامه برسان. اگر هنوز می‌پسندد، TTS_PROFILE_VER را یکی بالا ببر تا ' +
-                     'مرجع از نو گرفته شود؛ اگر نه، جانشینِ هم‌خوان را پیشنهاد کن. خودکار عوض نکن.',
-        owner: 'کد'
+        title: 'مدلِ صوتیِ سنجاق‌شده دیگر مثلِ مرجعش نمی‌خوانَد — تصمیمِ شما',
+        /* دستور خالی، عمداً: ردیفِ «کاربر» با دستور به پرامپتِ نویسندهٔ قسمت تزریق می‌شود (`openInstructions_`) و
+           نویسنده نمی‌تواند صدایی گوش کند. پرسش در `detail` و در تلگرام است. */
+        detail: st.line + ' — تصمیمِ شما: نمونهٔ تازه' + (selfA && selfA.clip ? ' (' + selfA.clip + ')' : '') +
+                ' را گوش کنید؛ اگر هنوز همان صدایی است که می‌پسندید، بگویید «مرجعِ صدا تازه شود» (TTS_PROFILE_VER یکی ' +
+                'بالا می‌رود)، وگرنه بگویید تا جانشین پیشنهاد شود. موتور خودکار عوض نمی‌کند.',
+        instruction: '',
+        owner: 'کاربر'
       });
     } catch (eD) {}
+    try {
+      var dTag = String(st.pin) + '|' + String((st.base || {}).at || '') + '|' + String(CFG.TTS_PROFILE_VER || 1);
+      if (String(props_().getProperty(PK.TTS_DRIFT_TOLD) || '') !== dTag) {
+        if (tgSend_('🎙 ' + st.line + (selfA && selfA.clip ? '\nنمونهٔ تازه: ' + selfA.clip : '') +
+                    '\nاگر هنوز همین صدا را می‌پسندید بگویید «مرجعِ صدا تازه شود»؛ اگر نه، بگویید تا جانشین پیشنهاد شود.')) {
+          props_().setProperty(PK.TTS_DRIFT_TOLD, dTag);
+        }
+      }
+    } catch (eT) {}
   }
   return st;
 }
@@ -18819,6 +18933,8 @@ function writeStatus_(hub, note) {
     catLock: (function () { try { return { on: catLockOn_(), order: catLockList_(), fromBoard: !!catLockUi_(), line: catLockLine_() }; } catch (e) { return null; } })(),
     ytShowsOff: (function () { try { return { shows: CFG.YT_SHOWS_OFF || [], line: ytShowsOffLine_(), parked: ytDueParked_().length }; } catch (e) { return null; } })(),
     /* ۱۳.۴: دروازهٔ منبعِ «از همه جا» — آخرین گزارش، دسته‌های کنارِ امروز، و ویدئوهای کنار از صف. */
+    vidLink: (function () { try { return typeof vidLinkStatus_ === 'function' ? vidLinkStatus_() : null; } catch (e) { return null; } })(),
+    extNlm: (function () { try { return typeof extNlmStatus_ === 'function' ? extNlmStatus_() : null; } catch (e) { return null; } })(),
     varietyGate: (function () { try { return typeof vgStatus_ === 'function' ? vgStatus_() : null; } catch (e) { return null; } })(),
     /* ۱۱.۵: مقصدها، فیسبوک و تولیدِ موازی — فراخوانِ رو به جلو (۸ → ۲۵/۱۳/۳۸) در try. */
     destinations: (function () { try { return destStatus_(); } catch (e) { return null; } })(),
@@ -20907,6 +21023,8 @@ function healthCheck() {
   try { var fbS = fbStatus_(); if (fbS.on || fbS.queued) notes.push(fbS.line); } catch (eFs) {}
   try { var spS = seriesParStatus_(); if (spS.line) notes.push(spS.line); } catch (eSp) {}
   try { var ytOffL = ytShowsOffLine_(); if (ytOffL) notes.push(ytOffL); } catch (eYo) {}
+  try { if (typeof vidLinkStatus_ === 'function') notes.push(vidLinkStatus_().line); } catch (eVl) {}
+  try { if (typeof extNlmStatus_ === 'function') notes.push(extNlmStatus_().line); } catch (eXn) {}
   try { if (typeof vgStatus_ === 'function') { var vgL = vgStatus_().line; if (vgL) notes.push(vgL.split('\n')[0]); } } catch (eVg) {}
   try { var ytPrivL = ytOwnerPrivLine_(); if (ytPrivL) notes.push(ytPrivL); } catch (eYp) {}
   try { vmHealth_(problems, notes); } catch (eVmH) {}    // بخشِ ۳۷ پس از این بخش است ⇒ درونِ try
@@ -23963,6 +24081,13 @@ function monChecksStatus_(hub, raise) {
   var need = Math.max(1, Number(CFG.MONITOR_CHECK_DAYS) || 2);
   // چند روز است که *گزارشِ روزانه* می‌آید — پنجره‌ای که سکوت در آن معنا دارد
   var repAge = monCheckDays_((m.__rep || {}).firstAt ? { at: m.__rep.firstAt } : null);
+  /* ══ کلِ گزارش نیامده ≠ وارسی گزارش نشده (۱۳.۷) ══
+     `monitor-check-silent` پانزده بار تکرار شد و بیشترش روزهایی بود که **خودِ گزارشِ روزانه** نیامده بود (۲۲ تا ۲۴ اکتبر،
+     سقفِ مصرفِ سشنِ ناظر): همهٔ کلیدها با هم «ساکت» می‌شدند و یافته‌ای ثبت می‌شد که دستورش «کلیدِ checks را بنویس» بود —
+     برای ناظری که اصلاً ندویده بود. آن خبر مالِ دیده‌بانِ ناظر است (`watchdogHeartbeats_`، ردیفِ `monitor`)، با علتِ
+     خودش. پس سکوتِ یک کلید فقط وقتی شمرده می‌شود که گزارشِ روزانه **در همین پنجره رسیده** و آن کلید در آن نبوده. */
+  var repLast = monCheckDays_((m.__rep || {}).lastAt ? { at: m.__rep.lastAt } : null);
+  var repMissing = repAge !== null && (repLast === null || repLast >= need);
   var rows = [], silent = [], skipped = [];
   var skipNeed = Math.max(1, Number(CFG.MONITOR_SKIP_DAYS) || 2);
   for (var i = 0; i < want.length; i++) {
@@ -23979,6 +24104,7 @@ function monChecksStatus_(hub, raise) {
        و جای دیگری گفته می‌شود — یک ایراد، یک جمله. */
     if (/نشد/.test(r.verdict) && r.skipDays >= skipNeed && d !== null && d < need) skipped.push(r);
     if (repAge === null || repAge < need) continue;   // هنوز پنجره‌ای نیست
+    if (repMissing) continue;                          // خودِ گزارش نیامده — یک ایراد، جای دیگر
     if (d === null || d >= need) silent.push(r);
   }
   var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
@@ -23992,6 +24118,10 @@ function monChecksStatus_(hub, raise) {
            '(گزارشِ روزانه ' + (function (n) {
              try { return faDigitsOut_(String(n)); } catch (x) { return String(n); }
            })(repAge) + ' روز است می‌آید).';
+  } else if (repMissing) {
+    line = 'وارسی‌های روزانهٔ ناظر: گزارشِ روزانه ' +
+           (repLast === null ? 'ثبت نشده' : fa(repLast) + ' روز است نیامده') +
+           ' — پس هیچ وارسی‌ای امروز گزارش نشده؛ علتش در ردیفِ «ناظر»ِ دیده‌بان است، نه در تک‌تکِ وارسی‌ها.';
   } else if (!silent.length) {
     line = 'وارسی‌های روزانهٔ ناظر: هر ' + fa(want.length) + ' وارسی گزارش شده.';
   } else {
@@ -24053,7 +24183,7 @@ function monChecksStatus_(hub, raise) {
      نیاز دارد که **فقط** گزارشِ روزانهٔ ناظر بنویسدش (۸٫۱۷) — `__rep` تنها با
      نامِ `_REPORT-YYYYMMDD.json` مهر می‌خورد، نه با `_REPORT-tts-*` و نه با
      یافته‌های خودِ موتور. اینجا هیچ خواندنِ تازه‌ای نیست؛ همان `m`ِ بالا. */
-  return { rows: rows, silent: silent, skipped: skipped,
+  return { rows: rows, silent: silent, skipped: skipped, repMissing: repMissing,
            ok: !silent.length && !skipped.length, line: line,
            repAt: String((m.__rep || {}).lastAt || ''),
            repFirstAt: String((m.__rep || {}).firstAt || '') };
@@ -24453,7 +24583,14 @@ function selfVerifyMap_() {
     } },
     'voice-intake-stuck':  { what: 'voiceIntake', still: bad('voiceIntake') },
     'audit-queue-stuck':   { what: 'auditQueue', still: bad('auditQueue') },
-    'monitor-check-silent':{ what: 'monChecks', still: bad('monChecks') },
+    /* ۱۳.۷: سنجندهٔ «ساکت» تا امروز `ok` را می‌خواند، و `ok` با «نشد»های پیاپی هم نادرست است — پس تا یک وارسی «نشد»
+       می‌خورد، این ردیف هرگز بسته نمی‌شد، حتی وقتی همهٔ ۱۷ وارسی گزارش شده بودند. هر کلید شرطِ خودش را می‌سنجد. */
+    'monitor-check-silent':{ what: 'monChecks', still: function (st) {
+      var o = st && st.monChecks;
+      if (!o || typeof o !== 'object' || Object.prototype.toString.call(o.silent) !== '[object Array]') return null;
+      return o.silent.length > 0;
+    } },
+
     /* «گزارشِ روزانه نرفت» (۷٫۶۳). سنجنده‌اش از همان `healthStale` می‌آید
        که خودِ شرط را می‌سازد، پس چیزِ دیگری را نمی‌سنجد. و سرِ ۰۲:۳۰ —
        یعنی همان لحظه‌ای که نصب مُهر می‌زند — مهرِ دیروز «سالم» است، پس
@@ -24663,6 +24800,23 @@ function logSelfFinding_(hub, f) {
       if (stt === RST.APPLIED || stt === RST.CLOSED || stt === RST.INSTALLED) {
         prev.vals[RC.STATUS - 1] = RST.NEW + ' (تکرار)';
       }
+      /* ══ صاحبِ یافته عوض شد (۱۳.۷) ══ `tts-pin-drift` با صاحبِ «کد» ثبت شده بود و پرسشی برای صاحبِ برنامه بود؛ حالا که
+         صاحبش «کاربر» است، ردیفِ قدیمی نباید در صفِ کد بماند — وگرنه همان ردیف تا ابد «نیازمند تعویض کد» می‌خورد و هیچ
+         نسخه‌ای نمی‌تواند ببندَدش. فقط یک جهت: از صفِ کد بیرون، هرگز به آن (ورود به صفِ کد کارِ `reportRow_` است). */
+      try {
+        if (f.owner && String(prev.vals[RC.STATUS - 1]) === RST.NEEDS_CODE && !/کد/.test(String(f.owner))) {
+          var fresh = reportRow_({ reportId: 'x', at: nowStr_(), episode: f.episode || '' }, f, 0, fp);
+          if (String(fresh[RC.STATUS - 1]) !== RST.NEEDS_CODE) {
+            prev.vals[RC.OWNER - 1] = fresh[RC.OWNER - 1];
+            prev.vals[RC.STATUS - 1] = fresh[RC.STATUS - 1];
+            prev.vals[RC.INSTR - 1] = fresh[RC.INSTR - 1];
+            prev.vals[RC.TITLE - 1] = fresh[RC.TITLE - 1];
+            prev.vals[RC.DETAIL - 1] = fresh[RC.DETAIL - 1];
+            prev.vals[RC.DONE - 1] = fresh[RC.DONE - 1] || ('از صفِ کد بیرون رفت: صاحبش «' + String(f.owner) + '» است');
+            prev.vals[RC.DONE_AT - 1] = fresh[RC.DONE_AT - 1] || nowStr_();
+          }
+        }
+      } catch (eOw) {}
       sh.getRange(prev.row, 1, 1, REPORT_HEADERS.length).setValues([prev.vals]);
       return;
     }
@@ -24814,7 +24968,13 @@ function reportSummary_(hub) {
         // شده — چه با نصبِ خودکار، چه با چسباندنِ دستی.
         if (codeRowSatisfied_(v)) { out.applied++; continue; }
         out.needsCode++;
-        if (rep2) out.repeated++;
+        /* ۱۳.۷: ردیفِ صفِ کد در شمارِ «تکرارشده» نیست. یافته‌ای که خودِ موتور ثبت می‌کند **هر روز** دوباره دیده می‌شود
+           (`logSelfFinding_` شمارنده را بالا می‌برد) تا وقتی نسخه‌ای ببندَدش — پس هر ردیفِ این صف، دیر یا زود «تکرارشده»
+           بود و عدد (۱۱۰) فقط با بزرگ شدنِ صف بالا می‌رفت. همین ایرادِ مزمنِ `chronic-7df6bcbc` را یازده بار ساخت: هشداری
+           که هیچ کارِ ناظر خاموشش نمی‌کرد، چون حلقه‌اش «گزارش ← دستور» نبود، «یافته ← نسخه» بود. صفِ کد سنجهٔ خودش را دارد
+           (`codeQueue_`، `code-queue-stuck`) و این عدد فقط دستورهای باز را می‌شمارد — همان جایی که تکرار یعنی دستورِ قبلی
+           جواب نداده. */
+        out.repeatedCode = (out.repeatedCode || 0) + (rep2 ? 1 : 0);
         out.codeItems.push({ id: String(v[RC.ID - 1]), title: String(v[RC.TITLE - 1]),
                              at: at, telegram: String(v[RC.TG - 1]) });
         continue;
@@ -38910,6 +39070,25 @@ function selfUpdateDaily() {
     } catch (eRc) { logLine_('مرورِ بزرگ اجرا نشد: ' + eRc.message); }
   }
 
+  /* ۱۳.۷: دفترِ NotebookLM (فقط خواندن) پیش از ریلزِ فردا، و نشانیِ ویدئوهای قسمت‌های پیشین در «فایل تصویری». هر دو بخشِ
+     ۲۷/۳۸اند (جلوتر از این بخش)، پس با typeof و try — شکستشان شب را نمی‌اندازد. */
+  if (nightHas_(20000, 'دفترِ NotebookLM')) {
+    try {
+      if (typeof extNlmSync_ === 'function') {
+        var xn = extNlmSync_();
+        logLine_('دفترِ NotebookLM (فقط خواندن): ' + (xn && xn.series ? xn.series.length : 0) + ' مجموعه' + (xn && xn.why ? ' — ' + xn.why : '') + '.');
+      }
+    } catch (eXn) { logLine_('دفترِ NotebookLM: ' + eXn.message); }
+  }
+  if (nightHas_(45000, 'نشانیِ ویدئوها در شیت')) {
+    try {
+      if (typeof vidLinkBackfill_ === 'function') {
+        var vb = vidLinkBackfill_(40000);
+        if (vb && (vb.rows || vb.wrote)) logLine_('«فایل تصویری»: ' + vb.rows + ' ردیف سنجیده، ' + vb.wrote + ' نوشته' + (vb.done ? ' — دورِ قسمت‌های پیشین تمام شد' : '') + '.');
+      }
+    } catch (eVb) { logLine_('«فایل تصویری»: ' + eVb.message); }
+  }
+
   try { nightEnd_(night.runs); }
   catch (eNE) { logLine_('پایانِ کارِ شبانه ثبت نشد: ' + eNE.message); }
   return installed;
@@ -47108,31 +47287,28 @@ function auditQueueStatus_(hub) {
   var out = { line: '', ok: true, n: 0, days: 0 };
   try {
     var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
-    var n = 0;
-    try { n = auditPending_().length; } catch (eP) { return out; }
+    /* ══ «کوتاه نشده» با «گیر کرده» یکی نبود (۱۳.۷) ══
+       `audit-queue-stuck` چهارده بار تکرار شد، و سنجه‌اش این بود: «صف از روزی که دیده شد کوتاه‌تر نشده». صفی که هر روز دو
+       قسمت می‌گیرد و هر شب دو قسمت داوری می‌کند، هر روزِ ساعتِ ۱۰ همان عدد را دارد — روان است و «گیر» خوانده می‌شد؛ و صفی
+       که یک قسمتش هفته‌ها نوبت نگیرد ولی بقیه بیایند و بروند، گاهی کوتاه‌تر می‌شد و شمارنده صفر می‌گرفت. پرسشِ درست
+       «قدیمی‌ترین قسمتِ در صف چند روز است منتظر است؟» است: داوری هر شب از قدیمی‌ترین شروع می‌کند (`donePending_`)،
+       پس اگر آن یکی دو شب مانده، داوری واقعاً نوبت نمی‌گیرد. */
+    var files = [];
+    try { files = auditPending_(); } catch (eP) { return out; }
+    var n = files.length;
     out.n = n;
-
-    var prev = null;
-    try { prev = JSON.parse(props_().getProperty(PK.AUDIT_QSEEN) || 'null'); } catch (eJ) {}
-    var today = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
-    if (!prev || !prev.since || n < (Number(prev.n) || 0)) {
-      prev = { n: n, since: today };                       // کوتاه‌تر شد یا اولین بار
-    } else if (n > (Number(prev.n) || 0)) {
-      prev = { n: n, since: prev.since || today };          // بلندتر شد، ولی از همان روز
+    var tMin = 0;
+    for (var fi = 0; fi < files.length; fi++) {
+      var tc = 0;
+      try { tc = files[fi].getDateCreated().getTime(); } catch (eT) { tc = 0; }
+      if (tc && (!tMin || tc < tMin)) tMin = tc;
     }
-    try { props_().setProperty(PK.AUDIT_QSEEN, JSON.stringify(prev)); } catch (eS) {}
-
-    var days = 0;
-    try {
-      var t0 = Date.parse(String(prev.since) + 'T00:00:00Z');
-      var t1 = Date.parse(today + 'T00:00:00Z');
-      if (!isNaN(t0) && !isNaN(t1)) days = Math.round((t1 - t0) / 86400000);
-    } catch (eD) {}
+    var days = (n && tMin) ? Math.max(0, Math.floor((Date.now() - tMin) / 86400000)) : 0;
     out.days = days;
 
     if (!n) { out.line = 'سنجهٔ محتوا: صفِ داوری خالی است.'; return out; }
     out.line = 'سنجهٔ محتوا: ' + fa(n) + ' قسمت در صفِ داوری' +
-               (days ? '؛ ' + fa(days) + ' روز است کوتاه‌تر نشده' : '') + '.';
+               (days ? '؛ قدیمی‌ترینش ' + fa(days) + ' روز است منتظر است' : '') + '.';
     var lim = Math.max(1, Number(CFG.AUDIT_STUCK_DAYS) || 2);
     if (days >= lim) {
       out.ok = false;
@@ -47141,10 +47317,9 @@ function auditQueueStatus_(hub) {
         try {
           logSelfFinding_(hub, {
             priority: 'جدی', category: 'سنجهٔ محتوا', key: 'audit-queue-stuck',
-            title: 'صفِ داوریِ محتوا ' + days + ' روز است کوتاه نشده (' + n + ' قسمت)',
-            detail: 'صف هر روز دو تا رشد می‌کند (یک قسمت از هر برنامه). ' +
-                    'صفی که کوتاه نمی‌شود یعنی `auditRun_` در کارِ شبانه ' +
-                    'نوبت نمی‌گیرد یا خطا می‌دهد.',
+            title: 'قدیمی‌ترین قسمتِ صفِ داوریِ محتوا ' + days + ' روز است منتظر است (' + n + ' قسمت در صف)',
+            detail: 'داوری هر شب از قدیمی‌ترین شروع می‌کند؛ قسمتی که ' + days + ' شب مانده یعنی `auditRun_` در کارِ شبانه ' +
+                    'نوبت نمی‌گیرد یا روی همان قسمت خطا می‌دهد.',
             instruction: 'ترتیبِ کارِ شبانه را ببین: سنجهٔ محتوا باید جلوتر از ' +
                          'کارهای اختیاری باشد. و سیاههٔ شب را برای سطرِ ' +
                          '«وقت نرسید: سنجهٔ محتوا» بگرد.',
@@ -53712,7 +53887,12 @@ function ytRenderFetch_(item, url) {
   try {
     var old = folder.getFilesByName(name);
     while (old.hasNext()) old.next().setTrashed(true);
-    folder.createFile(blob.setName(name));
+    var made = folder.createFile(blob.setName(name));
+    /* ۱۳.۷: نشانیِ درایوِ همین فایل در ستونِ «فایل تصویری»ِ همان قسمت. شکستش ویدئو را نمی‌اندازد — فقط گفته می‌شود. */
+    try {
+      var vl = vidLinkNote_(item.show, item.ep, 'ویدئو', made.getUrl());
+      if (!vl.ok) logLine_('نشانیِ ویدئوی «' + item.show + ':' + item.ep + '» در شیت ننشست: ' + vl.why);
+    } catch (eVl) { logLine_('نشانیِ ویدئو در شیت: ' + eVl.message); }
   } catch (e4) {
     return { ok: false, why: 'در پوشه نوشته نشد: ' + String(e4.message).slice(0, 80) };
   }
@@ -67265,6 +67445,173 @@ function ytHypoRun_(hub) {
     }
   } catch (e) {}
   return r;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ *  «فایل تصویری» — نشانیِ درایوِ ویدئوها کنارِ همان قسمت در شیت (۱۳.۷)
+ *
+ *  صاحبِ کانال: «ثبت لینک درایوِ ویدئو در ستون «فایل تصویری» شیت … برای قسمت‌های بلند و ریلز/شورتز؛ و برای قسمت‌های
+ *  قبلی هم … بدون تغییر فایل‌ها». ستونِ دهمِ Podcasts از روزِ اول «فایل تصویری» نام داشت و **هیچ کدی در آن نمی‌نوشت**؛ تبِ
+ *  درس‌نامه اصلاً چنین ستونی نداشت. نشانیِ ویدئو فقط در پوشه بود — یعنی برای دیدنش باید پوشه را گشت.
+ *
+ *  یک خانه، چند سطر: «ویدئو: …»، «ریلز: …»، «شورتز: …»، «ریلز ۲: …». هر نوع یک سطر و همیشه تازه‌ترین؛ سطرِ نوعِ دیگر دست
+ *  نمی‌خورد، و چیزی که کسی دستی در آن خانه نوشته (سطرِ بی‌برچسب) هم می‌ماند. فقط **خواندنِ** فایل‌ها: هیچ فایلی جابه‌جا،
+ *  بازنام یا هم‌رسانی نمی‌شود — نشانیِ درایو همان است که صاحبش با حسابِ خودش باز می‌کند.
+ * ══════════════════════════════════════════════════════════════════════════ */
+var VIDLINK_HEAD_ = 'فایل تصویری';
+
+/** برچسبِ سطر: «ویدئو»، «ریلز»، «ریلز ۲»، «شورتز ۲». */
+function vidLinkKind_(base, part) {
+  var p = Number(part) || 1;
+  return String(base) + (p > 1 ? ' ' + faDigitsOut_(String(p)) : '');
+}
+
+/** خانهٔ تازه از خانهٔ قبلی: سطرِ همین برچسب جایگزین، بقیه سرِ جا. ⇒ متن. */
+function vidLinkMerge_(cell, kind, url) {
+  var lines = String(cell || '').split(/\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+  var head = String(kind) + ':', line = head + ' ' + String(url), hit = false;
+  for (var i = 0; i < lines.length; i++) {
+    if (lines[i].indexOf(head) === 0) { lines[i] = line; hit = true; }
+  }
+  if (!hit) lines.push(line);
+  /* ترتیبِ ثابت تا خانه با هر نوشتن جابه‌جا نشود: ویدئو، ریلزها، شورتزها، بعد هر چیزِ دیگر */
+  var rank = function (s) { return /^ویدئو:/.test(s) ? 0 : /^ریلز/.test(s) ? 1 : /^شورتز/.test(s) ? 2 : 3; };
+  return lines.map(function (s, k) { return { s: s, k: k }; })
+    .sort(function (a, b) { return (rank(a.s) - rank(b.s)) || (a.k - b.k); })
+    .map(function (x) { return x.s; }).join('\n');
+}
+
+/** ستونِ «فایل تصویری» در این تب — اگر نیست، سرستونش ته می‌نشیند (تبِ درس‌نامه تا ۱۳.۷ نداشت). ⇒ شمارهٔ ستون یا 0 */
+function vidLinkCol_(sh, make) {
+  var last = Math.max(1, sh.getLastColumn());
+  var head = sh.getRange(1, 1, 1, last).getValues()[0] || [];
+  for (var c = 0; c < head.length; c++) if (String(head[c] || '').trim() === VIDLINK_HEAD_) return c + 1;
+  if (!make) return 0;
+  sh.getRange(1, last + 1).setValue(VIDLINK_HEAD_);
+  return last + 1;
+}
+
+/** ردیفِ قسمت در این تب (ستونِ اول = شمارهٔ قسمت). ⇒ شمارهٔ ردیف یا 0 */
+function vidLinkRow_(sh, ep) {
+  var n = sh.getLastRow();
+  if (n < 2) return 0;
+  var v = sh.getRange(2, 1, n - 1, 1).getValues(), want = Number(ep);
+  for (var i = v.length - 1; i >= 0; i--) if (Number(faDigits_(String(v[i][0] || ''))) === want) return i + 2;
+  return 0;
+}
+
+/**
+ * یک نشانی را در خانهٔ همان قسمت بنویس. ⇒ {ok, why, changed}. شکست هرگز کارِ اصلی (برداشتِ ویدئو) را نمی‌اندازد —
+ * فراخوان‌ها در try می‌خوانند و `why` را ثبت می‌کنند.
+ */
+function vidLinkNote_(show, ep, kind, url, hub) {
+  var out = { ok: false, why: '', changed: false };
+  if (!url || !(Number(ep) > 0)) { out.why = 'نشانی یا شماره نیست'; return out; }
+  var h = hub || getHub_();
+  var sp = String(show) === ENRICH_SHOW_SPECIAL;
+  var sh = h.getSheetByName(sp ? CFG.SPECIAL_TAB : CFG.TAB_PODCASTS);
+  if (!sh) { out.why = 'تب نیست'; return out; }
+  var row = vidLinkRow_(sh, ep);
+  if (!row) { out.why = 'ردیفِ قسمتِ ' + ep + ' در تب نیست'; return out; }
+  var col = vidLinkCol_(sh, true);
+  var cell = sh.getRange(row, col);
+  var cur = String(cell.getValue() || ''), next = vidLinkMerge_(cur, kind, url);
+  out.ok = true;
+  if (next !== cur) { cell.setValue(next); out.changed = true; }
+  return out;
+}
+
+/** تازه‌ترین mp4ِ یک پوشه که نامش با این الگو می‌خوانَد. ⇒ File یا null */
+function vidLinkNewest_(folder, re) {
+  var best = null, bt = 0;
+  try {
+    var it = folder.getFiles();
+    while (it.hasNext()) {
+      var f = it.next(), nm = f.getName();
+      if (!/\.mp4$/i.test(nm) || (re && !re.test(nm))) continue;
+      var t = 0; try { t = f.getDateCreated().getTime(); } catch (eT) {}
+      if (!best || t > bt) { best = f; bt = t; }
+    }
+  } catch (e) {}
+  return best;
+}
+
+/** همهٔ ویدئوهای یک پوشهٔ قسمت ⇒ [{kind, url}]. «ویدئوی پیشین — جایگزین‌شده» زیرپوشه است و دیده نمی‌شود. */
+function vidLinkScan_(folder) {
+  var out = [];
+  var v = vidLinkNewest_(folder, null);                 // ytVideoIn_: هر mp4ِ خودِ پوشه ویدئوی قسمت است
+  if (v) out.push({ kind: 'ویدئو', url: v.getUrl() });
+  var base = String(CFG.IG_FOLDER || 'اینستاگرام');
+  try {
+    var sub = folder.getFolders();
+    while (sub.hasNext()) {
+      var g = sub.next(), nm = String(g.getName() || '');
+      if (nm.indexOf(base) !== 0) continue;
+      var rest = faDigits_(nm.slice(base.length).trim());
+      if (rest && !/^\d+$/.test(rest)) continue;
+      var part = rest ? Number(rest) : 1;
+      var r = vidLinkNewest_(g, /^ریلز/), s = vidLinkNewest_(g, /^شورتز/);
+      if (r) out.push({ kind: vidLinkKind_('ریلز', part), url: r.getUrl() });
+      if (s) out.push({ kind: vidLinkKind_('شورتز', part), url: s.getUrl() });
+    }
+  } catch (e) {}
+  return out;
+}
+
+/**
+ * قسمت‌های پیشین — یک دور، با نشانگر، و بعد خاموش (همان شکلِ `handoutRetitle_`). هر شب تا `VIDLINK_BF_MAX` ردیف
+ * یا `budgetMs`؛ ردیفی که همهٔ سطرهایش هست بی هیچ فراخوانِ درایو رد می‌شود. دورِ تازه فقط با بالا رفتنِ `VIDLINK_BF_VER`
+ * — دری که کد باز می‌کند، نه آدمی که یادش بماند. ⇒ {done, rows, wrote, why}
+ */
+function vidLinkBackfill_(budgetMs) {
+  var out = { done: false, rows: 0, wrote: 0, why: '' };
+  var ver = String(CFG.VIDLINK_BF_VER || '1');
+  var P = props_();
+  var st = {};
+  try { st = JSON.parse(P.getProperty(PK.VIDLINK_BF) || '{}') || {}; } catch (e0) { st = {}; }
+  if (st.ver !== ver) st = { ver: ver, tab: 0, row: 2, wrote: 0, done: false };
+  if (st.done) { out.done = true; return out; }
+  var t0 = Date.now(), budget = Math.max(10000, Number(budgetMs) || 60000);
+  var cap = Math.max(1, Number(CFG.VIDLINK_BF_MAX) || 30);
+  var hub = getHub_();
+  var tabs = [ENRICH_SHOW_SPECIAL, ENRICH_SHOW_VARIETY];
+  while (st.tab < tabs.length && out.rows < cap && Date.now() - t0 < budget) {
+    var show = tabs[st.tab], spx = show === ENRICH_SHOW_SPECIAL;
+    var sh = hub.getSheetByName(spx ? CFG.SPECIAL_TAB : CFG.TAB_PODCASTS);
+    var n = sh ? sh.getLastRow() : 0;
+    if (!sh || st.row > n) { st.tab++; st.row = 2; continue; }
+    var col = vidLinkCol_(sh, true);
+    var lastC = Math.max(col, spx ? XC.SERIES : 1);
+    var vals = sh.getRange(st.row, 1, Math.min(n - st.row + 1, 200), lastC).getValues();
+    for (var i = 0; i < vals.length && out.rows < cap && Date.now() - t0 < budget; i++, st.row++) {
+      var ep = Number(faDigits_(String(vals[i][0] || '')));
+      if (!(ep > 0)) continue;
+      var cell = String(vals[i][col - 1] || '');
+      if (/^ویدئو:/m.test(cell) && (!spx || /^ریلز/m.test(cell))) continue;   // کامل است
+      out.rows++;
+      var fo = null;
+      try { fo = ytFolderOf_(show, ep, spx ? String(vals[i][XC.SERIES - 1] || '') : ''); } catch (eF) { fo = null; }
+      if (!fo) continue;
+      var got = vidLinkScan_(fo), next = cell;
+      for (var g = 0; g < got.length; g++) next = vidLinkMerge_(next, got[g].kind, got[g].url);
+      if (next !== cell) { sh.getRange(st.row, col).setValue(next); out.wrote++; st.wrote = (Number(st.wrote) || 0) + 1; }
+    }
+  }
+  if (st.tab >= tabs.length) { st.done = true; st.doneAt = nowStr_(); out.done = true; }
+  try { P.setProperty(PK.VIDLINK_BF, JSON.stringify(st)); } catch (eS) { out.why = 'نشانگر ذخیره نشد'; }
+  return out;
+}
+
+/** خطِ وضعیت — فقط Properties. */
+function vidLinkStatus_() {
+  var st = {};
+  try { st = JSON.parse(props_().getProperty(PK.VIDLINK_BF) || '{}') || {}; } catch (e) { st = {}; }
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (eF) { return String(x); } };
+  var line = 'نشانیِ ویدئوها در ستونِ «' + VIDLINK_HEAD_ + '»: ' +
+    (st.done ? 'قسمت‌های پیشین تمام شد (' + fa(st.wrote || 0) + ' ردیف، ' + String(st.doneAt || '').slice(0, 10) + ')؛ تازه‌ها همان لحظهٔ رسیدن'
+     : st.ver ? 'پرکردنِ قسمت‌های پیشین در جریان (' + fa(st.wrote || 0) + ' ردیف تا این‌جا)'
+     : 'پرکردنِ قسمت‌های پیشین هنوز شروع نشده') + '.';
+  return { ok: true, done: !!st.done, wrote: Number(st.wrote) || 0, line: line };
 }
 
 /* ═══════════════════════════ 28_SourceQuality.gs ═══════════════════════════ */
@@ -84535,11 +84882,18 @@ function igNextEp_(pub, st, orderIn) {
     return !!(r && r.videoId && String(r.privacy || '').toLowerCase() === 'public');
   };
   var gaps = [], caught = [];
+  st.extSkip = [];
   /* ۱۲.۴: «جملهٔ کوتاه» فقط از جایی که روشن شد، رو به جلو — نه برای درس‌های گذشته. بی این، روشن کردنش صف را به درسِ ۳ِ مصباح
      برمی‌گرداند و پیش از هر ریلزِ تازه ده‌ها ریلزِ کهنه می‌ساخت. `st.quoteStart` = نخستین درسِ ناتمام در همان لحظه. */
   var qStart = String(st.quoteStart || ''), qOpen = false;
+  /* ۱۳.۷: مجموعه‌ای که دفترِ بیرونیِ NotebookLM برایش شورت و ریلز می‌سازد، این‌جا رد می‌شود — نه «گیر»، نه «جاافتاده». */
+  var extM = extNlmMem_();
+  if (!extM && CFG.EXT_NLM_SHEET) { try { extM = extNlmSync_(); if (!extM || !extM.ok) extM = extNlmMem_(); } catch (eXs) {} }
+  var extKeys = (extM && extM.series && extM.series.length) ? extNlmRegKeys_() : {}, extSkip = [];
   for (var s = 0; s < order.length; s++) {
     var S = order[s], eps = S.eps || [];
+    var extBy = extM ? extNlmCovers_(extM, S.name, extKeys[S.name] || '') : '';
+    if (extBy) { extSkip.push(S.name); st.extSkip = extSkip; continue; }
     for (var i = 0; i < eps.length; i++) {
       var x = eps[i], e = Number(x.ep), np = igPartsFor_(s, x.recap);
       if (qStart && igUid_({ ep: e, part: 1 }) === qStart) qOpen = true;
@@ -85330,6 +85684,17 @@ function igStepVoice_(it, fo, plan, deadline) {
   delete plan.tts;
   plan.times = times;
   plan.seconds = Math.round(bytes.length / (sr * 2) * 10) / 10;
+  /* ۱۳.۷: گوشِ موتور روی صدای همین ریلز — فقط شنیدن و ثبت، هیچ ساختِ دوباره‌ای (صدای ریلز همان است که او پسندید، ۹.۷۴).
+     وارسیِ «ریلز دیده و شنیده شد»ِ ناظر سه روزِ پیاپی «نشد» خورد چون سشنِ ناظر گوش ندارد؛ این شنونده دارد. */
+  try {
+    if (CFG.IG_EAR !== false && plan.earFor !== plan.audioId && !(deadline && Date.now() > deadline - 60000)) {
+      var ev = ttsListenCheck_(Utilities.base64Encode(p1), plain, String(CFG.IG_VOICE_STYLE || ''));
+      plan.earFor = plan.audioId;
+      plan.ear = { at: nowStr_(), failed: !!ev.failed, why: ev.why || '', n: (ev.errs || []).length,
+                   w: (ev.errs || []).slice(0, 4).map(function (x) { return x.word + '←' + x.heard; }), pros: ev.pros || null };
+      igEarNote_(it.key, plan.ear);
+    }
+  } catch (eEar) {}
   /* سقفِ سه دقیقه (۹.۳۰): شورتزِ یوتیوب تا ۱۸۰ ثانیه است. بلندتر ⇒ از نو با متنی که به همان نسبت کوتاه‌تر است. */
   var capS = Math.max(30, Number(CFG.IG_MAX_SEC) || 178);
   if (plan.seconds > capS) {
@@ -85503,18 +85868,29 @@ function igStepGot_(it, fo, plan) {
   }
   plan.video = r.url; plan.cover = r.cover; plan.seconds = r.seconds || plan.seconds;
   plan.short = String(r.short || ''); plan.shortSeconds = Number(r.shortSeconds) || 0; plan.align = String(r.align || '');
+  /* ۱۳.۷: هر سه برداشت کدِ پاسخش را می‌گوید — تا امروز کدِ غیرِ ۲۰۰ بی‌صدا رد می‌شد و پوشه بی ریلز می‌ماند بی آنکه
+     `saveWhy` چیزی بگوید. و نشانیِ درایوِ ریلز و شورتز در ستونِ «فایل تصویری»ِ همان درس می‌نشیند. */
+  var miss = [], made = {};
   try {
     var b = UrlFetchApp.fetch(r.url, { muteHttpExceptions: true, followRedirects: true });
-    if (b.getResponseCode() === 200) fo.createFile(b.getBlob().setName('ریلز — ' + String(plan.title || it.key).slice(0, 60) + '.mp4'));
+    if (b.getResponseCode() === 200) made.reel = fo.createFile(b.getBlob().setName('ریلز — ' + String(plan.title || it.key).slice(0, 60) + '.mp4'));
+    else miss.push('ریلز: کدِ ' + b.getResponseCode());
     var c = UrlFetchApp.fetch(r.cover, { muteHttpExceptions: true, followRedirects: true });
     if (c.getResponseCode() === 200) fo.createFile(c.getBlob().setName('ریلز — کاور.jpg'));
+    else miss.push('کاور: کدِ ' + c.getResponseCode());
     /* نسخهٔ شورتزِ یوتیوب هم در همین پوشه (۹.۲۶: «نسخهٔ شورتز هم ذیلِ همون فولدر») — زیرپوشه، نه خودِ پوشهٔ قسمت:
        `ytVideoIn_` هر mp4ِ پوشهٔ قسمت را ویدئوی قسمت می‌گیرد. */
     if (plan.short) {
       var sh = UrlFetchApp.fetch(plan.short, { muteHttpExceptions: true, followRedirects: true });
-      if (sh.getResponseCode() === 200) fo.createFile(sh.getBlob().setName('شورتز — ' + String(plan.title || it.key).slice(0, 60) + '.mp4'));
+      if (sh.getResponseCode() === 200) made.short = fo.createFile(sh.getBlob().setName('شورتز — ' + String(plan.title || it.key).slice(0, 60) + '.mp4'));
+      else miss.push('شورتز: کدِ ' + sh.getResponseCode());
     }
-  } catch (eS) { plan.saveWhy = String(eS.message || eS).slice(0, 100); }
+  } catch (eS) { miss.push(String(eS.message || eS).slice(0, 100)); }
+  if (miss.length) plan.saveWhy = miss.join(' · ').slice(0, 160);
+  try {
+    if (made.reel) vidLinkNote_(ENRICH_SHOW_SPECIAL, it.ep, vidLinkKind_('ریلز', it.part), made.reel.getUrl());
+    if (made.short) vidLinkNote_(ENRICH_SHOW_SPECIAL, it.ep, vidLinkKind_('شورتز', it.part), made.short.getUrl());
+  } catch (eVl) { plan.linkWhy = String(eVl.message || eVl).slice(0, 100); }
   ytShareOff_(plan.audioId);
   (plan.imgs || []).forEach(function (x) { ytShareOff_(x.id); });
   var d = ytRenderRead_();
@@ -86242,6 +86618,9 @@ function igStatus_() {
       (out.held.length ? '. ⏸ کنار تا تلاشِ بعد: ' + out.held.map(function (h) { return 'درسِ ' + h.ep + ' (' + h.tries + ' بار، ' + h.ageH + ' ساعت؛ ' + h.why + ')'; }).join(' · ') : '') +
       (igBookUrl_() ? '. دفتر: ' + igBookUrl_() : '') +
       '. ⟨شما⟩ هایلایت، بیو و برچسبِ پیوندِ استوری از API در دسترس نیست — از خودِ اپ.';
+  /* ۱۳.۷: دفترِ بیرونیِ NotebookLM — چه چیزی خوانده شد و کدام مجموعه کنار رفت، در همان خط. */
+  try { out.ext = extNlmStatus_(); if (a && out.ext && out.ext.line) out.line += ' · ' + out.ext.line; } catch (eX) {}
+  try { out.ear = igEarStatus_(); if (a && out.ear && out.ear.list.length) out.line += ' · ' + out.ear.line; } catch (eE) {}
   return out;
 }
 
@@ -87119,6 +87498,164 @@ function fbStatus_() {
   return { on: !!g.ok, why: g.ok ? '' : g.why, today: today, queued: q.length,
            line: g.ok ? '📘 فیسبوک: روشن، امروز ' + today + ' ریلز' + (q.length ? '، ' + q.length + ' در صفِ تلاشِ دوباره' : '') + '.'
                       : '📘 فیسبوک: خاموش (' + g.why + ').' };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ *  دفترِ بیرونیِ NotebookLM — فقط خواندن، هر شب (۱۳.۷)
+ *
+ *  صاحبِ کانال: «موتور فهرست EXT-NOTEBOOKLM-STATE را هر شب فقط-خواندنی بخواند تا شورت/ریلزِ تکراری نسازد؛ هیچ چیزی
+ *  در آن شیت ننویس.» آن دفتر را کارگرِ دیگری می‌نویسد (مسیرِ دستیِ NotebookLM) و مجموعه به مجموعه شورت و ریلز می‌سازد —
+ *  با واحدهای خودش (AYLO-001 ← قطعه‌های ۰۲ و ۰۳)، نه با درس‌های موتور. واحدِ مشترکی برای «همین درس» نیست؛ آنچه مشترک
+ *  است **مجموعه** است (کلیدِ CONTENT-HUB). پس مجموعه‌ای که آن دفتر برایش برنامه دارد، در صفِ ریلز و شورتزِ موتور رد
+ *  می‌شود — رد، نه «گیر»: مجموعهٔ بعدی همان‌طور نوبت می‌گیرد که اگر این یکی تمام شده بود.
+ *
+ *  تنها دسترسی `SpreadsheetApp.openById(…).getSheetByName(…)` و `getRange(…).getValues()` است (`extNlmVals_`). هیچ `set*`، `append*`،
+ *  `insert*` یا `delete*`ی روی آن شیت در این بخش نیست و `run_v137_test.js` همین را از متنِ کد می‌سنجد. شکستِ خواندن
+ *  حافظهٔ دیشب را پاک نمی‌کند: «نتوانستم بخوانم» یعنی «همان دیروز»، نه «هیچ مجموعه‌ای بیرونی نیست».
+ * ══════════════════════════════════════════════════════════════════════════ */
+/** کلید/نام ⇒ شکلِ مقایسه: کوچک، بی پرانتز، فقط حرف و عدد با یک فاصله. */
+function extNlmNorm_(s) {
+  return faDigits_(String(s || '')).toLowerCase().replace(/\([^)]*\)/g, ' ')
+    .replace(/[^a-z0-9؀-ۿ]+/g, ' ').replace(/[ً-ْ‌]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/** همهٔ مقدارهای یک تب — تنها خواندنِ این بخش از آن دفتر. */
+function extNlmVals_(sh) {
+  var r = sh.getLastRow(), c = sh.getLastColumn();
+  if (r < 1 || c < 1) return [];
+  return sh.getRange(1, 1, r, Math.min(c, 30)).getValues();
+}
+
+/** ستونی با این سرستون (یا ستونِ پیش‌فرض) ⇒ اندیسِ صفرپایه. */
+function extNlmColOf_(head, re, dflt) {
+  for (var c = 0; c < head.length; c++) if (re.test(String(head[c] || ''))) return c;
+  return dflt;
+}
+
+/**
+ * خواندن ⇒ {ok, at, series:[{k, n, u, p}], why}. `k` کلیدِ CONTENT-HUB، `n` نام‌ها، `u` شمارِ واحد، `p` منتشر یا
+ * زمان‌بندی‌شده. فقط تبِ «منابع» و «واحدها» — دو خواندن.
+ */
+function extNlmRead_() {
+  var out = { ok: false, at: nowStr_(), series: [], why: '' };
+  var id = String(CFG.EXT_NLM_SHEET || '').trim();
+  if (!id) { out.why = 'شناسهٔ دفتر تنظیم نشده'; return out; }
+  var ss;
+  try { ss = SpreadsheetApp.openById(id); } catch (e) { out.why = 'باز نشد: ' + String(e.message || e).slice(0, 80); return out; }
+  var by = {};
+  var add = function (k, n) {
+    var kk = extNlmNorm_(k), nn = extNlmNorm_(n);
+    var id2 = kk || nn;
+    if (!id2) return null;
+    var S = by[id2] = by[id2] || { k: kk, n: [], u: 0, p: 0 };
+    /* «پولیا — How to Solve It»: هر پاره جدا هم نگه داشته می‌شود، چون نامِ مجموعهٔ موتور معمولاً فقط یکی از آن‌هاست */
+    var parts = [nn].concat(String(n || '').split(/\s*[—–]\s*/).map(extNlmNorm_));
+    for (var q = 0; q < parts.length; q++) if (parts[q] && S.n.indexOf(parts[q]) === -1) S.n.push(parts[q]);
+    return S;
+  };
+  try {
+    var sr = ss.getSheetByName('منابع');
+    if (sr) {
+      var v = extNlmVals_(sr), h = v[0] || [];
+      var cN = extNlmColOf_(h, /منبع|کتاب/, 0), cK = extNlmColOf_(h, /کلید/, 1), cS = extNlmColOf_(h, /وضعیت متن/, 7);
+      for (var i = 1; i < v.length; i++) {
+        /* «در انتظار متن» یعنی آن دفتر هنوز چیزی نمی‌سازد — مجموعه‌اش مالِ موتور می‌ماند تا متن برسد */
+        if (/در انتظار/.test(String(v[i][cS] || ''))) continue;
+        add(v[i][cK], v[i][cN]);
+      }
+    }
+    var su = ss.getSheetByName('واحدها');
+    if (su) {
+      var w = extNlmVals_(su), hu = w[0] || [];
+      var uK = extNlmColOf_(hu, /کلید مجموعه/, 0), uS = extNlmColOf_(hu, /^وضعیت$/, 7);
+      for (var j = 1; j < w.length; j++) {
+        var S = add(w[j][uK], '');
+        if (!S) continue;
+        S.u++;
+        if (/منتشر|زمان‌بندی/.test(String(w[j][uS] || ''))) S.p++;
+      }
+    }
+  } catch (eR) { out.why = 'خوانده نشد: ' + String(eR.message || eR).slice(0, 80); return out; }
+  for (var key in by) if (Object.prototype.hasOwnProperty.call(by, key)) out.series.push(by[key]);
+  out.ok = true;
+  return out;
+}
+
+/** هر شب: بخوان و در Properties بگذار؛ شکست حافظهٔ قبلی را نگه می‌دارد و فقط علتش را می‌افزاید. ⇒ همان شیء */
+function extNlmSync_() {
+  var r = extNlmRead_(), prev = extNlmMem_();
+  var keep = r.ok ? r : (prev ? (prev.why = r.why, prev.failAt = r.at, prev) : r);
+  try { props_().setProperty(PK.EXT_NLM, JSON.stringify(keep).slice(0, 8500)); } catch (e) {}
+  return keep;
+}
+function extNlmMem_() {
+  try { return JSON.parse(props_().getProperty(PK.EXT_NLM) || 'null'); } catch (e) { return null; }
+}
+
+/**
+ * این مجموعهٔ موتور را دفترِ بیرونی پوشش می‌دهد؟ ⇒ نامِ بیرونی یا ''. هم‌خوانی با کلیدِ رجیستری (برابر)، یا نامی که
+ * دست‌کم ۶ نویسه دارد و یکی درونِ دیگری است — «پولیا — How to Solve It» با «How to Solve It» می‌خوانَد، «Audi» با هیچ.
+ */
+function extNlmCovers_(mem, seriesName, regKey) {
+  if (!mem || !mem.series || !mem.series.length) return '';
+  var nm = extNlmNorm_(seriesName), rk = extNlmNorm_(regKey);
+  for (var i = 0; i < mem.series.length; i++) {
+    var S = mem.series[i];
+    if (S.k && (S.k === rk || S.k === nm)) return (S.n && S.n[0]) || S.k;
+    var cands = (S.n || []).concat(S.k ? [S.k] : []);
+    for (var c = 0; c < cands.length; c++) {
+      var x = String(cands[c] || '').trim();
+      if (x.length < 6 || !nm) continue;
+      if (nm === x || (nm.length >= 6 && (nm.indexOf(x) !== -1 || x.indexOf(nm) !== -1))) return (S.n && S.n[0]) || S.k;
+    }
+  }
+  return '';
+}
+
+/** نامِ مجموعه ⇒ کلیدِ رجیستری، یک خواندن برای همه. */
+function extNlmRegKeys_() {
+  var m = {};
+  try {
+    var reg = readSeriesReg_(getHub_());
+    for (var r = 0; r < reg.rows.length; r++) m[String(reg.rows[r].vals[SC.NAME - 1] || '')] = String(reg.rows[r].vals[SC.KEY - 1] || '');
+  } catch (e) {}
+  return m;
+}
+
+/** خطِ وضعیت — فقط Properties. */
+function extNlmStatus_() {
+  var m = extNlmMem_(), st = igState_();
+  var skip = st.extSkip || [];
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (eF) { return String(x); } };
+  if (!m) return { ok: true, read: false, line: 'دفترِ NotebookLM: هنوز خوانده نشده (هر شب، فقط خواندن).' };
+  var u = 0, p = 0;
+  (m.series || []).forEach(function (S) { u += Number(S.u) || 0; p += Number(S.p) || 0; });
+  return { ok: !m.why, read: true, at: m.at || '', series: (m.series || []).length, units: u, published: p, skip: skip,
+           line: 'دفترِ NotebookLM (فقط خواندن، ' + String(m.at || '').slice(0, 16) + '): ' + fa((m.series || []).length) +
+                 ' مجموعه، ' + fa(u) + ' واحد، ' + fa(p) + ' منتشر یا زمان‌بندی‌شده' +
+                 (skip.length ? '؛ ریلز و شورتزِ موتور برای این‌ها ساخته نمی‌شود: ' + skip.map(function (s) { return '«' + s + '»'; }).join('، ')
+                              : '؛ هیچ‌کدام با مجموعه‌های ریلزِ موتور یکی نیست') +
+                 (m.why ? ' · ⚠ خواندنِ آخر نشد (' + m.why + ') — همان فهرستِ پیشین' : '') + '.' };
+}
+
+/* ══ گوشِ ریلز (۱۳.۷) — آخرین شنیده‌ها، برای `_STATUS.json` → `instagram.ear` ══ */
+function igEarNote_(key, ear) {
+  var a = [];
+  try { a = JSON.parse(props_().getProperty(PK.IG_EAR) || '[]') || []; } catch (e) { a = []; }
+  a = [{ key: String(key || ''), at: ear.at, failed: ear.failed, why: ear.why, n: ear.n, w: ear.w, pros: ear.pros }]
+        .concat(a.filter(function (x) { return x && x.key !== key; })).slice(0, 6);
+  try { props_().setProperty(PK.IG_EAR, JSON.stringify(a).slice(0, 6000)); } catch (e2) {}
+  return a;
+}
+function igEarStatus_() {
+  var a = [];
+  try { a = JSON.parse(props_().getProperty(PK.IG_EAR) || '[]') || []; } catch (e) { a = []; }
+  if (!a.length) return { list: [], line: 'گوشِ ریلز: هنوز ریلزی شنیده نشده.' };
+  var x = a[0], p = x.pros || {};
+  return { list: a, line: 'گوشِ ریلز (آخرین: ' + x.key.split(':').pop() + '، ' + String(x.at || '').slice(0, 16) + '): ' +
+    (x.failed ? 'شنیده نشد — ' + (x.why || 'بی علت') : (x.n ? x.n + ' واژهٔ بدخوانده (' + (x.w || []).join('، ') + ')' : 'هیچ واژهٔ بدخوانده‌ای') +
+     (p.q ? '، پرسش: ' + p.q : '') + (p.mark && !/^\s*نه/.test(p.mark) ? '، نشانهٔ خوانده‌شده: ' + p.mark : '') +
+     (p.jump && !/^\s*نه/.test(p.jump) ? '، پرش: ' + p.jump : '')) + '.' };
 }
 
 /* ═══════════════════════════ 39_MusicReview.gs ═══════════════════════════ */

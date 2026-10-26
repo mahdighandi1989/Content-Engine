@@ -245,7 +245,8 @@ reset();
      prof0.rate + ' ⇒ ' + p2.rate);
   ok('۶.۴ و مدلِ تولید عوض نشد: تصمیمِ گوشِ اوست', ttsModel_() === PIN, ttsModel_());
   ttsModelGates_(null, st);
-  ok('۶.۵ یافتهٔ «tts-pin-drift»', findings.some((x) => x.key === 'tts-pin-drift' && x.owner === 'کد'),
+  /* ۱۳.۷: صاحبش «کاربر» است — پرسشی برای گوشِ او بود که هشت بار در صفِ کد ماند و هیچ نسخه‌ای نمی‌توانست ببندَدش */
+  ok('۶.۵ یافتهٔ «tts-pin-drift»', findings.some((x) => x.key === 'tts-pin-drift' && x.owner === 'کاربر' && x.instruction === ''),
      findings.map((x) => x.key).join('، '));
   const vd = selfVerifyMap_()['tts-pin-drift'];
   ok('۶.۶ سنجنده‌اش', vd && vd.still({ ttsModel: st }) === true &&

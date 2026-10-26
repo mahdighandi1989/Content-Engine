@@ -2065,7 +2065,12 @@ function ytRenderFetch_(item, url) {
   try {
     var old = folder.getFilesByName(name);
     while (old.hasNext()) old.next().setTrashed(true);
-    folder.createFile(blob.setName(name));
+    var made = folder.createFile(blob.setName(name));
+    /* ۱۳.۷: نشانیِ درایوِ همین فایل در ستونِ «فایل تصویری»ِ همان قسمت. شکستش ویدئو را نمی‌اندازد — فقط گفته می‌شود. */
+    try {
+      var vl = vidLinkNote_(item.show, item.ep, 'ویدئو', made.getUrl());
+      if (!vl.ok) logLine_('نشانیِ ویدئوی «' + item.show + ':' + item.ep + '» در شیت ننشست: ' + vl.why);
+    } catch (eVl) { logLine_('نشانیِ ویدئو در شیت: ' + eVl.message); }
   } catch (e4) {
     return { ok: false, why: 'در پوشه نوشته نشد: ' + String(e4.message).slice(0, 80) };
   }
@@ -15618,4 +15623,171 @@ function ytHypoRun_(hub) {
     }
   } catch (e) {}
   return r;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ *  «فایل تصویری» — نشانیِ درایوِ ویدئوها کنارِ همان قسمت در شیت (۱۳.۷)
+ *
+ *  صاحبِ کانال: «ثبت لینک درایوِ ویدئو در ستون «فایل تصویری» شیت … برای قسمت‌های بلند و ریلز/شورتز؛ و برای قسمت‌های
+ *  قبلی هم … بدون تغییر فایل‌ها». ستونِ دهمِ Podcasts از روزِ اول «فایل تصویری» نام داشت و **هیچ کدی در آن نمی‌نوشت**؛ تبِ
+ *  درس‌نامه اصلاً چنین ستونی نداشت. نشانیِ ویدئو فقط در پوشه بود — یعنی برای دیدنش باید پوشه را گشت.
+ *
+ *  یک خانه، چند سطر: «ویدئو: …»، «ریلز: …»، «شورتز: …»، «ریلز ۲: …». هر نوع یک سطر و همیشه تازه‌ترین؛ سطرِ نوعِ دیگر دست
+ *  نمی‌خورد، و چیزی که کسی دستی در آن خانه نوشته (سطرِ بی‌برچسب) هم می‌ماند. فقط **خواندنِ** فایل‌ها: هیچ فایلی جابه‌جا،
+ *  بازنام یا هم‌رسانی نمی‌شود — نشانیِ درایو همان است که صاحبش با حسابِ خودش باز می‌کند.
+ * ══════════════════════════════════════════════════════════════════════════ */
+var VIDLINK_HEAD_ = 'فایل تصویری';
+
+/** برچسبِ سطر: «ویدئو»، «ریلز»، «ریلز ۲»، «شورتز ۲». */
+function vidLinkKind_(base, part) {
+  var p = Number(part) || 1;
+  return String(base) + (p > 1 ? ' ' + faDigitsOut_(String(p)) : '');
+}
+
+/** خانهٔ تازه از خانهٔ قبلی: سطرِ همین برچسب جایگزین، بقیه سرِ جا. ⇒ متن. */
+function vidLinkMerge_(cell, kind, url) {
+  var lines = String(cell || '').split(/\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+  var head = String(kind) + ':', line = head + ' ' + String(url), hit = false;
+  for (var i = 0; i < lines.length; i++) {
+    if (lines[i].indexOf(head) === 0) { lines[i] = line; hit = true; }
+  }
+  if (!hit) lines.push(line);
+  /* ترتیبِ ثابت تا خانه با هر نوشتن جابه‌جا نشود: ویدئو، ریلزها، شورتزها، بعد هر چیزِ دیگر */
+  var rank = function (s) { return /^ویدئو:/.test(s) ? 0 : /^ریلز/.test(s) ? 1 : /^شورتز/.test(s) ? 2 : 3; };
+  return lines.map(function (s, k) { return { s: s, k: k }; })
+    .sort(function (a, b) { return (rank(a.s) - rank(b.s)) || (a.k - b.k); })
+    .map(function (x) { return x.s; }).join('\n');
+}
+
+/** ستونِ «فایل تصویری» در این تب — اگر نیست، سرستونش ته می‌نشیند (تبِ درس‌نامه تا ۱۳.۷ نداشت). ⇒ شمارهٔ ستون یا 0 */
+function vidLinkCol_(sh, make) {
+  var last = Math.max(1, sh.getLastColumn());
+  var head = sh.getRange(1, 1, 1, last).getValues()[0] || [];
+  for (var c = 0; c < head.length; c++) if (String(head[c] || '').trim() === VIDLINK_HEAD_) return c + 1;
+  if (!make) return 0;
+  sh.getRange(1, last + 1).setValue(VIDLINK_HEAD_);
+  return last + 1;
+}
+
+/** ردیفِ قسمت در این تب (ستونِ اول = شمارهٔ قسمت). ⇒ شمارهٔ ردیف یا 0 */
+function vidLinkRow_(sh, ep) {
+  var n = sh.getLastRow();
+  if (n < 2) return 0;
+  var v = sh.getRange(2, 1, n - 1, 1).getValues(), want = Number(ep);
+  for (var i = v.length - 1; i >= 0; i--) if (Number(faDigits_(String(v[i][0] || ''))) === want) return i + 2;
+  return 0;
+}
+
+/**
+ * یک نشانی را در خانهٔ همان قسمت بنویس. ⇒ {ok, why, changed}. شکست هرگز کارِ اصلی (برداشتِ ویدئو) را نمی‌اندازد —
+ * فراخوان‌ها در try می‌خوانند و `why` را ثبت می‌کنند.
+ */
+function vidLinkNote_(show, ep, kind, url, hub) {
+  var out = { ok: false, why: '', changed: false };
+  if (!url || !(Number(ep) > 0)) { out.why = 'نشانی یا شماره نیست'; return out; }
+  var h = hub || getHub_();
+  var sp = String(show) === ENRICH_SHOW_SPECIAL;
+  var sh = h.getSheetByName(sp ? CFG.SPECIAL_TAB : CFG.TAB_PODCASTS);
+  if (!sh) { out.why = 'تب نیست'; return out; }
+  var row = vidLinkRow_(sh, ep);
+  if (!row) { out.why = 'ردیفِ قسمتِ ' + ep + ' در تب نیست'; return out; }
+  var col = vidLinkCol_(sh, true);
+  var cell = sh.getRange(row, col);
+  var cur = String(cell.getValue() || ''), next = vidLinkMerge_(cur, kind, url);
+  out.ok = true;
+  if (next !== cur) { cell.setValue(next); out.changed = true; }
+  return out;
+}
+
+/** تازه‌ترین mp4ِ یک پوشه که نامش با این الگو می‌خوانَد. ⇒ File یا null */
+function vidLinkNewest_(folder, re) {
+  var best = null, bt = 0;
+  try {
+    var it = folder.getFiles();
+    while (it.hasNext()) {
+      var f = it.next(), nm = f.getName();
+      if (!/\.mp4$/i.test(nm) || (re && !re.test(nm))) continue;
+      var t = 0; try { t = f.getDateCreated().getTime(); } catch (eT) {}
+      if (!best || t > bt) { best = f; bt = t; }
+    }
+  } catch (e) {}
+  return best;
+}
+
+/** همهٔ ویدئوهای یک پوشهٔ قسمت ⇒ [{kind, url}]. «ویدئوی پیشین — جایگزین‌شده» زیرپوشه است و دیده نمی‌شود. */
+function vidLinkScan_(folder) {
+  var out = [];
+  var v = vidLinkNewest_(folder, null);                 // ytVideoIn_: هر mp4ِ خودِ پوشه ویدئوی قسمت است
+  if (v) out.push({ kind: 'ویدئو', url: v.getUrl() });
+  var base = String(CFG.IG_FOLDER || 'اینستاگرام');
+  try {
+    var sub = folder.getFolders();
+    while (sub.hasNext()) {
+      var g = sub.next(), nm = String(g.getName() || '');
+      if (nm.indexOf(base) !== 0) continue;
+      var rest = faDigits_(nm.slice(base.length).trim());
+      if (rest && !/^\d+$/.test(rest)) continue;
+      var part = rest ? Number(rest) : 1;
+      var r = vidLinkNewest_(g, /^ریلز/), s = vidLinkNewest_(g, /^شورتز/);
+      if (r) out.push({ kind: vidLinkKind_('ریلز', part), url: r.getUrl() });
+      if (s) out.push({ kind: vidLinkKind_('شورتز', part), url: s.getUrl() });
+    }
+  } catch (e) {}
+  return out;
+}
+
+/**
+ * قسمت‌های پیشین — یک دور، با نشانگر، و بعد خاموش (همان شکلِ `handoutRetitle_`). هر شب تا `VIDLINK_BF_MAX` ردیف
+ * یا `budgetMs`؛ ردیفی که همهٔ سطرهایش هست بی هیچ فراخوانِ درایو رد می‌شود. دورِ تازه فقط با بالا رفتنِ `VIDLINK_BF_VER`
+ * — دری که کد باز می‌کند، نه آدمی که یادش بماند. ⇒ {done, rows, wrote, why}
+ */
+function vidLinkBackfill_(budgetMs) {
+  var out = { done: false, rows: 0, wrote: 0, why: '' };
+  var ver = String(CFG.VIDLINK_BF_VER || '1');
+  var P = props_();
+  var st = {};
+  try { st = JSON.parse(P.getProperty(PK.VIDLINK_BF) || '{}') || {}; } catch (e0) { st = {}; }
+  if (st.ver !== ver) st = { ver: ver, tab: 0, row: 2, wrote: 0, done: false };
+  if (st.done) { out.done = true; return out; }
+  var t0 = Date.now(), budget = Math.max(10000, Number(budgetMs) || 60000);
+  var cap = Math.max(1, Number(CFG.VIDLINK_BF_MAX) || 30);
+  var hub = getHub_();
+  var tabs = [ENRICH_SHOW_SPECIAL, ENRICH_SHOW_VARIETY];
+  while (st.tab < tabs.length && out.rows < cap && Date.now() - t0 < budget) {
+    var show = tabs[st.tab], spx = show === ENRICH_SHOW_SPECIAL;
+    var sh = hub.getSheetByName(spx ? CFG.SPECIAL_TAB : CFG.TAB_PODCASTS);
+    var n = sh ? sh.getLastRow() : 0;
+    if (!sh || st.row > n) { st.tab++; st.row = 2; continue; }
+    var col = vidLinkCol_(sh, true);
+    var lastC = Math.max(col, spx ? XC.SERIES : 1);
+    var vals = sh.getRange(st.row, 1, Math.min(n - st.row + 1, 200), lastC).getValues();
+    for (var i = 0; i < vals.length && out.rows < cap && Date.now() - t0 < budget; i++, st.row++) {
+      var ep = Number(faDigits_(String(vals[i][0] || '')));
+      if (!(ep > 0)) continue;
+      var cell = String(vals[i][col - 1] || '');
+      if (/^ویدئو:/m.test(cell) && (!spx || /^ریلز/m.test(cell))) continue;   // کامل است
+      out.rows++;
+      var fo = null;
+      try { fo = ytFolderOf_(show, ep, spx ? String(vals[i][XC.SERIES - 1] || '') : ''); } catch (eF) { fo = null; }
+      if (!fo) continue;
+      var got = vidLinkScan_(fo), next = cell;
+      for (var g = 0; g < got.length; g++) next = vidLinkMerge_(next, got[g].kind, got[g].url);
+      if (next !== cell) { sh.getRange(st.row, col).setValue(next); out.wrote++; st.wrote = (Number(st.wrote) || 0) + 1; }
+    }
+  }
+  if (st.tab >= tabs.length) { st.done = true; st.doneAt = nowStr_(); out.done = true; }
+  try { P.setProperty(PK.VIDLINK_BF, JSON.stringify(st)); } catch (eS) { out.why = 'نشانگر ذخیره نشد'; }
+  return out;
+}
+
+/** خطِ وضعیت — فقط Properties. */
+function vidLinkStatus_() {
+  var st = {};
+  try { st = JSON.parse(props_().getProperty(PK.VIDLINK_BF) || '{}') || {}; } catch (e) { st = {}; }
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (eF) { return String(x); } };
+  var line = 'نشانیِ ویدئوها در ستونِ «' + VIDLINK_HEAD_ + '»: ' +
+    (st.done ? 'قسمت‌های پیشین تمام شد (' + fa(st.wrote || 0) + ' ردیف، ' + String(st.doneAt || '').slice(0, 10) + ')؛ تازه‌ها همان لحظهٔ رسیدن'
+     : st.ver ? 'پرکردنِ قسمت‌های پیشین در جریان (' + fa(st.wrote || 0) + ' ردیف تا این‌جا)'
+     : 'پرکردنِ قسمت‌های پیشین هنوز شروع نشده') + '.';
+  return { ok: true, done: !!st.done, wrote: Number(st.wrote) || 0, line: line };
 }
