@@ -2651,6 +2651,20 @@ def run_rvc(ref, src, text, out):
 
     import soundfile as sf
     from infer_rvc_python import BaseLoader
+    # ══ نیم‌پردهٔ کسری (۱۳.۵) ══ «کمی بم‌تر» یعنی ۰٫۵ تا ۱٫۵ نیم‌پرده؛ کتابخانه `pitch_lvl` را `int()` می‌کند (main.py:422) و ۰٫۵ گم
+    # می‌شد. خودِ جابه‌جایی در `VC.get_f0` است (`f0 *= pow(2, f0_up_key / 12)`) و عدد را اعشاری می‌پذیرد؛ پس بخشِ صحیح از همان در
+    # می‌رود و بخشِ کسری همین‌جا به آن افزوده می‌شود. نصبِ دوباره بی‌اثر است (`_frac`).
+    try:
+        import infer_rvc_python.root_pipe as _rp
+        if not getattr(_rp.VC.get_f0, "_frac", False):
+            _g0 = _rp.VC.get_f0
+
+            def _gf(self, input_audio_path, x, p_len, f0_up_key, *a, **k):
+                return _g0(self, input_audio_path, x, p_len, f0_up_key + float(OPT.get("_pitch_frac") or 0.0), *a, **k)
+            _gf._frac = True
+            _rp.VC.get_f0 = _gf
+    except Exception as e:
+        print("::warning title=نیم‌پردهٔ کسری نصب نشد::%s — گام گرد می‌شود" % str(e)[:160], flush=True)
 
     vc = BaseLoader(only_cpu=True, hubert_path=paths["hubert"],
                     rmvpe_path=paths["rmvpe"])
@@ -2737,7 +2751,9 @@ def run_rvc(ref, src, text, out):
     for pv in steps_:
         for iv in idxs_:
             for qv in prots_:
-                conf["pitch_lvl"] = int(pv)
+                pf_ = float(pv)
+                conf["pitch_lvl"] = int(pf_)              # بخشِ صحیح (رو به صفر)
+                OPT["_pitch_frac"] = pf_ - int(pf_)        # بخشِ کسری ⇐ `_gf` بالا
                 conf["index_influence"] = float(iv)
                 conf["consonant_breath_protection"] = float(qv)
                 vc.apply_conf(**conf)
@@ -2752,7 +2768,7 @@ def run_rvc(ref, src, text, out):
                     round(float(iv) * 100), round(float(qv) * 100))
                 dst = os.path.join(out, nm_)
                 sf.write(dst, audio, sr)
-                row_ = {"name": nm_, "pitch": int(pv),
+                row_ = {"name": nm_, "pitch": float(pv),
                         "index_rate": float(iv), "protect": float(qv),
                         "seconds": took, "info": probe(dst)}
                 if OPT.get("no_sim"):

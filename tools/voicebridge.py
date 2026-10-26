@@ -1074,6 +1074,61 @@ def qualityScan(path, bounds=None, crackSt=6.0, hop=0.02, minRun=3, fac=1.6):
     return out
 
 
+# ══ «خش و خراش مثلِ نوارِ قدیمی» (۱۳.۵) ══ سنجه‌های کیفیتِ ۱۳.۱/۱۳.۲ زیروبم و بلندی را می‌شمردند؛ هیچ‌کدام «خش» نبود. خش ضربه‌های
+# کوتاه و پرانرژی در باندِ ۳ تا ۷٫۸ کیلوهرتز است. ولی همین شکل را تپشِ طبیعیِ تارهای صوتی هم می‌سازد: روی صدای خامِ جمینای سنجهٔ
+# مطلق ۱۳۱ در دقیقه داد و روی ضبطِ واقعیِ گلدوز (۱۶ کیلوهرتز) ۲٫۲، پس عددِ مطلق داوری نمی‌کند. داوری **نسبت به مرحلهٔ قبل در همان
+# لحظه** است، چون تبدیل زمان را نگه می‌دارد: قابی که در خروجی ضربه دارد (اوج ≥ `pk` برابرِ مقیاسِ میانه‌ای) و در مرجعِ همان لحظه
+# دست‌کم `ratio` برابر کمتر، «خشِ افزوده»ی همان مرحله است. جای ضربه کنارِ مرزهای تکه (`bounds`) جدا شمرده می‌شود تا «برش و وصله»
+# از «تبدیل» جدا شود. ⇒ {speechMin, absPerMin, addedPerMin?, added[], nearBound?, farBound?}
+def crackleScan(path, refPath=None, bounds=None, pk=7.0, ratio=1.8):
+    import numpy as np
+
+    def at16(p):
+        x, sr = _wavRead(p)
+        if sr != 16000:
+            n = int(len(x) * 16000.0 / sr)
+            X = np.fft.rfft(x)
+            x = (np.fft.irfft(X[:n // 2 + 1], n) * (n / float(len(x)))).astype(np.float32)
+        return x
+
+    def frames(x):
+        hop = 320
+        nf = len(x) // hop
+        fr = x[:nf * hop].reshape(nf, hop)
+        db = 10 * np.log10((fr ** 2).mean(1) + 1e-12)
+        X = np.fft.rfft(x[:nf * hop])
+        f = np.fft.rfftfreq(nf * hop, 1 / 16000.0)
+        X[(f < 3000) | (f > 7800)] = 0
+        h = np.fft.irfft(X, nf * hop).reshape(nf, hop)
+        sc = np.median(np.abs(h), 1) * 1.4826 + 1e-7
+        return db, np.abs(h).max(1) / sc, np.sqrt((h ** 2).mean(1)) + 1e-9
+    x = at16(path)
+    db, p, e = frames(x)
+    sp = db > np.percentile(db, 95) - 30
+    mins = max(sp.sum() * 0.02 / 60.0, 1e-3)
+    out = {"speechMin": round(float(mins), 2), "absPerMin": round(float((sp & (p > pk)).sum() / mins), 1), "added": []}
+    if refPath:
+        r = at16(refPath)
+        n = min(len(x), len(r)) // 320
+        dbr, pr, er = frames(r[:n * 320])
+        m = n
+        # بلندیِ دو فایل یکی نیست (تبدیل پیش از `loudFix`، مبدأ ۲۴ کیلوهرتزیِ جمینای) ⇒ انرژیِ باند نسبت به میانهٔ گفتارِ خودِ هر فایل
+        spr = dbr > np.percentile(dbr, 95) - 30
+        en, ern = e[:m] / (np.median(e[:m][sp[:m]]) + 1e-9), er / (np.median(er[spr]) + 1e-9)
+        add = sp[:m] & (p[:m] > pk) & (p[:m] > ratio * pr[:m]) & (en > 0.5 * ern)
+        out["addedPerMin"] = round(float(add.sum() / mins), 1)
+        out["added"] = [round(i * 0.02, 2) for i in np.nonzero(add)[0][:40]]
+        if bounds:
+            near = np.zeros(m, bool)
+            for b in bounds:
+                i0, i1 = max(0, int((float(b) - 0.1) / 0.02)), min(m, int((float(b) + 0.1) / 0.02) + 1)
+                near[i0:i1] = True
+            nm, fm = max((sp[:m] & near).sum() * 0.02 / 60.0, 1e-3), max((sp[:m] & ~near).sum() * 0.02 / 60.0, 1e-3)
+            out["nearBound"] = round(float((add & near).sum() / nm), 1)
+            out["farBound"] = round(float((add & ~near).sum() / fm), 1)
+    return out
+
+
 def qualityBad(q, maxCrackPerMin=2.5, maxJitterSt=0.18, maxShimmerDb=2.8):
     """⇒ علت (رشته) یا خالی."""
     if not q or not q.get("sec"):
@@ -1432,7 +1487,8 @@ def pitchExact(tokens):
     نگارشِ ۹.۶۸ همین را در voicelab با `int(...)` می‌ساخت و نام‌گذاریِ فایل (`pv.startswith("-")`) روی عدد
     افتاد: سه اجرای پل (۱۵۱–۱۵۳) هر کدام شش دقیقه دویدند و بی یک فایل مُردند. سنجه فقط متنِ کد را
     می‌خواند، پس سبز ماند — خواندن به‌جای اجرا."""
-    steps = [str(int(round(float(str(t).strip())))) for t in tokens if str(t).strip()]
+    # ۱۳.۵: نیم‌پردهٔ کسری (۰٫۵) — «%g» تا «0»، «-1» و «-0.5» همان رشته‌های همیشگی بمانند.
+    steps = ["%g" % round(float(str(t).strip()), 2) for t in tokens if str(t).strip()]
     return steps, {"exact": True, "steps": steps, "dropped": [], "auto": None}
 
 
@@ -1924,6 +1980,7 @@ def runOne(it, mp):
             "کلِ قسمت تبدیل نشده، پس ردیف بسته نمی‌شود." % (outSec, srcSec))
         return 1
 
+    rawConv = best            # ۱۳.۵: خروجیِ خودِ تبدیل، پیش از رنگ و بلندی و «خ» — مرجعِ سنجشِ خشِ هر مرحله
     # ══ رنگ، پیش از بلندی (۹.۰۵) ══ ردیفی که رنگ خواسته و نگرفته، **بسته نمی‌شود**: فایلی که نامش
     # «رنگِ ضبط‌های قدیم» است و همان صدای تمیز را دارد، همان ادعای نیمه‌ای است که او باید بگیرد.
     colour = None
@@ -1948,6 +2005,7 @@ def runOne(it, mp):
     # بلندی، پیش از بُرش — تا همهٔ تکه‌ها یک گین داشته باشند (۸.۳۷). شکست
     # در سنجش خروجی را نمی‌اندازد: فایلِ خام می‌رود و «نسنجیدم» ثبت می‌شود.
     loud = None
+    preLoud = best            # ۱۳.۵
     try:
         normed = os.path.join(os.path.dirname(best), "loud-out.wav")
         loud = loudFix(best, normed)
@@ -2025,6 +2083,65 @@ def runOne(it, mp):
         except Exception as e:
             hxRes = {"ok": False, "why": str(e)[:120]}
             say("::warning title=درمانِ «خ» نشد::%s" % str(e)[:200])
+    # ══ خش در کدام مرحله؟ (۱۳.۵) ══ «بعضی جاها صدا مثلِ نوارِ قدیمی خش و خراش دارد … از خودِ تبدیل است یا از نرم‌کردنِ «خ» یا از برش و
+    # وصله؟» هر مرحله با فایلِ پیش از خودش در همان لحظه سنجیده می‌شود (`crackleScan`)؛ مرزهای تکه‌های جمینای جدا شمرده می‌شوند.
+    crackle = None
+    if str(key).startswith("نمونه"):
+        try:
+            bnds = [s0 for s0, _s1 in (it.get("pieceBounds") or [])] or None
+            crackle = {"conv": crackleScan(rawConv, "vb/src.wav", bounds=bnds), "src": crackleScan("vb/src.wav")}
+            if preLoud != rawConv:
+                crackle["colour"] = crackleScan(preLoud, rawConv)
+            if loud and best != preLoud:
+                crackle["loud"] = crackleScan(normed if os.path.exists(normed) else preLoud, preLoud)
+            if hxRes and hxRes.get("ok") and altOut:
+                crackle["soft"] = crackleScan(best, altOut)
+            for k_ in crackle:
+                if k_ != "conv":
+                    crackle[k_].pop("added", None)
+            say("  خش (افزوده در هر مرحله، در دقیقهٔ گفتار): تبدیل %s%s · رنگ %s · بلندی %s · «خ» %s" % (
+                crackle["conv"].get("addedPerMin"),
+                (" (کنارِ مرزِ تکه‌ها %s، دور %s)" % (crackle["conv"].get("nearBound"), crackle["conv"].get("farBound"))) if bnds else "",
+                (crackle.get("colour") or {}).get("addedPerMin", "—"), (crackle.get("loud") or {}).get("addedPerMin", "—"),
+                (crackle.get("soft") or {}).get("addedPerMin", "—")))
+        except Exception as e:
+            say("::warning title=خش سنجیده نشد::%s" % str(e)[:200])
+    # ══ «کمی بم‌تر، در همان مفهوم» (۱۳.۵) ══ نمونه‌های مقایسه از **همان مبدأ** و همان مسیر (تبدیل ⇐ بلندی ⇐ «خ» نرم)، فقط گام
+    # `pitchAlt` نیم‌پرده جابه‌جا — چند نمونهٔ جدا هر بار خواندنِ تازه‌ای از جمینای می‌گرفتند و تفاوتِ گام در تفاوتِ خواندن گم می‌شد.
+    pAlts = []
+    relA = None
+    for pv in [v.strip() for v in str(pr.get("pitchAlt", "") or "").split(",") if v.strip()][:4]:
+        try:
+            p2 = "%g" % (float(pitch) + float(pv))
+            a7 = list(args)
+            a7[a7.index("--out") + 1] = "vblab-pa%d" % len(pAlts)
+            a7[a7.index("--rvc-pitch") + 1] = p2
+            subprocess.check_call(a7)
+            o7 = []
+            for root, _dirs, files in os.walk("vblab-pa%d" % len(pAlts)):
+                o7 += [os.path.join(root, f) for f in files if f.startswith("rvc-") and f.endswith(".wav")]
+            if not o7:
+                pAlts.append({"delta": pv, "pitch": p2, "why": "تبدیل فایلی نداد"})
+                continue
+            f7 = sorted(o7, key=lambda q: -os.path.getsize(q))[0]
+            n7 = f7[:-4] + "-loud.wav"
+            cur7 = n7 if loudFix(f7, n7) else f7
+            if hxSoft:
+                h7 = f7[:-4] + "-hx.wav"
+                r7 = fricSplice(cur7, "vb/src.wav", h7, mode="soft", cutDb=float(pr.get("hxCutDb", 12)))
+                if r7.get("ok"):
+                    cur7 = h7
+            st7 = f0Stats(cur7) or {}
+            q7 = qualityScan(cur7)
+            relA = relA or ensureRelease()
+            u7 = uploadAsset(relA, cur7, assetName(key + " · گام " + p2, 0, 1))
+            pAlts.append({"delta": pv, "pitch": p2, "url": u7, "medianHz": st7.get("medianHz"),
+                          "crackPerMin": q7.get("crackPerMin"), "jitterSt": q7.get("jitterSt"), "shimmerDb": q7.get("shimmerDb"),
+                          "crackle": (crackleScan(f7, "vb/src.wav") or {}).get("addedPerMin")})
+            say("  نمونهٔ گامِ %s (%+g): میانه %s هرتز · شکستن %s/دقیقه · %s" % (p2, float(pv), st7.get("medianHz"), q7.get("crackPerMin"), u7 or "آپلود نشد"))
+        except Exception as e:
+            pAlts.append({"delta": pv, "why": str(e)[:120]})
+            say("::warning title=نمونهٔ گامِ دیگر نشد::%s — %s" % (pv, str(e)[:160]))
     hear = None
     rise = None
     riseEnd = None
@@ -2099,6 +2216,10 @@ def runOne(it, mp):
         rec["segPitch"] = segP
     if f0capRes:
         rec["f0cap"] = f0capRes
+    if crackle:
+        rec["crackle"] = crackle      # ۱۳.۵
+    if pAlts:
+        rec["pitchAlt"] = pAlts       # ۱۳.۵
     if qual:
         rec["quality"] = qual
         # ۱۳.۱: خروجیِ قسمتی که از وارسی رد شد، جای صدای اصلی نمی‌نشیند (موتور `qualityFail` را می‌خوانَد)؛ نمونه می‌رود، با گزارش.

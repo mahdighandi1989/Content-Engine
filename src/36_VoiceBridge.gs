@@ -1008,6 +1008,8 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   row.params.qJitterSt = String(CFG.VBR_Q_JITTER_ST || 0.18);
   row.params.qShimmerDb = String(CFG.VBR_Q_SHIMMER_DB || 2.8);   // ۱۳.۲
   if (o.qNoRetry) row.qNoRetry = true;
+  /* ۱۳.۵: «کمی بم‌تر ولی همان گلدوز» — جابه‌جاییِ نیم‌پرده (کسری مجاز) نسبت به گامِ همین نمونه، فقط نمونه؛ رانر از همان مبدأ می‌سازد. */
+  if (o.pitchAlt) row.params.pitchAlt = String(o.pitchAlt).replace(/[^0-9.,+\-]/g, '').slice(0, 40);
   /* برچسبِ نمایشی، وقتی این ردیف «خودِ قسمت» نیست بلکه نمونه‌ای از آن است
      (۷٫۷۴). بی آن، فایل و کپشنِ تلگرام «قسمت ۴۹ با صدای …» می‌شدند برای
      چیزی که چهار دقیقه از آن قسمت است — همان ادعای نیمه‌ای که این نسخه و
@@ -1399,6 +1401,8 @@ function vbrIngest_(hub) {
       if (hit.segPitch) it.segPOut = hit.segPitch;   // ۱۱.۴
       if (hit.f0cap) it.f0capOut = hit.f0cap;        // ۱۲.۵
       if (hit.quality) it.qualityOut = hit.quality;  // ۱۳.۱: شکستن، لرزش، مرزها
+      if (hit.crackle) it.crackleOut = hit.crackle;  // ۱۳.۵: خشِ افزوده در هر مرحله
+      if (hit.pitchAlt) it.pitchAltOut = hit.pitchAlt;   // ۱۳.۵: نمونه‌های بم‌تر
       if (hit.f0Out) it.f0Out = hit.f0Out;
       out.unshared += vbrUnshare_(it);
       /* ══ سدِ پایانِ بالارونده (۹.۶۳) ══ «جمله‌های خبری را جوری تموم می‌کرد که اصلاً مناسب نبود» — اندازه‌اش (۴۳٪ گلدوز)
@@ -1776,6 +1780,21 @@ function vbrTgMeasure_(item, who) {
            (qo.bad ? ' — ❌ ' + qo.bad : ' — سالم') +
            (qo.retry ? ' · ساختِ دوباره (صافی ' + qo.retry.filterRadius + '): شکستن ' + qo.retry.crackPerMin + '، لرزش ' + qo.retry.jitterSt + (qo.retry.kept ? ' ⇐ همین ماند' : ' ⇐ اولی ماند') : ''));
   }
+  /* ۱۳.۵: «خش و خراش مثلِ نوارِ قدیمی» — در کدام مرحله افزوده شد (هر مرحله نسبت به فایلِ پیش از خودش، در همان لحظه). */
+  var ck = item.crackleOut || null;
+  if (ck && ck.conv) {
+    var cv = function (o) { return o && o.addedPerMin != null ? String(o.addedPerMin) : '—'; };
+    L.push('📼 خشِ افزوده (ضربه در دقیقهٔ گفتار): تبدیل ' + cv(ck.conv) +
+           (ck.conv.nearBound != null ? ' (کنارِ مرزِ تکه‌ها ' + ck.conv.nearBound + '، دور از مرز ' + ck.conv.farBound + ')' : '') +
+           ' · رنگ ' + cv(ck.colour) + ' · بلندی ' + cv(ck.loud) + ' · نرم‌کردنِ «خ» ' + cv(ck.soft) +
+           (ck.conv.added && ck.conv.added.length ? ' — جاهای تبدیل: ' + ck.conv.added.slice(0, 6).join('، ') + 'ث' : ''));
+  }
+  /* ۱۳.۵: «کمی بم‌تر، در همان مفهوم» — نمونه‌های مقایسه از همان مبدأ. */
+  (item.pitchAltOut || []).forEach(function (a) {
+    L.push('🎚 گامِ ' + a.pitch + ' (' + a.delta + ' نیم‌پرده)' + (a.url ? ': ' + a.url : '') +
+           (a.medianHz != null ? ' · میانه ' + a.medianHz + ' هرتز' : '') + (a.crackPerMin != null ? ' · شکستن ' + a.crackPerMin + '/دقیقه' : '') +
+           (a.crackle != null ? ' · خشِ تبدیل ' + a.crackle : '') + (a.why ? ' — نشد: ' + a.why : ''));
+  });
   /* ۱۲.۵: سنجهٔ اوج — همان «ناگهان زیر» که او می‌شنود، به عدد. */
   var fo = item.f0Out || {}, fc = item.f0capOut || null;
   if (fo.p95Hz != null) L.push('📈 اوجِ زیروبم: میانه ' + fo.medianHz + ' هرتز · ۹۵٪ زیرِ ' + fo.p95Hz + ' هرتز · ' +
@@ -3060,7 +3079,7 @@ function vbrSoulPick_() {
     var seedNoSpans = {};
     var seedCalm = {};
     var seedVoice = {};
-    var seedHx = {}, seedSegP = {}, seedF0cap = {}, seedPitchFix = {}, seedCueFix = {}, seedQNo = {};
+    var seedHx = {}, seedSegP = {}, seedF0cap = {}, seedPitchFix = {}, seedCueFix = {}, seedQNo = {}, seedPAlt = {};
     var seedBase = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
@@ -3084,6 +3103,7 @@ function vbrSoulPick_() {
       if (se.pitchFix != null && se.pitchFix !== '') seedPitchFix[sk] = String(se.pitchFix);   // ۱۲.۹: گامِ ثابت (مثلاً «0»)، بی گامِ خودکار — فقط نمونه
       if (se.cueFix) seedCueFix[sk] = String(se.cueFix);   // ۱۲.۹: دستورِ سبکِ آماده، به‌جای کارتِ سبکِ گوینده — فقط نمونه
       if (se.qNoRetry) seedQNo[sk] = true;                // ۱۳.۱: بی ساختِ دوبارهٔ کیفیت (نمونهٔ خام)
+      if (se.pitchAlt) seedPAlt[sk] = String(se.pitchAlt);   // ۱۳.۵: نمونه‌های «کمی بم‌تر» از همان مبدأ، در همان اجرا
       seedBase[sk] = String(se.tagBase == null ? (se.tag || '') : se.tagBase);
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
       if (se.colour) seedColour[sk] = String(se.colour);
@@ -3141,7 +3161,7 @@ function vbrSoulPick_() {
       return { ok: true, key: key, name: name, cue: cue, item: item,
                seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k], calm: !!seedCalm[k],
                voice: seedVoice[k] || '', hx: seedHx[k] === 'soft' ? 'soft' : !!seedHx[k], segPitch: !!seedSegP[k], f0cap: seedF0cap[k] || 0, tagBase: seedBase[k] || '',
-               pitchFix: seedPitchFix[k] != null ? seedPitchFix[k] : '', cueFix: seedCueFix[k] || '', qNoRetry: !!seedQNo[k] };
+               pitchFix: seedPitchFix[k] != null ? seedPitchFix[k] : '', cueFix: seedCueFix[k] || '', qNoRetry: !!seedQNo[k], pitchAlt: seedPAlt[k] || '' };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -3558,6 +3578,7 @@ function runVoiceSoulTest() {
     if (pick.pitchFix !== '' && pick.pitchFix != null) tagO.pitchFix = pick.pitchFix;   // ۱۲.۹
     if (pick.cueFix) tagO.cueFix = pick.cueFix;          // ۱۲.۹: برای کپشن
     if (pick.qNoRetry) tagO.qNoRetry = true;              // ۱۳.۱
+    if (pick.pitchAlt) tagO.pitchAlt = pick.pitchAlt;      // ۱۳.۵
     if (pick.tagBase) tagO.tagBase = pick.tagBase;
     if (pick.colour) tagO.colour = pick.colour;          // ۹.۰۵
     if (pick.ab) tagO.ab = pick.ab;                      // ۹.۱۱
