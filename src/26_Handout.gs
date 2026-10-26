@@ -937,11 +937,21 @@ function hfigReadEp_(folderId) {
  *
  * **۳) سقف دارد.** `HFIG_SCAN_MAX` خواندنِ درایو در هر اجرا، تا یک مجموعهٔ
  * بیست‌درسه اجرای شش‌دقیقه‌ای را نخورد.
+ *
+ * **۴) سقف به نوبت می‌رسد، نه به ترتیبِ فهرست (۱۳.۲).** تا ۱۳.۱ `want` از سرِ
+ * فهرست پر می‌شد، و مرزِ ۲ (خالی کش نمی‌شود) یعنی همان هشت درسِ قدیمیِ
+ * بی‌پرونده (۲۲ تا ۲۹ِ آئودی) **هر شب** کلِ سقف را می‌خوردند: جزوهٔ آئودی با
+ * ۶۰ درس، ۲۶ اکتبر، **صفر** تصویر داشت، و `figs` فقط کلیدهای ۲۲ تا ۲۹ را —
+ * همه خالی. ادعای «این درسِ تازه همیشه خوانده می‌شود» هم راست نبود: `epNum`
+ * تهِ فهرست می‌نشست. حالا درسِ تازه اول، بعد هرگزنخوانده‌ها (تازه‌تر اول)، بعد
+ * آن که دیرتر از همه امتحان شده (`book.figsAt`). خالی همچنان کش نمی‌شود —
+ * فقط دیگر جلوی بقیه را نمی‌گیرد.
  */
 function hfigSync_(seriesFolder, book, epNum, force) {
   var out = { read: 0, imgs: 0, missing: 0, capped: false, why: '' };
   if (!hfigOn_() || !book) return out;
   if (!book.figs || typeof book.figs !== 'object') book.figs = {};
+  if (!book.figsAt || typeof book.figsAt !== 'object') book.figsAt = {};
 
   var list = [];
   for (var e = 0; e < (book.episodes || []).length; e++) list.push(String(book.episodes[e].n));
@@ -952,6 +962,15 @@ function hfigSync_(seriesFolder, book, epNum, force) {
     if (!force && ((book.figs[list[i]] || []).length)) continue;   // مرزِ ۲
     want.push(list[i]);
   }
+  /* مرزِ ۴: درسِ تازه، بعد هرگزنخوانده (تازه‌تر اول)، بعد دیرتر امتحان‌شده. */
+  var cur = epNum ? String(epNum) : '';
+  want.sort(function (a, b) {
+    if (a === cur) return -1;
+    if (b === cur) return 1;
+    var ta = Number(book.figsAt[a]) || 0, tb = Number(book.figsAt[b]) || 0;
+    if (ta !== tb) return ta - tb;
+    return (Number(b) || 0) - (Number(a) || 0);
+  });
   out.missing = want.length;
   if (!want.length) return out;
 
@@ -966,6 +985,7 @@ function hfigSync_(seriesFolder, book, epNum, force) {
     if (!m || !m.__folderId) continue;            // پوشه‌اش پیدا نشد — دفعهٔ بعد
     var got = hfigReadEp_(m.__folderId);
     out.read++;
+    book.figsAt[want[j]] = new Date().getTime();
     if (got === null) { if (!book.figs[want[j]]) book.figs[want[j]] = []; continue; }
     book.figs[want[j]] = got;
     out.imgs += got.length;

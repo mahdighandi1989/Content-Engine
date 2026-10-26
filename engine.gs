@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 13.1
+ *  موتور محتوا و پادکست — نسخهٔ 13.2
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2332,7 +2332,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '13.1',
+  CODE_VERSION: '13.2',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -37230,16 +37230,25 @@ function githubRawUrl_(file) {
          '/' + CFG.GITHUB_BRANCH + '/' + file + '?t=' + (new Date().getTime());
 }
 
-/** بیانیه مستقیم از raw گیت‌هاب. */
+/**
+ * بیانیه مستقیم از raw گیت‌هاب.
+ * ۱۳.۲: یک تلاشِ دوباره پس از دو ثانیه. ۲۵ اکتبر دکمهٔ «نصبِ کدِ تازه (همین حالا)» دو بار پیاپی «no-manifest» گرفت
+ * در حالی که manifest در همان ساعت معتبر بود (۱۲.۵ تا ۱۲.۷ همه `version` داشتند) و نصبِ ساعتیِ ۰۱:۲۶ همان را خواند —
+ * یعنی خطای گذرای شبکه، و صاحبِ برنامه برای یک خطای گذرا تا نصبِ ساعتی صبر کرد.
+ */
 function readCodeManifestGithub_() {
-  try {
-    var res = UrlFetchApp.fetch(githubRawUrl_(CFG.GITHUB_MANIFEST),
-                { muteHttpExceptions: true, followRedirects: true });
-    if (res.getResponseCode() !== 200) return null;
-    var info = JSON.parse(res.getContentText());
-    if (!info || !info.version) return null;
-    return { info: info, file: null };   // روی گیت‌هاب فایلِ قابلِ‌بازنویسی نداریم
-  } catch (e) { return null; }
+  for (var a = 0; a < 2; a++) {
+    if (a) { try { Utilities.sleep(2000); } catch (eS) {} }
+    try {
+      var res = UrlFetchApp.fetch(githubRawUrl_(CFG.GITHUB_MANIFEST),
+                  { muteHttpExceptions: true, followRedirects: true });
+      if (res.getResponseCode() !== 200) continue;
+      var info = JSON.parse(res.getContentText());
+      if (!info || !info.version) continue;
+      return { info: info, file: null };   // روی گیت‌هاب فایلِ قابلِ‌بازنویسی نداریم
+    } catch (e) {}
+  }
+  return null;
 }
 
 function readCodeManifest_() {
@@ -48654,11 +48663,21 @@ function hfigReadEp_(folderId) {
  *
  * **۳) سقف دارد.** `HFIG_SCAN_MAX` خواندنِ درایو در هر اجرا، تا یک مجموعهٔ
  * بیست‌درسه اجرای شش‌دقیقه‌ای را نخورد.
+ *
+ * **۴) سقف به نوبت می‌رسد، نه به ترتیبِ فهرست (۱۳.۲).** تا ۱۳.۱ `want` از سرِ
+ * فهرست پر می‌شد، و مرزِ ۲ (خالی کش نمی‌شود) یعنی همان هشت درسِ قدیمیِ
+ * بی‌پرونده (۲۲ تا ۲۹ِ آئودی) **هر شب** کلِ سقف را می‌خوردند: جزوهٔ آئودی با
+ * ۶۰ درس، ۲۶ اکتبر، **صفر** تصویر داشت، و `figs` فقط کلیدهای ۲۲ تا ۲۹ را —
+ * همه خالی. ادعای «این درسِ تازه همیشه خوانده می‌شود» هم راست نبود: `epNum`
+ * تهِ فهرست می‌نشست. حالا درسِ تازه اول، بعد هرگزنخوانده‌ها (تازه‌تر اول)، بعد
+ * آن که دیرتر از همه امتحان شده (`book.figsAt`). خالی همچنان کش نمی‌شود —
+ * فقط دیگر جلوی بقیه را نمی‌گیرد.
  */
 function hfigSync_(seriesFolder, book, epNum, force) {
   var out = { read: 0, imgs: 0, missing: 0, capped: false, why: '' };
   if (!hfigOn_() || !book) return out;
   if (!book.figs || typeof book.figs !== 'object') book.figs = {};
+  if (!book.figsAt || typeof book.figsAt !== 'object') book.figsAt = {};
 
   var list = [];
   for (var e = 0; e < (book.episodes || []).length; e++) list.push(String(book.episodes[e].n));
@@ -48669,6 +48688,15 @@ function hfigSync_(seriesFolder, book, epNum, force) {
     if (!force && ((book.figs[list[i]] || []).length)) continue;   // مرزِ ۲
     want.push(list[i]);
   }
+  /* مرزِ ۴: درسِ تازه، بعد هرگزنخوانده (تازه‌تر اول)، بعد دیرتر امتحان‌شده. */
+  var cur = epNum ? String(epNum) : '';
+  want.sort(function (a, b) {
+    if (a === cur) return -1;
+    if (b === cur) return 1;
+    var ta = Number(book.figsAt[a]) || 0, tb = Number(book.figsAt[b]) || 0;
+    if (ta !== tb) return ta - tb;
+    return (Number(b) || 0) - (Number(a) || 0);
+  });
   out.missing = want.length;
   if (!want.length) return out;
 
@@ -48683,6 +48711,7 @@ function hfigSync_(seriesFolder, book, epNum, force) {
     if (!m || !m.__folderId) continue;            // پوشه‌اش پیدا نشد — دفعهٔ بعد
     var got = hfigReadEp_(m.__folderId);
     out.read++;
+    book.figsAt[want[j]] = new Date().getTime();
     if (got === null) { if (!book.figs[want[j]]) book.figs[want[j]] = []; continue; }
     book.figs[want[j]] = got;
     out.imgs += got.length;

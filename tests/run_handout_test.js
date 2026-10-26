@@ -2249,6 +2249,36 @@ console.log('\n=== ۲۷-ب) تصویرها از درایو به کتاب: hfigSy
      Object.keys(eps).sort().join('،'));
 }
 
+console.log('\n=== ۲۷-ب۲) سقف به نوبت می‌رسد، نه به سرِ فهرست (۱۳.۲) ===');
+{
+  /* ۲۶ اکتبر: جزوهٔ آئودی با ۶۰ درس صفر تصویر داشت و `figs` فقط ۲۲ تا ۲۹ را —
+     همه خالی. هشت درسِ قدیمیِ بی‌پرونده هر شب کلِ سقف را می‌خوردند. */
+  const sf = global.__ROOT_FOLDER.createFolder('مجموعهٔ آزمونِ نوبتِ تصویر');
+  const mk = (n, imgs) => {
+    const f = sf.createFolder('قسمت 00' + n);
+    f.createFile(Utilities.newBlob(JSON.stringify({ epNum: String(n) }), 'application/json', '_special.json'));
+    if (imgs) f.createFile(Utilities.newBlob(JSON.stringify({ items: Array.from({ length: imgs },
+      (_, i) => ({ n: i + 1, fileId: 'G' + n + '_' + i, caption: 'c' })) }), 'application/json', CFG.LV_FILE));
+  };
+  mk(1, 0); mk(2, 0); mk(3, 0); mk(4, 2); mk(5, 2); mk(6, 2);
+  const capWas = CFG.HFIG_SCAN_MAX;
+  CFG.HFIG_SCAN_MAX = 2;
+  const bk = { seriesName: 'ن', chapters: [], refs: [], roadmap: {},
+               episodes: [1, 2, 3, 4, 5, 6].map(n => ({ n: String(n) })) };
+  for (let k = 0; k < 3; k++) hfigSync_(sf, bk, '', false);
+  const got = ['4', '5', '6'].filter(n => (bk.figs[n] || []).length === 2);
+  ok('۲۷-ب۲.۱ درس‌های قدیمیِ بی‌پرونده دیگر کلِ سقف را نمی‌خورند — سه اجرا، هر سه درسِ تصویردار خوانده شد',
+     got.length === 3, 'تصویردار: ' + got.join('،') + ' · کلیدها: ' + Object.keys(bk.figs).join('،'));
+
+  const bk2 = { seriesName: 'ن', chapters: [], refs: [], roadmap: {},
+                episodes: [1, 2, 3, 4, 5].map(n => ({ n: String(n) })) };
+  CFG.HFIG_SCAN_MAX = 1;
+  hfigSync_(sf, bk2, '6', false);
+  CFG.HFIG_SCAN_MAX = capWas;
+  ok('۲۷-ب۲.۲ درسِ تازه همیشه اول خوانده می‌شود، حتی پشتِ درس‌های قدیمیِ خالی',
+     (bk2.figs['6'] || []).length === 2, JSON.stringify(Object.keys(bk2.figs)));
+}
+
 console.log('\n=== ۲۷-پ) از همان دری که تولید وارد می‌شود: یک درسِ تازه (۷.۹۴) ===');
 {
   /* ══ این بند از یک شکستنیِ نیفتاده زاده شد ══

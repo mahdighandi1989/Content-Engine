@@ -106,16 +106,25 @@ function githubRawUrl_(file) {
          '/' + CFG.GITHUB_BRANCH + '/' + file + '?t=' + (new Date().getTime());
 }
 
-/** بیانیه مستقیم از raw گیت‌هاب. */
+/**
+ * بیانیه مستقیم از raw گیت‌هاب.
+ * ۱۳.۲: یک تلاشِ دوباره پس از دو ثانیه. ۲۵ اکتبر دکمهٔ «نصبِ کدِ تازه (همین حالا)» دو بار پیاپی «no-manifest» گرفت
+ * در حالی که manifest در همان ساعت معتبر بود (۱۲.۵ تا ۱۲.۷ همه `version` داشتند) و نصبِ ساعتیِ ۰۱:۲۶ همان را خواند —
+ * یعنی خطای گذرای شبکه، و صاحبِ برنامه برای یک خطای گذرا تا نصبِ ساعتی صبر کرد.
+ */
 function readCodeManifestGithub_() {
-  try {
-    var res = UrlFetchApp.fetch(githubRawUrl_(CFG.GITHUB_MANIFEST),
-                { muteHttpExceptions: true, followRedirects: true });
-    if (res.getResponseCode() !== 200) return null;
-    var info = JSON.parse(res.getContentText());
-    if (!info || !info.version) return null;
-    return { info: info, file: null };   // روی گیت‌هاب فایلِ قابلِ‌بازنویسی نداریم
-  } catch (e) { return null; }
+  for (var a = 0; a < 2; a++) {
+    if (a) { try { Utilities.sleep(2000); } catch (eS) {} }
+    try {
+      var res = UrlFetchApp.fetch(githubRawUrl_(CFG.GITHUB_MANIFEST),
+                  { muteHttpExceptions: true, followRedirects: true });
+      if (res.getResponseCode() !== 200) continue;
+      var info = JSON.parse(res.getContentText());
+      if (!info || !info.version) continue;
+      return { info: info, file: null };   // روی گیت‌هاب فایلِ قابلِ‌بازنویسی نداریم
+    } catch (e) {}
+  }
+  return null;
 }
 
 function readCodeManifest_() {
