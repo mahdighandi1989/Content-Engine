@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 13.5
+ *  موتور محتوا و پادکست — نسخهٔ 13.6
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2353,7 +2353,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '13.5',
+  CODE_VERSION: '13.6',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -56632,6 +56632,10 @@ function lvWaitClear_(key) {
 function lvShortNote_(key, vis) {
   var m = lvMap_(PK.LV_SHORT), k = String(key || '');
   if (!k) return false;
+  /* ۱۳.۶: «کم‌تصویر» یعنی کمتر از برنامه. special:76 با «۲۱ از ۲۱» شش روزِ پیاپی «ایرادِ مزمن» شد: `vis.done` به دلیلِ دیگری
+     نادرست بود، ولی تصویرها کامل بودند. کامل ⇒ ثبت نمی‌شود، و ردیفِ کهنه‌اش پاک می‌شود. */
+  var rd = Number((vis || {}).ready) || 0, wn = Number((vis || {}).want) || 0;
+  if (wn > 0 && rd >= wn) { if (m[k]) { delete m[k]; lvMapSave_(PK.LV_SHORT, m); } return false; }
   if (!m[k]) m[k] = { at: nowStr_() };
   m[k].ready = Number((vis || {}).ready) || 0;
   m[k].want = Number((vis || {}).want) || 0;
@@ -56736,6 +56740,7 @@ function lvStatus_() {
     var sh = lvMap_(PK.LV_SHORT);
     for (var s in sh) {
       if (!Object.prototype.hasOwnProperty.call(sh, s)) continue;
+      if (Number(sh[s].want) > 0 && Number(sh[s].ready) >= Number(sh[s].want)) continue;   // ۱۳.۶: کامل، کم نیست
       out.short++;
       if (out.shortKeys.length < 6) {
         out.shortKeys.push(s + ' (' + (Number(sh[s].ready) || 0) + '/' +
