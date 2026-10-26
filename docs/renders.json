@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-26 00:51",
+ "updatedAt": "2026-10-26 06:24",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -5547,6 +5547,81 @@
     "fade": 22
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-83-cover.jpg"
+  },
+  "special:84": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-84.mp4",
+   "bytes": 46404403,
+   "parts": 2,
+   "at": "2026-10-26 06:24",
+   "mode": "scenes",
+   "scenes": 63,
+   "want": 63,
+   "snapped": 51,
+   "seconds": 1344,
+   "qa": {
+    "n": 63,
+    "matched": 61,
+    "miss": [
+     22,
+     26
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 16,
+       "t": 319.3,
+       "own": 0.57,
+       "nb": 0.2,
+       "ok": true,
+       "heard": "این برای تکمیل از همان مجموعی مسباخ معرفت شناسی دین با تفکی که دین حق قباتل  و تقسیم آموزاهای اسلامی بدو بخش ایت"
+      },
+      {
+       "n": 32,
+       "t": 677.7,
+       "own": 0.61,
+       "nb": 0.06,
+       "ok": true,
+       "heard": "اگر نبود باورهای دینی مستقیمان مواجحراب پذیریم  باز هم تبقی دیدگاه اودی مبنی بر امکان معرفت بدون تو"
+      },
+      {
+       "n": 48,
+       "t": 979.4,
+       "own": 0.39,
+       "nb": 0.06,
+       "ok": true,
+       "heard": "اما دیدگاه اودی مؤتدلتر است.  زیرا سرفن بر اقلانیت اعمال میشه بد.  نتوجی.  آسان گیران تربودن اقلانیت امتیاز مهمی."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 25,
+    "placed": 18,
+    "busy": 7,
+    "failed": 0,
+    "kinds": {
+     "points": 9,
+     "steps": 1,
+     "quote": 4,
+     "headline": 3,
+     "compare": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 51,
+   "xf": {
+    "smoothright": 31,
+    "fade": 25
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-84-cover.jpg"
   }
  },
  "art": {
