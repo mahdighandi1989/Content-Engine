@@ -2504,7 +2504,7 @@ function ytDueList_() {
       if (ytItemOff_(a[i])) { park.push(a[i]); moved++; } else keep.push(a[i]);
     }
     for (var j = 0; j < park.length; j++) {
-      if (!ytItemOff_(park[j]) && !park[j].why) back.push(park[j]);   // «خصوصی» (۱۱.۲) برنمی‌گردد
+      if (!ytItemOff_(park[j]) && (!park[j].why || park[j].hold)) back.push(park[j]);   // «خصوصی» (۱۱.۲) برنمی‌گردد؛ کنارِ دستوری (۱۳.۴) برمی‌گردد
     }
     if (moved || back.length) {
       var rest = park.filter(function (x) { return back.indexOf(x) === -1; });
@@ -2512,7 +2512,7 @@ function ytDueList_() {
       keep = keep.concat(back.filter(function (x) { return !keep.some(function (k) { return String(k.key) === String(x.key); }); }));
       if (back.length) keep = ytDueOrder_(keep);
       props_().setProperty(PK.YT_DUE, JSON.stringify(keep));
-      logLine_('یوتیوب — صف: ' + (moved ? moved + ' ردیفِ برنامهٔ خاموش کنار رفت (YT_DUE_PARKED، پاک نشد)' : '') +
+      logLine_('یوتیوب — صف: ' + (moved ? moved + ' ردیفِ بیرون از انتشار کنار رفت (YT_DUE_PARKED، پاک نشد)' : '') +
                (moved && back.length ? ' · ' : '') + (back.length ? back.length + ' ردیفِ کنارگذاشته به صف برگشت' : '') + '.');
     }
     return keep;
@@ -2536,9 +2536,27 @@ function ytShowOff_(show) {
 function ytItemOff_(it) {
   if (!it) return false;
   if (ytShowOff_(it.show)) return true;
+  if (ytOwnerHoldWhy_(it)) return true;     // ۱۳.۴: کنار به دستورِ صاحبِ کانال — نه پاک، و با برداشتنِ دستور برمی‌گردد
   var floor = Number((CFG.YT_SHOW_MIN_EP || {})[String(it.show)]) || 0;
   var n = parseInt(String(it.ep || '').replace(/[^\d]/g, ''), 10);
   return floor > 0 && n > 0 && n < floor;
+}
+
+/* ══ کنار به دستورِ صاحبِ کانال (۱۳.۴) ══ «قسمت ۸۴ … از صفِ انتشار کنار بگذارید، حذف نکنید». دو منبع، یک در:
+   `CFG.YT_OWNER_HOLD` (دستورِ صریح، با کلید) و `PK.YT_OWNER_HOLD` (آنچه `vgHoldSweep_` از مجموعهٔ نویسندگی پیدا کرد).
+   برداشتنِ کلید از هر دو ⇒ ردیف در اولین خواندنِ صف خودش برمی‌گردد. ⇒ دلیل یا ''. */
+var YT_HOLD_CACHE_ = null;
+function ytOwnerHoldMap_() {
+  if (YT_HOLD_CACHE_) return YT_HOLD_CACHE_;
+  var m = {}, c = CFG.YT_OWNER_HOLD || {}, k;
+  try { var p = JSON.parse(props_().getProperty(PK.YT_OWNER_HOLD) || '{}') || {}; for (k in p) if (Object.prototype.hasOwnProperty.call(p, k)) m[k] = String(p[k] || ''); } catch (e) {}
+  for (k in c) if (Object.prototype.hasOwnProperty.call(c, k)) m[k] = String(c[k] || '');
+  YT_HOLD_CACHE_ = m;
+  return m;
+}
+function ytOwnerHoldWhy_(it) {
+  var key = String((it && it.key) || ((it && it.show) + ':' + (it && it.ep)));
+  return ytOwnerHoldMap_()[key] || '';
 }
 
 /** ردیف‌های کنارگذاشتهٔ صف (۱۱.۰). */
@@ -2551,6 +2569,11 @@ function ytDueParked_() {
 
 /** خطِ روزانه (۱۱.۰) — خالی وقتی هیچ برنامه‌ای خاموش نیست. */
 function ytShowsOffLine_() {
+  var hm = ytOwnerHoldMap_(), hk = Object.keys(hm);
+  var hLine = hk.length ? '⏸ کنار گذاشته از صفِ یوتیوب (پاک نشده): ' + hk.map(function (k) { return k + ' — ' + hm[k]; }).join(' · ') + '.' : '';
+  return [ytShowsOffLine0_(), hLine].filter(Boolean).join(' ');
+}
+function ytShowsOffLine0_() {
   var off = CFG.YT_SHOWS_OFF || [];
   var fl = CFG.YT_SHOW_MIN_EP || {}, flK = Object.keys(fl).filter(function (k) { return Number(fl[k]) > 0; });
   var flLine = flK.length ? '🔒 قسمت‌های قدیمی بیرون از انتشارِ یوتیوب: ' + flK.map(function (k) {
@@ -9948,7 +9971,8 @@ function ytUploadOne_(item, hub, pub) {
     if (ytItemOff_(item) || (prevRec && prevRec.videoId && ytHandsOff_(prevRec.videoId, 'آپلودِ دوباره'))) {
       ytDueDrop_(String(item.key || (item.show + ':' + item.ep)));
       try {
-        var pk0 = ytDueParked_(); pk0.push(Object.assign({}, item, { why: 'خصوصی یا بیرون از انتشار', at: nowStr_() }));
+        var hw0 = ytOwnerHoldWhy_(item);
+        var pk0 = ytDueParked_(); pk0.push(Object.assign({}, item, { why: hw0 || 'خصوصی یا بیرون از انتشار', hold: !!hw0, at: nowStr_() }));
         props_().setProperty(PK.YT_DUE_PARKED, JSON.stringify(pk0.slice(-200)));
       } catch (ePk) {}
       res.why = 'ویدئوی این قسمت خصوصی است یا قسمت بیرون از انتشار است — دوباره بالا نمی‌رود';
@@ -11666,6 +11690,8 @@ function ytRunDue_(maxItems, budgetMs) {
      شش‌دقیقه‌ای می‌گذشت — کشته‌شدنی بی خطا. */
   _ytRunDeadline = t0 + budget;
   var hub = getHub_();
+  /* ۱۳.۴: ویدئوهای صف که منبعشان مجموعهٔ نویسندگی/زبان‌آموزی است — روزی یک بار، پیش از خواندنِ صف (بخشِ ۳۷). */
+  try { if (typeof vgHoldSweep_ === 'function') vgHoldSweep_(hub); } catch (eVh) { logLine_('کنارگذاشتنِ صفِ نویسندگی نشد: ' + eVh.message); }
   var pub = ytPublished_(hub);
   /* صف مرتب مصرف می‌شود — و مرتب‌سازی این‌جا دوباره انجام می‌شود، نه فقط
      هنگامِ افزودن: ردیف‌هایی که پیش از ۵٫۹۸ ثبت شده‌اند ترتیب ندارند، و یک

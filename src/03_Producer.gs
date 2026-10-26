@@ -6926,6 +6926,19 @@ function buildCandidates_(rows) {
   return mixed;
 }
 
+/* ══ درِ دروازهٔ منبعِ «از همه جا» (۱۳.۴، بخشِ ۳۷) ══ وابستگیِ رو به جلو، پس پشتِ typeof و try: بارگذارِ آزمونی که بخشِ ۳۷ را
+   ندارد نباید ReferenceError بخورد. شکستِ دروازه ⇒ همه «بی‌مجموعه»، یعنی فقط با «بله»ی داور — نه «همه مجاز». */
+function vgApply_(hub, items, where) {
+  if (CFG.VG_ON === false || typeof vgFilter_ !== 'function') return items || [];
+  try { return vgFilter_(hub, items || [], where); }
+  catch (e) {
+    logLine_('دروازهٔ منبع نشد (' + where + '): ' + e.message + ' — همه فقط با داور.');
+    (items || []).forEach(function (x) { if (x) x.vgLoose = true; });
+    return items || [];
+  }
+}
+function vgSkipNow_() { try { return typeof vgSkipToday_ === 'function' ? vgSkipToday_() : []; } catch (e) { return []; } }
+
 /**
  * انتخاب دسته. رتبه‌بندی از روی داشبورد انجام می‌شود و فقط تبِ برنده کامل خوانده
  * می‌شود — وگرنه پیش از تولید هر قسمت باید کل آرشیو اسکن می‌شد.
@@ -7069,11 +7082,14 @@ function pickCategoryFrom_(hub, ranked, all) {
   // فقط تبِ برنده خوانده می‌شود؛ اگر خالی از آب درآمد، سراغ بعدی
   for (var oi = 0; oi < order.length; oi++) {
     var t = order[oi];
+    /* ۱۳.۴: دسته‌ای که امروز پس از دروازهٔ منبع قسمت نساخت، در جبرانِ امروز دوباره امتحان نمی‌شود. */
+    if (vgSkipNow_().indexOf(ranked[t].name) !== -1) continue;
     var st = stCache[t] || tabStats_(hub, ranked[t].name, CFG.MIN_PRIORITY);
     if (st.rows.length < 5) continue;
     var picked = buildCandidates_(st.rows);
     var items = fetchRows_(st.sheet, ranked[t].name, picked.map(function (x) { return x.row; }));
-    if (items.length < 4) continue;
+    items = vgApply_(hub, items, '«' + ranked[t].name + '»');
+    if (items.length < 4) { if (CFG.VG_ON !== false) logLine_('«' + ranked[t].name + '» پس از دروازهٔ منبع ' + items.length + ' نامزد داشت؛ دستهٔ بعدی.'); continue; }
     var freshN = 0;
     for (var z = 0; z < st.rows.length; z++) if (st.rows[z].fresh) freshN++;
 
@@ -7088,6 +7104,9 @@ function pickCategoryFrom_(hub, ranked, all) {
         });
         refs = fetchRows_(used.sheet, ranked[t].name,
                  used.rows.slice(0, CFG.REF_CANDIDATES).map(function (x) { return x.row; }));
+        /* ارجاع هم از همان دروازه. بی‌مجموعه‌اش می‌ماند تا اگر عضوِ کامل شد داور بسنجدش؛ ارجاعِ صرف (بی داور) فقط از
+           مجموعه‌دار — پایینِ `curateItems_` در همین تابعِ تولید. */
+        refs = vgApply_(hub, refs, 'ارجاع');
       }
     } catch (eRef) { logLine_('ساخت فهرست ارجاع ناموفق: ' + eRef.message); }
 
@@ -7111,7 +7130,7 @@ function crossCandidates_(hub, picked) {
       var st = tabStats_(hub, names[i], CFG.MIN_PRIORITY);
       if (!st.sheet || st.rows.length < 3) continue;
       var rows = st.rows.slice().sort(function (a, b) { return b.score - a.score; }).slice(0, per);
-      out = out.concat(fetchRows_(st.sheet, names[i], rows.map(function (x) { return x.row; })));
+      out = out.concat(vgApply_(hub, fetchRows_(st.sheet, names[i], rows.map(function (x) { return x.row; })), '«' + names[i] + '»'));
     } catch (e) { logLine_('نامزدِ دستهٔ «' + names[i] + '» خوانده نشد: ' + e.message); }
   }
   return out;
@@ -7303,6 +7322,7 @@ function curateDescribe_(list, tag) {
   for (var i = 0; i < list.length; i++) {
     var c = list[i];
     out.push('- id: ' + c.id + ' | ' + tag + ' | نوع: ' + c.kind + ' | دسته: ' + (c.cat || '') +
+      (c.vgSeries ? ' | از مجموعهٔ علمیِ «' + String(c.vgSeries.name || '').slice(0, 60) + '»' : (c.vgLoose ? ' | بی‌مجموعه' : '')) +
       (c.used ? ' | پیش‌تر در قسمتِ ' + c.used + ' آمده' : '') +
       '\n  موضوع: ' + String(c.topic || '').slice(0, 300) +
       '\n  پیام: ' + String(c.msg || '').slice(0, 300) +
@@ -7384,6 +7404,10 @@ function curateItems_(cat, candidates, refPool, orders) {
     '',
     'قاطعانه رد کن: اسکرین‌شات رابط کاربری و فهرست فایل، صفحهٔ پروفایل و اطلاعات تماس،',
     'تبلیغ محصول، آیتمی که تحلیلش برای فهمیدنش کافی نیست، و آیتمی که با دیگری تقریباً یکی است.',
+    /* ۱۳.۴ — قسمتِ ۸۴ با «بازخورد به شرکت‌کنندگانِ دوره … نتایج را اعلام خواهد کرد» شروع شد. */
+    '**فقط محتوای علمی و آموزشیِ واقعی.** این برنامه از این پس فقط دانش منتشر می‌کند: بخشِ اداری یا مقدماتیِ یک کلاس',
+    '(خوش‌آمد، اعلامِ نتایج، تکلیف، ثبت‌نام، زمانِ جلسهٔ بعد، روندِ دوره) محتوا نیست — برش ندار. آیتمِ «بی‌مجموعه» را فقط',
+    'وقتی بردار که خودش دانشی روشن می‌دهد؛ سرگرمیِ صرف، تبلیغ و حرفِ روزمره نه. داورِ بعدی هر «بی‌مجموعه» را جدا می‌سنجد.',
     '',
     'شناسه‌ها را عیناً و بدون تغییر برگردان.',
     '',
@@ -7451,7 +7475,7 @@ var CURATE_JUDGE_SCHEMA = {
   type: 'object',
   properties: {
     verdicts: { type: 'array', items: { type: 'object',
-      properties: { id: { type: 'string' }, belongs: { type: 'string' }, why: { type: 'string' } },
+      properties: { id: { type: 'string' }, belongs: { type: 'string' }, science: { type: 'string' }, why: { type: 'string' } },
       required: ['id', 'belongs'] } }
   },
   required: ['verdicts']
@@ -7465,12 +7489,28 @@ var CURATE_JUDGE_SCHEMA = {
  * و «خیر» می‌گوید یا «بله». «خیر»ها کنار می‌روند، مگر کمتر از سه بماند — آن‌وقت قوی‌ترین‌ها می‌مانند و
  * علت در سیاهه می‌آید. نشدنِ داوری یعنی بی‌داوری ادامه، نه افتادنِ قسمت.
  */
-function curateJudge_(theme, connection, route, chosen) {
+function curateJudge_(theme, connection, route, chosen, refs) {
+  var r = curateJudge0_(theme, connection, route, chosen, CFG.VG_ON === false ? [] : (refs || []).filter(function (x) { return x && x.vgLoose; }));
+  if (CFG.VG_ON === false) return r;
+  /* ۱۳.۴ — صاحبِ کانال: «ردیف‌های بی‌مجموعه را داورِ سیرِ قسمت با همان قاعدهٔ علمی و محتوایی تصمیم بگیرد، و اگر داور
+     مطمئن نبود، بیرون بماند». پس «بله»ی صریح لازم است؛ داوری‌ای که نشد یا جواب نداد، «مطمئن نبود» است. این سخت‌تر از
+     قاعدهٔ «کمتر از سه نماند» است، عمداً: آن قاعده دربارهٔ سیر است، این دربارهٔ اینکه چه چیزی اصلاً منتشر شود. */
+  var keep = [], drop = (r.dropped || []).slice();
+  for (var i = 0; i < (r.keep || []).length; i++) {
+    var c = r.keep[i];
+    if (c && c.vgLoose && !c.vgSci) drop.push({ item: c, why: r.ran ? 'بی‌مجموعه؛ داور «علمی و محتوایی» را تأیید نکرد' : 'بی‌مجموعه؛ داوری انجام نشد' });
+    else keep.push(c);
+  }
+  r.keep = keep; r.dropped = drop;
+  return r;
+}
+
+function curateJudge0_(theme, connection, route, chosen, refsJ) {
   if (CFG.CURATE_JUDGE === false || !chosen || chosen.length < 4) return { keep: chosen, dropped: [], ran: false };
   var lines = [];
   for (var i = 0; i < chosen.length; i++) {
     var c = chosen[i];
-    lines.push('- id: ' + c.id + ' | نوع: ' + c.kind + (c.genre ? ' | ژانر به گفتهٔ سردبیر: ' + c.genre : '') +
+    lines.push('- id: ' + c.id + ' | نوع: ' + c.kind + (c.vgLoose ? ' | بی‌مجموعه' : '') + (c.genre ? ' | ژانر به گفتهٔ سردبیر: ' + c.genre : '') +
       (c.reading ? '\n  خوانشِ سردبیر: ' + c.reading : '') +
       '\n  موضوع: ' + String(c.topic || '').slice(0, 260) +
       '\n  پیام: ' + String(c.msg || '').slice(0, 260) +
@@ -7493,14 +7533,28 @@ function curateJudge_(theme, connection, route, chosen) {
     'مرگ را «طنزآمیز» برچسب زده بود. اگر سیر چتری است (چند حوزهٔ جدا کنارِ هم)، فقط اعضای هسته‌ای‌ترین',
     'حوزه «بله»اند.',
     '',
-    lines.join('\n')
+    /* ۱۳.۴ */
+    'بخشِ اداری یا مقدماتیِ یک کلاس (خوش‌آمد، اعلامِ نتایج، تکلیف، ثبت‌نام، زمانِ جلسه، روندِ دوره) عضوِ هیچ سیری نیست:',
+    'belongs = «خیر».',
+    'science — فقط برای آیتمِ «بی‌مجموعه» (برای بقیه خالی بگذار): «بله» فقط اگر مطمئنی محتوای علمی یا آموزشیِ واقعی است',
+    '(دانشی روشن می‌دهد؛ نه سرگرمیِ صرف، نه تبلیغ، نه اداری)؛ «خیر» اگر نیست؛ «نامطمئن» اگر مطمئن نیستی. نامطمئن یعنی بیرون.',
+    '',
+    lines.join('\n'),
+    /* ۱۳.۴: ارجاعِ بی‌مجموعه هم فقط با «بله»ی علمی — عضوِ سیر نیست، پس belongs برایش معنا ندارد. */
+    (refsJ && refsJ.length ? '\n--- ارجاع‌های کوتاه به قسمت‌های پیشین (عضوِ سیر نیستند؛ belongs را «بله» بگذار و فقط science بده) ---\n' +
+      refsJ.map(function (c) { return '- id: ' + c.id + ' | نوع: ' + c.kind + ' | بی‌مجموعه\n  موضوع: ' + String(c.topic || '').slice(0, 200) +
+        '\n  پیام: ' + String(c.msg || '').slice(0, 200); }).join('\n') : '')
   ].join('\n');
   var res = null;
   try { res = geminiText_(prompt, CURATE_JUDGE_SCHEMA, 4096); } catch (e) { res = null; }
   if (!res || !res.verdicts) return { keep: chosen, dropped: [], ran: false };
-  var no = {}, why = {};
+  var no = {}, why = {}, byIdJ = {};
+  for (var bj = 0; bj < chosen.length; bj++) byIdJ[String(chosen[bj].id)] = chosen[bj];
+  for (var bj2 = 0; bj2 < (refsJ || []).length; bj2++) if (!byIdJ[String(refsJ[bj2].id)]) byIdJ[String(refsJ[bj2].id)] = refsJ[bj2];
   for (var v = 0; v < res.verdicts.length; v++) {
     var x = res.verdicts[v] || {};
+    var cj = byIdJ[String(x.id || '').trim()];
+    if (cj && cj.vgLoose) cj.vgSci = /^\s*(بله|آری|yes)(?![\u0600-\u06FFa-z])/i.test(String(x.science || ''));
     /* `\b` در JS فقط حرفِ لاتین را «حرف» می‌شمارد — «خیر» با آن هرگز جور نمی‌شد و هر «خیر» بی‌صدا
        نادیده می‌ماند (سنجهٔ ۳.۱ همین را گرفت). */
     if (/^\s*(خیر|نه|no)(?![\u0600-\u06FFa-z])/i.test(String(x.belongs || ''))) { no[String(x.id).trim()] = true; why[String(x.id).trim()] = String(x.why || ''); }
@@ -9002,7 +9056,7 @@ function produceEpisode(opt) {
        (یعنی بی هیچ معنایی)، و `enforceMix_` که حداقلِ هر نوع را از **کلِ دسته** پر می‌کرد. حالا پر
        کردن فقط از اعضای همان سیر است، کم بودن یعنی تلاشِ دوم با نامزدهای دسته‌های بعدی، و داورِ جدا
        هر عضو را می‌سنجد. گزینشِ بی‌نخ فقط وقتی که هیچ‌کدام نشد — و آن‌وقت بلند گفته می‌شود. */
-    var route = '', curNote = '', reusedIn = [];
+    var route = '', curNote = '', reusedIn = [], vgJudged = [];
     if (CFG.CURATE && pool.length > 4) {
       var minN = Math.max(3, Number(CFG.CURATE_MIN) || 5);
       var wide = pool;
@@ -9019,12 +9073,13 @@ function produceEpisode(opt) {
           if (cur.chosen.length >= minN || (attempt === 1 && cur.chosen.length >= 4)) {
             var memberPool = cur.chosen.concat((cur.members || []).filter(function (x) { return cur.chosen.indexOf(x) === -1; }));
             var mixed = enforceMix_(cur.chosen, memberPool, CFG.ITEMS_PER_EPISODE);
-            var jd = curateJudge_(cur.theme, cur.connection, cur.route, mixed);
+            var jd = curateJudge_(cur.theme, cur.connection, cur.route, mixed, cur.references || []);
             items = jd.keep;
-            refs = cur.references || [];
+            refs = (cur.references || []).filter(function (x) { return CFG.VG_ON === false || !x.vgLoose || x.vgSci; });   // ۱۳.۴: ارجاعِ بی‌مجموعه فقط با «بله»ی داور
             theme = cur.theme; connection = cur.connection; route = cur.route;
             rejected = (cur.rejected || []).concat((jd.dropped || []).map(function (x) { return x.item; })
                          .filter(function (x) { return !x.reused; }));
+            vgJudged = (jd.dropped || []).map(function (x) { return { id: String((x.item || {}).id || ''), why: x.why || 'داور: بیرون از سیر' }; });
             reusedIn = (cur.reused || []).filter(function (x) { return items.indexOf(x) !== -1; });
             curNote = 'سیر: «' + theme + '» — ' + items.length + ' عضو' +
                       ((jd.dropped || []).length ? '، داور ' + jd.dropped.length + ' را بیرون گذاشت (' +
@@ -9046,10 +9101,29 @@ function produceEpisode(opt) {
         curNote = 'بی‌نخ';
       }
     }
-    if (!items) items = selectItems_(pool);
+    /* ۱۳.۴: گزینشِ بی‌نخ هم از داورِ «علمی و محتوایی» می‌گذرد — بی آن، «بی‌مجموعه» داوری نداشت و قاعدهٔ «نامطمئن ⇒ بیرون»
+       یعنی هر روزی که سردبیر سیری نداد، هیچ قسمتی (۱۱.۱: «پادکست متوقف نشود»). داور نشد ⇒ بی‌مجموعه‌ها بیرون، همان قاعده. */
+    if (!items) {
+      var selF = selectItems_(pool);
+      if (CFG.VG_ON !== false && selF.some(function (x) { return x && x.vgLoose; })) {
+        var jf = curateJudge_('بی‌نخ — گزینش بر پایهٔ امتیاز؛ فقط «علمی و محتوایی» را بسنج و belongs را «بله» بگذار', 'بی‌نخ', '', selF);
+        items = (jf.keep || []).filter(function (x) { return !x.vgLoose || x.vgSci; });
+        vgJudged = vgJudged.concat((jf.dropped || []).map(function (x) { return { id: String((x.item || {}).id || ''), why: x.why || '' }; }));
+      } else items = selF;
+    }
 
     if (items.length < 4) {
       logLine_('تولید: آیتم کافی در «' + picked.title + '» نبود (' + items.length + ').');
+      /* ۱۳.۴: پس از دروازهٔ منبع کم آمد ⇒ امروز این دسته کنار، و جبرانِ خودکار (`epCatchUp_`) با دستهٔ علمیِ بعدی می‌سازد
+         — «پادکست متوقف نشود» (۱۱.۱) و «فقط علمی» (۱۳.۴) با هم. */
+      if (CFG.VG_ON !== false) {
+        try {
+          var skA = typeof vgSkipAdd_ === 'function' ? vgSkipAdd_(picked.title) : [];
+          mailQueue_('variety-few', '«' + CFG.SHOW_NAME + '»: دستهٔ «' + picked.title + '» امروز قسمت نساخت',
+                     'پس از دروازهٔ منبع (فقط مجموعه‌های علمیِ مطمئن، بی‌مجموعه با «بله»ی داور) ' + items.length +
+                     ' عضو ماند. جبرانِ خودکار با دستهٔ بعدی امتحان می‌کند. دسته‌های کنارِ امروز: ' + skA.join('، '));
+        } catch (eSk) {}
+      }
       return { ok: false, reason: 'few', cat: picked.title, count: items.length };
     }
 
@@ -9248,6 +9322,9 @@ function produceEpisode(opt) {
                    '—', '', '', '', 'در حال ساخت صدا',
                    items.map(function (x) { return x.id; }).join(', '),
                    '', cnt['صدا'], cnt['سند']]);
+    /* ۱۳.۴ (ج): منبع و قطعه‌های همین قسمت — ایمیلِ ۱۰ و تلگرام. شکستِ گزارش قسمت را نمی‌اندازد. */
+    try { if (CFG.VG_ON !== false && typeof vgReport_ === 'function') vgReport_(epNum, ep.title, items, vgJudged); }
+    catch (eVr) { logLine_('گزارشِ منبعِ قسمت نوشته نشد: ' + eVr.message); }
 
     // دستورهای بازبینی این‌جا بسته نمی‌شوند. اگر صداگذاری یا ارسال شکست بخورد،
     // قسمت اصلاً منتشر نشده و بستنِ دستور یعنی اصلاح برای همیشه گم می‌شود.

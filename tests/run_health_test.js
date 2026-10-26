@@ -95,6 +95,11 @@ global.__MAIL.length=0;
    دیگری است — این سناریو را که موضوعش «سکوت یعنی سلامت» است می‌شکند. */
 vbrQueueEnsure_();
 CFG.VBR_QUEUE_ID = outFolder_().getFilesByName(vbrFileName_()).next().getId();
+/* ۱۳.۴: «منبعِ قسمت» خبرِ ایمیلِ ۱۰ است (درست همان که صاحبِ کانال خواست) و خبر یعنی ایمیل، حتی بی ایراد. موضوعِ این
+   سناریو «بی ایراد و بی خبر ⇒ سکوت» است، پس خبرهای قسمت‌هایی که بالاتر ساخته شدند خالی می‌شوند. */
+const mqBefore = mailQueueRead_().map((x) => x.kind);
+mailQueueClear_();
+console.log('  خبرهای صفِ ایمیل پیش از سناریو (خالی شد):', mqBefore.join('، ') || 'هیچ');
 h=healthCheck();
 console.log('  ایرادها:',h.problems.length, h.problems.length?('→ '+h.problems.join(' | ').slice(0,160)):'هیچ');
 console.log('  ایمیل هشدار:',global.__MAIL.length, global.__MAIL.length===0?'✅ سکوت یعنی سلامت':'❌');

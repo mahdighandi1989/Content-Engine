@@ -1175,7 +1175,7 @@ function reqStatus_() {
     var d = defs.list[i], rec = m[d.id] || null;
     if (d.closed) continue;                                    // بسته به تصمیمِ صاحبِ برنامه
     out.n++;
-    var it = { id: d.id, ask: String(d.ask || '').slice(0, 90), state: '', ev: rec ? String(rec.ev || '') : '', at: rec ? rec.at : '' };
+    var it = { id: d.id, ask: String(d.ask || '').slice(0, 90), state: '', ev: rec ? String(rec.ev || '') : '', at: rec ? rec.at : '', ver: String(d.ver || '') };
     if (rec && rec.okDays >= need && rec.v !== 'نادرست') { it.state = 'انجام و سنجیده شد'; out.done++; }
     else if (d.ver && running && verCmp_(d.ver, running) > 0) { it.state = 'در راهِ نصب (' + d.ver + ')'; out.waiting++; }
     else if (rec && rec.v === 'نادرست') {
@@ -1223,7 +1223,11 @@ function reqStatus_() {
   if (rest > 0) parts.push(fa(rest) + ' در انتظارِ سنجشِ ناظر');
   out.line = '📒 دفترِ درخواست‌های شما: ' + fa(out.n) + ' درخواست' + (parts.length ? ' — ' + parts.join('، ') : '') + '.' +
     (out.today.length ? ' سهمِ سنجشِ امروزِ ناظر: ' + out.today.join('، ') + '.' : '') +
-    out.items.filter(function (x) { return x.state !== 'انجام و سنجیده شد'; }).slice(0, 12)
+    /* ۱۳.۴: «جدولِ پوشش با این درخواست‌ها به‌روز شود و در ایمیل بیاید» — فهرست به ترتیبِ دفتر بود، پس درخواستِ تازه پشتِ
+       ۱۲ ردیفِ قدیمی گم می‌شد. حالا: نادرست‌ها، بعد درخواست‌های همین نسخه، بعد بقیه. */
+    out.items.filter(function (x) { return x.state !== 'انجام و سنجیده شد'; })
+      .map(function (x, ix) { return { x: x, r: /^نادرست/.test(x.state) ? 0 : (x.ver && x.ver === running ? 1 : 2), ix: ix }; })
+      .sort(function (a, b) { return a.r - b.r || a.ix - b.ix; }).map(function (o) { return o.x; }).slice(0, 12)
       .map(function (x) { return '\n• ' + x.id + ' «' + x.ask + '» — ' + x.state; }).join('');
   return out;
 }

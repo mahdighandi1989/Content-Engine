@@ -107,7 +107,7 @@ console.log('=== ۵) سیم‌کشی و نامزدِ دسته‌های دیگر 
   ok('۵.۱ کم آمدنِ سردبیر دیگر به «انتخاب بر پایهٔ امتیاز» نمی‌افتد؛ تلاشِ دوم با نامزدهای دیگر',
      !/cur\.chosen\.length >= 6/.test(prod) && /attempt < 2/.test(prod) && /crossCandidates_\(hub, picked\)/.test(prod));
   ok('۵.۲ داور در مسیرِ تولید است و گزینشِ بی‌نخ بلند گفته می‌شود',
-     /curateJudge_\(cur\.theme, cur\.connection, cur\.route, mixed\)/.test(prod) && /⚠ گزینش بی‌نخ/.test(prod));
+     /curateJudge_\(cur\.theme, cur\.connection, cur\.route, mixed, cur\.references \|\| \[\]\)/.test(prod) && /⚠ گزینش بی‌نخ/.test(prod));
   ok('۵.۳ بازاستفاده در ستونِ ارجاع ثبت می‌شود', /bumpRefs_\(hub, refs\.concat\(reusedIn\)\)/.test(prod));
   const keep = { ts: global.tabStats_, fr: global.fetchRows_ };
   const read = [];

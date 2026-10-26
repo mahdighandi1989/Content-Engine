@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 13.3
+ *  موتور محتوا و پادکست — نسخهٔ 13.4
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -139,6 +139,21 @@ var CFG = {
      خبر. «فرهنگی، تاریخی و ادبی» و «مستند و مصاحبه» دانش‌اند ولی نه به معنای «علمی»؛ عقب‌تر. خاموش: CAT_LOCK_ON: false. */
   CAT_LOCK_ON: true,
   CAT_LOCK: ['علمی و آموزشی', 'روانشناسی و رشد فردی', 'فرهنگی، تاریخی و ادبی', 'مستند و مصاحبه'],
+  /* ۱۳.۴ — ورودیِ «از همه جا» (بخشِ ۳۷، `vgGate_`): فقط مجموعه‌های «آموزشی = بله» با دستهٔ قفلِ علمی، فقط بخش‌های
+     محتوایی، نویسندگی و زبان‌آموزی بیرون مگر در تبِ استثنا (فقط صاحبِ کانال پرش می‌کند)؛ بی‌مجموعه فقط با «بله»ی داور. */
+  VG_ON: true,
+  VG_ALLOW_TAB: 'استثناهای «از همه جا»',
+  VG_EXCL_SIGNS: ['نویسندگی', 'نویسندگی خلاق', 'داستان‌نویسی', 'داستان نویسی', 'داستان کوتاه نویسی', 'نویسنده شدن', 'فیلمنامه‌نویسی',
+                  'فیلمنامه نویسی', 'شعر گفتن', 'creative writing', 'writing', 'زبان‌آموزی', 'زبان آموزی', 'آموزش زبان',
+                  'زبان انگلیسی', 'آموزش انگلیسی', 'مکالمه انگلیسی', 'لغات انگلیسی', 'گرامر', 'grammar', 'ielts', 'آیلتس', 'toefl',
+                  'تافل', 'vocabulary', 'زبان فرانسه', 'زبان آلمانی', 'زبان ترکی', 'آموزش عربی', 'زبان عربی'],
+  VG_ADMIN_SIGNS: ['اعلام نتایج', 'نتایج را', 'اعلام خواهد', 'اعلام می‌شود', 'شرکت‌کنندگان دوره', 'شرکت‌کنندگان کلاس', 'ثبت‌نام',
+                   'ثبت نام', 'شهریه', 'جلسه بعد', 'جلسه‌ی بعد', 'جلسهٔ بعد', 'جلسه آینده', 'جلسهٔ آینده', 'کلاس بعد', 'دپارتمان',
+                   'ساختار آموزشی', 'روند کلاس', 'قوانین کلاس', 'تکلیف', 'مهلت ارسال', 'حضور و غیاب', 'اطلاعیه', 'گروه تلگرام',
+                   'لینک کلاس', 'زمان برگزاری', 'برگزار خواهد', 'گواهی پایان', 'مدرک دوره', 'پشتیبان دوره', 'خوش آمد'],
+  VG_ADMIN_MIN: 2,             // دست‌کم این‌قدر نشانهٔ جدا ⇒ «اداری/مقدماتیِ کلاس» (یک «تکلیف» تنها درسِ واقعی را نمی‌اندازد)
+  /* ۱۳.۴ — «قسمت ۸۴ … از صفِ انتشار کنار بگذارید، حذف نکنید». برداشتنِ کلید ⇒ برمی‌گردد. */
+  YT_OWNER_HOLD: { 'variety:84': 'کنار گذاشته شد به دستور صاحب کانال (۲۶ اکتبر؛ منبع: دورهٔ نویسندگیِ خلاق)' },
   TARGET_MINUTES: 10,          // طول هدف قسمت (مجله‌ای ۸ تا ۱۲ دقیقه)
   // تعداد بخش‌های قسمت. صریح گفته می‌شود چون «حدود ۱۵۰۰ کلمه» بدون آن، چهار
   // بخشِ کوتاه می‌شد و قسمت حدود بیست درصد کوتاه‌تر از هدف درمی‌آمد.
@@ -2338,7 +2353,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '13.3',
+  CODE_VERSION: '13.4',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3562,6 +3577,10 @@ var PK = {
   CAT_REVIEW_REV: 'CAT_REVIEW_REV',
   YT_HYPO_AT: 'YT_HYPO_AT',
   YTA_AVP: 'YTA_AVP',                // ۱۲.۱: درصدِ دیده‌شدنِ هر ویدئوی خودمان {videoId: avp} — برای سنجشِ فرضیه‌ها          // ۱۲.۰: آخرین ارسالِ جدولِ سنجشِ فرضیه‌ها  // ۱۱.۷: فهرستِ بازبینیِ دسته‌ها برای کدام نسخه به تلگرام رفت                    // ۱۱.۵: صفِ تلاشِ دوبارهٔ فیسبوک — فقط کلید و پوشه
+  VG_SKIP: 'VG_SKIP',              // ۱۳.۴: دسته‌هایی که امروز پس از دروازهٔ منبع قسمت نساختند {day, cats[]}
+  VG_LAST: 'VG_LAST',              // ۱۳.۴: گزارشِ منبعِ آخرین قسمت (ج)
+  VG_HOLD_AT: 'VG_HOLD_AT',        // ۱۳.۴: روزِ آخرین پیمایشِ صفِ یوتیوب برای مجموعهٔ نویسندگی
+  YT_OWNER_HOLD: 'YT_OWNER_HOLD',  // ۱۳.۴: {key: دلیل} کنار از صفِ یوتیوب، پیداشده از منبع
   CAT_LOCK_UI: 'CAT_LOCK_UI',      // ۱۱.۳: تیک‌های پنلِ «دسته‌های از همه جا» در تخته {on, list[], at} — بر CFG.CAT_LOCK مقدم  // ۱۱.۰: آخرین تصمیمِ قفلِ دسته {cat, why, at}
   YT_PL: 'YT_PLAYLIST_MAP',        // نگاشتِ کلیدِ مجموعه → شناسهٔ پلی‌لیست
   YT_STATS: 'YT_STATS_AT',
@@ -11811,6 +11830,19 @@ function buildCandidates_(rows) {
   return mixed;
 }
 
+/* ══ درِ دروازهٔ منبعِ «از همه جا» (۱۳.۴، بخشِ ۳۷) ══ وابستگیِ رو به جلو، پس پشتِ typeof و try: بارگذارِ آزمونی که بخشِ ۳۷ را
+   ندارد نباید ReferenceError بخورد. شکستِ دروازه ⇒ همه «بی‌مجموعه»، یعنی فقط با «بله»ی داور — نه «همه مجاز». */
+function vgApply_(hub, items, where) {
+  if (CFG.VG_ON === false || typeof vgFilter_ !== 'function') return items || [];
+  try { return vgFilter_(hub, items || [], where); }
+  catch (e) {
+    logLine_('دروازهٔ منبع نشد (' + where + '): ' + e.message + ' — همه فقط با داور.');
+    (items || []).forEach(function (x) { if (x) x.vgLoose = true; });
+    return items || [];
+  }
+}
+function vgSkipNow_() { try { return typeof vgSkipToday_ === 'function' ? vgSkipToday_() : []; } catch (e) { return []; } }
+
 /**
  * انتخاب دسته. رتبه‌بندی از روی داشبورد انجام می‌شود و فقط تبِ برنده کامل خوانده
  * می‌شود — وگرنه پیش از تولید هر قسمت باید کل آرشیو اسکن می‌شد.
@@ -11954,11 +11986,14 @@ function pickCategoryFrom_(hub, ranked, all) {
   // فقط تبِ برنده خوانده می‌شود؛ اگر خالی از آب درآمد، سراغ بعدی
   for (var oi = 0; oi < order.length; oi++) {
     var t = order[oi];
+    /* ۱۳.۴: دسته‌ای که امروز پس از دروازهٔ منبع قسمت نساخت، در جبرانِ امروز دوباره امتحان نمی‌شود. */
+    if (vgSkipNow_().indexOf(ranked[t].name) !== -1) continue;
     var st = stCache[t] || tabStats_(hub, ranked[t].name, CFG.MIN_PRIORITY);
     if (st.rows.length < 5) continue;
     var picked = buildCandidates_(st.rows);
     var items = fetchRows_(st.sheet, ranked[t].name, picked.map(function (x) { return x.row; }));
-    if (items.length < 4) continue;
+    items = vgApply_(hub, items, '«' + ranked[t].name + '»');
+    if (items.length < 4) { if (CFG.VG_ON !== false) logLine_('«' + ranked[t].name + '» پس از دروازهٔ منبع ' + items.length + ' نامزد داشت؛ دستهٔ بعدی.'); continue; }
     var freshN = 0;
     for (var z = 0; z < st.rows.length; z++) if (st.rows[z].fresh) freshN++;
 
@@ -11973,6 +12008,9 @@ function pickCategoryFrom_(hub, ranked, all) {
         });
         refs = fetchRows_(used.sheet, ranked[t].name,
                  used.rows.slice(0, CFG.REF_CANDIDATES).map(function (x) { return x.row; }));
+        /* ارجاع هم از همان دروازه. بی‌مجموعه‌اش می‌ماند تا اگر عضوِ کامل شد داور بسنجدش؛ ارجاعِ صرف (بی داور) فقط از
+           مجموعه‌دار — پایینِ `curateItems_` در همین تابعِ تولید. */
+        refs = vgApply_(hub, refs, 'ارجاع');
       }
     } catch (eRef) { logLine_('ساخت فهرست ارجاع ناموفق: ' + eRef.message); }
 
@@ -11996,7 +12034,7 @@ function crossCandidates_(hub, picked) {
       var st = tabStats_(hub, names[i], CFG.MIN_PRIORITY);
       if (!st.sheet || st.rows.length < 3) continue;
       var rows = st.rows.slice().sort(function (a, b) { return b.score - a.score; }).slice(0, per);
-      out = out.concat(fetchRows_(st.sheet, names[i], rows.map(function (x) { return x.row; })));
+      out = out.concat(vgApply_(hub, fetchRows_(st.sheet, names[i], rows.map(function (x) { return x.row; })), '«' + names[i] + '»'));
     } catch (e) { logLine_('نامزدِ دستهٔ «' + names[i] + '» خوانده نشد: ' + e.message); }
   }
   return out;
@@ -12188,6 +12226,7 @@ function curateDescribe_(list, tag) {
   for (var i = 0; i < list.length; i++) {
     var c = list[i];
     out.push('- id: ' + c.id + ' | ' + tag + ' | نوع: ' + c.kind + ' | دسته: ' + (c.cat || '') +
+      (c.vgSeries ? ' | از مجموعهٔ علمیِ «' + String(c.vgSeries.name || '').slice(0, 60) + '»' : (c.vgLoose ? ' | بی‌مجموعه' : '')) +
       (c.used ? ' | پیش‌تر در قسمتِ ' + c.used + ' آمده' : '') +
       '\n  موضوع: ' + String(c.topic || '').slice(0, 300) +
       '\n  پیام: ' + String(c.msg || '').slice(0, 300) +
@@ -12269,6 +12308,10 @@ function curateItems_(cat, candidates, refPool, orders) {
     '',
     'قاطعانه رد کن: اسکرین‌شات رابط کاربری و فهرست فایل، صفحهٔ پروفایل و اطلاعات تماس،',
     'تبلیغ محصول، آیتمی که تحلیلش برای فهمیدنش کافی نیست، و آیتمی که با دیگری تقریباً یکی است.',
+    /* ۱۳.۴ — قسمتِ ۸۴ با «بازخورد به شرکت‌کنندگانِ دوره … نتایج را اعلام خواهد کرد» شروع شد. */
+    '**فقط محتوای علمی و آموزشیِ واقعی.** این برنامه از این پس فقط دانش منتشر می‌کند: بخشِ اداری یا مقدماتیِ یک کلاس',
+    '(خوش‌آمد، اعلامِ نتایج، تکلیف، ثبت‌نام، زمانِ جلسهٔ بعد، روندِ دوره) محتوا نیست — برش ندار. آیتمِ «بی‌مجموعه» را فقط',
+    'وقتی بردار که خودش دانشی روشن می‌دهد؛ سرگرمیِ صرف، تبلیغ و حرفِ روزمره نه. داورِ بعدی هر «بی‌مجموعه» را جدا می‌سنجد.',
     '',
     'شناسه‌ها را عیناً و بدون تغییر برگردان.',
     '',
@@ -12336,7 +12379,7 @@ var CURATE_JUDGE_SCHEMA = {
   type: 'object',
   properties: {
     verdicts: { type: 'array', items: { type: 'object',
-      properties: { id: { type: 'string' }, belongs: { type: 'string' }, why: { type: 'string' } },
+      properties: { id: { type: 'string' }, belongs: { type: 'string' }, science: { type: 'string' }, why: { type: 'string' } },
       required: ['id', 'belongs'] } }
   },
   required: ['verdicts']
@@ -12350,12 +12393,28 @@ var CURATE_JUDGE_SCHEMA = {
  * و «خیر» می‌گوید یا «بله». «خیر»ها کنار می‌روند، مگر کمتر از سه بماند — آن‌وقت قوی‌ترین‌ها می‌مانند و
  * علت در سیاهه می‌آید. نشدنِ داوری یعنی بی‌داوری ادامه، نه افتادنِ قسمت.
  */
-function curateJudge_(theme, connection, route, chosen) {
+function curateJudge_(theme, connection, route, chosen, refs) {
+  var r = curateJudge0_(theme, connection, route, chosen, CFG.VG_ON === false ? [] : (refs || []).filter(function (x) { return x && x.vgLoose; }));
+  if (CFG.VG_ON === false) return r;
+  /* ۱۳.۴ — صاحبِ کانال: «ردیف‌های بی‌مجموعه را داورِ سیرِ قسمت با همان قاعدهٔ علمی و محتوایی تصمیم بگیرد، و اگر داور
+     مطمئن نبود، بیرون بماند». پس «بله»ی صریح لازم است؛ داوری‌ای که نشد یا جواب نداد، «مطمئن نبود» است. این سخت‌تر از
+     قاعدهٔ «کمتر از سه نماند» است، عمداً: آن قاعده دربارهٔ سیر است، این دربارهٔ اینکه چه چیزی اصلاً منتشر شود. */
+  var keep = [], drop = (r.dropped || []).slice();
+  for (var i = 0; i < (r.keep || []).length; i++) {
+    var c = r.keep[i];
+    if (c && c.vgLoose && !c.vgSci) drop.push({ item: c, why: r.ran ? 'بی‌مجموعه؛ داور «علمی و محتوایی» را تأیید نکرد' : 'بی‌مجموعه؛ داوری انجام نشد' });
+    else keep.push(c);
+  }
+  r.keep = keep; r.dropped = drop;
+  return r;
+}
+
+function curateJudge0_(theme, connection, route, chosen, refsJ) {
   if (CFG.CURATE_JUDGE === false || !chosen || chosen.length < 4) return { keep: chosen, dropped: [], ran: false };
   var lines = [];
   for (var i = 0; i < chosen.length; i++) {
     var c = chosen[i];
-    lines.push('- id: ' + c.id + ' | نوع: ' + c.kind + (c.genre ? ' | ژانر به گفتهٔ سردبیر: ' + c.genre : '') +
+    lines.push('- id: ' + c.id + ' | نوع: ' + c.kind + (c.vgLoose ? ' | بی‌مجموعه' : '') + (c.genre ? ' | ژانر به گفتهٔ سردبیر: ' + c.genre : '') +
       (c.reading ? '\n  خوانشِ سردبیر: ' + c.reading : '') +
       '\n  موضوع: ' + String(c.topic || '').slice(0, 260) +
       '\n  پیام: ' + String(c.msg || '').slice(0, 260) +
@@ -12378,14 +12437,28 @@ function curateJudge_(theme, connection, route, chosen) {
     'مرگ را «طنزآمیز» برچسب زده بود. اگر سیر چتری است (چند حوزهٔ جدا کنارِ هم)، فقط اعضای هسته‌ای‌ترین',
     'حوزه «بله»اند.',
     '',
-    lines.join('\n')
+    /* ۱۳.۴ */
+    'بخشِ اداری یا مقدماتیِ یک کلاس (خوش‌آمد، اعلامِ نتایج، تکلیف، ثبت‌نام، زمانِ جلسه، روندِ دوره) عضوِ هیچ سیری نیست:',
+    'belongs = «خیر».',
+    'science — فقط برای آیتمِ «بی‌مجموعه» (برای بقیه خالی بگذار): «بله» فقط اگر مطمئنی محتوای علمی یا آموزشیِ واقعی است',
+    '(دانشی روشن می‌دهد؛ نه سرگرمیِ صرف، نه تبلیغ، نه اداری)؛ «خیر» اگر نیست؛ «نامطمئن» اگر مطمئن نیستی. نامطمئن یعنی بیرون.',
+    '',
+    lines.join('\n'),
+    /* ۱۳.۴: ارجاعِ بی‌مجموعه هم فقط با «بله»ی علمی — عضوِ سیر نیست، پس belongs برایش معنا ندارد. */
+    (refsJ && refsJ.length ? '\n--- ارجاع‌های کوتاه به قسمت‌های پیشین (عضوِ سیر نیستند؛ belongs را «بله» بگذار و فقط science بده) ---\n' +
+      refsJ.map(function (c) { return '- id: ' + c.id + ' | نوع: ' + c.kind + ' | بی‌مجموعه\n  موضوع: ' + String(c.topic || '').slice(0, 200) +
+        '\n  پیام: ' + String(c.msg || '').slice(0, 200); }).join('\n') : '')
   ].join('\n');
   var res = null;
   try { res = geminiText_(prompt, CURATE_JUDGE_SCHEMA, 4096); } catch (e) { res = null; }
   if (!res || !res.verdicts) return { keep: chosen, dropped: [], ran: false };
-  var no = {}, why = {};
+  var no = {}, why = {}, byIdJ = {};
+  for (var bj = 0; bj < chosen.length; bj++) byIdJ[String(chosen[bj].id)] = chosen[bj];
+  for (var bj2 = 0; bj2 < (refsJ || []).length; bj2++) if (!byIdJ[String(refsJ[bj2].id)]) byIdJ[String(refsJ[bj2].id)] = refsJ[bj2];
   for (var v = 0; v < res.verdicts.length; v++) {
     var x = res.verdicts[v] || {};
+    var cj = byIdJ[String(x.id || '').trim()];
+    if (cj && cj.vgLoose) cj.vgSci = /^\s*(بله|آری|yes)(?![\u0600-\u06FFa-z])/i.test(String(x.science || ''));
     /* `\b` در JS فقط حرفِ لاتین را «حرف» می‌شمارد — «خیر» با آن هرگز جور نمی‌شد و هر «خیر» بی‌صدا
        نادیده می‌ماند (سنجهٔ ۳.۱ همین را گرفت). */
     if (/^\s*(خیر|نه|no)(?![\u0600-\u06FFa-z])/i.test(String(x.belongs || ''))) { no[String(x.id).trim()] = true; why[String(x.id).trim()] = String(x.why || ''); }
@@ -13887,7 +13960,7 @@ function produceEpisode(opt) {
        (یعنی بی هیچ معنایی)، و `enforceMix_` که حداقلِ هر نوع را از **کلِ دسته** پر می‌کرد. حالا پر
        کردن فقط از اعضای همان سیر است، کم بودن یعنی تلاشِ دوم با نامزدهای دسته‌های بعدی، و داورِ جدا
        هر عضو را می‌سنجد. گزینشِ بی‌نخ فقط وقتی که هیچ‌کدام نشد — و آن‌وقت بلند گفته می‌شود. */
-    var route = '', curNote = '', reusedIn = [];
+    var route = '', curNote = '', reusedIn = [], vgJudged = [];
     if (CFG.CURATE && pool.length > 4) {
       var minN = Math.max(3, Number(CFG.CURATE_MIN) || 5);
       var wide = pool;
@@ -13904,12 +13977,13 @@ function produceEpisode(opt) {
           if (cur.chosen.length >= minN || (attempt === 1 && cur.chosen.length >= 4)) {
             var memberPool = cur.chosen.concat((cur.members || []).filter(function (x) { return cur.chosen.indexOf(x) === -1; }));
             var mixed = enforceMix_(cur.chosen, memberPool, CFG.ITEMS_PER_EPISODE);
-            var jd = curateJudge_(cur.theme, cur.connection, cur.route, mixed);
+            var jd = curateJudge_(cur.theme, cur.connection, cur.route, mixed, cur.references || []);
             items = jd.keep;
-            refs = cur.references || [];
+            refs = (cur.references || []).filter(function (x) { return CFG.VG_ON === false || !x.vgLoose || x.vgSci; });   // ۱۳.۴: ارجاعِ بی‌مجموعه فقط با «بله»ی داور
             theme = cur.theme; connection = cur.connection; route = cur.route;
             rejected = (cur.rejected || []).concat((jd.dropped || []).map(function (x) { return x.item; })
                          .filter(function (x) { return !x.reused; }));
+            vgJudged = (jd.dropped || []).map(function (x) { return { id: String((x.item || {}).id || ''), why: x.why || 'داور: بیرون از سیر' }; });
             reusedIn = (cur.reused || []).filter(function (x) { return items.indexOf(x) !== -1; });
             curNote = 'سیر: «' + theme + '» — ' + items.length + ' عضو' +
                       ((jd.dropped || []).length ? '، داور ' + jd.dropped.length + ' را بیرون گذاشت (' +
@@ -13931,10 +14005,29 @@ function produceEpisode(opt) {
         curNote = 'بی‌نخ';
       }
     }
-    if (!items) items = selectItems_(pool);
+    /* ۱۳.۴: گزینشِ بی‌نخ هم از داورِ «علمی و محتوایی» می‌گذرد — بی آن، «بی‌مجموعه» داوری نداشت و قاعدهٔ «نامطمئن ⇒ بیرون»
+       یعنی هر روزی که سردبیر سیری نداد، هیچ قسمتی (۱۱.۱: «پادکست متوقف نشود»). داور نشد ⇒ بی‌مجموعه‌ها بیرون، همان قاعده. */
+    if (!items) {
+      var selF = selectItems_(pool);
+      if (CFG.VG_ON !== false && selF.some(function (x) { return x && x.vgLoose; })) {
+        var jf = curateJudge_('بی‌نخ — گزینش بر پایهٔ امتیاز؛ فقط «علمی و محتوایی» را بسنج و belongs را «بله» بگذار', 'بی‌نخ', '', selF);
+        items = (jf.keep || []).filter(function (x) { return !x.vgLoose || x.vgSci; });
+        vgJudged = vgJudged.concat((jf.dropped || []).map(function (x) { return { id: String((x.item || {}).id || ''), why: x.why || '' }; }));
+      } else items = selF;
+    }
 
     if (items.length < 4) {
       logLine_('تولید: آیتم کافی در «' + picked.title + '» نبود (' + items.length + ').');
+      /* ۱۳.۴: پس از دروازهٔ منبع کم آمد ⇒ امروز این دسته کنار، و جبرانِ خودکار (`epCatchUp_`) با دستهٔ علمیِ بعدی می‌سازد
+         — «پادکست متوقف نشود» (۱۱.۱) و «فقط علمی» (۱۳.۴) با هم. */
+      if (CFG.VG_ON !== false) {
+        try {
+          var skA = typeof vgSkipAdd_ === 'function' ? vgSkipAdd_(picked.title) : [];
+          mailQueue_('variety-few', '«' + CFG.SHOW_NAME + '»: دستهٔ «' + picked.title + '» امروز قسمت نساخت',
+                     'پس از دروازهٔ منبع (فقط مجموعه‌های علمیِ مطمئن، بی‌مجموعه با «بله»ی داور) ' + items.length +
+                     ' عضو ماند. جبرانِ خودکار با دستهٔ بعدی امتحان می‌کند. دسته‌های کنارِ امروز: ' + skA.join('، '));
+        } catch (eSk) {}
+      }
       return { ok: false, reason: 'few', cat: picked.title, count: items.length };
     }
 
@@ -14133,6 +14226,9 @@ function produceEpisode(opt) {
                    '—', '', '', '', 'در حال ساخت صدا',
                    items.map(function (x) { return x.id; }).join(', '),
                    '', cnt['صدا'], cnt['سند']]);
+    /* ۱۳.۴ (ج): منبع و قطعه‌های همین قسمت — ایمیلِ ۱۰ و تلگرام. شکستِ گزارش قسمت را نمی‌اندازد. */
+    try { if (CFG.VG_ON !== false && typeof vgReport_ === 'function') vgReport_(epNum, ep.title, items, vgJudged); }
+    catch (eVr) { logLine_('گزارشِ منبعِ قسمت نوشته نشد: ' + eVr.message); }
 
     // دستورهای بازبینی این‌جا بسته نمی‌شوند. اگر صداگذاری یا ارسال شکست بخورد،
     // قسمت اصلاً منتشر نشده و بستنِ دستور یعنی اصلاح برای همیشه گم می‌شود.
@@ -18718,6 +18814,8 @@ function writeStatus_(hub, note) {
     igPattern: (function () { try { var x = JSON.parse(props_().getProperty(PK.IG_PATTERN) || 'null'); if (x) delete x.byDay; return x; } catch (e) { return null; } })(),
     catLock: (function () { try { return { on: catLockOn_(), order: catLockList_(), fromBoard: !!catLockUi_(), line: catLockLine_() }; } catch (e) { return null; } })(),
     ytShowsOff: (function () { try { return { shows: CFG.YT_SHOWS_OFF || [], line: ytShowsOffLine_(), parked: ytDueParked_().length }; } catch (e) { return null; } })(),
+    /* ۱۳.۴: دروازهٔ منبعِ «از همه جا» — آخرین گزارش، دسته‌های کنارِ امروز، و ویدئوهای کنار از صف. */
+    varietyGate: (function () { try { return typeof vgStatus_ === 'function' ? vgStatus_() : null; } catch (e) { return null; } })(),
     /* ۱۱.۵: مقصدها، فیسبوک و تولیدِ موازی — فراخوانِ رو به جلو (۸ → ۲۵/۱۳/۳۸) در try. */
     destinations: (function () { try { return destStatus_(); } catch (e) { return null; } })(),
     facebook: (function () { try { return fbStatus_(); } catch (e) { return null; } })(),
@@ -20805,6 +20903,7 @@ function healthCheck() {
   try { var fbS = fbStatus_(); if (fbS.on || fbS.queued) notes.push(fbS.line); } catch (eFs) {}
   try { var spS = seriesParStatus_(); if (spS.line) notes.push(spS.line); } catch (eSp) {}
   try { var ytOffL = ytShowsOffLine_(); if (ytOffL) notes.push(ytOffL); } catch (eYo) {}
+  try { if (typeof vgStatus_ === 'function') { var vgL = vgStatus_().line; if (vgL) notes.push(vgL.split('\n')[0]); } } catch (eVg) {}
   try { var ytPrivL = ytOwnerPrivLine_(); if (ytPrivL) notes.push(ytPrivL); } catch (eYp) {}
   try { vmHealth_(problems, notes); } catch (eVmH) {}    // بخشِ ۳۷ پس از این بخش است ⇒ درونِ try
   try { igHealth_(problems, notes); } catch (eIgH) {}
@@ -23767,7 +23866,7 @@ function reqStatus_() {
     var d = defs.list[i], rec = m[d.id] || null;
     if (d.closed) continue;                                    // بسته به تصمیمِ صاحبِ برنامه
     out.n++;
-    var it = { id: d.id, ask: String(d.ask || '').slice(0, 90), state: '', ev: rec ? String(rec.ev || '') : '', at: rec ? rec.at : '' };
+    var it = { id: d.id, ask: String(d.ask || '').slice(0, 90), state: '', ev: rec ? String(rec.ev || '') : '', at: rec ? rec.at : '', ver: String(d.ver || '') };
     if (rec && rec.okDays >= need && rec.v !== 'نادرست') { it.state = 'انجام و سنجیده شد'; out.done++; }
     else if (d.ver && running && verCmp_(d.ver, running) > 0) { it.state = 'در راهِ نصب (' + d.ver + ')'; out.waiting++; }
     else if (rec && rec.v === 'نادرست') {
@@ -23815,7 +23914,11 @@ function reqStatus_() {
   if (rest > 0) parts.push(fa(rest) + ' در انتظارِ سنجشِ ناظر');
   out.line = '📒 دفترِ درخواست‌های شما: ' + fa(out.n) + ' درخواست' + (parts.length ? ' — ' + parts.join('، ') : '') + '.' +
     (out.today.length ? ' سهمِ سنجشِ امروزِ ناظر: ' + out.today.join('، ') + '.' : '') +
-    out.items.filter(function (x) { return x.state !== 'انجام و سنجیده شد'; }).slice(0, 12)
+    /* ۱۳.۴: «جدولِ پوشش با این درخواست‌ها به‌روز شود و در ایمیل بیاید» — فهرست به ترتیبِ دفتر بود، پس درخواستِ تازه پشتِ
+       ۱۲ ردیفِ قدیمی گم می‌شد. حالا: نادرست‌ها، بعد درخواست‌های همین نسخه، بعد بقیه. */
+    out.items.filter(function (x) { return x.state !== 'انجام و سنجیده شد'; })
+      .map(function (x, ix) { return { x: x, r: /^نادرست/.test(x.state) ? 0 : (x.ver && x.ver === running ? 1 : 2), ix: ix }; })
+      .sort(function (a, b) { return a.r - b.r || a.ix - b.ix; }).map(function (o) { return o.x; }).slice(0, 12)
       .map(function (x) { return '\n• ' + x.id + ' «' + x.ask + '» — ' + x.state; }).join('');
   return out;
 }
@@ -54044,7 +54147,7 @@ function ytDueList_() {
       if (ytItemOff_(a[i])) { park.push(a[i]); moved++; } else keep.push(a[i]);
     }
     for (var j = 0; j < park.length; j++) {
-      if (!ytItemOff_(park[j]) && !park[j].why) back.push(park[j]);   // «خصوصی» (۱۱.۲) برنمی‌گردد
+      if (!ytItemOff_(park[j]) && (!park[j].why || park[j].hold)) back.push(park[j]);   // «خصوصی» (۱۱.۲) برنمی‌گردد؛ کنارِ دستوری (۱۳.۴) برمی‌گردد
     }
     if (moved || back.length) {
       var rest = park.filter(function (x) { return back.indexOf(x) === -1; });
@@ -54052,7 +54155,7 @@ function ytDueList_() {
       keep = keep.concat(back.filter(function (x) { return !keep.some(function (k) { return String(k.key) === String(x.key); }); }));
       if (back.length) keep = ytDueOrder_(keep);
       props_().setProperty(PK.YT_DUE, JSON.stringify(keep));
-      logLine_('یوتیوب — صف: ' + (moved ? moved + ' ردیفِ برنامهٔ خاموش کنار رفت (YT_DUE_PARKED، پاک نشد)' : '') +
+      logLine_('یوتیوب — صف: ' + (moved ? moved + ' ردیفِ بیرون از انتشار کنار رفت (YT_DUE_PARKED، پاک نشد)' : '') +
                (moved && back.length ? ' · ' : '') + (back.length ? back.length + ' ردیفِ کنارگذاشته به صف برگشت' : '') + '.');
     }
     return keep;
@@ -54076,9 +54179,27 @@ function ytShowOff_(show) {
 function ytItemOff_(it) {
   if (!it) return false;
   if (ytShowOff_(it.show)) return true;
+  if (ytOwnerHoldWhy_(it)) return true;     // ۱۳.۴: کنار به دستورِ صاحبِ کانال — نه پاک، و با برداشتنِ دستور برمی‌گردد
   var floor = Number((CFG.YT_SHOW_MIN_EP || {})[String(it.show)]) || 0;
   var n = parseInt(String(it.ep || '').replace(/[^\d]/g, ''), 10);
   return floor > 0 && n > 0 && n < floor;
+}
+
+/* ══ کنار به دستورِ صاحبِ کانال (۱۳.۴) ══ «قسمت ۸۴ … از صفِ انتشار کنار بگذارید، حذف نکنید». دو منبع، یک در:
+   `CFG.YT_OWNER_HOLD` (دستورِ صریح، با کلید) و `PK.YT_OWNER_HOLD` (آنچه `vgHoldSweep_` از مجموعهٔ نویسندگی پیدا کرد).
+   برداشتنِ کلید از هر دو ⇒ ردیف در اولین خواندنِ صف خودش برمی‌گردد. ⇒ دلیل یا ''. */
+var YT_HOLD_CACHE_ = null;
+function ytOwnerHoldMap_() {
+  if (YT_HOLD_CACHE_) return YT_HOLD_CACHE_;
+  var m = {}, c = CFG.YT_OWNER_HOLD || {}, k;
+  try { var p = JSON.parse(props_().getProperty(PK.YT_OWNER_HOLD) || '{}') || {}; for (k in p) if (Object.prototype.hasOwnProperty.call(p, k)) m[k] = String(p[k] || ''); } catch (e) {}
+  for (k in c) if (Object.prototype.hasOwnProperty.call(c, k)) m[k] = String(c[k] || '');
+  YT_HOLD_CACHE_ = m;
+  return m;
+}
+function ytOwnerHoldWhy_(it) {
+  var key = String((it && it.key) || ((it && it.show) + ':' + (it && it.ep)));
+  return ytOwnerHoldMap_()[key] || '';
 }
 
 /** ردیف‌های کنارگذاشتهٔ صف (۱۱.۰). */
@@ -54091,6 +54212,11 @@ function ytDueParked_() {
 
 /** خطِ روزانه (۱۱.۰) — خالی وقتی هیچ برنامه‌ای خاموش نیست. */
 function ytShowsOffLine_() {
+  var hm = ytOwnerHoldMap_(), hk = Object.keys(hm);
+  var hLine = hk.length ? '⏸ کنار گذاشته از صفِ یوتیوب (پاک نشده): ' + hk.map(function (k) { return k + ' — ' + hm[k]; }).join(' · ') + '.' : '';
+  return [ytShowsOffLine0_(), hLine].filter(Boolean).join(' ');
+}
+function ytShowsOffLine0_() {
   var off = CFG.YT_SHOWS_OFF || [];
   var fl = CFG.YT_SHOW_MIN_EP || {}, flK = Object.keys(fl).filter(function (k) { return Number(fl[k]) > 0; });
   var flLine = flK.length ? '🔒 قسمت‌های قدیمی بیرون از انتشارِ یوتیوب: ' + flK.map(function (k) {
@@ -61488,7 +61614,8 @@ function ytUploadOne_(item, hub, pub) {
     if (ytItemOff_(item) || (prevRec && prevRec.videoId && ytHandsOff_(prevRec.videoId, 'آپلودِ دوباره'))) {
       ytDueDrop_(String(item.key || (item.show + ':' + item.ep)));
       try {
-        var pk0 = ytDueParked_(); pk0.push(Object.assign({}, item, { why: 'خصوصی یا بیرون از انتشار', at: nowStr_() }));
+        var hw0 = ytOwnerHoldWhy_(item);
+        var pk0 = ytDueParked_(); pk0.push(Object.assign({}, item, { why: hw0 || 'خصوصی یا بیرون از انتشار', hold: !!hw0, at: nowStr_() }));
         props_().setProperty(PK.YT_DUE_PARKED, JSON.stringify(pk0.slice(-200)));
       } catch (ePk) {}
       res.why = 'ویدئوی این قسمت خصوصی است یا قسمت بیرون از انتشار است — دوباره بالا نمی‌رود';
@@ -63206,6 +63333,8 @@ function ytRunDue_(maxItems, budgetMs) {
      شش‌دقیقه‌ای می‌گذشت — کشته‌شدنی بی خطا. */
   _ytRunDeadline = t0 + budget;
   var hub = getHub_();
+  /* ۱۳.۴: ویدئوهای صف که منبعشان مجموعهٔ نویسندگی/زبان‌آموزی است — روزی یک بار، پیش از خواندنِ صف (بخشِ ۳۷). */
+  try { if (typeof vgHoldSweep_ === 'function') vgHoldSweep_(hub); } catch (eVh) { logLine_('کنارگذاشتنِ صفِ نویسندگی نشد: ' + eVh.message); }
   var pub = ytPublished_(hub);
   /* صف مرتب مصرف می‌شود — و مرتب‌سازی این‌جا دوباره انجام می‌شود، نه فقط
      هنگامِ افزودن: ردیف‌هایی که پیش از ۵٫۹۸ ثبت شده‌اند ترتیب ندارند، و یک
@@ -83926,6 +84055,242 @@ function vmSampleTick_() {
   st = { key: key, asked: !!asked, at: nowStr_(), scenes: r.items.length, moments: r.moments.length };
   try { props_().setProperty(PK.VM_SAMPLE, JSON.stringify(st)); } catch (eS3) {}
   return st;
+}
+
+/* ══════════ ورودیِ «از همه جا» فقط از مجموعه‌های علمیِ مطمئن (۱۳.۴) ══════════
+ * قسمتِ ۸۴ (۲۶ اکتبر) هشت فایلِ صوتی داشت، هر هشت از دورهٔ «نویسندگیِ خلاق» — و اولی بازخوردِ اداریِ کلاس بود
+ * («نتایج را تا پایانِ هفته اعلام خواهد کرد»). ریشه: دستهٔ هر ردیف را `txClassify` با **شمردنِ واژه‌های همان ردیف**
+ * می‌دهد («دوره، آموزش، کلاس» ⇒ «علمی و آموزشی»)، و داوریِ مفهومیِ ۱۳.۰ فقط به تختهٔ مجموعه‌ها رسیده بود؛ همان دوره در
+ * تخته «فرهنگی، تاریخی و ادبی» است و تکه‌هایش در «از همه جا» هنوز «علمی». صاحبِ کانال تأیید کرد:
+ *   الف) فقط از مجموعه‌هایی که «آموزشی = بله» (دستی یا داوریِ مطمئن) و دسته‌شان در قفلِ دسته‌های علمی است، و فقط
+ *       بخش‌های محتوایی — فیلترِ دولایهٔ «مقدماتی/اداریِ کلاس»: نشانه‌ها در کد (`vgAdmin_`)، و قاعدهٔ صریح در داور؛
+ *   ب) نویسندگی و زبان‌آموزی بیرون، با فهرستِ استثنایی که **فقط او** پر می‌کند (تبِ `VG_ALLOW_TAB`؛ موتور فقط سرستون
+ *       می‌سازد و هرگز ردیف نمی‌نویسد)؛
+ *   ج) منبع و قطعه‌های هر قسمتِ تازه در ایمیلِ ۱۰ و تلگرام.
+ * ردیفِ بی‌مجموعه (کلیپ و عکسِ تک) داوریِ مجموعه ندارد: داورِ سیرِ قسمت با همان قاعدهٔ «علمی و محتوایی» تصمیم می‌گیرد،
+ * و **نامطمئن یعنی بیرون** — نه «بله»ی پیش‌فرض (`curateJudge_`؛ داوری که نشد یعنی همه‌شان بیرون).
+ * داوری دستی همیشه مقدم است: «آموزشی است/نیست» و «دستهٔ دستی» از همان `seriesIsCourse_`/`seriesCatOf_` خوانده می‌شوند.
+ */
+var VG_ALLOW_HEADERS = ['کلید مجموعه', 'نام مجموعه', 'یادداشت (اختیاری)'];
+
+/** نشانه‌ها با شروعِ واژه، روی متنِ یکسان‌شده (همان شیوهٔ `judgePseudoSign_`). ⇒ فهرستِ نشانه‌های دیده‌شده. */
+function vgSigns_(txt, signs) {
+  var t = ' ' + txNorm(String(txt || '')).replace(/ٔ/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ') + ' ';
+  var out = [];
+  for (var i = 0; i < (signs || []).length; i++) {
+    var sg = txNorm(String(signs[i] || '')).replace(/ٔ/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    if (sg && t.indexOf(' ' + sg) !== -1 && out.indexOf(sg) === -1) out.push(sg);
+  }
+  return out;
+}
+
+/** لایهٔ اولِ «مقدماتی/اداریِ کلاس»: دست‌کم `VG_ADMIN_MIN` نشانهٔ جدا در موضوع/پیام/خلاصه/آغازِ متن. ⇒ دلیل یا ''. */
+function vgAdmin_(it) {
+  var txt = [it && it.topic, it && it.msg, it && it.summary, String((it && it.body) || '').slice(0, 900)].join(' ');
+  var hits = vgSigns_(txt, CFG.VG_ADMIN_SIGNS);
+  return hits.length >= Math.max(1, Number(CFG.VG_ADMIN_MIN) || 2) ? 'اداری/مقدماتیِ کلاس (' + hits.slice(0, 3).join('، ') + ')' : '';
+}
+
+/** ب) مجموعهٔ نویسندگی یا زبان‌آموزی؟ از نام، موضوع، شرحِ داور، دسته و قالب. ⇒ نشانه یا ''. */
+function vgExcluded_(vals) {
+  if (!vals) return '';
+  var txt = [vals[SC.NAME - 1], vals[SC.TOPIC - 1], vals[SC.ABOUT - 1], vals[SC.CAT - 1], vals[SC.MCAT - 1],
+             String(vals[SC.WHY - 1] || '').slice(0, 160)].join(' ');
+  return vgSigns_(txt, CFG.VG_EXCL_SIGNS)[0] || '';
+}
+
+/** فهرستِ استثنای صاحبِ کانال: کلید یا نامِ دقیقِ مجموعه. موتور فقط سرستون را می‌سازد. ⇒ {keys, names} */
+function vgAllowList_(hub) {
+  var out = { keys: Object.create(null), names: Object.create(null), n: 0 };
+  try {
+    var sh = ensureTab_(hub, CFG.VG_ALLOW_TAB || 'استثناهای «از همه جا»', VG_ALLOW_HEADERS);
+    if (sh.getLastRow() < 2) return out;
+    var v = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues();
+    for (var i = 0; i < v.length; i++) {
+      var k = String(v[i][0] || '').trim(), nm = String(v[i][1] || '').trim();
+      if (k) out.keys[k] = 1;
+      if (nm) out.names[nm] = 1;
+      if (k || nm) out.n++;
+    }
+  } catch (e) { logLine_('تبِ استثناهای «از همه جا» خوانده نشد: ' + String(e.message).slice(0, 100)); }
+  return out;
+}
+
+/** الف + ب برای یک ردیفِ رجیستری. استثنای صاحبِ کانال هر دو را باز می‌کند (فیلترِ اداری همچنان می‌ماند). ⇒ {ok, why} */
+function vgSeriesOk_(rec, allow) {
+  var v = rec.vals, name = String(v[SC.NAME - 1] || '').trim();
+  if (allow && (allow.keys[rec.key] || (name && allow.names[name]))) return { ok: true, why: 'استثنای شما' };
+  var ex = vgExcluded_(v);
+  if (ex) return { ok: false, why: 'نویسندگی/زبان‌آموزی («' + ex + '»)' };
+  var c = seriesIsCourse_(v);
+  if (c !== true) return { ok: false, why: c === false ? 'مجموعه آموزشی نیست' : 'آموزشی‌بودنِ مجموعه مطمئن نیست' };
+  var cat = seriesCatOf_(v), lock = [];
+  try { lock = catLockList_(); } catch (eL) { lock = (CFG.CAT_LOCK || []).slice(); }
+  if (lock.indexOf(cat) === -1) return { ok: false, why: 'دستهٔ مجموعه «' + cat + '» در دسته‌های علمی نیست' };
+  return { ok: true, why: '' };
+}
+
+/** خواندنِ یک‌بارهٔ رجیستری و نگاشتِ فایل⇐مجموعه (در هر اجرا یک بار). */
+var VG_CTX_ = null;
+function vgCtx_(hub) {
+  if (VG_CTX_) return VG_CTX_;
+  var c = { parts: null, reg: null, allow: null, err: '' };
+  try { c.parts = readSeriesParts_(hub); c.reg = readSeriesReg_(hub); c.allow = vgAllowList_(hub); }
+  catch (e) { c.err = String(e.message || e).slice(0, 120); }
+  VG_CTX_ = c;
+  return c;
+}
+
+/**
+ * دروازه، پیش از سردبیر. ردیفِ مجموعه‌دار یا می‌ماند یا با دلیل بیرون می‌رود؛ ردیفِ بی‌مجموعه `vgLoose` می‌گیرد و
+ * تصمیمش با داورِ سیر است. رجیستری خوانده نشد ⇒ همه «بی‌مجموعه» (پس فقط با «بله»ی داور)، نه «همه مجاز». ⇒ {keep, out[]}
+ */
+function vgGate_(hub, items) {
+  var res = { keep: [], out: [] };
+  if (CFG.VG_ON === false) { res.keep = (items || []).slice(); return res; }
+  var ctx = vgCtx_(hub);
+  if (ctx.err) logLine_('«از همه جا»: رجیستریِ مجموعه‌ها خوانده نشد (' + ctx.err + ')؛ همهٔ نامزدها فقط با داور.');
+  for (var i = 0; i < (items || []).length; i++) {
+    var it = items[i];
+    if (!it) continue;
+    var adm = vgAdmin_(it);
+    if (adm) { res.out.push({ item: it, why: adm }); continue; }
+    var pr = ctx.parts && ctx.parts.byFile[String(it.id || '').trim()];
+    var rec = pr && ctx.reg && ctx.reg.byKey[pr.key];
+    if (rec) {
+      var g = vgSeriesOk_(rec, ctx.allow);
+      it.vgSeries = { key: rec.key, name: String(rec.vals[SC.NAME - 1] || ''), cat: seriesCatOf_(rec.vals), allow: g.why === 'استثنای شما' };
+      if (!g.ok) { res.out.push({ item: it, why: g.why + ' — «' + it.vgSeries.name + '»' }); continue; }
+      it.vgLoose = false;
+    } else {
+      it.vgLoose = true;
+    }
+    res.keep.push(it);
+  }
+  return res;
+}
+
+/** ثبتِ کنارگذاشته‌های این قسمت، برای گزارش (ج). */
+var VG_OUT_ = [];
+function vgFilter_(hub, items, where) {
+  var g = vgGate_(hub, items);
+  for (var i = 0; i < g.out.length; i++) {
+    var id = String(g.out[i].item.id || '');
+    if (!VG_OUT_.some(function (x) { return x.id === id; })) VG_OUT_.push({ id: id, why: g.out[i].why, where: where || '' });
+  }
+  if (g.out.length) logLine_('«از همه جا» — دروازهٔ منبع (' + (where || '') + '): ' + g.out.length + ' از ' + (items || []).length +
+                             ' بیرون (' + g.out.slice(0, 3).map(function (x) { return x.why; }).join(' · ') + ').');
+  return g.keep;
+}
+
+/** دسته‌هایی که امروز پس از دروازه قسمت نساختند — تا جبرانِ خودکار (`epCatchUp_`) سراغِ دستهٔ علمیِ بعدی برود. */
+function vgSkipToday_() {
+  try {
+    var r = JSON.parse(props_().getProperty(PK.VG_SKIP) || 'null');
+    return r && r.day === String(nowStr_()).slice(0, 10) && Array.isArray(r.cats) ? r.cats : [];
+  } catch (e) { return []; }
+}
+function vgSkipAdd_(cat) {
+  var a = vgSkipToday_();
+  if (cat && a.indexOf(cat) === -1) a.push(String(cat));
+  try { props_().setProperty(PK.VG_SKIP, JSON.stringify({ day: String(nowStr_()).slice(0, 10), cats: a })); } catch (e) {}
+  return a;
+}
+
+/**
+ * ج) گزارشِ منبع و قطعه‌های قسمتِ تازه — ایمیلِ ۱۰ و تلگرام، و `_STATUS.varietyGate`. هر عضو با مجموعه‌اش (یا «بی‌مجموعه،
+ * با داور»)، دسته، نوع و موضوع؛ بعد کنارگذاشته‌ها با دلیل. ⇒ متن.
+ */
+function vgReport_(epNum, title, items, dropped) {
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  var L = [];
+  for (var i = 0; i < (items || []).length; i++) {
+    var it = items[i];
+    L.push(fa(i + 1) + ') ' + String(it.kind || '') + ' · ' +
+      (it.vgSeries ? 'مجموعهٔ «' + it.vgSeries.name + '» (' + it.vgSeries.cat + (it.vgSeries.allow ? '، استثنای شما' : '') + ')'
+                   : 'بی‌مجموعه — داور: علمی و محتوایی') +
+      ' · ' + String(it.topic || it.summary || '').replace(/\s+/g, ' ').slice(0, 70) + ' · ' + String(it.id || '').slice(0, 12));
+  }
+  var out = (dropped || []).concat(VG_OUT_);
+  var body = 'منبع و قطعه‌های قسمتِ ' + fa(epNum) + ' «' + String(title || '') + '»:\n' + L.join('\n') +
+    (out.length ? '\nکنار گذاشته (' + fa(out.length) + '): ' + out.slice(0, 8).map(function (x) {
+      return String(x.why || '').slice(0, 70); }).join(' · ') : '\nهیچ نامزدی کنار گذاشته نشد.');
+  var rec = { at: nowStr_(), ep: epNum, title: String(title || '').slice(0, 80), n: (items || []).length,
+              series: (items || []).filter(function (x) { return x.vgSeries; }).length,
+              loose: (items || []).filter(function (x) { return x.vgLoose; }).length, out: out.length,
+              outWhy: out.slice(0, 6).map(function (x) { return String(x.why || '').slice(0, 70); }) };
+  try { props_().setProperty(PK.VG_LAST, JSON.stringify(rec)); } catch (eP) {}
+  try { mailQueue_('variety-source', 'منبعِ قسمتِ ' + fa(epNum) + ' «' + CFG.SHOW_NAME + '»', body); } catch (eM) {}
+  try { if (tgEnabled_()) tgSend_('🧭 <b>' + tgEsc_('منبعِ قسمتِ ' + fa(epNum) + ' «' + CFG.SHOW_NAME + '»') + '</b>\n' + tgEsc_(body).slice(0, 3500)); } catch (eT) {}
+  return body;
+}
+
+/** برای `_STATUS.json`: آخرین گزارش + آنچه امروز کنار رفت. */
+function vgStatus_() {
+  var r = null;
+  try { r = JSON.parse(props_().getProperty(PK.VG_LAST) || 'null'); } catch (e) { r = null; }
+  var h = ytOwnerHoldMap_();
+  return { on: CFG.VG_ON !== false, last: r, skipToday: vgSkipToday_(), hold: Object.keys(h).map(function (k) { return { key: k, why: h[k] }; }),
+           line: vgLine_(r, h) };
+}
+
+function vgLine_(r, h) {
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  var head = CFG.VG_ON === false ? '🧭 دروازهٔ منبعِ «' + CFG.SHOW_NAME + '»: خاموش (VG_ON)' :
+    '🧭 منبعِ «' + CFG.SHOW_NAME + '»: فقط مجموعه‌های علمیِ مطمئن و بخش‌های محتوایی؛ نویسندگی و زبان‌آموزی بیرون (مگر در تبِ «' +
+    (CFG.VG_ALLOW_TAB || 'استثناهای «از همه جا»') + '»)؛ بی‌مجموعه فقط با «بله»ی داور';
+  var last = r ? ' — آخرین قسمت (' + fa(r.ep) + '، ' + r.at + '): ' + fa(r.n) + ' عضو، ' + fa(r.series) + ' از مجموعه، ' +
+                 fa(r.loose) + ' بی‌مجموعه، ' + fa(r.out) + ' کنار رفت' : ' — هنوز قسمتی با این دروازه ساخته نشده';
+  var hk = Object.keys(h || {});
+  var hold = hk.length ? '\n⏸ کنار گذاشته از صفِ یوتیوب (پاک نشده): ' + hk.map(function (k) { return k + ' — ' + h[k]; }).join(' · ') : '';
+  return head + last + '.' + hold;
+}
+
+/**
+ * ۲) ویدئوهای صفِ یوتیوب که از مجموعهٔ نویسندگی/زبان‌آموزی آمده‌اند — کنار، نه حذف. variety:84 صریحاً در
+ * `CFG.YT_OWNER_HOLD` است؛ این‌جا بقیه پیدا می‌شوند: «شناسه منابع»ِ هر قسمت در تبِ پادکست‌ها ⇐ مجموعه ⇐ `vgExcluded_`.
+ * روزی یک بار، از دورِ انتشار (`ytRunDue_`) — همان‌جا که هاب از قبل باز است. استثنای صاحبِ کانال این‌جا هم معتبر است.
+ * ⇒ {checked, held[]}
+ */
+function vgHoldSweep_(hub) {
+  var out = { checked: 0, held: [] };
+  if (CFG.VG_ON === false) return out;
+  var day = String(nowStr_()).slice(0, 10);
+  if (String(props_().getProperty(PK.VG_HOLD_AT) || '') === day) return out;
+  var cand = ytDueList_().concat(ytDueParked_()).filter(function (x) { return x && String(x.show) === ENRICH_SHOW_VARIETY; });
+  var map = {};
+  try { map = JSON.parse(props_().getProperty(PK.YT_OWNER_HOLD) || '{}') || {}; } catch (eJ) { map = {}; }
+  if (cand.length) {
+    var pod = hub.getSheetByName(CFG.TAB_PODCASTS);
+    var ctx = vgCtx_(hub);
+    if (!pod || pod.getLastRow() < 2 || ctx.err) return out;
+    var v = pod.getRange(2, 1, pod.getLastRow() - 1, 12).getValues(), ids = {};
+    for (var r = 0; r < v.length; r++) ids[String(parseInt(String(v[r][0]), 10))] = String(v[r][11] || '');
+    for (var i = 0; i < cand.length; i++) {
+      var ep = String(parseInt(String(cand[i].ep || '').replace(/[^\d]/g, ''), 10)), key = String(cand[i].key || (ENRICH_SHOW_VARIETY + ':' + ep));
+      if (!ids[ep] || map[key]) continue;
+      out.checked++;
+      var names = [];
+      ids[ep].split(/[,،\s]+/).filter(Boolean).forEach(function (fid) {
+        var pr = ctx.parts.byFile[fid], rec = pr && ctx.reg.byKey[pr.key];
+        if (!rec) return;
+        var nm = String(rec.vals[SC.NAME - 1] || '');
+        if (ctx.allow.keys[rec.key] || (nm && ctx.allow.names[nm])) return;
+        if (vgExcluded_(rec.vals) && names.indexOf(nm) === -1) names.push(nm);
+      });
+      if (names.length) { map[key] = 'منبعش از مجموعهٔ نویسندگی/زبان‌آموزی است («' + names[0].slice(0, 50) + '»)'; out.held.push(key); }
+    }
+  }
+  try {
+    props_().setProperty(PK.YT_OWNER_HOLD, JSON.stringify(map));
+    props_().setProperty(PK.VG_HOLD_AT, day);
+  } catch (eS) {}
+  YT_HOLD_CACHE_ = null;
+  if (out.held.length) {
+    logLine_('«از همه جا»: ' + out.held.length + ' ویدئوی صف از مجموعهٔ نویسندگی/زبان‌آموزی کنار رفت (پاک نشد): ' + out.held.join('، '));
+    try { mailQueue_('variety-hold', 'کنار گذاشته از صفِ یوتیوب', out.held.map(function (k) { return k + ' — ' + map[k]; }).join('\n')); } catch (eM) {}
+  }
+  return out;
 }
 
 /* ═══════════════════════════ 38_Instagram.gs ═══════════════════════════ */

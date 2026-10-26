@@ -74,7 +74,7 @@ global.__STUB=function(url,body){
   // و داورِ سیر (۸.۹۹) — همان تله، بارِ **ششم**: «تاریخ در پرامپتِ نویسنده» سرخ شد چون داوری جای نویسنده نشست.
   if(t.indexOf('تو داورِ سردبیریِ یک برنامهٔ رادیوییِ فارسی هستی')!==-1){
     const jid=[...t.matchAll(/- id: (\S+) \|/g)].map(m=>m[1]);
-    return{code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({verdicts:jid.map(id=>({id,belongs:'بله'}))})}]}}]}};}
+    return{code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({verdicts:jid.map(id=>({id,belongs:'بله',science:'بله'}))})}]}}]}};}
   // و دروازهٔ زمین‌گیری (۹.۱۱) — بارِ **هفتم**: «ارجاع‌ها به نویسنده رسید» باز سرخ شد چون داور جای نویسنده نشست.
   if(t.indexOf('تو داورِ وفاداریِ متنِ یک پادکستِ فارسی هستی')!==-1){
     return{code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({bad:[]})}]}}]}};}

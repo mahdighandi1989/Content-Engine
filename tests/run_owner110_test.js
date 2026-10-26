@@ -66,14 +66,14 @@ ok('۲.۰ (۱۱.۱) پیش‌فرض: هیچ برنامه‌ای در یوتیو�
 /* ── ۲-ب) ۱۱.۲: ۶۴ قسمتِ قدیمیِ «از همه جا» خصوصی شدند؛ تازه‌ها عادی ── */
 {
   resetProps([PK.YT_DUE, PK.YT_DUE_PARKED]);
-  ok('۲-ب.۱ کفِ شماره: variety زیرِ ۸۴ بیرون، ۸۴ و بعد درون؛ درس‌نامه بی کف',
-     ytItemOff_({ show: 'variety', ep: '83' }) && ytItemOff_({ show: 'variety', ep: '12' }) && !ytItemOff_({ show: 'variety', ep: '84' }) &&
+  ok('۲-ب.۱ کفِ شماره: variety زیرِ ۸۴ بیرون، ۸۵ و بعد درون (۸۴ از ۱۳.۴ به دستورِ صاحبِ کانال کنار است)؛ درس‌نامه بی کف',
+     ytItemOff_({ show: 'variety', ep: '83' }) && ytItemOff_({ show: 'variety', ep: '12' }) && !ytItemOff_({ show: 'variety', ep: '85' }) && !!ytItemOff_({ show: 'variety', ep: '84' }) &&
      !ytItemOff_({ show: 'variety', ep: '90' }) && !ytItemOff_({ show: 'special', ep: '3' }));
-  ok('۲-ب.۲ قسمتِ قدیمی به صف نمی‌رود، تازه می‌رود', ytDueAdd_('variety', '71', 'F71') === 0 && ytDueAdd_('variety', '84', 'F84') === 1);
+  ok('۲-ب.۲ قسمتِ قدیمی به صف نمی‌رود، تازه می‌رود', ytDueAdd_('variety', '71', 'F71') === 0 && ytDueAdd_('variety', '85', 'F85') === 1);
   global.__PROPS[PK.YT_DUE] = JSON.stringify([{ key: 'variety:83', show: 'variety', ep: '83', folderId: 'F83', replace: 'qa-11.1' },
-                                              { key: 'variety:84', show: 'variety', ep: '84', folderId: 'F84' }]);
+                                              { key: 'variety:85', show: 'variety', ep: '85', folderId: 'F85' }]);
   const l = ytDueList_();
-  ok('۲-ب.۳ ردیفِ قدیمیِ صف (حتی ساختِ دوبارهٔ qa) کنار می‌رود و برنمی‌گردد', l.length === 1 && l[0].key === 'variety:84' &&
+  ok('۲-ب.۳ ردیفِ قدیمیِ صف (حتی ساختِ دوبارهٔ qa) کنار می‌رود و برنمی‌گردد', l.length === 1 && l[0].key === 'variety:85' &&
      ytDueParked_().some((x) => x.key === 'variety:83') && ytDueList_().length === 1);
   ok('۲-ب.۴ خطِ روزانه کف را می‌گوید', /زیرِ ۸۴/.test(ytShowsOffLine_()) && /عادی منتشر می‌شوند/.test(ytShowsOffLine_()));
   /* آپلودِ دوباره: قسمتی که ویدئوی منتشرشده‌اش خصوصی است، دوباره بالا نمی‌رود — حتی درس‌نامه، حتی با «جایگزینی». */

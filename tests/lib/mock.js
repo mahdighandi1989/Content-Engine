@@ -677,6 +677,18 @@ global.UrlFetchApp = {
                getContentText: () => 'PNG' };
     }
     let r = global.__STUB(url, body, opt);
+    /* ══ داورِ سیر در بدَل (۱۳.۴) ══ از ۱۳.۴ عضوِ «بی‌مجموعه» فقط با «بله»ی صریحِ داور می‌ماند و داوریِ نشده یعنی بیرون.
+       بدَل‌های قدیمی پرامپتِ داور را نمی‌شناختند و پاسخِ نویسنده را برمی‌گرداندند — یعنی همیشه «داوری نشد» و هر قسمتِ
+       آزمونی «کم آمد». بدَلِ هر مجموعه **اول** صدا زده می‌شود (ترتیبِ پاسخ‌هایش جابه‌جا نمی‌شود)؛ فقط اگر verdicts نداد،
+       این‌جا همه «بله» می‌گیرند. سنجهٔ خودِ دروازه (`run_v134_test.js` ۴) داور را مستقیم می‌سازد و از این در نمی‌گذرد. */
+    try {
+      const pt = body && body.contents && body.contents[0] && body.contents[0].parts && body.contents[0].parts[0] && body.contents[0].parts[0].text;
+      if (typeof pt === 'string' && pt.indexOf('تو داورِ سردبیریِ یک برنامهٔ رادیوییِ فارسی هستی') === 0 &&
+          !/verdicts/.test(JSON.stringify((r && (r.json || r.text)) || ''))) {
+        const ids = [...pt.matchAll(/^- id: (\S+) \|/gm)].map(m => m[1]);
+        r = { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify({ verdicts: ids.map(id => ({ id, belongs: 'بله', science: 'بله' })) }) }] } }] } };
+      }
+    } catch (eJ) {}
     /* ══ بدَلِ مدل به اندازهٔ مدلِ واقعی سخت‌گیر است (۸.۲۶) ══
        مدلِ ساختاریافته **فقط فیلدهای schemaی فرستاده‌شده** را می‌تواند
        بنویسد. بدَلی که هر فیلدی را برگرداند، قراردادی را سبز نشان می‌دهد که
