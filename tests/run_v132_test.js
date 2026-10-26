@@ -111,4 +111,112 @@ const verdict = (o) => Object.assign({ isCourse: 'true', courseSure: '90', score
   Utilities.formatDate = svF;
 }
 
-summary('۱۳.۲');
+/* ── ۵) «خ» نرم در خودِ صدا (۱۳.۳) — نه وصلهٔ جمینای ── */
+{
+  const py5 = require('child_process').execFileSync('python3', ['-c', `
+import sys, json, numpy as np
+sys.path.insert(0, "tools"); import voicebridge as v
+sr = 16000; rng = np.random.default_rng(1)
+t = np.arange(sr * 6) / sr
+voice = 0.3 * np.sin(2 * np.pi * 140 * t) + 0.15 * np.sin(2 * np.pi * 280 * t)
+src = voice + 0.003 * rng.standard_normal(len(t))
+out = voice.copy()
+noise = np.fft.irfft(np.fft.rfft(rng.standard_normal(len(t))) * ((np.fft.rfftfreq(len(t), 1/sr) > 1500) & (np.fft.rfftfreq(len(t), 1/sr) < 5000)), len(t))
+bursts = np.zeros(len(t))
+for c in (1.0, 2.5, 4.0):
+    a = int(c * sr); bursts[a:a + int(0.08 * sr)] = 1.0
+out = out + 0.8 * noise * bursts
+src2 = src * 0.0 + 0.3 * np.sin(2 * np.pi * 900 * t)        # مبدأیی آشکارا دیگر: اگر وارد شود، دیده می‌شود
+v.writeMono("/tmp/h_out.wav", out.astype(np.float32), sr); v.writeMono("/tmp/h_src.wav", src.astype(np.float32), sr)
+v.writeMono("/tmp/h_src2.wav", src2.astype(np.float32), sr)
+r = v.fricSplice("/tmp/h_out.wav", "/tmp/h_src.wav", "/tmp/h_soft.wav", mode="soft")
+z, _ = v.readMono("/tmp/h_soft.wav"); y, _ = v.readMono("/tmp/h_out.wav")
+def band(x, a, b):
+    seg = x[int(a * sr):int(b * sr)]; F = np.abs(np.fft.rfft(seg)) ** 2; f = np.fft.rfftfreq(len(seg), 1/sr)
+    return float(10 * np.log10(F[(f > 1500) & (f < 5000)].sum() + 1e-12))
+drop = band(y, 1.0, 1.08) - band(z, 1.0, 1.08)
+same = float(np.max(np.abs(z[int(3.2*sr):int(3.6*sr)] - y[int(3.2*sr):int(3.6*sr)])))
+F = np.abs(np.fft.rfft(z[int(1.0*sr):int(1.08*sr)])); f = np.fft.rfftfreq(int(0.08*sr), 1/sr)
+r2 = v.fricSplice("/tmp/h_out.wav", "/tmp/h_src2.wav", "/tmp/h_soft2.wav", mode="soft")
+z2, _ = v.readMono("/tmp/h_soft2.wav")
+seg2 = z2[int(1.0*sr):int(1.08*sr)]; F2 = np.abs(np.fft.rfft(seg2)); f2 = np.fft.rfftfreq(len(seg2), 1/sr)
+p900 = float(F2[(f2 > 850) & (f2 < 950)].max() / (F2.max() + 1e-12))
+print(json.dumps({"ok": r.get("ok"), "mode": r.get("mode"), "frames": r.get("frames"), "drop": round(drop, 1), "same": same, "p900": round(p900, 4)}))
+`]).toString();
+  const H = JSON.parse(py5.trim().split('\n').pop());
+  ok('۵.۱ حالتِ soft: سایشِ افزوده در همان قاب‌ها دست‌کم ۸ دسی‌بل پایین می‌آید', H.ok === true && H.mode === 'soft' && H.drop >= 8, JSON.stringify(H));
+  ok('۵.۲ بیرون از قاب‌ها دست نمی‌خورد', H.same < 0.002, JSON.stringify(H));
+  ok('۵.۳ هیچ چیزی از مبدأ وارد نمی‌شود (مبدأیی با ۹۰۰ هرتزِ آشکار در خروجی دیده نمی‌شود)', H.p900 < 0.05, JSON.stringify(H));
+  const vb5 = fs.readFileSync('tools/voicebridge.py', 'utf8'), s365 = fs.readFileSync('src/36_VoiceBridge.gs', 'utf8');
+  ok('۵.۴ رانر: «soft» بی VBR_HX اجرا می‌شود؛ «splice» هنوز پشتِ VBR_HX', /if it\.get\("hx"\) and \(HX_SPLICE_ON or hxSoft\):/.test(vb5) && /HX_SPLICE_ON = os\.environ\.get\("VBR_HX"\) == "1"/.test(vb5));
+  ok('۵.۵ موتور «soft» را از بذر تا ردیف می‌برد', /row\.hx = \(o\.hx === 'soft'\) \? 'soft' : true/.test(s365) && /seedHx\[sk\] = se\.hx === 'soft' \? 'soft' : true/.test(s365) &&
+     /hx: seedHx\[k\] === 'soft' \? 'soft' : !!seedHx\[k\]/.test(s365) && /tagO\.hx = pick\.hx === 'soft' \? 'soft' : true/.test(s365));
+  const sd = (CFG.VOICE_SOUL_SEED || []).filter((x) => x.hx === 'soft');
+  ok('۵.۶ بذرِ تازه: گلدوز، درسِ ۷۴، Charon خام + «خ» نرم؛ برچسبِ یکتا', sd.length === 1 && sd[0].speaker === 'spk-1g0r95d' && String(sd[0].ep) === '74' &&
+     sd[0].voice === 'Charon' && sd[0].pitchFix === '0' && /نرم‌شده/.test(sd[0].tag) &&
+     (CFG.VOICE_SOUL_SEED || []).filter((x) => x.tag === sd[0].tag).length === 1);
+}
+
+/* ── ۶) کارنامهٔ قابلیت‌ها: شاهدِ «وضعِ لحظه» دیگر «نامعلوم» نیست (۱۳.۳) ── */
+{
+  const st = {};
+  CFG.CAPABILITIES.forEach((c) => { st[c.at] = { at: '2026-10-26 10:00' }; });
+  st.calendar = { enabled: true, shows: [{ key: 'variety', on: true }] };
+  st.seriesOrder = { ok: false, line: 'ترتیبِ قسمت‌ها: ۳ مشکوک' };
+  st.triggerNames = { count: 14, names: ['a'] };
+  const c = capStatus_(st);
+  const row = (k) => c.rows.find((r) => r.key === k);
+  ok('۶.۱ تقویم و زمان‌بندی‌ها بی تاریخ ⇒ «سالم (وضعِ امروز)»، نه «نامعلوم»', row('calendar').verdict === 'سالم (وضعِ امروز)' && row('triggers').verdict === 'سالم (وضعِ امروز)', JSON.stringify(row('calendar')));
+  ok('۶.۲ شاهدی که خودش ok=false می‌گوید ⇒ «ایراد» با خطِ خودش، و در خطِ کارنامه نام برده می‌شود',
+     row('series-order').verdict === 'ایراد (وضعِ امروز)' && /۳ مشکوک/.test(row('series-order').why) && /با ایراد در وضعِ امروز: series-order/.test(c.line), c.line);
+  ok('۶.۳ «نامعلوم» برای این نُه دیگر نمی‌آید', c.unknown.length === 0, JSON.stringify(c.unknown));
+  st.recap = { due: 1 };    // بی snap: همان رفتارِ پیشین
+  ok('۶.۴ قابلیتی که snap ندارد، بی تاریخ هنوز «نامعلوم» است (ابطال‌پذیر)', capStatus_(st).rows.find((r) => r.key === 'recap').verdict === 'نامعلوم');
+}
+
+/* ── ۷) چرا special:81 هنوز unlisted بود: سه ویدئوی خصوصیِ او همیشه سه نوبتِ شبانه را می‌گرفتند (۱۳.۳) ── */
+{
+  const sv = { pub: global.ytPublished_, redo: global.ytRedoOne_, on: global.ytOn_, hub: global.getHub_, appr: global.ytApprovedSafe_ };
+  global.ytOn_ = () => true; global.getHub_ = () => ({}); global.ytApprovedSafe_ = () => ({});
+  global.ytPublished_ = () => ({
+    'variety:74': { videoId: 'P74', privacy: 'private', at: '2026-10-01 05:00' },
+    'variety:78': { videoId: 'P78', privacy: 'private', at: '2026-10-02 05:00' },
+    'variety:79': { videoId: 'P79', privacy: 'private', at: '2026-10-03 05:00' },
+    'special:81': { videoId: 'S81', privacy: 'unlisted', at: '2026-10-24 05:00' } });
+  const seen = [];
+  global.ytRedoOne_ = (show, ep) => { seen.push(show + ':' + ep); return { ok: false, changed: [], why: 'ویدئو خصوصی است — به خواستِ شما دست نخورد' }; };
+  global.__PROPS[PK.YT_OWNER_PRIVATE] = JSON.stringify(['P74', 'P78', 'P79']);
+  const svMax = CFG.YT_REDO_MAX_PER_NIGHT; CFG.YT_REDO_MAX_PER_NIGHT = 3;
+  ytRedoStuckNightly_(120000);
+  ok('۷.۱ درسِ گیرکرده پیش از ویدئوهای خصوصیِ صاحبِ کانال نوبت می‌گیرد', seen[0] === 'special:81' && seen.length === 3, seen.join(' | '));
+  global.__PROPS[PK.YT_OWNER_PRIVATE] = '[]'; seen.length = 0;
+  ytRedoStuckNightly_(120000);
+  ok('۷.۲ بی دفترِ خصوصی همان ترتیبِ قدیمی‌ترین‌اول (ابطال‌پذیر: نشان می‌دهد چرا ۸۱ نوبت نمی‌گرفت)', seen.indexOf('special:81') === -1, seen.join(' | '));
+  CFG.YT_REDO_MAX_PER_NIGHT = svMax; delete global.__PROPS[PK.YT_OWNER_PRIVATE];
+  global.ytPublished_ = sv.pub; global.ytRedoOne_ = sv.redo; global.ytOn_ = sv.on; global.getHub_ = sv.hub; global.ytApprovedSafe_ = sv.appr;
+}
+
+/* ── ۸) دفترِ درخواست‌ها: سهمِ امروزِ ناظر، نه صد و چهل ردیف (۱۳.۳) ── */
+{
+  const sv = { d: global.reqDefs_, l: global.reqLoad_ };
+  const list = [];
+  for (let i = 1; i <= 20; i++) list.push({ id: 'R-20261001-' + String(i).padStart(2, '0'), ask: 'خواستهٔ ' + i, ver: '9.0', at: '2026-10-01' });
+  list.push({ id: 'R-20261002-01', ask: 'کارِ او', ver: '9.0', at: '2026-10-02', owner: true });
+  global.reqDefs_ = () => ({ ok: true, list });
+  global.reqLoad_ = () => ({ 'R-20261001-15': { v: 'نادرست', ev: 'دیده شد', okDays: 0, at: '2026-10-20 10:00' },
+                             'R-20261001-03': { v: 'درست', ev: 'x', okDays: 1, at: '2026-10-20 10:00' },
+                             'R-20261001-04': { v: 'درست', ev: 'x', okDays: 2, at: '2026-10-20 10:00' } });
+  const r = reqStatus_();
+  ok('۸.۱ سهمِ امروز: حداکثر REQ_DAY_MAX، اول «نادرست»، بعد «روزِ دوم مانده»، بعد سنجیده‌نشده‌ها؛ نه «انجام‌شده» و نه «کارِ شما»',
+     r.today.length === CFG.REQ_DAY_MAX && r.today[0] === 'R-20261001-15' && r.today[1] === 'R-20261001-03' &&
+     r.today.indexOf('R-20261001-04') === -1 && r.today.indexOf('R-20261002-01') === -1, JSON.stringify(r.today));
+  ok('۸.۲ در خطِ ایمیل و در _STATUS (کش)', /سهمِ سنجشِ امروزِ ناظر: R-20261001-15/.test(r.line) &&
+     reqStatusSave_(r) && (reqStatusCached_() || {}).today && reqStatusCached_().today[0] === 'R-20261001-15');
+  global.reqDefs_ = sv.d; global.reqLoad_ = sv.l;
+  const pr = fs.readFileSync('docs/prompts/_PROMPT-monitor-v114.md', 'utf8');
+  ok('۸.۳ پرامپتِ ناظرِ ۱۱۴ برای موتورِ ۱۳.۳: سهمِ امروز، و یادداشتِ ۱۰۹ به تاریخچه رفت (نه گم)',
+     /برای نسخهٔ موتور: 13\.3/.test(pr) && /برای \*\*هر\*\* ردیفِ `requests\.today`/.test(pr) && !/تغییرِ نسخهٔ ۱۰۹/.test(pr.split('── ترتیبِ ریلز')[0]) &&
+     /تغییرِ نسخهٔ ۱۰۹/.test(fs.readFileSync('docs/prompts/monitor_history.md', 'utf8')));
+}
+
+summary('۱۳.۳');

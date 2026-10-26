@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 13.2
+ *  موتور محتوا و پادکست — نسخهٔ 13.3
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1027,6 +1027,7 @@ var CFG = {
   REQ_FILE: 'docs/requests.json',
   REQ_OK_DAYS: 2,
   REQ_STALE_DAYS: 2,
+  REQ_DAY_MAX: 8,              // ۱۳.۳: ناظر هر روز فقط این‌قدر ردیف از دفترِ درخواست‌ها می‌سنجد (`requests.today`)
   /* «نشد» دو روزِ پیاپی = شکست، نه گزارش (۸.۳۲). ۱ تا ۳ اکتبر پنج وارسیِ
      «باز کن و ببین» هر روز «نشد» خوردند و `monChecksStatus_` آن‌ها را
      «گزارش‌شده» شمرد — پس هیچ ویدئویی تماشا نشد و هیچ سدی نیفتاد. */
@@ -1076,37 +1077,37 @@ var CFG = {
     { key: 'handout', name: 'جزوهٔ هر مجموعه', at: 'handout' },
     { key: 'handout-viz', name: 'نمودارهای جزوه', at: 'handoutViz' },
     { key: 'youtube', name: 'انتشار در یوتیوب', at: 'youtube', sw: 'YT_ENABLED' },
-    { key: 'lesson-visuals', name: 'تصویرسازیِ درس‌نامه', at: 'lessonVisuals', sw: 'LV_ENABLED' },
+    { key: 'lesson-visuals', name: 'تصویرسازیِ درس‌نامه', at: 'lessonVisuals', sw: 'LV_ENABLED', snap: true },
     /* ۸.۵۲: سه قابلیتِ ۸.۵۱ که تا امروز فقط یک خط در گزارش بودند. آزمونِ مدلِ تازه فقط
        وقتی مدلِ تازه‌ای آمده کاری دارد (`due`)؛ روزهای بی مدلِ تازه «کاری نرسیده» است. */
     { key: 'lesson-clip', name: 'کلیپِ آغازِ درس', at: 'lessonClip', sw: 'LV_CLIP_ON' },
     { key: 'lesson-motion', name: 'حرکتِ کانون‌دار روی نقاشی', at: 'lessonMotion', sw: 'LV_MOTION_ON' },
     { key: 'image-audition', name: 'آزمونِ مدلِ تصویرِ تازه', at: 'imageAudition', sw: 'LV_AUD_ON',
-      due: 'dueN' },
-    { key: 'explain', name: 'عصری‌سازیِ درس‌نامه', at: 'explain', sw: 'EXPLAIN_ENABLED' },
+      due: 'dueN', snap: true },
+    { key: 'explain', name: 'عصری‌سازیِ درس‌نامه', at: 'explain', sw: 'EXPLAIN_ENABLED', snap: true },
     /* `due`: قابلیتی که فقط وقتی کاری رسیده اثر می‌گذارد (۸.۳۵). مرور یک بار برای
        هر مجموعه ساخته می‌شود؛ ۲۵ روز بی‌اثری وقتی هیچ مروری در صف نیست، «سالم»
        است نه «بی‌اثر». */
     { key: 'recap', name: 'قسمتِ مرورِ مجموعه', at: 'recap', sw: 'RECAP_ENABLED', pk: 'RECAP_LOG',
       due: 'due' },
-    { key: 'bridge', name: 'ارجاعِ میان‌مجموعه‌ای', at: 'bridge', sw: 'BRIDGE_ENABLED' },
+    { key: 'bridge', name: 'ارجاعِ میان‌مجموعه‌ای', at: 'bridge', sw: 'BRIDGE_ENABLED', snap: true },
     { key: 'embed', name: 'اثرِانگشتِ معناییِ بانک', at: 'embed', sw: 'EMB_ON' },
     { key: 'voice-intake', name: 'پذیرشِ گویندهٔ تازه', at: 'voiceIntake' },
-    { key: 'voice-bridge', name: 'پلِ رنگِ صدا', at: 'voiceBridge' },
+    { key: 'voice-bridge', name: 'پلِ رنگِ صدا', at: 'voiceBridge', snap: true },
     { key: 'enrich', name: 'غنی‌سازیِ اینترنتی', at: 'enrich' },
     { key: 'content-audit', name: 'داوریِ محتوا', at: 'contentAudit' },
     { key: 'src-quality', name: 'کیفیتِ استخراجِ منابع', at: 'srcQuality' },
-    { key: 'calendar', name: 'تقویمِ تولید', at: 'calendar' },
+    { key: 'calendar', name: 'تقویمِ تولید', at: 'calendar', snap: true },
     { key: 'backup', name: 'پشتیبان', at: 'backup' },
     { key: 'self-update', name: 'به‌روزرسانیِ خودکارِ کد', at: 'selfUpdate' },
     { key: 'source-scripts', name: 'کدِ تحلیل‌گرهای منبع', at: 'sourceScripts' },
     { key: 'code-queue', name: 'صفِ یافته‌های کد', at: 'codeQueue' },
-    { key: 'prompt-sync', name: 'همگام‌سازیِ پرامپت‌ها', at: 'promptFresh' },
+    { key: 'prompt-sync', name: 'همگام‌سازیِ پرامپت‌ها', at: 'promptFresh', snap: true },
     { key: 'monitor-checks', name: 'وارسی‌های روزانهٔ ناظر', at: 'monChecks' },
     { key: 'out-layout', name: 'نقشهٔ پوشهٔ OUTPUT', at: 'outLayout' },
-    { key: 'series-order', name: 'ترتیبِ قسمت‌های مجموعه', at: 'seriesOrder' },
+    { key: 'series-order', name: 'ترتیبِ قسمت‌های مجموعه', at: 'seriesOrder', snap: true },
     { key: 'speech-calib', name: 'واسنجیِ آهنگِ گفتار', at: 'speechCalib', pk: 'SPEECH_CAL' },
-    { key: 'triggers', name: 'زمان‌بندی‌ها', at: 'triggerNames' }
+    { key: 'triggers', name: 'زمان‌بندی‌ها', at: 'triggerNames', snap: true }
   ],
   CAP_IDLE_DAYS: 7,            // چند روزِ «روشن ولی بی‌اثر» تا یافتهٔ کد
   CAP_FRESH_DAYS: 2,           // موتورِ تازه‌نصب، «بی‌اثر» نیست
@@ -2337,7 +2338,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '13.2',
+  CODE_VERSION: '13.3',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2746,7 +2747,11 @@ var CFG = {
     /* ۱۳.۱: سه بذرِ ۱۲.۹ هنوز ساخته نشده بودند که او دستورِ تازه داد — جایشان را دو نمونهٔ خام با دستورِ تازه گرفت: گامِ ۰، بی هیچ
        پردازش و بی ساختِ دوبارهٔ کیفیت (فقط گزارشِ شکستن و لرزش)، روی Charon و صدای پایهٔ دیگر. */
     { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · خام · گامِ ۰ · مبدأ Charon · آرام، پایدار، پایان‌بندیِ طبیعی', nospans: true, voice: 'Charon', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true },
-    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · خام · گامِ ۰ · مبدأ Iapetus · آرام، پایدار، پایان‌بندیِ طبیعی', nospans: true, voice: 'Iapetus', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true }
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · خام · گامِ ۰ · مبدأ Iapetus · آرام، پایدار، پایان‌بندیِ طبیعی', nospans: true, voice: 'Iapetus', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true },
+    /* ۱۳.۳: او Charonِ خام را شنید — «چند مورد درست شد ولی «ه» هنوز «خ»». همان نمونه، این بار با «خ»ی که در **خودِ صدا** نرم
+       می‌شود (`fricSplice` حالتِ soft: باندِ ۱٫۲ تا ۶ کیلوهرتز فقط در قاب‌هایی که تبدیل سایش افزود، ۱۲ دسی‌بل پایین؛ هیچ صدای
+       جمینای وارد نمی‌شود — همان که ۱۰.۸ را بست). شنیدن در همان اجرا «خ» را با و بی درمان می‌شمارد (khOut / khAlt). */
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · خام · گامِ ۰ · مبدأ Charon · «خ» نرم‌شده در خودِ صدا', nospans: true, voice: 'Charon', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true, hx: 'soft' }
   ],
   VBR_Q_CRACK_PER_MIN: 2.5,       // ۱۳.۱ (سنجیده: رضوی ۱٫۸، گلدوز ۳٫۳ تا ۶٫۶): بیش از این شکستنِ صدا در دقیقه ⇒ ساختِ دوباره، و اگر باز ⇒ صوتِ قسمت جای اصلی نمی‌نشیند
   VBR_Q_JITTER_ST: 0.18,          // ۱۳.۱ (سنجیده: گفتارِ واقعی ۰٫۱۲ تا ۰٫۱۳، لرزشِ ساختگیِ ±۱٫۲ نیم‌پرده ۰٫۲۱): میانگینِ لرزشِ زیروبم (نیم‌پرده بینِ دو قابِ ۲۰ میلی‌ثانیه‌ای)
@@ -19670,7 +19675,7 @@ function capNewest_(o, depth) {
 }
 
 function capStatus_(st) {
-  var out = { n: 0, working: 0, off: 0, idle: [], unknown: [], wiring: [],
+  var out = { n: 0, working: 0, off: 0, idle: [], unknown: [], wiring: [], snap: 0, snapBad: [],
               rows: [], ok: true, line: '' };
   var list = (CFG.CAPABILITIES || []);
   var idleDays = Math.max(1, Number(CFG.CAP_IDLE_DAYS) || 7);
@@ -19732,6 +19737,20 @@ function capStatus_(st) {
         if (raw) row.did = capNewest_(JSON.parse(raw));
       } catch (ePk) {}
     }
+    /* ══ شاهدِ «وضعِ لحظه» (۱۳.۴) ══ نُه قابلیت (تقویم، زمان‌بندی‌ها، همگام‌سازیِ پرامپت، پلِ صدا، …) شاهدی دارند که
+       **وضعِ امروز** است، نه کارِ تاریخ‌دار — و هر روز «نامعلوم: هیچ تاریخی در شاهد نیست» می‌خوردند، در حالی که شاهدشان در
+       همین `_STATUS` تازه ساخته شده و خودش می‌گوید سالم است یا نه. `snap` یعنی همین: داوری از `ok`ِ خودِ شاهد، نه از تاریخ.
+       `ok:false` ⇒ «ایراد» با خطِ خودِ شاهد — نه «نامعلوم»، که عیب را زیرِ «نمی‌دانیم» پنهان می‌کرد. */
+    if (!row.did && c.snap && ev && typeof ev === 'object') {
+      if (ev.ok === false) {
+        row.verdict = 'ایراد (وضعِ امروز)'; row.why = String(ev.line || ev.worst || 'شاهد ok=false').slice(0, 160);
+        out.snapBad.push(c.key + ' — ' + row.why);
+      } else {
+        row.verdict = 'سالم (وضعِ امروز)'; row.why = 'شاهد بی‌تاریخ است؛ وضعِ همین گزارش';
+        out.working++; out.snap++;
+      }
+      out.rows.push(row); continue;
+    }
     if (!row.did) {
       row.verdict = 'نامعلوم'; row.why = 'هیچ تاریخی در شاهد نیست';
       out.unknown.push(c.key + ' — ' + row.why);
@@ -19769,6 +19788,8 @@ function capStatus_(st) {
      مرگِ سامانه تشخیص داد (۵٫۹۰/۷٫۲۱). */
   var L = 'کارنامهٔ قابلیت‌ها: ' + out.working + ' از ' + out.n + ' کار می‌کنند';
   if (out.off) L += ' · ' + out.off + ' خاموش (تصمیمِ شما)';
+  if (out.snap) L += ' (' + out.snap + ' از آن‌ها از وضعِ امروز، بی تاریخ)';
+  if (out.snapBad.length) L += ' · ⚠ ' + out.snapBad.length + ' با ایراد در وضعِ امروز: ' + out.snapBad.join('؛ ');
   if (out.idle.length) L += ' · ⚠ ' + out.idle.length + ' روشن ولی بی‌اثر: ' + out.idle.join('؛ ');
   /* «نامعلوم» **نام‌برده** می‌شود، نه فقط شمرده — همان تفاوتی که ۸.۰۴ برای
      واژه‌های بی‌اعراب پیدا کرد: تا وقتی فقط عدد را می‌دانیم، هیچ‌کس نمی‌تواند
@@ -23769,6 +23790,20 @@ function reqStatus_() {
     out.items.push(it);
   }
   out.ok = !out.bad && !out.stale;
+  /* ══ سهمِ امروزِ ناظر (۱۳.۳) ══ ۲۶ اکتبر: ۱۴۷ از ۱۸۰ ردیف هرگز سنجیده نشده بودند و ۳۷ «سنجیده‌نشده» شمرده می‌شدند. پرامپت
+     از ناظر می‌خواست **هر** ردیفِ ناتمام را هر روز بسنجد — صد و چهل ردیف در یک اجرای چنددقیقه‌ای، یعنی در عمل تقریباً هیچ‌کدام.
+     تکلیفی که خواننده‌اش نمی‌تواند انجامش دهد، تکلیف نیست. حالا موتور هر روز `REQ_DAY_MAX` ردیف را نام می‌برد: اول «نادرست»ها
+     (تا درمانشان دیده شود)، بعد سنجیده‌نشده‌ها، قدیمی‌ترین اول؛ ناظر فقط همین‌ها را می‌سنجد. */
+  var dayMax = Math.max(1, Number(CFG.REQ_DAY_MAX) || 8);
+  var rank = function (x) {
+    if (/^نادرست/.test(x.state)) return 0;
+    if (x.state === 'یک روز درست دیده شد؛ روزِ دوم مانده') return 1;
+    if (/^هنوز سنجیده نشده|^ناظر نتوانست/.test(x.state)) return 2;
+    return 9;
+  };
+  out.today = out.items.filter(function (x) { return rank(x) < 9; })
+    .sort(function (a, b) { return rank(a) - rank(b) || (String(a.id) < String(b.id) ? -1 : 1); })
+    .slice(0, dayMax).map(function (x) { return x.id; });
   var parts = [];
   if (out.done) parts.push(fa(out.done) + ' انجام و سنجیده');
   if (out.half) parts.push(fa(out.half) + ' منتظرِ روزِ دومِ سنجش');
@@ -23779,6 +23814,7 @@ function reqStatus_() {
   var rest = out.n - out.done - out.half - out.waiting - out.owner - out.bad - out.stale;
   if (rest > 0) parts.push(fa(rest) + ' در انتظارِ سنجشِ ناظر');
   out.line = '📒 دفترِ درخواست‌های شما: ' + fa(out.n) + ' درخواست' + (parts.length ? ' — ' + parts.join('، ') : '') + '.' +
+    (out.today.length ? ' سهمِ سنجشِ امروزِ ناظر: ' + out.today.join('، ') + '.' : '') +
     out.items.filter(function (x) { return x.state !== 'انجام و سنجیده شد'; }).slice(0, 12)
       .map(function (x) { return '\n• ' + x.id + ' «' + x.ask + '» — ' + x.state; }).join('');
   return out;
@@ -23788,7 +23824,7 @@ function reqStatus_() {
 function reqStatusSave_(st) {
   if (!st) return false;
   var c = { at: nowStr_(), ok: !!st.ok, n: st.n, done: st.done, half: st.half, bad: st.bad, stale: st.stale,
-            waiting: st.waiting, owner: st.owner, line: String(st.line || '').slice(0, 1800),
+            waiting: st.waiting, owner: st.owner, line: String(st.line || '').slice(0, 1800), today: (st.today || []).slice(0, 12),
             items: (st.items || []).map(function (x) { return { id: x.id, state: String(x.state || '').slice(0, 90) }; }) };
   try { props_().setProperty(PK.REQ_STATUS, propFit_({ c: c }, 'line').replace(/^\{"c":/, '').replace(/\}$/, '')); return true; }
   catch (e) { logLine_('وضعِ دفترِ درخواست‌ها ذخیره نشد: ' + String(e.message).slice(0, 120)); return false; }
@@ -65071,7 +65107,16 @@ function ytRedoStuckNightly_(budgetMs) {
      خواست عمومی شود — **هرگز** نوبت نمی‌گرفت. تأییدِ صریح جلوتر از صفِ خودکار
      است (همان ترتیبِ ۷٫۵۹: آنچه خواسته شده پشتِ آنچه کسی نخواسته نمی‌مانَد). */
   var appr = ytApprovedSafe_();
+  /* ۱۳.۳: ویدئوی خصوصیِ صاحبِ کانال **آخرِ** صف — نه بیرونِ آن. «چرا بعضی درس‌نامه‌ها هنوز unlisted‌اند؟»: سقفِ شبانه سه است و
+     سه قدیمی‌ترین همیشه variety:74، ۷۸ و ۷۹ بودند که او خصوصی کرده و هر شب «به خواستِ شما دست نخورد» می‌گرفتند؛ special:81
+     — که ۱۱.۳ سدش را برداشت و قرار بود «همان شب» عمومی شود — هرگز نوبت نگرفت. همان شکلِ ۸.۴۶، با علتِ دیگر. آخرِ صف (نه حذف)
+     تا اگر روزی از خصوصی بیرونشان آورد، وارسیِ زنده باز به آن‌ها برسد. */
+  var ownPriv = {};
+  try { ytOwnerPrivList_().forEach(function (v) { ownPriv[String(v)] = 1; }); } catch (eOp) {}
+  var isOwnPriv = function (x) { return ownPriv[String((pub[x.show + ':' + x.ep] || {}).videoId || '')] ? 1 : 0; };
   stuck.sort(function (a, b) {
+    var qa = isOwnPriv(a), qb = isOwnPriv(b);
+    if (qa !== qb) return qa - qb;
     var pa = appr[a.show + ':' + a.ep] ? 0 : 1, pb = appr[b.show + ':' + b.ep] ? 0 : 1;
     if (pa !== pb) return pa - pb;
     return a.at < b.at ? -1 : (a.at > b.at ? 1 : 0);
@@ -80028,7 +80073,7 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   if (o.speedLine) row.speedLine = String(o.speedLine).slice(0, 400);   // ۹.۶۳
   if (o.srcId) row.srcId = String(o.srcId);
   if (o.srcVoice) row.srcVoice = String(o.srcVoice);
-  if (o.hx) row.hx = true;
+  if (o.hx) row.hx = (o.hx === 'soft') ? 'soft' : true;   // ۱۳.۳: «soft» = نرم‌کردنِ «خ» در خودِ صدا، بی وصلهٔ جمینای
   /* ۱۱.۴: زیروبمِ هر تکه — آزمایشی. نمونه با پرچمِ بذر؛ قسمت‌ها فقط وقتی `VBR_SEG_PITCH` روشن شود (پیش‌فرض خاموش، تا او بشنود). */
   if (o.segPitch || CFG.VBR_SEG_PITCH === true) row.segPitch = true;
   /* ۱۲.۵: سقفِ اوج (نیم‌پرده بالای هدفِ گوینده) — فقط از بذرِ نمونه؛ هیچ قسمتی این را نمی‌گیرد. */
@@ -82054,7 +82099,7 @@ function vbrSoulPick_() {
       var sk = String(se.show) + ':' + String(se.ep) + '#' + sdi;
       set[sk] = 1; seeded[sk] = 1;
       if (se.voice) seedVoice[sk] = String(se.voice);   // ۹.۶۳: صدای مبدأِ جمینای برای همین نمونه
-      if (se.hx) seedHx[sk] = true;                     // ۹.۶۳: «خ»ی که تبدیل افزود، از ورودی
+      if (se.hx) seedHx[sk] = se.hx === 'soft' ? 'soft' : true;   // ۹.۶۳: «خ»ی که تبدیل افزود؛ ۱۳.۳: «soft» در خودِ صدا
       if (se.segPitch) seedSegP[sk] = true;             // ۱۱.۴: زیروبمِ هر تکه
       if (se.f0cap) seedF0cap[sk] = Number(se.f0cap) || 3;   // ۱۲.۵: سقفِ اوجِ زیروبم، فقط نمونه
       if (se.pitchFix != null && se.pitchFix !== '') seedPitchFix[sk] = String(se.pitchFix);   // ۱۲.۹: گامِ ثابت (مثلاً «0»)، بی گامِ خودکار — فقط نمونه
@@ -82116,7 +82161,7 @@ function vbrSoulPick_() {
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
                seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k], calm: !!seedCalm[k],
-               voice: seedVoice[k] || '', hx: !!seedHx[k], segPitch: !!seedSegP[k], f0cap: seedF0cap[k] || 0, tagBase: seedBase[k] || '',
+               voice: seedVoice[k] || '', hx: seedHx[k] === 'soft' ? 'soft' : !!seedHx[k], segPitch: !!seedSegP[k], f0cap: seedF0cap[k] || 0, tagBase: seedBase[k] || '',
                pitchFix: seedPitchFix[k] != null ? seedPitchFix[k] : '', cueFix: seedCueFix[k] || '', qNoRetry: !!seedQNo[k] };
     }
   }
@@ -82528,7 +82573,7 @@ function runVoiceSoulTest() {
     tagO.speedLine = vbrSpeedLine_(pst);                 // ۹.۶۳
     tagO.srcId = made.getId();                           // ۹.۶۳: صدای جمینای پیش از تبدیل — برای جدا کردنِ «آو»
     tagO.srcVoice = srcVoice;
-    if (pick.hx) tagO.hx = true;
+    if (pick.hx) tagO.hx = pick.hx === 'soft' ? 'soft' : true;
     if (pick.segPitch) tagO.segPitch = true;            // ۱۱.۴
     if (pick.f0cap) tagO.f0cap = pick.f0cap;            // ۱۲.۵
     if (pick.pitchFix !== '' && pick.pitchFix != null) tagO.pitchFix = pick.pitchFix;   // ۱۲.۹

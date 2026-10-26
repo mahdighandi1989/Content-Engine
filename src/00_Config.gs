@@ -1008,6 +1008,7 @@ var CFG = {
   REQ_FILE: 'docs/requests.json',
   REQ_OK_DAYS: 2,
   REQ_STALE_DAYS: 2,
+  REQ_DAY_MAX: 8,              // ۱۳.۳: ناظر هر روز فقط این‌قدر ردیف از دفترِ درخواست‌ها می‌سنجد (`requests.today`)
   /* «نشد» دو روزِ پیاپی = شکست، نه گزارش (۸.۳۲). ۱ تا ۳ اکتبر پنج وارسیِ
      «باز کن و ببین» هر روز «نشد» خوردند و `monChecksStatus_` آن‌ها را
      «گزارش‌شده» شمرد — پس هیچ ویدئویی تماشا نشد و هیچ سدی نیفتاد. */
@@ -1057,37 +1058,37 @@ var CFG = {
     { key: 'handout', name: 'جزوهٔ هر مجموعه', at: 'handout' },
     { key: 'handout-viz', name: 'نمودارهای جزوه', at: 'handoutViz' },
     { key: 'youtube', name: 'انتشار در یوتیوب', at: 'youtube', sw: 'YT_ENABLED' },
-    { key: 'lesson-visuals', name: 'تصویرسازیِ درس‌نامه', at: 'lessonVisuals', sw: 'LV_ENABLED' },
+    { key: 'lesson-visuals', name: 'تصویرسازیِ درس‌نامه', at: 'lessonVisuals', sw: 'LV_ENABLED', snap: true },
     /* ۸.۵۲: سه قابلیتِ ۸.۵۱ که تا امروز فقط یک خط در گزارش بودند. آزمونِ مدلِ تازه فقط
        وقتی مدلِ تازه‌ای آمده کاری دارد (`due`)؛ روزهای بی مدلِ تازه «کاری نرسیده» است. */
     { key: 'lesson-clip', name: 'کلیپِ آغازِ درس', at: 'lessonClip', sw: 'LV_CLIP_ON' },
     { key: 'lesson-motion', name: 'حرکتِ کانون‌دار روی نقاشی', at: 'lessonMotion', sw: 'LV_MOTION_ON' },
     { key: 'image-audition', name: 'آزمونِ مدلِ تصویرِ تازه', at: 'imageAudition', sw: 'LV_AUD_ON',
-      due: 'dueN' },
-    { key: 'explain', name: 'عصری‌سازیِ درس‌نامه', at: 'explain', sw: 'EXPLAIN_ENABLED' },
+      due: 'dueN', snap: true },
+    { key: 'explain', name: 'عصری‌سازیِ درس‌نامه', at: 'explain', sw: 'EXPLAIN_ENABLED', snap: true },
     /* `due`: قابلیتی که فقط وقتی کاری رسیده اثر می‌گذارد (۸.۳۵). مرور یک بار برای
        هر مجموعه ساخته می‌شود؛ ۲۵ روز بی‌اثری وقتی هیچ مروری در صف نیست، «سالم»
        است نه «بی‌اثر». */
     { key: 'recap', name: 'قسمتِ مرورِ مجموعه', at: 'recap', sw: 'RECAP_ENABLED', pk: 'RECAP_LOG',
       due: 'due' },
-    { key: 'bridge', name: 'ارجاعِ میان‌مجموعه‌ای', at: 'bridge', sw: 'BRIDGE_ENABLED' },
+    { key: 'bridge', name: 'ارجاعِ میان‌مجموعه‌ای', at: 'bridge', sw: 'BRIDGE_ENABLED', snap: true },
     { key: 'embed', name: 'اثرِانگشتِ معناییِ بانک', at: 'embed', sw: 'EMB_ON' },
     { key: 'voice-intake', name: 'پذیرشِ گویندهٔ تازه', at: 'voiceIntake' },
-    { key: 'voice-bridge', name: 'پلِ رنگِ صدا', at: 'voiceBridge' },
+    { key: 'voice-bridge', name: 'پلِ رنگِ صدا', at: 'voiceBridge', snap: true },
     { key: 'enrich', name: 'غنی‌سازیِ اینترنتی', at: 'enrich' },
     { key: 'content-audit', name: 'داوریِ محتوا', at: 'contentAudit' },
     { key: 'src-quality', name: 'کیفیتِ استخراجِ منابع', at: 'srcQuality' },
-    { key: 'calendar', name: 'تقویمِ تولید', at: 'calendar' },
+    { key: 'calendar', name: 'تقویمِ تولید', at: 'calendar', snap: true },
     { key: 'backup', name: 'پشتیبان', at: 'backup' },
     { key: 'self-update', name: 'به‌روزرسانیِ خودکارِ کد', at: 'selfUpdate' },
     { key: 'source-scripts', name: 'کدِ تحلیل‌گرهای منبع', at: 'sourceScripts' },
     { key: 'code-queue', name: 'صفِ یافته‌های کد', at: 'codeQueue' },
-    { key: 'prompt-sync', name: 'همگام‌سازیِ پرامپت‌ها', at: 'promptFresh' },
+    { key: 'prompt-sync', name: 'همگام‌سازیِ پرامپت‌ها', at: 'promptFresh', snap: true },
     { key: 'monitor-checks', name: 'وارسی‌های روزانهٔ ناظر', at: 'monChecks' },
     { key: 'out-layout', name: 'نقشهٔ پوشهٔ OUTPUT', at: 'outLayout' },
-    { key: 'series-order', name: 'ترتیبِ قسمت‌های مجموعه', at: 'seriesOrder' },
+    { key: 'series-order', name: 'ترتیبِ قسمت‌های مجموعه', at: 'seriesOrder', snap: true },
     { key: 'speech-calib', name: 'واسنجیِ آهنگِ گفتار', at: 'speechCalib', pk: 'SPEECH_CAL' },
-    { key: 'triggers', name: 'زمان‌بندی‌ها', at: 'triggerNames' }
+    { key: 'triggers', name: 'زمان‌بندی‌ها', at: 'triggerNames', snap: true }
   ],
   CAP_IDLE_DAYS: 7,            // چند روزِ «روشن ولی بی‌اثر» تا یافتهٔ کد
   CAP_FRESH_DAYS: 2,           // موتورِ تازه‌نصب، «بی‌اثر» نیست
@@ -2318,7 +2319,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '13.2',
+  CODE_VERSION: '13.3',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2727,7 +2728,11 @@ var CFG = {
     /* ۱۳.۱: سه بذرِ ۱۲.۹ هنوز ساخته نشده بودند که او دستورِ تازه داد — جایشان را دو نمونهٔ خام با دستورِ تازه گرفت: گامِ ۰، بی هیچ
        پردازش و بی ساختِ دوبارهٔ کیفیت (فقط گزارشِ شکستن و لرزش)، روی Charon و صدای پایهٔ دیگر. */
     { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · خام · گامِ ۰ · مبدأ Charon · آرام، پایدار، پایان‌بندیِ طبیعی', nospans: true, voice: 'Charon', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true },
-    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · خام · گامِ ۰ · مبدأ Iapetus · آرام، پایدار، پایان‌بندیِ طبیعی', nospans: true, voice: 'Iapetus', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true }
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · خام · گامِ ۰ · مبدأ Iapetus · آرام، پایدار، پایان‌بندیِ طبیعی', nospans: true, voice: 'Iapetus', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true },
+    /* ۱۳.۳: او Charonِ خام را شنید — «چند مورد درست شد ولی «ه» هنوز «خ»». همان نمونه، این بار با «خ»ی که در **خودِ صدا** نرم
+       می‌شود (`fricSplice` حالتِ soft: باندِ ۱٫۲ تا ۶ کیلوهرتز فقط در قاب‌هایی که تبدیل سایش افزود، ۱۲ دسی‌بل پایین؛ هیچ صدای
+       جمینای وارد نمی‌شود — همان که ۱۰.۸ را بست). شنیدن در همان اجرا «خ» را با و بی درمان می‌شمارد (khOut / khAlt). */
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · خام · گامِ ۰ · مبدأ Charon · «خ» نرم‌شده در خودِ صدا', nospans: true, voice: 'Charon', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true, hx: 'soft' }
   ],
   VBR_Q_CRACK_PER_MIN: 2.5,       // ۱۳.۱ (سنجیده: رضوی ۱٫۸، گلدوز ۳٫۳ تا ۶٫۶): بیش از این شکستنِ صدا در دقیقه ⇒ ساختِ دوباره، و اگر باز ⇒ صوتِ قسمت جای اصلی نمی‌نشیند
   VBR_Q_JITTER_ST: 0.18,          // ۱۳.۱ (سنجیده: گفتارِ واقعی ۰٫۱۲ تا ۰٫۱۳، لرزشِ ساختگیِ ±۱٫۲ نیم‌پرده ۰٫۲۱): میانگینِ لرزشِ زیروبم (نیم‌پرده بینِ دو قابِ ۲۰ میلی‌ثانیه‌ای)

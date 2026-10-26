@@ -1198,6 +1198,20 @@ function reqStatus_() {
     out.items.push(it);
   }
   out.ok = !out.bad && !out.stale;
+  /* ══ سهمِ امروزِ ناظر (۱۳.۳) ══ ۲۶ اکتبر: ۱۴۷ از ۱۸۰ ردیف هرگز سنجیده نشده بودند و ۳۷ «سنجیده‌نشده» شمرده می‌شدند. پرامپت
+     از ناظر می‌خواست **هر** ردیفِ ناتمام را هر روز بسنجد — صد و چهل ردیف در یک اجرای چنددقیقه‌ای، یعنی در عمل تقریباً هیچ‌کدام.
+     تکلیفی که خواننده‌اش نمی‌تواند انجامش دهد، تکلیف نیست. حالا موتور هر روز `REQ_DAY_MAX` ردیف را نام می‌برد: اول «نادرست»ها
+     (تا درمانشان دیده شود)، بعد سنجیده‌نشده‌ها، قدیمی‌ترین اول؛ ناظر فقط همین‌ها را می‌سنجد. */
+  var dayMax = Math.max(1, Number(CFG.REQ_DAY_MAX) || 8);
+  var rank = function (x) {
+    if (/^نادرست/.test(x.state)) return 0;
+    if (x.state === 'یک روز درست دیده شد؛ روزِ دوم مانده') return 1;
+    if (/^هنوز سنجیده نشده|^ناظر نتوانست/.test(x.state)) return 2;
+    return 9;
+  };
+  out.today = out.items.filter(function (x) { return rank(x) < 9; })
+    .sort(function (a, b) { return rank(a) - rank(b) || (String(a.id) < String(b.id) ? -1 : 1); })
+    .slice(0, dayMax).map(function (x) { return x.id; });
   var parts = [];
   if (out.done) parts.push(fa(out.done) + ' انجام و سنجیده');
   if (out.half) parts.push(fa(out.half) + ' منتظرِ روزِ دومِ سنجش');
@@ -1208,6 +1222,7 @@ function reqStatus_() {
   var rest = out.n - out.done - out.half - out.waiting - out.owner - out.bad - out.stale;
   if (rest > 0) parts.push(fa(rest) + ' در انتظارِ سنجشِ ناظر');
   out.line = '📒 دفترِ درخواست‌های شما: ' + fa(out.n) + ' درخواست' + (parts.length ? ' — ' + parts.join('، ') : '') + '.' +
+    (out.today.length ? ' سهمِ سنجشِ امروزِ ناظر: ' + out.today.join('، ') + '.' : '') +
     out.items.filter(function (x) { return x.state !== 'انجام و سنجیده شد'; }).slice(0, 12)
       .map(function (x) { return '\n• ' + x.id + ' «' + x.ask + '» — ' + x.state; }).join('');
   return out;
@@ -1217,7 +1232,7 @@ function reqStatus_() {
 function reqStatusSave_(st) {
   if (!st) return false;
   var c = { at: nowStr_(), ok: !!st.ok, n: st.n, done: st.done, half: st.half, bad: st.bad, stale: st.stale,
-            waiting: st.waiting, owner: st.owner, line: String(st.line || '').slice(0, 1800),
+            waiting: st.waiting, owner: st.owner, line: String(st.line || '').slice(0, 1800), today: (st.today || []).slice(0, 12),
             items: (st.items || []).map(function (x) { return { id: x.id, state: String(x.state || '').slice(0, 90) }; }) };
   try { props_().setProperty(PK.REQ_STATUS, propFit_({ c: c }, 'line').replace(/^\{"c":/, '').replace(/\}$/, '')); return true; }
   catch (e) { logLine_('وضعِ دفترِ درخواست‌ها ذخیره نشد: ' + String(e.message).slice(0, 120)); return false; }

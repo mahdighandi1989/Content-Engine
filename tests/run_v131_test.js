@@ -49,7 +49,7 @@ ok('۲.۳ موتور: صوتِ قسمتِ ردشده جای اصلی نمی‌ن
 ok('۲.۴ آستانه‌ها از CFG به ردیف', /row\.params\.qCrackPerMin = String\(CFG\.VBR_Q_CRACK_PER_MIN/.test(s36) && CFG.VBR_Q_CRACK_PER_MIN === 2.5 && CFG.VBR_Q_JITTER_ST === 0.18);
 
 /* ── ۳) نمونه‌های تازه و مرزِ تولید ── */
-const sd = (CFG.VOICE_SOUL_SEED || []).filter((x) => x.qNoRetry);
+const sd = (CFG.VOICE_SOUL_SEED || []).filter((x) => x.qNoRetry && x.hx !== 'soft');   // ۱۳.۳: بذرِ «خ نرم» در run_v132
 ok('۳.۱ دو نمونهٔ خام: گامِ ۰، دستورِ تازهٔ او، Charon و صدای پایهٔ دیگر، بی پردازش', sd.length === 2 && sd.every((x) => x.pitchFix === '0' && x.cueFix === 'آرام، پایدار، بدونِ لرزش، با پایان‌بندیِ طبیعی' &&
    !x.f0cap && !x.colour && !x.segPitch && !x.calm && x.nospans) && sd.some((x) => x.voice === 'Charon') && sd.some((x) => x.voice !== 'Charon'));
 ok('۳.۲ تولید دست نخورد: VBR_EP_HOLD روشن، VBR_SEG_PITCH خاموش', CFG.VBR_EP_HOLD === true && CFG.VBR_SEG_PITCH === false);

@@ -717,7 +717,7 @@ def uvSplice(outPath, srcPath, dstPath, fadeS=0.008):
 HX_SPLICE_ON = os.environ.get("VBR_HX") == "1"
 
 
-def fricSplice(outPath, srcPath, dstPath, thrDb=8.0, maxPct=12.0, maxRun=18, fadeS=0.01):
+def fricSplice(outPath, srcPath, dstPath, thrDb=8.0, maxPct=12.0, maxRun=18, fadeS=0.01, mode="splice", cutDb=12.0):
     """۹.۶۳ — «ه» ⇐ «خ»، این بار از **تفاوتِ دو فایل**، نه از ماسکِ ورودی. `uvSplice` (۹.۵۳/۹.۵۴) قاب‌هایی را عوض می‌کرد که
     در ورودی بی‌واک‌اند؛ «ه»ِ فارسی میانِ دو واکه بیشتر واک‌دار و نفس‌آلود است ([ɦ])، پس از ماسک بیرون می‌ماند — روی نمونه‌های
     ۱۸ اکتبر فقط ۱۱–۱۲٪ قاب‌ها عوض شد و «خ»ِ افزوده ۳۲⇐۳۰ و ۴۶⇐۴۰ ماند. «خ» سایشِ نرم‌کامی است: انرژیِ نویزیِ ۱٫۲ تا ۶
@@ -786,16 +786,33 @@ def fricSplice(outPath, srcPath, dstPath, thrDb=8.0, maxPct=12.0, maxRun=18, fad
         m = mark(th)
     if not m.any():
         return {"ok": False, "why": "سایشِ افزوده‌ای پیدا نشد"}
-    voiced = speech & ~m
-    seg = lambda x_: np.array([np.sqrt((x_[i * hop:i * hop + win] ** 2).mean() + 1e-12) for i in np.nonzero(voiced)[0][:4000]])
-    ry, rs = seg(y), seg(s)
-    g = float(np.median(ry) / max(1e-9, np.median(rs))) if len(ry) and len(rs) else 1.0
-    g = min(4.0, max(0.25, g))
     wv = np.zeros(n, np.float32)
     for i in np.nonzero(m)[0]:
         wv[i * hop:min(n, i * hop + win)] = 1.0
     k = max(1, int(sr * fadeS))
     wv = np.convolve(wv, np.ones(k, np.float32) / k, mode="same")
+    if mode == "soft":
+        # ۱۳.۳: «نرم کردن در خودِ صدا» — همان قاب‌ها، ولی **هیچ صدای جمینای وارد نمی‌شود** (۱۰.۸: «انگار صدای جمینای یک ثانیه
+        # پخش می‌شد»). «خ» سایشِ نرم‌کامی است: نویزِ قویِ ۱٫۲ تا ۶ کیلوهرتز؛ «ه» نفسِ پخش و کم‌توان است. پس فقط همان باند در همان
+        # قاب‌ها `cutDb` پایین می‌آید و بقیهٔ صدا (رنگ، واکه، زیروبم) دست نمی‌خورد.
+        Y = np.fft.rfft(y)
+        fq = np.fft.rfftfreq(n, 1.0 / sr)
+        att = np.ones_like(fq)
+        att[(fq >= 1200) & (fq <= min(6000, sr / 2 - 1))] = 10 ** (-float(cutDb) / 20.0)
+        ys = np.fft.irfft(Y * att, n).astype(np.float32)
+        z = np.clip((1.0 - wv) * y + wv * ys, -1.0, 1.0)
+        with wave.open(dstPath, "wb") as wo:
+            wo.setnchannels(1)
+            wo.setsampwidth(2)
+            wo.setframerate(sr)
+            wo.writeframes((z * 32767.0).astype("<i2").tobytes())
+        return {"ok": True, "frames": int(m.sum()), "pct": round(100.0 * m.sum() / max(1, speech.sum()), 1),
+                "gainDb": 0.0, "thrDb": th, "mode": "soft", "cutDb": float(cutDb)}
+    voiced = speech & ~m
+    seg = lambda x_: np.array([np.sqrt((x_[i * hop:i * hop + win] ** 2).mean() + 1e-12) for i in np.nonzero(voiced)[0][:4000]])
+    ry, rs = seg(y), seg(s)
+    g = float(np.median(ry) / max(1e-9, np.median(rs))) if len(ry) and len(rs) else 1.0
+    g = min(4.0, max(0.25, g))
     z = np.clip((1.0 - wv) * y + wv * (s * g), -1.0, 1.0)
     with wave.open(dstPath, "wb") as wo:
         wo.setnchannels(1)
@@ -803,7 +820,7 @@ def fricSplice(outPath, srcPath, dstPath, thrDb=8.0, maxPct=12.0, maxRun=18, fad
         wo.setframerate(sr)
         wo.writeframes((z * 32767.0).astype("<i2").tobytes())
     return {"ok": True, "frames": int(m.sum()), "pct": round(100.0 * m.sum() / max(1, speech.sum()), 1),
-            "gainDb": round(20 * np.log10(g), 1), "thrDb": th}
+            "gainDb": round(20 * np.log10(g), 1), "thrDb": th, "mode": "splice"}
 
 
 def hearCompare(src, out, alt=None, model=None):
@@ -1989,17 +2006,20 @@ def runOne(it, mp):
     # ۹.۶۳: «خ»ی که تبدیل افزود، روی **خروجیِ اصلی** درمان می‌شود (نه نسخهٔ دوم) — همان فایلی که او می‌شنود؛ و نسخهٔ
     # بی‌درمان «تبدیلِ دوم» می‌شود تا شنیدن هر دو را در یک اجرا بشمارد (`khOut` با درمان، `khAlt` بی آن).
     hxRes = None
-    if it.get("hx") and HX_SPLICE_ON:
+    # ۱۳.۳: `hx: "soft"` = نرم‌کردن در خودِ صدا (بی صدای جمینای) — بی `VBR_HX`، چون آنچه ۱۰.۸ بست وصلهٔ صدای مبدأ بود.
+    hxSoft = it.get("hx") == "soft"
+    if it.get("hx") and (HX_SPLICE_ON or hxSoft):
         try:
             hxp = os.path.join(os.path.dirname(best), "hx-out.wav")
-            hxRes = fricSplice(best, "vb/src.wav", hxp)
+            hxRes = fricSplice(best, "vb/src.wav", hxp, mode="soft" if hxSoft else "splice",
+                               cutDb=float(pr.get("hxCutDb", 12)) if hxSoft else 12.0)
             if hxRes.get("ok"):
                 if not altOut:
                     altOut = best
                     abLabel = "بی درمانِ «خ»"
                 best = hxp
-                say("  سایشِ افزوده از ورودی: %d قاب (%.1f٪ گفتار)، آستانه %.0f دسی‌بل"
-                    % (hxRes["frames"], hxRes["pct"], hxRes["thrDb"]))
+                say("  سایشِ افزوده %s: %d قاب (%.1f٪ گفتار)، آستانه %.0f دسی‌بل"
+                    % ("نرم شد در خودِ صدا" if hxSoft else "از ورودی", hxRes["frames"], hxRes["pct"], hxRes["thrDb"]))
             else:
                 say("::warning title=درمانِ «خ» نشد::%s" % hxRes.get("why", ""))
         except Exception as e:

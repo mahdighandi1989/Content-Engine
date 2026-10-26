@@ -1641,7 +1641,7 @@ function capNewest_(o, depth) {
 }
 
 function capStatus_(st) {
-  var out = { n: 0, working: 0, off: 0, idle: [], unknown: [], wiring: [],
+  var out = { n: 0, working: 0, off: 0, idle: [], unknown: [], wiring: [], snap: 0, snapBad: [],
               rows: [], ok: true, line: '' };
   var list = (CFG.CAPABILITIES || []);
   var idleDays = Math.max(1, Number(CFG.CAP_IDLE_DAYS) || 7);
@@ -1703,6 +1703,20 @@ function capStatus_(st) {
         if (raw) row.did = capNewest_(JSON.parse(raw));
       } catch (ePk) {}
     }
+    /* ══ شاهدِ «وضعِ لحظه» (۱۳.۴) ══ نُه قابلیت (تقویم، زمان‌بندی‌ها، همگام‌سازیِ پرامپت، پلِ صدا، …) شاهدی دارند که
+       **وضعِ امروز** است، نه کارِ تاریخ‌دار — و هر روز «نامعلوم: هیچ تاریخی در شاهد نیست» می‌خوردند، در حالی که شاهدشان در
+       همین `_STATUS` تازه ساخته شده و خودش می‌گوید سالم است یا نه. `snap` یعنی همین: داوری از `ok`ِ خودِ شاهد، نه از تاریخ.
+       `ok:false` ⇒ «ایراد» با خطِ خودِ شاهد — نه «نامعلوم»، که عیب را زیرِ «نمی‌دانیم» پنهان می‌کرد. */
+    if (!row.did && c.snap && ev && typeof ev === 'object') {
+      if (ev.ok === false) {
+        row.verdict = 'ایراد (وضعِ امروز)'; row.why = String(ev.line || ev.worst || 'شاهد ok=false').slice(0, 160);
+        out.snapBad.push(c.key + ' — ' + row.why);
+      } else {
+        row.verdict = 'سالم (وضعِ امروز)'; row.why = 'شاهد بی‌تاریخ است؛ وضعِ همین گزارش';
+        out.working++; out.snap++;
+      }
+      out.rows.push(row); continue;
+    }
     if (!row.did) {
       row.verdict = 'نامعلوم'; row.why = 'هیچ تاریخی در شاهد نیست';
       out.unknown.push(c.key + ' — ' + row.why);
@@ -1740,6 +1754,8 @@ function capStatus_(st) {
      مرگِ سامانه تشخیص داد (۵٫۹۰/۷٫۲۱). */
   var L = 'کارنامهٔ قابلیت‌ها: ' + out.working + ' از ' + out.n + ' کار می‌کنند';
   if (out.off) L += ' · ' + out.off + ' خاموش (تصمیمِ شما)';
+  if (out.snap) L += ' (' + out.snap + ' از آن‌ها از وضعِ امروز، بی تاریخ)';
+  if (out.snapBad.length) L += ' · ⚠ ' + out.snapBad.length + ' با ایراد در وضعِ امروز: ' + out.snapBad.join('؛ ');
   if (out.idle.length) L += ' · ⚠ ' + out.idle.length + ' روشن ولی بی‌اثر: ' + out.idle.join('؛ ');
   /* «نامعلوم» **نام‌برده** می‌شود، نه فقط شمرده — همان تفاوتی که ۸.۰۴ برای
      واژه‌های بی‌اعراب پیدا کرد: تا وقتی فقط عدد را می‌دانیم، هیچ‌کس نمی‌تواند

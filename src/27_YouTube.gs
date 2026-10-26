@@ -13567,7 +13567,16 @@ function ytRedoStuckNightly_(budgetMs) {
      خواست عمومی شود — **هرگز** نوبت نمی‌گرفت. تأییدِ صریح جلوتر از صفِ خودکار
      است (همان ترتیبِ ۷٫۵۹: آنچه خواسته شده پشتِ آنچه کسی نخواسته نمی‌مانَد). */
   var appr = ytApprovedSafe_();
+  /* ۱۳.۳: ویدئوی خصوصیِ صاحبِ کانال **آخرِ** صف — نه بیرونِ آن. «چرا بعضی درس‌نامه‌ها هنوز unlisted‌اند؟»: سقفِ شبانه سه است و
+     سه قدیمی‌ترین همیشه variety:74، ۷۸ و ۷۹ بودند که او خصوصی کرده و هر شب «به خواستِ شما دست نخورد» می‌گرفتند؛ special:81
+     — که ۱۱.۳ سدش را برداشت و قرار بود «همان شب» عمومی شود — هرگز نوبت نگرفت. همان شکلِ ۸.۴۶، با علتِ دیگر. آخرِ صف (نه حذف)
+     تا اگر روزی از خصوصی بیرونشان آورد، وارسیِ زنده باز به آن‌ها برسد. */
+  var ownPriv = {};
+  try { ytOwnerPrivList_().forEach(function (v) { ownPriv[String(v)] = 1; }); } catch (eOp) {}
+  var isOwnPriv = function (x) { return ownPriv[String((pub[x.show + ':' + x.ep] || {}).videoId || '')] ? 1 : 0; };
   stuck.sort(function (a, b) {
+    var qa = isOwnPriv(a), qb = isOwnPriv(b);
+    if (qa !== qb) return qa - qb;
     var pa = appr[a.show + ':' + a.ep] ? 0 : 1, pb = appr[b.show + ':' + b.ep] ? 0 : 1;
     if (pa !== pb) return pa - pb;
     return a.at < b.at ? -1 : (a.at > b.at ? 1 : 0);

@@ -1052,7 +1052,7 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   if (o.speedLine) row.speedLine = String(o.speedLine).slice(0, 400);   // ۹.۶۳
   if (o.srcId) row.srcId = String(o.srcId);
   if (o.srcVoice) row.srcVoice = String(o.srcVoice);
-  if (o.hx) row.hx = true;
+  if (o.hx) row.hx = (o.hx === 'soft') ? 'soft' : true;   // ۱۳.۳: «soft» = نرم‌کردنِ «خ» در خودِ صدا، بی وصلهٔ جمینای
   /* ۱۱.۴: زیروبمِ هر تکه — آزمایشی. نمونه با پرچمِ بذر؛ قسمت‌ها فقط وقتی `VBR_SEG_PITCH` روشن شود (پیش‌فرض خاموش، تا او بشنود). */
   if (o.segPitch || CFG.VBR_SEG_PITCH === true) row.segPitch = true;
   /* ۱۲.۵: سقفِ اوج (نیم‌پرده بالای هدفِ گوینده) — فقط از بذرِ نمونه؛ هیچ قسمتی این را نمی‌گیرد. */
@@ -3078,7 +3078,7 @@ function vbrSoulPick_() {
       var sk = String(se.show) + ':' + String(se.ep) + '#' + sdi;
       set[sk] = 1; seeded[sk] = 1;
       if (se.voice) seedVoice[sk] = String(se.voice);   // ۹.۶۳: صدای مبدأِ جمینای برای همین نمونه
-      if (se.hx) seedHx[sk] = true;                     // ۹.۶۳: «خ»ی که تبدیل افزود، از ورودی
+      if (se.hx) seedHx[sk] = se.hx === 'soft' ? 'soft' : true;   // ۹.۶۳: «خ»ی که تبدیل افزود؛ ۱۳.۳: «soft» در خودِ صدا
       if (se.segPitch) seedSegP[sk] = true;             // ۱۱.۴: زیروبمِ هر تکه
       if (se.f0cap) seedF0cap[sk] = Number(se.f0cap) || 3;   // ۱۲.۵: سقفِ اوجِ زیروبم، فقط نمونه
       if (se.pitchFix != null && se.pitchFix !== '') seedPitchFix[sk] = String(se.pitchFix);   // ۱۲.۹: گامِ ثابت (مثلاً «0»)، بی گامِ خودکار — فقط نمونه
@@ -3140,7 +3140,7 @@ function vbrSoulPick_() {
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
                seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k], calm: !!seedCalm[k],
-               voice: seedVoice[k] || '', hx: !!seedHx[k], segPitch: !!seedSegP[k], f0cap: seedF0cap[k] || 0, tagBase: seedBase[k] || '',
+               voice: seedVoice[k] || '', hx: seedHx[k] === 'soft' ? 'soft' : !!seedHx[k], segPitch: !!seedSegP[k], f0cap: seedF0cap[k] || 0, tagBase: seedBase[k] || '',
                pitchFix: seedPitchFix[k] != null ? seedPitchFix[k] : '', cueFix: seedCueFix[k] || '', qNoRetry: !!seedQNo[k] };
     }
   }
@@ -3552,7 +3552,7 @@ function runVoiceSoulTest() {
     tagO.speedLine = vbrSpeedLine_(pst);                 // ۹.۶۳
     tagO.srcId = made.getId();                           // ۹.۶۳: صدای جمینای پیش از تبدیل — برای جدا کردنِ «آو»
     tagO.srcVoice = srcVoice;
-    if (pick.hx) tagO.hx = true;
+    if (pick.hx) tagO.hx = pick.hx === 'soft' ? 'soft' : true;
     if (pick.segPitch) tagO.segPitch = true;            // ۱۱.۴
     if (pick.f0cap) tagO.f0cap = pick.f0cap;            // ۱۲.۵
     if (pick.pitchFix !== '' && pick.pitchFix != null) tagO.pitchFix = pick.pitchFix;   // ۱۲.۹

@@ -8,7 +8,7 @@ const L = require('./lib/probe_r4_lib.js');
 const { ok, summary } = L;
 
 /* ۱۳.۱: سه بذرِ ۱۲.۹ پیش از ساخته شدن جایشان را به دو نمونهٔ خام با دستورِ تازهٔ او دادند — شکلِ «بی پردازش» همان ماند. */
-const seeds = (CFG.VOICE_SOUL_SEED || []).filter((x) => x.pitchFix !== undefined);
+const seeds = (CFG.VOICE_SOUL_SEED || []).filter((x) => x.pitchFix !== undefined && x.hx !== 'soft');   // ۱۳.۳: بذرِ «خ نرم» در run_v132
 ok('۱ نمونه‌های گلدوز روی درسِ ۷۴، هر کدام مبدأِ مردانهٔ دیگر، Charon در میانشان', seeds.length >= 2 && seeds.every((x) => x.speaker === 'spk-1g0r95d' && String(x.ep) === '74') &&
    new Set(seeds.map((x) => x.voice)).size === seeds.length && seeds.some((x) => x.voice === 'Charon'));
 ok('۲ هیچ پردازشی: گامِ ۰، بی سقفِ اوج، بی رنگ، بی زیروبمِ هر تکه، بی «آرام»ِ کارتِ سبک، بی حالت‌ها', seeds.every((x) => x.pitchFix === '0' && !x.f0cap && !x.colour && !x.segPitch && !x.calm && !x.hx && x.nospans === true));
