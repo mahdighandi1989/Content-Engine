@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-26 06:24",
+ "updatedAt": "2026-10-26 08:45",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -5622,6 +5622,76 @@
     "fade": 25
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-84-cover.jpg"
+  },
+  "variety:84": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-84.mp4",
+   "bytes": 43709442,
+   "parts": 2,
+   "at": "2026-10-26 08:45",
+   "mode": "scenes",
+   "scenes": 15,
+   "want": 15,
+   "snapped": 12,
+   "seconds": 990,
+   "qa": {
+    "n": 15,
+    "matched": 15,
+    "miss": [],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 4,
+       "t": 200.2,
+       "own": 0.5,
+       "nb": 0.2,
+       "ok": true,
+       "heard": "نکتی تکمیلی که بیرون از مختوحای اصلی این آرشی وست و از جوستو جوی اینترنتی آمده.  اینجا یک نکتی از بیرون فایلهای این دور "
+      },
+      {
+       "n": 8,
+       "t": 427.5,
+       "own": 0.37,
+       "nb": 0.05,
+       "ok": true,
+       "heard": "چرائی نوشطنرا در سداه زبت شده یه دیگری مشنویم.  که گویند اندرا یکی از مهمترین و حصاسترین صوتهای کل دو..."
+      },
+      {
+       "n": 12,
+       "t": 748.8,
+       "own": 0.33,
+       "nb": 0.19,
+       "ok": true,
+       "heard": "ایک فایل سوتي کتا، گویند از اواملی میگوید که دستو پال مرا در خلقیت  و در ارسهای ورود به زندگی از جمل نبشتن بستن."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 5,
+    "placed": 4,
+    "busy": 1,
+    "failed": 0,
+    "kinds": {
+     "steps": 1,
+     "points": 2,
+     "quote": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 14,
+   "xf": {
+    "smoothright": 7,
+    "fade": 6
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-84-cover.jpg"
   }
  },
  "art": {
