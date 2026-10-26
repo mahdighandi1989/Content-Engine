@@ -9,7 +9,8 @@ const fs = require('fs');
 const L = require('./lib/probe_r4_lib.js');
 const { ok, summary } = L;
 
-const src = n => fs.readFileSync('src/' + n, 'utf8');
+/* بخش با شماره پیدا می‌شود، نه با نامِ فایل: این آزمون بارگذار نیست (همهٔ بخش‌ها را probe_r4_lib می‌بارد) */
+const src = n => fs.readFileSync('src/' + fs.readdirSync('src').find(f => f.indexOf(String(n).slice(0, 3)) === 0), 'utf8');
 const fnBody = (code, name) => {
   const i = code.indexOf('function ' + name + '(');
   if (i < 0) return '';
@@ -76,14 +77,14 @@ console.log('\n=== ۱) «فایل تصویری» ===');
   ok('۱.۱۰ بالا رفتنِ VIDLINK_BF_VER دورِ تازه می‌سازد', b2.done === true && b2.rows >= 1, JSON.stringify(b2));
   global.ytFolderOf_ = keepF;
 
-  const yt = src('27_YouTube.gs'), ig = src('38_Instagram.gs');
+  const yt = src('27_'), ig = src('38_');
   ok('۱.۱۱ ویدئوی بلند همان لحظهٔ رسیدن نشانی‌اش را می‌نویسد (ytRenderFetch_)',
      /vidLinkNote_\(item\.show, item\.ep, 'ویدئو', made\.getUrl\(\)\)/.test(fnBody(yt, 'ytRenderFetch_')));
   const got = fnBody(ig, 'igStepGot_');
   ok('۱.۱۲ ریلز و شورتز هم، با برچسبِ بخش؛ و کدِ پاسخِ غیرِ ۲۰۰ دیگر بی‌صدا نیست',
      /vidLinkKind_\('ریلز', it\.part\)/.test(got) && /vidLinkKind_\('شورتز', it\.part\)/.test(got) &&
      (got.match(/else miss\.push/g) || []).length === 3, got.length);
-  const nightly = src('21_SelfUpdate.gs');
+  const nightly = src('21_');
   ok('۱.۱۳ شبانه پشتِ nightHas_ و typeof', /nightHas_\(45000, 'نشانیِ ویدئوها در شیت'\)/.test(nightly) &&
      /typeof vidLinkBackfill_ === 'function'/.test(nightly));
 }
@@ -136,10 +137,10 @@ console.log('\n=== ۳) دفترِ NotebookLM — فقط خواندن ===');
   global.__SS[CFG.EXT_NLM_SHEET] = ext;
 
   const body = ['extNlmNorm_', 'extNlmVals_', 'extNlmColOf_', 'extNlmRead_', 'extNlmSync_', 'extNlmMem_', 'extNlmCovers_', 'extNlmRegKeys_', 'extNlmStatus_']
-    .map(n => fnBody(src('38_Instagram.gs'), n)).join('\n');
+    .map(n => fnBody(src('38_'), n)).join('\n');
   ok('۳.۷ در کدِ این بخش هیچ متدِ نوشتن روی آن دفتر نیست',
      body.length > 2000 && !/\.(setValue|setValues|appendRow|insertSheet|deleteRow|deleteSheet|clear|insertRow|setName)\w*\(/.test(body));
-  ok('۳.۸ هر شب، پشتِ nightHas_', /nightHas_\(20000, 'دفترِ NotebookLM'\)/.test(src('21_SelfUpdate.gs')));
+  ok('۳.۸ هر شب، پشتِ nightHas_', /nightHas_\(20000, 'دفترِ NotebookLM'\)/.test(src('21_')));
 }
 
 console.log('\n=== ۲) پنج ردیفِ پرتکرارِ صفِ کد ===');
@@ -178,7 +179,7 @@ console.log('\n=== ۲) پنج ردیفِ پرتکرارِ صفِ کد ===');
   ok('۲.۵ شمارِ روز: پرسشِ صاف فقط از تکه‌ای که «؟» دارد؛ نشانه، حالت؛ و خطِ آماده برای ناظر',
      ps.pros.n === 3 && ps.pros.qAsk === 2 && ps.pros.qFlat === 1 && ps.pros.mark === 1 && ps.pros.moodN === 2 && ps.pros.moodNo === 1 &&
      /۱ از ۲ پرسش/.test(ps.prosLine) && /گیومه/.test(ps.prosLine), ps.prosLine);
-  const pr = src('03_Producer.gs');
+  const pr = src('03_');
   ok('۲.۶ شنیدنِ لحن هیچ تکه‌ای را از نو نمی‌سازد (فقط ttsProsNote_ پس از v1)',
      /var v1 = ttsListenCheck_\(b64, text, sectionStyle\);[\s\S]{0,200}ttsProsNote_\(v1\.pros, text, sectionStyle\)/.test(pr));
   delete global.__PROPS[PK.IG_EAR];
@@ -186,7 +187,7 @@ console.log('\n=== ۲) پنج ردیفِ پرتکرارِ صفِ کد ===');
   const ear = igEarStatus_();
   ok('۲.۷ گوشِ ریلز: آخرین شنیده با واژهٔ بدخوانده در خط', /84/.test(ear.line) && /باور/.test(ear.line), ear.line);
   ok('۲.۸ گوشِ ریلز فقط شنیدن است — صدای ریلز دوباره ساخته نمی‌شود', (() => {
-    const b2 = fnBody(src('38_Instagram.gs'), 'igStepVoice_');
+    const b2 = fnBody(src('38_'), 'igStepVoice_');
     const i = b2.indexOf('ttsListenCheck_(');
     return i > 0 && b2.slice(i, i + 700).indexOf('ttsChunk') === -1 && /plan\.earFor !== plan\.audioId/.test(b2);
   })());
@@ -235,7 +236,7 @@ console.log('\n=== ۲) پنج ردیفِ پرتکرارِ صفِ کد ===');
      fd && fd.owner === 'کاربر' && fd.instruction === '' && /مرجعِ صدا تازه شود/.test(fd.detail), JSON.stringify(fd || {}).slice(0, 200));
   ok('۲.۱۵ نمونه یک بار برای هر دورِ دگرگونی به تلگرام می‌رود، با پیوندِ نمونه', sent.length === 1 && /drive\/clip/.test(sent[0]), sent.length);
   global.logSelfFinding_ = keep; global.tgSend_ = keepT;
-  const mdl = src('06_Models.gs');
+  const mdl = src('06_');
   ok('۲.۱۶ برداشتِ دور از مرجع همان‌جا یک بار دیگر گرفته و نزدیک‌تر داوری می‌شود',
      /ftP\.fit === false && new Date\(\)\.getTime\(\) - t0 < budget/.test(mdl) && /ft2\.fit === true \|\| ft2\.dist < ftP\.dist/.test(mdl));
 
