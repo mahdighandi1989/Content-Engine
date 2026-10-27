@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-27 19:57",
+ "updatedAt": "2026-10-27 20:25",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -5844,6 +5844,82 @@
     "صحنهٔ 29: زمینهٔ کارت یکدست بود (sd 0) ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 31: زمینهٔ کارت یکدست بود (sd 0.8) ⇒ خودِ عکس، کنارِ کارت"
    ]
+  },
+  "special:85": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-85.mp4",
+   "bytes": 56911938,
+   "parts": 3,
+   "at": "2026-10-27 20:25",
+   "mode": "scenes",
+   "scenes": 70,
+   "want": 70,
+   "snapped": 54,
+   "seconds": 1896,
+   "qa": {
+    "n": 70,
+    "matched": 66,
+    "miss": [
+     30,
+     52,
+     56,
+     64
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 18,
+       "t": 498.3,
+       "own": 0.47,
+       "nb": 0.32,
+       "ok": true,
+       "heard": "یک نکتی تکمیلی که بیرون از محتوى اصلی این آرشی و از جستوجوی اینترنیتی آمده.  در باری تزد دو ام کوان"
+      },
+      {
+       "n": 40,
+       "t": 999.4,
+       "own": 0.29,
+       "nb": 0.07,
+       "ok": true,
+       "heard": "برائی نگرشهای شناختی غیر باوری، به مغالی عودی، عباد ایمن و مطالبات اقل، در کتابی"
+      },
+      {
+       "n": 58,
+       "t": 1432.8,
+       "own": 0.29,
+       "nb": 0.06,
+       "ok": true,
+       "heard": "و نظر فیل سوفان شکو کی یت در مقرفت میگویت مقرفت ما نو چیز یا معدوم هست  و شکو کی یت در توجی هنیز توجی"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 26,
+    "placed": 17,
+    "busy": 9,
+    "failed": 0,
+    "kinds": {
+     "points": 10,
+     "headline": 5,
+     "quote": 1,
+     "compare": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 60,
+   "xf": {
+    "smoothright": 35,
+    "fade": 28
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-85-cover.jpg"
   }
  },
  "art": {
