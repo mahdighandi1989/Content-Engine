@@ -251,6 +251,7 @@ console.log('\n=== ۷) سرتاسری: از انتخاب تا سیاهه ===');
   global.__STUB = () => ({ code: 200, json: { candidates: [{ content: { parts: [{
     text: JSON.stringify({ links: [
       { seriesKey: 'kEp', kind: 'ابزارِ سنجش', claim: 'ملاکِ صدق آنجا داده شد.',
+        quote: 'صدق با تطابق و انسجام سنجیده می‌شود',
         chapter: 'ملاکِ صدق', relation: 'گزاره‌های این درس با آن سنجیده می‌شوند.',
         atHeading: 'اثباتِ واجب', strength: 'قوی',
         say: 'ببین، در معرفت‌شناسی گفتیم صدقِ یک گزاره را چطور می‌سنجیم؛ ' +
@@ -293,6 +294,66 @@ console.log('\n=== ۷) سرتاسری: از انتخاب تا سیاهه ===');
              { seriesName: 'معرفت‌شناسی', partName: 'x', digest: 'y', headings: [] });
   un2();
   ok('۷.۶ مجموعهٔ بی‌مرجع هیچ فراخوانی نمی‌کند', called === 0, String(called));
+}
+
+console.log('\n=== ۷-ب) ادعا با شاهد از خودِ کتاب (۱۳٫۸، `bridge-unfaithful-`) ===');
+{
+  /* یافتهٔ `bridge-unfaithful-` پنج بار تکرار شد و درمانش هر بار «پرامپت صریح‌تر
+     بگوید» بود. این‌جا سد در کد سنجیده می‌شود — با همان کتابِ کاملِ آزمونِ ۷. */
+  const reg = readSeriesReg_(hub);
+  const corpus = bridgeCorpus_(reg, ['kEp']);
+  ok('۷ب.۰ کتابِ مرجع با خودِ جزوه برمی‌گردد', corpus.length === 1 && !!corpus[0].book);
+  const base = { seriesKey: 'kEp', seriesName: 'معرفت‌شناسی', kind: 'تأیید', claim: 'c' };
+  const g = (q) => bridgeGround_([Object.assign({}, base, { quote: q })], corpus);
+  ok('۷ب.۱ تکهٔ عینی پذیرفته می‌شود', g('صدق با تطابق و انسجام سنجیده می‌شود').links.length === 1);
+  /* کپیِ درست نباید سرِ اعراب، نیم‌فاصله یا «ي»ِ عربی رد شود. */
+  ok('۷ب.۲ اعراب و نیم‌فاصله و ی/ي عربی فرقی نمی‌کند',
+     g('صِدق با تَطابُق و انسجام سنجيده مي شود').links.length === 1);
+  ok('۷ب.۳ ادعایی که در کتاب نیست، می‌افتد',
+     g('معرفت‌شناسی اثبات می‌کند که خدا وجود دارد و جهان حادث است').links.length === 0);
+  ok('۷ب.۴ و ارجاعِ بی‌شاهد هم — نبودِ شاهد، شاهد نیست', g('').links.length === 0);
+  ok('۷ب.۵ چند واژهٔ رایج شاهد نیست (کمتر از کف)', g('سنجیده می‌شود').links.length === 0);
+  /* یک واژهٔ جابه‌جا ساختگی نیست؛ ۸۰٪ِ سه‌واژه‌ها کافی است. */
+  /* یک واژهٔ جابه‌جا در شاهدی بلند ساختگی نیست؛ ۸۰٪ِ سه‌واژه‌ها کافی است. */
+  const bk = bridgeQuoteNorm_('آنجا گفته شد که هر گزاره‌ای باید با ملاکِ بیرونی سنجیده شود تا صدق و کذبش روشن گردد و این کار بی ابزار ممکن نیست');
+  ok('۷ب.۶ یک واژهٔ عوض‌شده در شاهدِ بلند هنوز همان شاهد است',
+     bridgeQuoteFound_('هر گزاره‌ای باید با ملاکِ بیرونی سنجیده شود تا صدق و کذبش روشن شود و این کار بی ابزار ممکن نیست', bk) &&
+     !bridgeQuoteFound_('هر گزاره‌ای بی هیچ ملاکی پذیرفتنی است و صدق امری سلیقه‌ای است که با ابزار کاری ندارد', bk));
+  const r = g('چیزی که هرگز در این کتاب نیامده است اصلاً');
+  ok('۷ب.۷ آنچه افتاد با شاهدش گزارش می‌شود', r.dropped.length === 1 && r.dropped[0].why.indexOf('شاهد') !== -1);
+  ok('۷ب.۸ کتابِ در دست‌نبوده یعنی پذیرفته‌نشده',
+     bridgeGround_([Object.assign({}, base, { seriesKey: 'kZ', quote: 'صدق با تطابق و انسجام سنجیده می‌شود' })], corpus).links.length === 0);
+  const off = CFG.BRIDGE_QUOTE_GATE; CFG.BRIDGE_QUOTE_GATE = false;
+  ok('۷ب.۹ کلیدِ خاموش‌کردن واقعاً خاموش می‌کند', g('').links.length === 1);
+  CFG.BRIDGE_QUOTE_GATE = off;
+
+  /* سرتاسری: پاسخِ اول شاهدِ ساختگی دارد ⇒ یک بار دیگر پرسیده می‌شود و پاسخِ
+     دوم با شاهدِ درست می‌ماند؛ پرسشِ دوم «دلیلِ رد» را می‌بیند. */
+  const prompts = [];
+  let n = 0;
+  const link = (q) => ({ seriesKey: 'kEp', kind: 'ابزارِ سنجش', claim: 'ملاکِ صدق.', quote: q,
+    relation: 'گزاره‌های این درس با آن سنجیده می‌شوند.', atHeading: 'اثباتِ واجب', strength: 'قوی',
+    say: 'ببین، در معرفت‌شناسی گفتیم صدقِ یک گزاره را چطور می‌سنجیم؛ همان ملاک دقیقاً همین‌جاست.' });
+  global.__STUB = (url, body) => {
+    const pay = typeof body === 'string' ? body : JSON.stringify(body || '');
+    prompts.push(pay);
+    if (/picks/.test(pay) && !/links/.test(pay)) return { code: 500, json: {} };   // پیش‌آهنگ: مسیرِ فقط‌فهرست
+    n++;
+    const q = n === 1 ? 'معرفت‌شناسی ثابت کرد که هر باوری یقینی است و شک بی‌معناست' :
+                        'صدق با تطابق و انسجام سنجیده می‌شود';
+    return { code: 200, json: { candidates: [{ content: { parts: [{
+      text: JSON.stringify({ links: [link(q)] }) }] } }] } };
+  };
+  const un = quiet();
+  const plan = bridgePlan_({ seriesName: 'خداشناسی', partName: 'اثباتِ واجب', digest: 'متن', headings: [] }, corpus);
+  un();
+  ok('۷ب.۱۰ شاهدِ ساختگی ⇒ پرسشِ دوم، و ارجاعِ با شاهد می‌ماند',
+     plan && plan.links.length === 1 && /تطابق/.test(plan.links[0].quote), JSON.stringify(plan && plan.links));
+  ok('۷ب.۱۱ پرسشِ دوم علتِ رد را می‌بیند', prompts.some((p) => p.indexOf('شاهدی داشت که در متنِ کتاب نیست') !== -1));
+  ok('۷ب.۱۲ بلوکِ نویسنده عینِ شاهد را می‌گوید و مرزِ «بیش از این نسبت نده» را',
+     bridgeBlock_(plan, 'خداشناسی').indexOf('بیش از این به آن مجموعه نسبت نده') !== -1);
+  ok('۷ب.۱۳ پرامپتِ کشف بندِ ۴-ج را دارد',
+     bridgePrompt_({ seriesName: 'خ' }, corpus, null).indexOf('ادعا فقط از متنِ همان کتاب، با شاهد') !== -1);
 }
 
 console.log('\n=== ۸) ارجاع‌ها جزوِ محتوا شده‌اند: جزوه، مرور، و سطرِ روزانه ===');
@@ -660,7 +721,7 @@ console.log('\n=== ۱۴) دو مرحله: اول کلِ کتاب، بعد متن
   global.geminiText_ = (pr) => {
     calls++;
     if (pr.indexOf('کشفِ نسبت نیست') !== -1) return null;      // پیش‌آهنگ خاموش
-    return { links: [{ seriesKey: 'kEp', kind: 'تأیید', claim: 'ج', chapter: 'ف',
+    return { links: [{ seriesKey: 'kEp', kind: 'تأیید', claim: 'ج', quote: 'صدق با تطابق و انسجام سنجیده می‌شود', chapter: 'ف',
                        relation: 'ر', atHeading: 'ب', say: 'م'.repeat(60),
                        strength: 'قوی' }], none: '' };
   };
@@ -951,13 +1012,13 @@ console.log('\n══ ۲۰) نسبتِ خالی: یک بار دیگر با نم�
     if (pr.indexOf('کشفِ نسبت نیست') !== -1) return null;          // پیش‌آهنگ خاموش
     calls++;
     if (calls === 1) {
-      return { links: [{ seriesKey: 'kEp', kind: 'تکمیل', claim: 'ج', chapter: 'ف',
+      return { links: [{ seriesKey: 'kEp', kind: 'تکمیل', claim: 'ج', quote: 'صدق با تطابق و انسجام سنجیده می‌شود', chapter: 'ف',
                          relation: 'تکمیل', atHeading: 'ب', say: 'م'.repeat(60),
                          strength: 'قوی' }], none: '' };
     }
     sawFeedback = pr.indexOf('یک بار دیگر') !== -1 && pr.indexOf('«تکمیل»') !== -1;
     const real = 'آنجا خطای حسی به قضاوتِ ذهن نسبت داده شده و همین‌جا همان تفکیک ادامه پیدا می‌کند.';
-    return { links: [{ seriesKey: 'kEp', kind: 'تکمیل', claim: 'ج', chapter: 'ف',
+    return { links: [{ seriesKey: 'kEp', kind: 'تکمیل', claim: 'ج', quote: 'صدق با تطابق و انسجام سنجیده می‌شود', chapter: 'ف',
                        relation: real, atHeading: 'ب', say: 'م'.repeat(60),
                        strength: 'قوی' }], none: '' };
   };
@@ -975,7 +1036,7 @@ console.log('\n══ ۲۰) نسبتِ خالی: یک بار دیگر با نم�
   global.geminiText_ = (pr) => {
     if (pr.indexOf('کشفِ نسبت نیست') !== -1) return null;
     calls++;
-    return { links: [{ seriesKey: 'kEp', kind: 'تکمیل', claim: 'ج', chapter: 'ف',
+    return { links: [{ seriesKey: 'kEp', kind: 'تکمیل', claim: 'ج', quote: 'صدق با تطابق و انسجام سنجیده می‌شود', chapter: 'ف',
                        relation: 'تکمیل', atHeading: 'ب', say: 'م'.repeat(60),
                        strength: 'قوی' }], none: '' };
   };
@@ -992,7 +1053,7 @@ console.log('\n══ ۲۰) نسبتِ خالی: یک بار دیگر با نم�
     if (pr.indexOf('کشفِ نسبت نیست') !== -1) return null;
     calls++;
     const real = 'آنجا خطای حسی به قضاوتِ ذهن نسبت داده شده و همین‌جا همان تفکیک ادامه پیدا می‌کند.';
-    return { links: [{ seriesKey: 'kEp', kind: 'تکمیل', claim: 'ج', chapter: 'ف',
+    return { links: [{ seriesKey: 'kEp', kind: 'تکمیل', claim: 'ج', quote: 'صدق با تطابق و انسجام سنجیده می‌شود', chapter: 'ف',
                        relation: real, atHeading: 'ب', say: 'م'.repeat(60),
                        strength: 'قوی' }], none: '' };
   };

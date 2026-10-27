@@ -83,13 +83,14 @@ var BRIDGE_SCHEMA = {
           seriesKey: { type: 'string' },   // کدام مجموعهٔ مرجع
           kind: { type: 'string' },        // یکی از BRIDGE_KINDS
           claim: { type: 'string' },       // آن مجموعه دقیقاً چه گفته
+          quote: { type: 'string' },       // عینِ تکه‌ای از متنِ همان کتاب — شاهدِ claim
           chapter: { type: 'string' },     // کدام فصلِ آن کتاب
           relation: { type: 'string' },    // نسبتش با این درس، در یک جمله
           atHeading: { type: 'string' },   // عنوانِ بخشی از این درس که ارجاع آنجا بنشیند
           say: { type: 'string' },         // متنِ پیشنهادیِ گفتاری، دو تا چهار جمله
           strength: { type: 'string' }     // «قوی» | «متوسط» | «ضعیف»
         },
-        required: ['seriesKey', 'kind', 'claim', 'relation', 'atHeading', 'say']
+        required: ['seriesKey', 'kind', 'claim', 'quote', 'relation', 'atHeading', 'say']
       }
     },
     none: { type: 'string' }               // اگر هیچ نسبتِ واقعی‌ای نبود، علتش
@@ -506,6 +507,17 @@ function bridgePrompt_(ctx, corpus, deep) {
   L.push('   شده و همین‌جا همان تفکیک، این بار با زبانِ باورِ گزاره‌ای، ادامه');
   L.push('   پیدا می‌کند.»');
   L.push('');
+  /* ══ ادعا با شاهد (۱۳٫۸) ══ «claim = گزارهٔ آن کتاب» از ۶٫۹۵ اینجا بود و
+     داوری هنوز ۳۲ بار گفت «در کتابش نیست». درخواستِ بی‌سنجه درخواست است؛
+     پس شاهد خواسته می‌شود و `bridgeGround_` آن را در خودِ کتاب می‌جوید. */
+  L.push('۴-ج) **ادعا فقط از متنِ همان کتاب، با شاهد.** در `quote` عینِ یک تکه از');
+  L.push('   متنِ آن کتاب را بگذار — دست‌کم ' + (Number(CFG.BRIDGE_QUOTE_MIN_WORDS) || 5) +
+         ' واژه، **کپی از متنِ بالا، نه بازنویسی**.');
+  L.push('   `claim` نباید چیزی بیش از همین تکه بگوید. حرفی که درست است ولی در این');
+  L.push('   کتاب نیست، حرفِ این کتاب نیست — حتی اگر از نویسنده‌اش شنیده باشی.');
+  L.push('   هر `quote` با متنِ کتاب سنجیده می‌شود؛ ارجاعی که شاهدش در کتاب پیدا');
+  L.push('   نشود، دور ریخته می‌شود. اگر تکهٔ عینی پیدا نکردی، آن ارجاع را نده.');
+  L.push('');
   L.push('۵) `say` دو تا چهار جملهٔ **گفتاری** است، به همان لحنِ پادکست: نامِ آن');
   L.push('   مجموعه را بگو، بگو آنجا چه گفته شد، و نسبتش با همین لحظه را روشن');
   L.push('   کن. نه فهرست، نه ارجاعِ کتابی، نه «همان‌طور که می‌دانید».');
@@ -563,13 +575,25 @@ function bridgePlan_(ctx, corpus) {
      داد را همین‌جا هم به کار می‌بریم: وقتی *همهٔ* ارجاع‌ها relationِ خالی
      برگرداندند، یک بار دیگر می‌پرسیم و این بار مقدارِ رد‌شده را عیناً
      نشانش می‌دهیم — نه یک بندِ عمومی، بلکه دقیقاً همان اشتباهی که کرد. */
-  var r = null, tries = 0, more = '', links = [];
+  var r = null, tries = 0, more = '', links = [], keep = [];
   while (tries < 2) {
     tries++;
     try { r = geminiText_(bridgePrompt_(ctx, corpus, deep) + more, BRIDGE_SCHEMA, 30000); }
     catch (e) { logLine_('ارجاعِ میان‌مجموعه‌ای ساخته نشد: ' + e.message); return null; }
     if (!r) return null;
     links = bridgeTrim_(r.links, names, strictKeys);
+    var gr = bridgeGround_(links, corpus);
+    links = gr.links;
+    if (links.length > keep.length) keep = links;
+    if (gr.dropped.length && tries < 2) {
+      more = '\n\n── یک بار دیگر ──\n' +
+        'پاسخِ پیشینت رد شد: ' + gr.dropped.length + ' ارجاع شاهدی داشت که در متنِ کتاب نیست' +
+        ' (نوشتی: «' + gr.dropped.slice(0, 3).map(function (d) { return d.quote || '—'; }).join('»، «') + '»).' +
+        ' بندِ ۴-ج: `quote` باید عیناً از متنِ همان کتاب کپی شود و `claim` بیش از آن نگوید.' +
+        ' اگر برای ارجاعی تکهٔ عینی نیست، آن ارجاع را نده.';
+      logLine_('ارجاع: ' + gr.dropped.length + ' ارجاع شاهدش در کتابِ مرجع پیدا نشد — یک بار دیگر پرسیده شد.');
+      continue;
+    }
     if (!links.length) break;
     var gap = bridgeRelationGap_(links);
     if (!gap || tries >= 2) break;
@@ -586,6 +610,8 @@ function bridgePlan_(ctx, corpus) {
     logLine_('ارجاع: ' + gap + ' relation از ' + links.length +
              ' فقط نامِ دسته بود — یک بار دیگر پرسیده شد.');
   }
+  /* پرسشِ دوم بدتر از اولی جواب داد؟ ارجاع‌های سنجیده‌شدهٔ اولی می‌مانند. */
+  if (links.length < keep.length) links = keep;
   return { links: links,
            none: String((r && r.none) || ''),
            deepRead: deep ? deep.n : 0,
@@ -805,11 +831,88 @@ function bridgeTrim_(links, names, strictKeys) {
     seen[dup] = 1;
     out.push({ seriesKey: key, seriesName: names[key],
                kind: String(x.kind || ''), claim: String(x.claim || '').slice(0, 400),
+               quote: String(x.quote || '').slice(0, 400),
                chapter: String(x.chapter || '').slice(0, 160),
                relation: bridgeRelation_(x.relation, x.kind),
                atHeading: String(x.atHeading || '').slice(0, 160),
                say: say.slice(0, 900),
                strength: String(x.strength || 'متوسط') });
+  }
+  return out;
+}
+
+/**
+ * شاهدِ هر ارجاع در خودِ کتاب — سدِ «حرفی که در کتابش نیست» (۱۳٫۸).
+ *
+ * یافتهٔ `bridge-unfaithful-` از ۱۲ سپتامبر پنج بار تکرار شد و درمانِ پیشنهادیِ
+ * خودش «پرامپت صریح‌تر بگوید» بود — همان شکلی که این ریپو بارها دیده: سقفی که
+ * فقط در پرامپت گفته شده، سقف نیست. و سخت‌گیریِ خودکار («فقط قوی») از این جنس
+ * چیزی نمی‌گیرد: مدل به ادعای ساختگی‌اش هم «قوی» می‌گوید.
+ *
+ * پس هر ارجاع عینِ تکه‌ای از جزوهٔ آن کتاب را در `quote` می‌آورد و این‌جا
+ * سنجیده می‌شود. مقایسه بی اعراب، بی نیم‌فاصله و بی نشانه است (کپیِ درست نباید
+ * سرِ یک «ی» رد شود) و ۸۰٪ِ سه‌واژه‌ها کافی است — مدل گاهی یک واژه را جابه‌جا
+ * می‌کند و آن ساختگی نیست. ولی شاهدِ غایب یا کوتاه‌تر از پنج واژه رد است:
+ * نبودِ شاهد، شاهد نیست.
+ */
+function bridgeQuoteNorm_(t) {
+  var s = String(t || '');
+  try { s = txNorm(stripTashkil_(s)); } catch (e) { s = s.toLowerCase(); }
+  s = s.replace(/\u0654/g, '').replace(/[\u0622\u0623\u0625]/g, '\u0627')
+       .replace(/\u0624/g, '\u0648').replace(/\u0626/g, '\u06CC');
+  return s.replace(/[^\u0621-\u06FFa-z0-9\u06F0-\u06F9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** همهٔ متنِ یک کتابِ مرجع (عنوان، چکیده، تن، تکمله‌ها) — یک بار برای هر قسمت. */
+function bridgeBookNorm_(book) {
+  var parts = [];
+  var chs = (book && book.chapters) || [];
+  for (var c = 0; c < chs.length; c++) {
+    parts.push(String(chs[c].title || ''));
+    var secs = chs[c].sections || [];
+    for (var t = 0; t < secs.length; t++) {
+      parts.push(String(secs[t].title || ''), String(secs[t].takeaway || ''), String(secs[t].body || ''));
+      var adds = secs[t].adds || [];
+      for (var a = 0; a < adds.length; a++) parts.push(String((adds[a] && adds[a].text) || adds[a] || ''));
+    }
+  }
+  return bridgeQuoteNorm_(parts.join(' \n '));
+}
+
+/** آیا `quote` در متنِ (هنجارشدهٔ) کتاب هست؟ */
+function bridgeQuoteFound_(quote, bookNorm) {
+  var q = bridgeQuoteNorm_(quote);
+  var w = q ? q.split(' ') : [];
+  if (w.length < Math.max(2, Number(CFG.BRIDGE_QUOTE_MIN_WORDS) || 5)) return false;
+  var bk = String(bookNorm || '');
+  if (!bk) return false;
+  /* بی فاصله: «می‌گوید» و «می گوید» و «میگوید» یکی‌اند. */
+  if (bk.replace(/ /g, '').indexOf(q.replace(/ /g, '')) !== -1) return true;
+  var hay = ' ' + bk + ' ', hit = 0, all = 0;
+  for (var i = 0; i + 2 < w.length; i++) {
+    all++;
+    if (hay.indexOf(' ' + w[i] + ' ' + w[i + 1] + ' ' + w[i + 2] + ' ') !== -1) hit++;
+  }
+  return all > 0 && hit / all >= (Number(CFG.BRIDGE_QUOTE_MATCH) || 0.8);
+}
+
+/** برمی‌گرداند `{links, dropped}` — ارجاع‌هایی که شاهدشان در کتاب نیست بیرون. */
+function bridgeGround_(links, corpus) {
+  var out = { links: [], dropped: [] };
+  if (CFG.BRIDGE_QUOTE_GATE === false) { out.links = (links || []).slice(); return out; }
+  var books = Object.create(null);
+  for (var i = 0; i < (corpus || []).length; i++) {
+    if (corpus[i] && corpus[i].book) books[String(corpus[i].key)] = corpus[i].book;
+  }
+  var normed = Object.create(null);
+  for (var j = 0; j < (links || []).length; j++) {
+    var b = links[j] || {}, k = String(b.seriesKey || '');
+    /* کتاب در دست نیست (نباید پیش بیاید: `bridgeCorpus_` بی جزوه چیزی برنمی‌گرداند)
+       ⇒ چیزی برای سنجیدن نیست، پس چیزی هم پذیرفته نمی‌شود. */
+    if (!books[k]) { out.dropped.push({ seriesName: b.seriesName, quote: b.quote, why: 'کتاب نیست' }); continue; }
+    if (normed[k] === undefined) normed[k] = bridgeBookNorm_(books[k]);
+    if (bridgeQuoteFound_(b.quote, normed[k])) out.links.push(b);
+    else out.dropped.push({ seriesName: b.seriesName, quote: String(b.quote || '').slice(0, 120), why: 'شاهد در کتاب نیست' });
   }
   return out;
 }
@@ -846,6 +949,7 @@ function bridgeBlock_(plan, seriesName) {
     L.push('• در بخشِ «' + b.atHeading + '» — نسبت: ' + b.kind);
     L.push('  مجموعهٔ «' + b.seriesName + '»' + (b.chapter ? ' (فصلِ ' + b.chapter + ')' : '') +
            ' گفته: ' + b.claim);
+    if (b.quote) L.push('  عینِ متنِ آن کتاب: «' + b.quote + '» — بیش از این به آن مجموعه نسبت نده.');
     L.push('  نسبتش با اینجا: ' + b.relation);
     L.push('  پیشنهادِ گفتاری: ' + b.say);
     L.push('');
@@ -1285,7 +1389,7 @@ function bridgeSnap_(epNum, seriesName, links, ep) {
       at: nowStr_(), epNum: Number(epNum) || 0, seriesName: String(seriesName || ''),
       links: links.map(function (b) {
         return { seriesKey: b.seriesKey, seriesName: b.seriesName, kind: b.kind,
-                 claim: b.claim, relation: b.relation, atHeading: b.atHeading };
+                 claim: b.claim, quote: b.quote || '', relation: b.relation, atHeading: b.atHeading };
       }),
       text: String(txt).slice(0, 24000)
     });
@@ -1358,6 +1462,7 @@ function bridgeAuditPrompt_(snap, books) {
     var b = snap.links[j];
     L.push('• به «' + b.seriesName + '» — نسبت: ' + b.kind);
     L.push('  ادعا شده آنجا گفته: ' + b.claim);
+    if (b.quote) L.push('  شاهدی که از کتاب آورده: «' + b.quote + '»');
     L.push('  و نسبتش با این درس: ' + b.relation);
   }
   L.push('');

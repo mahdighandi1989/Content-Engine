@@ -1,31 +1,22 @@
 {
-  "version": "13.7",
+  "version": "13.8",
   "codeFile": "engine.gs",
-  "sha256": "37ae08b9717a2783528cd389ee190f2799939c931f403082790e92c6b7b20c4f",
-  "releasedAt": "2026-10-26T21:30:00Z",
-  "summary": "«فایل تصویری»: نشانیِ درایوِ ویدئو، ریلز و شورتز (و قسمت‌های پیشین)؛ EXT-NOTEBOOKLM-STATE هر شب فقط‌خواندنی و مجموعه‌اش بی ریلزِ موتور؛ پنج ردیفِ پرتکرارِ صفِ کد از ریشه.",
+  "sha256": "aea7ac2b15956dcc593c710c69082aebedcbb2399f1db0ad592bd4e4df6a49d6",
+  "releasedAt": "2026-10-27T08:45:00Z",
+  "summary": "ارجاعِ میان‌مجموعه‌ای فقط با شاهدِ عینی از جزوهٔ همان کتاب: هر ارجاع `quote` می‌آورد و `bridgeGround_` آن را در خودِ کتاب می‌جوید؛ پیدا نشد ⇒ یک بار دیگر پرسیده می‌شود و ارجاعِ بی‌شاهد داده نمی‌شود.",
   "fixes": [
-    "vidLinkNote_/vidLinkBackfill_: «فایل تصویری» در Podcasts (ستونِ ۱۰) و درس‌نامه (ستونِ تازهٔ ته) — از ytRenderFetch_ و igStepGot_، و یک دورِ شبانه برای پیشین‌ها (فقط خواندنِ فایل‌ها)",
-    "igStepGot_: کدِ پاسخِ غیرِ ۲۰۰ در saveWhy (تا امروز بی‌صدا)",
-    "extNlmSync_/extNlmCovers_: دفترِ NotebookLM هر شب فقط خوانده می‌شود؛ igNextEp_ مجموعهٔ پوشش‌داده را رد می‌کند؛ شکستِ خواندن فهرستِ دیشب را نگه می‌دارد",
-    "monitor-check-silent: روزِ بی‌گزارش دیگر تک‌تکِ وارسی‌ها را ساکت نمی‌شمارد (repMissing)؛ سنجنده فقط silent را می‌سنجد، نه ok که «نشد» هم پایینش می‌آورد",
-    "monitor-check-skipped: شنوندهٔ تلفظ در همان فراخوان لحن را هم می‌شنود (ttsListen.pros/prosLine) و صدای ریلز یک بار شنیده می‌شود (instagram.ear) — فقط ثبت؛ دستورِ ناظر v115 «شنیدن» را از این‌ها می‌گیرد",
-    "audit-queue-stuck: سنجه = عمرِ قدیمی‌ترین قسمتِ صف، نه «کوتاه‌تر نشده» که صفِ روان را گیر می‌خواند",
-    "chronic-7df6bcbc: ردیف‌های صفِ کد در شمارِ «تکرارشده» نیستند (repeatedCode جدا) — یافتهٔ موتور هر روز دوباره دیده می‌شود",
-    "tts-pin-drift: صاحبش «کاربر» و بی دستور؛ ردیفِ قدیمی خودش از صفِ کد بیرون می‌رود؛ نمونه یک بار به تلگرام؛ برداشتِ دور از مرجع یک بار دیگر؛ ردیفِ سنجاق در audits عددِ واقعی"
+    "bridge-unfaithful-: شِمای کشف `quote` (الزامی) دارد و بندِ ۴-ج پرامپت آن را «کپی از متن، نه بازنویسی» می‌خواهد؛ claim بیش از آن نمی‌گوید",
+    "bridgeGround_/bridgeQuoteFound_: شاهد بی اعراب/نیم‌فاصله/ی‌ک عربی در کلِ جزوهٔ مرجع (عنوان، چکیده، تن، تکمله) جست‌وجو می‌شود — زیرِ ۵ واژه یا کمتر از ۸۰٪ سه‌واژه‌ها ⇒ ارجاع حذف",
+    "bridgePlan_: ارجاعِ بی‌شاهد ⇒ پرسشِ دوم با همان شاهدهای ردشده؛ پاسخِ دومِ بدتر جای ارجاع‌های سنجیده‌شدهٔ اول را نمی‌گیرد",
+    "bridgeBlock_: نویسنده عینِ شاهد را با «بیش از این به آن مجموعه نسبت نده» می‌بیند؛ عکسِ داوری و پرامپتِ داور هم شاهد را دارند",
+    "پیکربندی: BRIDGE_QUOTE_GATE، BRIDGE_QUOTE_MIN_WORDS، BRIDGE_QUOTE_MATCH"
   ],
   "sourceReportIds": [
-    "ENG-20260913-1007#monitor-check-silent",
-    "ENG-20261007-1007#monitor-check-skipped",
-    "ENG-20260902-1007#audit-queue-stuck",
-    "ENG-20261007-1008#chronic-7df6bcbc",
-    "tts-pin-drift"
+    "ENG-20260912-0235#bridge-unfaithful-"
   ],
-  "answers": [],
-  "promptImpact": [
-    "monitor: وارسی‌های speak-prosody/speak-moods/instagram «شنیدن» را از ttsListen.prosLine و instagram.ear می‌گیرند؛ دو خطِ تازهٔ vidLink و instagram.ext — _PROMPT-monitor-v115.md"
+  "answers": [
+    "bridge-unfaithful-"
   ],
-  "promptImpactKinds": [
-    "monitor"
-  ]
+  "promptImpact": [],
+  "promptImpactKinds": []
 }
