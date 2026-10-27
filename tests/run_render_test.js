@@ -1339,6 +1339,29 @@ console.log('\n=== ۱۸) قاب به بدنه دوخته، و نامِ فارس�
      JSON.stringify(bad).slice(0, 300));
 }
 
+
+console.log('\n=== ۱۳.۸ ریلیزِ بزرگ‌تر از ۱ مگابایت (۲۷ اکتبر) ===');
+{
+  /* شاهدِ واقعی: پاسخِ GET ریلیزِ «renders» با ۵۲۸ فایل ۸۸۳ هزار نویسه بود. پیش‌فرضِ execFileSync همین را می‌کُشد: */
+  let enobufs = false;
+  try { cp.execFileSync('node', ['-e', 'process.stdout.write("ی".repeat(700000))'], { encoding: 'utf8' }); }
+  catch (e) { enobufs = /ENOBUFS|maxBuffer/.test(String(e.code) + ' ' + String(e.message)); }
+  ok('۱۳.۸-۱ پیش‌فرضِ maxBuffer پاسخِ ۱٫۴ مگابایتی را می‌کُشد (همان شکستِ تولید)', enobufs);
+  const src = fs.readFileSync('tools/render.js', 'utf8');
+  const ghSrc = src.slice(src.indexOf('function gh(args)'), src.indexOf('function gh404'));
+  const mb = (ghSrc.match(/maxBuffer:\s*(\d+)\s*\*\s*1024\s*\*\s*1024/) || [])[1];
+  ok('۱۳.۸-۲ gh() بافرِ دست‌کم ۶۴ مگابایت دارد', Number(mb) >= 64, String(mb));
+  let big = '';
+  try { big = cp.execFileSync('node', ['-e', 'process.stdout.write("ی".repeat(700000))'], { encoding: 'utf8', maxBuffer: Number(mb) * 1024 * 1024 }); } catch (e) {}
+  ok('۱۳.۸-۳ با همان بافر، همان پاسخ خوانده می‌شود', big.length === 700000, String(big.length));
+  ok('۱۳.۸-۴ «۴۰۴» یعنی بساز؛ خطای دیگر (بافر، ۵۰۲) یعنی بگو، نه بساز',
+     R.gh404({ stderr: 'curl: (22) The requested URL returned error: 404' }) === true &&
+     R.gh404({ code: 'ENOBUFS', message: 'spawnSync curl ENOBUFS' }) === false &&
+     R.gh404({ stderr: 'curl: (22) The requested URL returned error: 502' }) === false);
+  const er = src.slice(src.indexOf('function ensureRelease()'), src.indexOf('function uploadAsset'));
+  ok('۱۳.۸-۵ ensureRelease جز ۴۰۴ همه را بالا می‌اندازد', /if \(!gh404\(e\)\) throw/.test(er));
+}
+
 stopServer();
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) {}
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

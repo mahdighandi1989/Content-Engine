@@ -96,14 +96,27 @@ function gh(args) {
   const out = execFileSync('curl', ['-sS', '--fail-with-body',
     '-H', 'Authorization: Bearer ' + TOKEN,
     '-H', 'Accept: application/vnd.github+json',
-    '-H', 'X-GitHub-Api-Version: 2022-11-28'].concat(args), { encoding: 'utf8' });
+    '-H', 'X-GitHub-Api-Version: 2022-11-28'].concat(args),
+    /* ۲۷ اکتبر: پیش‌فرضِ maxBuffer ۱ مگابایت است و پاسخِ ریلیزِ «renders» با ۵۲۸ فایل از آن گذشت (۸۸۳ هزار نویسه، با
+       نام‌های فارسی بیش از ۱ مگابایت). خواندن ENOBUFS می‌داد، ensureRelease آن را «ریلیز نیست» می‌گرفت، ساختنِ دوباره ۴۲۲
+       می‌خورد — و از ۲۶ اکتبر ۲۳:۳۳ هیچ ویدئو و ریلزی بالا نرفت، هر اجرا ۵۰ دقیقه کار کرد و همه را دور ریخت. */
+    { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
   return out;
+}
+
+/** پاسخِ ۴۰۴ از curl (`--fail-with-body` ⇒ کدِ خروجیِ ۲۲ و پیامِ «error: 404»)؟ */
+function gh404(e) {
+  return /\b404\b/.test(String((e && e.stderr) || '') + ' ' + String((e && e.stdout) || '') + ' ' + String((e && e.message) || ''));
 }
 
 function ensureRelease() {
   try {
     return JSON.parse(gh(['https://api.github.com/repos/' + REPO + '/releases/tags/' + TAG]));
-  } catch (e) { /* هنوز نیست */ }
+  } catch (e) {
+    /* فقط «نیست» یعنی بساز. هر خطای دیگری (بافر، شبکه، سهمیه) همان‌جا گفته می‌شود — تا امروز هر خطا «نیست» خوانده می‌شد
+       و علتِ واقعی پشتِ یک ۴۲۲ِ بی‌ربط پنهان می‌ماند. */
+    if (!gh404(e)) throw new Error('خواندنِ ریلیزِ «' + TAG + '» نشد: ' + String((e && e.code) || '') + ' ' + String((e && e.message) || e).slice(0, 160));
+  }
   return JSON.parse(gh(['-X', 'POST', 'https://api.github.com/repos/' + REPO + '/releases',
     '-d', JSON.stringify({
       tag_name: TAG, name: 'ویدئوهای رندرشده',
@@ -1801,5 +1814,5 @@ module.exports = {
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
   specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo, prepMedia, spliceMoments, fitSize,
   momentSize, plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, brandMark, itemsTodo, slugOf, probeWork, builtFor,
-  reelsTodo, buildReels, musicConvTodo, buildMusicConv, musicPrevTodo, buildMusicPrev
+  reelsTodo, buildReels, musicConvTodo, buildMusicConv, musicPrevTodo, buildMusicPrev, gh404
 };
