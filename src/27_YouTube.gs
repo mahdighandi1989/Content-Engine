@@ -2016,12 +2016,17 @@ function ytRenderMapCached_() {
   return _ytMapMemo;
 }
 
+var YT_RENDER_REL_ = null;
+/** ۱۳.۹: اندازهٔ ریلیز که رانر در همان نقشه می‌نویسد (پس از ytRenderMap_؛ بی خواندنِ دوباره). */
+function ytRenderRel_() { return YT_RENDER_REL_; }
+
 function ytRenderMap_() {
   try {
     var res = UrlFetchApp.fetch(githubRawUrl_(CFG.YT_RENDER_MAP || 'docs/renders.json'),
                 { muteHttpExceptions: true, followRedirects: true });
     if (res.getResponseCode() !== 200) return null;
     var d = JSON.parse(res.getContentText());
+    YT_RENDER_REL_ = (d && d.release && typeof d.release === 'object') ? d.release : null;
     var m = (d && d.items) || null;
     return (m && typeof m === 'object') ? m : null;
   } catch (e) { return null; }

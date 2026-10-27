@@ -86,6 +86,8 @@ function writeMap(m) {
   m.updatedAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
   m.note = 'این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. ' +
            'کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.';
+  /* ۲۷ اکتبر: اندازهٔ ریلیز در نقشه — گیت‌هاب بیش از ۱۰۰۰ فایل در یک ریلیز نمی‌پذیرد و موتور باید پیش از دیوار بداند */
+  if (RELSTAT.assets) m.release = { assets: RELSTAT.assets, gb: Math.round(RELSTAT.bytes / 1e7) / 100, at: m.updatedAt };
   fs.mkdirSync(path.dirname(MAP_FILE), { recursive: true });
   fs.writeFileSync(MAP_FILE, JSON.stringify(m, null, 1) + '\n');
 }
@@ -109,9 +111,17 @@ function gh404(e) {
   return /\b404\b/.test(String((e && e.stderr) || '') + ' ' + String((e && e.stdout) || '') + ' ' + String((e && e.message) || ''));
 }
 
+const RELSTAT = { assets: 0, bytes: 0 };
+function relStat(rel) {
+  const a = (rel && rel.assets) || [];
+  RELSTAT.assets = a.length;
+  RELSTAT.bytes = a.reduce((t, x) => t + (Number(x.size) || 0), 0);
+  return rel;
+}
+
 function ensureRelease() {
   try {
-    return JSON.parse(gh(['https://api.github.com/repos/' + REPO + '/releases/tags/' + TAG]));
+    return relStat(JSON.parse(gh(['https://api.github.com/repos/' + REPO + '/releases/tags/' + TAG])));
   } catch (e) {
     /* فقط «نیست» یعنی بساز. هر خطای دیگری (بافر، شبکه، سهمیه) همان‌جا گفته می‌شود — تا امروز هر خطا «نیست» خوانده می‌شد
        و علتِ واقعی پشتِ یک ۴۲۲ِ بی‌ربط پنهان می‌ماند. */
@@ -139,6 +149,7 @@ function uploadAsset(rel, file, name, ctype) {
     '--data-binary', '@' + file,
     'https://uploads.github.com/repos/' + REPO + '/releases/' + rel.id +
       '/assets?name=' + encodeURIComponent(name)]));
+  if (rel.assets && !rel.assets.some(a => a.name === name)) { RELSTAT.assets++; RELSTAT.bytes += Number(res.size) || 0; }
   return res.browser_download_url || '';
 }
 
@@ -1504,6 +1515,7 @@ function buildReels(todo, map, tmp) {
                            at: new Date().toISOString().slice(0, 16).replace('T', ' ') };
       rel = JSON.parse(gh(['https://api.github.com/repos/' + REPO + '/releases/tags/' + TAG]));
       n++;
+      try { writeMap(map); } catch (eWm) {}   // ۲۷ اکتبر: هر ریلز همان لحظه روی دیسک
       log('  ✔ ریلزِ ' + r.key + ' — ' + res.seconds + ' ثانیه، ' + res.segs + ' تصویر/تکه، ' + Math.round(size / 1048576) + ' مگ');
     } catch (e) {
       log('  ✗ ریلزِ ' + r.key + ' — ' + String(e.message).split('\n')[0]);
@@ -1750,6 +1762,10 @@ function main() {
       }
       if ((vr.notes || []).length) map.items[it.key].notes = vr.notes.slice(0, 6);
       made++;
+      /* ۲۷ اکتبر: نقشه پس از **هر** کارِ تمام‌شده روی دیسک — گامِ ثبتِ گردش‌کار با always() آن را حتی اگر کارِ بعدی سرِ
+         سقفِ ۵۰ دقیقه کشته شود می‌فرستد. تا امروز نقشه فقط در پایانِ اجرا نوشته می‌شد و یک کارِ دیرپا، کارهای تمام‌شدهٔ
+         پیش از خودش را هم با خودش می‌بُرد. */
+      try { writeMap(map); } catch (eWm) {}
       log('  ✔ ' + name + ' — ' + Math.round(size / 1048576) + ' مگابایت' +
           (vr.mode === 'slides' ? ' · ' + vr.n + ' تصویر در ' + vr.groups + ' دسته'
             : vr.mode === 'cards' ? ' · ' + vr.cards + ' کارتِ برداری، ' + vr.n + ' ضرب' +
@@ -1810,7 +1826,7 @@ function main() {
 if (require.main === module) main();
 
 module.exports = {
-  isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
+  relStat, RELSTAT, isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
   specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo, prepMedia, spliceMoments, fitSize,
   momentSize, plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, brandMark, itemsTodo, slugOf, probeWork, builtFor,

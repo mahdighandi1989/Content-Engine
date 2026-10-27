@@ -1129,6 +1129,89 @@ def crackleScan(path, refPath=None, bounds=None, pk=7.0, ratio=1.8):
     return out
 
 
+def fricScan(stages, srcPath, sr=24000):
+    """۱۳.۹ — «س، ش، چ، ج مثلِ کسی که زبانش می‌گیرد؛ ه هنوز خ». قاب‌های سایشیِ **مبدأ** (۲۰ میلی‌ثانیه، گفتار، بیشترِ انرژی
+    بالای ۳ کیلوهرتز و کم زیرِ ۱ کیلوهرتز) دو دسته می‌شوند: مرکزِ طیفِ بالای ۴٫۵ کیلوهرتز = «س/ش/چ/ج»، پایین‌تر = «ه/خ». همان
+    قاب‌ها در هر مرحله سنجیده می‌شوند — مرکزِ طیف (۲ تا ۱۲ ک)، تیزی E(6–12k)/E(3–6k) و «خ‌شدگیِ ه» E(1–3k)/E(3–12k) — و مرحله‌ای
+    که تیزیِ «س» را بیش از همه پایین آورد یا «ه» را بیش از همه به «خ» برد، نامیده می‌شود. stages = [(نام، مسیر)]، به ترتیب."""
+    import numpy as np
+
+    def at(p):
+        x, s0 = _wavRead(p)
+        if s0 != sr:
+            n = int(len(x) * float(sr) / s0)
+            X = np.fft.rfft(x)
+            m = min(len(X), n // 2 + 1)
+            Y = np.zeros(n // 2 + 1, complex)
+            Y[:m] = X[:m]
+            x = (np.fft.irfft(Y, n) * (n / float(len(x)))).astype(np.float32)
+        return x
+    hop = int(sr * 0.02)
+
+    def spec(x, nf):
+        fr = np.zeros((nf, hop), np.float32)
+        k = min(nf, len(x) // hop)
+        fr[:k] = x[:k * hop].reshape(k, hop)
+        P = np.abs(np.fft.rfft(fr * np.hanning(hop), axis=1)) ** 2
+        return P, np.fft.rfftfreq(hop, 1.0 / sr)
+
+    def band(P, f, a, b):
+        return P[:, (f >= a) & (f < b)].sum(1) + 1e-12
+    xs = at(srcPath)
+    nf = len(xs) // hop
+    P, f = spec(xs, nf)
+    db = 10 * np.log10(band(P, f, 50, 12000))
+    sp = db > np.percentile(db, 95) - 35
+    hi, lo, tot = band(P, f, 3000, 12000), band(P, f, 50, 1000), band(P, f, 50, 12000)
+    # بی‌واک (کم زیرِ ۱ ک) با سهمی از بالای ۳ ک؛ «س/ش» بیشترِ انرژی بالای ۳ ک و مرکزِ بلند، «ه/خ» مرکزِ پایین‌تر
+    fric = sp & (lo / tot < 0.15) & (hi / tot > 0.25)
+    m2 = (f >= 2000) & (f < 12000)
+    cen = (P[:, m2] * f[m2]).sum(1) / (P[:, m2].sum(1) + 1e-12)
+    sib, hh = fric & (cen >= 4500) & (hi / tot > 0.5), fric & (cen < 4500)
+    out = {"nSib": int(sib.sum()), "nH": int(hh.sum()), "stages": []}
+    if sib.sum() < 10:
+        out["why"] = "قابِ سایشیِ کافی در مبدأ نیست (%d)" % int(sib.sum())
+        return out
+    prev = None
+    for name, pth in stages:
+        try:
+            if not pth or not os.path.exists(pth):
+                continue
+            Q, _f = spec(at(pth), nf)
+            c = (Q[:, m2] * f[m2]).sum(1) / (Q[:, m2].sum(1) + 1e-12)
+            sh = 10 * np.log10(band(Q, f, 6000, 12000) / band(Q, f, 3000, 6000))
+            kh = 10 * np.log10(band(Q, f, 1000, 3000) / band(Q, f, 3000, 12000))
+            r = {"name": name, "sibCentroid": int(np.median(c[sib])), "sibSharpDb": round(float(np.median(sh[sib])), 1),
+                 "hKhDb": round(float(np.median(kh[hh])), 1) if hh.sum() >= 5 else None}
+            if prev:
+                r["dSharp"] = round(r["sibSharpDb"] - prev["sibSharpDb"], 1)
+                r["dCentroid"] = r["sibCentroid"] - prev["sibCentroid"]
+                if r["hKhDb"] is not None and prev.get("hKhDb") is not None:
+                    r["dKh"] = round(r["hKhDb"] - prev["hKhDb"], 1)
+            out["stages"].append(r)
+            prev = r
+        except Exception as e:
+            out["stages"].append({"name": name, "why": str(e)[:80]})
+    ds = [s for s in out["stages"] if s.get("dSharp") is not None]
+    if ds:
+        g = min(ds, key=lambda s: s["dSharp"])
+        if g["dSharp"] <= -1.0:
+            out["guiltySib"] = "%s (%+.1f دسی‌بل)" % (g["name"], g["dSharp"])
+    dk = [s for s in out["stages"] if s.get("dKh") is not None]
+    if dk:
+        g = max(dk, key=lambda s: s["dKh"])
+        if g["dKh"] >= 1.0:
+            out["guiltyH"] = "%s (%+.1f دسی‌بل)" % (g["name"], g["dKh"])
+    return out
+
+
+def fricOne(path, srcPath):
+    """سنجهٔ سایشیِ یک فایلِ نهایی نسبت به مبدأ (برای نسخه‌های مقایسه)."""
+    r = fricScan([("x", path)], srcPath)
+    s = (r.get("stages") or [{}])[0]
+    return {"sibCentroid": s.get("sibCentroid"), "sibSharpDb": s.get("sibSharpDb"), "hKhDb": s.get("hKhDb")}
+
+
 def qualityBad(q, maxCrackPerMin=2.5, maxJitterSt=0.18, maxShimmerDb=2.8):
     """⇒ علت (رشته) یا خالی."""
     if not q or not q.get("sec"):
@@ -2109,6 +2192,7 @@ def runOne(it, mp):
     # ══ «کمی بم‌تر، در همان مفهوم» (۱۳.۵) ══ نمونه‌های مقایسه از **همان مبدأ** و همان مسیر (تبدیل ⇐ بلندی ⇐ «خ» نرم)، فقط گام
     # `pitchAlt` نیم‌پرده جابه‌جا — چند نمونهٔ جدا هر بار خواندنِ تازه‌ای از جمینای می‌گرفتند و تفاوتِ گام در تفاوتِ خواندن گم می‌شد.
     pAlts = []
+    paStages = []   # ۱۳.۹: مسیرِ نهاییِ هر گامِ بم‌تر، برای سنجشِ سایشی‌ها
     relA = None
     for pv in [v.strip() for v in str(pr.get("pitchAlt", "") or "").split(",") if v.strip()][:4]:
         try:
@@ -2131,6 +2215,7 @@ def runOne(it, mp):
                 r7 = fricSplice(cur7, "vb/src.wav", h7, mode="soft", cutDb=float(pr.get("hxCutDb", 12)))
                 if r7.get("ok"):
                     cur7 = h7
+            paStages.append(("گامِ %s (بم‌تر)" % p2, cur7))
             st7 = f0Stats(cur7) or {}
             q7 = qualityScan(cur7)
             relA = relA or ensureRelease()
@@ -2142,6 +2227,82 @@ def runOne(it, mp):
         except Exception as e:
             pAlts.append({"delta": pv, "why": str(e)[:120]})
             say("::warning title=نمونهٔ گامِ دیگر نشد::%s — %s" % (pv, str(e)[:160]))
+    # ══ «Charon خام، مدلِ قدیمی، تبدیلِ ملایم» (۱۳.۹) ══ همان مبدأ، همان گام، همان مسیرِ پس از تبدیل (بلندی ⇐ «خ» نرم) — فقط
+    # مدل یا شدتِ تبدیل عوض می‌شود. شکستِ هر نسخه ردیف را نمی‌اندازد.
+    variants = []
+    for vv in [v.strip() for v in str(it.get("variants", "") or "").split(",") if v.strip()][:4]:
+        try:
+            lab, cur8 = "", None
+            if vv == "raw":
+                lab = "Charon خام (بی تبدیل)"
+                n8 = "vb/src-loud.wav"
+                cur8 = n8 if loudFix("vb/src.wav", n8) else "vb/src.wav"
+            else:
+                a8 = list(args)
+                od = "vblab-v%d" % len(variants)
+                a8[a8.index("--out") + 1] = od
+                if vv == "old":
+                    mo = it.get("modelOld") or {}
+                    lab = "مدلِ پیشینِ گلدوز (کنار رفته %s)" % mo.get("from", "")
+                    if not grab(mo.get("pth"), "vb/modelOld.pth"):
+                        variants.append({"kind": vv, "label": lab, "why": it.get("modelOldWhy") or "مدلِ پیشین برداشته نشد"})
+                        continue
+                    a8[a8.index("--rvc-model") + 1] = "vb/modelOld.pth"
+                    if "--rvc-index" in a8:
+                        if mo.get("index") and grab(mo.get("index"), "vb/modelOld.index"):
+                            a8[a8.index("--rvc-index") + 1] = "vb/modelOld.index"
+                        else:
+                            i8 = a8.index("--rvc-index")
+                            del a8[i8:i8 + 2]
+                elif vv.startswith("mild:"):
+                    ir, _s, pt = vv[5:].partition("/")
+                    lab = "تبدیلِ ملایم (index_rate %s · protect %s)" % (ir or "—", pt or "—")
+                    if ir:
+                        a8[a8.index("--rvc-index-rate") + 1] = ir
+                    if pt:
+                        a8[a8.index("--rvc-protect") + 1] = pt
+                else:
+                    continue
+                subprocess.check_call(a8)
+                o8 = []
+                for root, _dirs, files in os.walk(od):
+                    o8 += [os.path.join(root, f) for f in files if f.startswith("rvc-") and f.endswith(".wav")]
+                if not o8:
+                    variants.append({"kind": vv, "label": lab, "why": "تبدیل فایلی نداد"})
+                    continue
+                f8 = sorted(o8, key=lambda q: -os.path.getsize(q))[0]
+                n8 = f8[:-4] + "-loud.wav"
+                cur8 = n8 if loudFix(f8, n8) else f8
+                if hxSoft:
+                    h8 = f8[:-4] + "-hx.wav"
+                    if fricSplice(cur8, "vb/src.wav", h8, mode="soft", cutDb=float(pr.get("hxCutDb", 12))).get("ok"):
+                        cur8 = h8
+            st8 = f0Stats(cur8) or {}
+            relA = relA or ensureRelease()
+            u8 = uploadAsset(relA, cur8, assetName(key + " · " + vv.replace(":", "-").replace("/", "-"), 0, 1))
+            variants.append({"kind": vv, "label": lab, "url": u8, "medianHz": st8.get("medianHz"), "fric": fricOne(cur8, "vb/src.wav")})
+            say("  نسخهٔ مقایسه «%s»: %s" % (lab, u8 or "آپلود نشد"))
+        except Exception as e:
+            variants.append({"kind": vv, "why": str(e)[:120]})
+            say("::warning title=نسخهٔ مقایسه نشد::%s — %s" % (vv, str(e)[:160]))
+    # ══ سایشی‌ها در هر مرحله (۱۳.۹) ══ «علتش را مرحله‌به‌مرحله پیدا کن: Charon خام، بعد از RVC، بعد از خ‌نرم، بعد از بم‌کردن».
+    fric = None
+    if str(key).startswith("نمونه"):
+        try:
+            stg = [("Charon خام", "vb/src.wav"), ("پس از RVC", rawConv)]
+            if preLoud != rawConv:
+                stg.append(("پس از رنگ", preLoud))
+            if loud and os.path.exists(normed):
+                stg.append(("پس از بلندی", normed))
+            if hxRes and hxRes.get("ok"):
+                stg.append(("پس از «خ» نرم", best))
+            fric = fricScan(stg + paStages, "vb/src.wav")
+            say("  سایشی‌ها: " + " · ".join("%s تیزی %s، خ‌شدگیِ ه %s" % (s.get("name"), s.get("sibSharpDb"), s.get("hKhDb"))
+                                         for s in fric.get("stages", [])) +
+                ((" ⇐ مقصرِ «س»: " + fric["guiltySib"]) if fric.get("guiltySib") else "") +
+                ((" · مقصرِ «ه»: " + fric["guiltyH"]) if fric.get("guiltyH") else ""))
+        except Exception as e:
+            say("::warning title=سایشی‌ها سنجیده نشدند::%s" % str(e)[:200])
     hear = None
     rise = None
     riseEnd = None
@@ -2220,6 +2381,10 @@ def runOne(it, mp):
         rec["crackle"] = crackle      # ۱۳.۵
     if pAlts:
         rec["pitchAlt"] = pAlts       # ۱۳.۵
+    if variants:
+        rec["variants"] = variants    # ۱۳.۹
+    if fric:
+        rec["fric"] = fric            # ۱۳.۹
     if qual:
         rec["quality"] = qual
         # ۱۳.۱: خروجیِ قسمتی که از وارسی رد شد، جای صدای اصلی نمی‌نشیند (موتور `qualityFail` را می‌خوانَد)؛ نمونه می‌رود، با گزارش.

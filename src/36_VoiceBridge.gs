@@ -505,6 +505,38 @@ function vbrModelAside_(f) {
   return to;
 }
 
+/**
+ * ۱۳.۹ — مدلِ کنارگذاشتهٔ همین گوینده از «پیشین» (تازه‌ترین)، برای نمونهٔ مقایسه‌ای فقط.
+ * او گفته بود مدلِ قدیمیِ گلدوز «شبیه‌تر» است (۹.۰۵)؛ بی این، مقایسه با آن فقط از حافظه بود.
+ * نامِ فایل از `vbrModelAside_` می‌آید: «<کلید>.pth — کنار رفت yyyy-MM-dd HH:mm» — مرتب‌سازیِ رشته‌ای همان ترتیبِ زمان است.
+ */
+function vbrModelOld_(key) {
+  var k = String(key || '').trim(), out = { ok: false, pth: '', index: '', ids: [], from: '', why: '' };
+  if (!k) { out.why = 'کلیدِ گوینده خالی است'; return out; }
+  var it = vbrFolder_().getFoldersByName(String(CFG.VBR_MODEL_OLD_FOLDER || 'پیشین'));
+  if (!it.hasNext()) { out.why = 'پوشهٔ مدل‌های پیشین نیست'; return out; }
+  var sub = it.next(), best = { pth: null, index: null }, nm = { pth: '', index: '' };
+  var fs = sub.getFiles();
+  while (fs.hasNext()) {
+    var f = fs.next(), n = String(f.getName());
+    for (var kind in best) {
+      if (!Object.prototype.hasOwnProperty.call(best, kind)) continue;
+      if (n.indexOf(k + '.' + kind + ' — کنار رفت') !== 0) continue;
+      if (n > nm[kind]) { nm[kind] = n; best[kind] = f; }
+    }
+  }
+  if (!best.pth) { out.why = 'مدلِ پیشینی برای «' + k + '» در «پیشین» نیست'; return out; }
+  for (var kk in best) {
+    if (!Object.prototype.hasOwnProperty.call(best, kk) || !best[kk]) continue;
+    try { driveShareOn_(best[kk].getId()); } catch (eS) {}
+    out[kk] = ytDlUrl_(best[kk].getId());
+    out.ids.push({ id: best[kk].getId() });
+  }
+  out.from = nm.pth.replace(/^.*کنار رفت\s*/, '');
+  out.ok = true;
+  return out;
+}
+
 /** اندازه و اثرانگشتِ یک فایل از خودِ درایو — `{size, sha256Checksum}`؛ نبودنش `{}`. */
 function vbrDriveMeta_(id, tok) {
   try {
@@ -1010,6 +1042,16 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   if (o.qNoRetry) row.qNoRetry = true;
   /* ۱۳.۵: «کمی بم‌تر ولی همان گلدوز» — جابه‌جاییِ نیم‌پرده (کسری مجاز) نسبت به گامِ همین نمونه، فقط نمونه؛ رانر از همان مبدأ می‌سازد. */
   if (o.pitchAlt) row.params.pitchAlt = String(o.pitchAlt).replace(/[^0-9.,+\-]/g, '').slice(0, 40);
+  /* ۱۳.۹: «Charon خام، مدلِ قدیمیِ گلدوز، بهترین نسخهٔ تازه، و بی تبدیل/تبدیلِ ملایم‌تر» — همه از همان مبدأ در همان اجرا،
+     تا تفاوت از خواندنِ تازهٔ جمینای نیاید. فقط نمونه. نبودِ مدلِ پیشین ردیف را نمی‌اندازد؛ فقط آن نسخه نیست و گفته می‌شود. */
+  if (o.variants) {
+    row.variants = String(o.variants).replace(/[^a-z0-9.,:\/]/gi, '').slice(0, 80);
+    if (/(^|,)old(,|$)/.test(row.variants)) {
+      var mo = vbrModelOld_(speaker);
+      if (mo.ok) row.modelOld = { pth: mo.pth, index: mo.index, from: mo.from, ids: mo.ids };
+      else row.modelOldWhy = mo.why;
+    }
+  }
   /* برچسبِ نمایشی، وقتی این ردیف «خودِ قسمت» نیست بلکه نمونه‌ای از آن است
      (۷٫۷۴). بی آن، فایل و کپشنِ تلگرام «قسمت ۴۹ با صدای …» می‌شدند برای
      چیزی که چهار دقیقه از آن قسمت است — همان ادعای نیمه‌ای که این نسخه و
@@ -1305,7 +1347,8 @@ function vbrColourRefs_(speaker, from) {
 /** اشتراکِ موقتِ یک ردیف را پس بگیر — پیش از بستنِ ردیف، نه بعدش. */
 function vbrUnshare_(item) {
   var n = 0;
-  var au = ((item && item.audio) || []).concat((item && item.colour && item.colour.refs) || []);
+  var au = ((item && item.audio) || []).concat((item && item.colour && item.colour.refs) || [])
+             .concat((item && item.modelOld && item.modelOld.ids) || []);   // ۱۳.۹
   for (var i = 0; i < au.length; i++) {
     try { if (driveShareOff_(au[i].id)) n++; } catch (e) {}
   }
@@ -1403,6 +1446,8 @@ function vbrIngest_(hub) {
       if (hit.quality) it.qualityOut = hit.quality;  // ۱۳.۱: شکستن، لرزش، مرزها
       if (hit.crackle) it.crackleOut = hit.crackle;  // ۱۳.۵: خشِ افزوده در هر مرحله
       if (hit.pitchAlt) it.pitchAltOut = hit.pitchAlt;   // ۱۳.۵: نمونه‌های بم‌تر
+      if (hit.variants) it.variantsOut = hit.variants;   // ۱۳.۹: خام / مدلِ پیشین / ملایم
+      if (hit.fric) it.fricOut = hit.fric;               // ۱۳.۹: سایشی‌ها در هر مرحله
       if (hit.f0Out) it.f0Out = hit.f0Out;
       out.unshared += vbrUnshare_(it);
       /* ══ سدِ پایانِ بالارونده (۹.۶۳) ══ «جمله‌های خبری را جوری تموم می‌کرد که اصلاً مناسب نبود» — اندازه‌اش (۴۳٪ گلدوز)
@@ -1795,6 +1840,23 @@ function vbrTgMeasure_(item, who) {
            (a.medianHz != null ? ' · میانه ' + a.medianHz + ' هرتز' : '') + (a.crackPerMin != null ? ' · شکستن ' + a.crackPerMin + '/دقیقه' : '') +
            (a.crackle != null ? ' · خشِ تبدیل ' + a.crackle : '') + (a.why ? ' — نشد: ' + a.why : ''));
   });
+  /* ۱۳.۹: سایشی‌ها (س ش چ ج / ه خ) در هر مرحله — مرحله‌ای که تیزی را بیش از همه پایین آورد، مقصر نامیده می‌شود. */
+  var fr = item.fricOut || null;
+  if (fr && fr.stages) {
+    L.push('🔬 سایشی‌ها (۳ تا ۱۲ کیلوهرتز، ' + (fr.nSib || 0) + ' قابِ «س/ش/چ/ج» و ' + (fr.nH || 0) + ' قابِ «ه/خ» در مبدأ):');
+    fr.stages.forEach(function (s) {
+      L.push('  · ' + s.name + ': مرکزِ طیف ' + (s.sibCentroid != null ? s.sibCentroid : '—') + ' هرتز · تیزی ' +
+             (s.sibSharpDb != null ? s.sibSharpDb : '—') + ' دسی‌بل · «خ‌شدگیِ ه» ' + (s.hKhDb != null ? s.hKhDb : '—') + ' دسی‌بل' +
+             (s.dSharp != null ? ' (تیزی ' + (s.dSharp > 0 ? '+' : '') + s.dSharp + ' نسبت به مرحلهٔ قبل)' : ''));
+    });
+    if (fr.guiltySib) L.push('  ⇐ بیشترین کُندشدنِ «س/ش»: ' + fr.guiltySib + (fr.guiltyH ? ' · بیشترین «خ»شدنِ «ه»: ' + fr.guiltyH : ''));
+  }
+  (item.variantsOut || []).forEach(function (a) {
+    L.push('🆚 ' + a.label + (a.url ? ': ' + a.url : '') + (a.medianHz != null ? ' · میانه ' + a.medianHz + ' هرتز' : '') +
+           (a.fric && a.fric.sibSharpDb != null ? ' · تیزیِ «س» ' + a.fric.sibSharpDb + ' · «خ‌شدگیِ ه» ' + a.fric.hKhDb : '') +
+           (a.why ? ' — نشد: ' + a.why : ''));
+  });
+  if (item.modelOldWhy) L.push('🆚 مدلِ پیشین: ' + item.modelOldWhy);
   /* ۱۲.۵: سنجهٔ اوج — همان «ناگهان زیر» که او می‌شنود، به عدد. */
   var fo = item.f0Out || {}, fc = item.f0capOut || null;
   if (fo.p95Hz != null) L.push('📈 اوجِ زیروبم: میانه ' + fo.medianHz + ' هرتز · ۹۵٪ زیرِ ' + fo.p95Hz + ' هرتز · ' +
@@ -3079,7 +3141,7 @@ function vbrSoulPick_() {
     var seedNoSpans = {};
     var seedCalm = {};
     var seedVoice = {};
-    var seedHx = {}, seedSegP = {}, seedF0cap = {}, seedPitchFix = {}, seedCueFix = {}, seedQNo = {}, seedPAlt = {};
+    var seedHx = {}, seedSegP = {}, seedF0cap = {}, seedPitchFix = {}, seedCueFix = {}, seedQNo = {}, seedPAlt = {}, seedVariants = {};
     var seedBase = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
@@ -3104,6 +3166,7 @@ function vbrSoulPick_() {
       if (se.cueFix) seedCueFix[sk] = String(se.cueFix);   // ۱۲.۹: دستورِ سبکِ آماده، به‌جای کارتِ سبکِ گوینده — فقط نمونه
       if (se.qNoRetry) seedQNo[sk] = true;                // ۱۳.۱: بی ساختِ دوبارهٔ کیفیت (نمونهٔ خام)
       if (se.pitchAlt) seedPAlt[sk] = String(se.pitchAlt);   // ۱۳.۵: نمونه‌های «کمی بم‌تر» از همان مبدأ، در همان اجرا
+      if (se.variants) seedVariants[sk] = String(se.variants);   // ۱۳.۹: خام / مدلِ پیشین / تبدیلِ ملایم، از همان مبدأ
       seedBase[sk] = String(se.tagBase == null ? (se.tag || '') : se.tagBase);
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
       if (se.colour) seedColour[sk] = String(se.colour);
@@ -3161,7 +3224,7 @@ function vbrSoulPick_() {
       return { ok: true, key: key, name: name, cue: cue, item: item,
                seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k], calm: !!seedCalm[k],
                voice: seedVoice[k] || '', hx: seedHx[k] === 'soft' ? 'soft' : !!seedHx[k], segPitch: !!seedSegP[k], f0cap: seedF0cap[k] || 0, tagBase: seedBase[k] || '',
-               pitchFix: seedPitchFix[k] != null ? seedPitchFix[k] : '', cueFix: seedCueFix[k] || '', qNoRetry: !!seedQNo[k], pitchAlt: seedPAlt[k] || '' };
+               pitchFix: seedPitchFix[k] != null ? seedPitchFix[k] : '', cueFix: seedCueFix[k] || '', qNoRetry: !!seedQNo[k], pitchAlt: seedPAlt[k] || '', variants: seedVariants[k] || '' };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -3579,6 +3642,7 @@ function runVoiceSoulTest() {
     if (pick.cueFix) tagO.cueFix = pick.cueFix;          // ۱۲.۹: برای کپشن
     if (pick.qNoRetry) tagO.qNoRetry = true;              // ۱۳.۱
     if (pick.pitchAlt) tagO.pitchAlt = pick.pitchAlt;      // ۱۳.۵
+    if (pick.variants) tagO.variants = pick.variants;      // ۱۳.۹
     if (pick.tagBase) tagO.tagBase = pick.tagBase;
     if (pick.colour) tagO.colour = pick.colour;          // ۹.۰۵
     if (pick.ab) tagO.ab = pick.ab;                      // ۹.۱۱

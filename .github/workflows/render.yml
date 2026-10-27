@@ -118,7 +118,8 @@ jobs:
           kill $MON 2>/dev/null || true
 
       - name: ثبتِ نشانی‌ها در ریپو
-        if: steps.probe.outputs.work == '1'
+        # always(): کارِ تمام‌شده حتی وقتی کارِ بعدی سرِ سقفِ ۵۰ دقیقه کشته شد، ثبت می‌شود (۲۷ اکتبر — نقشه پس از هر کار روی دیسک است)
+        if: always() && steps.probe.outputs.work == '1'
         run: |
           if git diff --quiet -- docs/renders.json; then
             echo "چیزی عوض نشد."

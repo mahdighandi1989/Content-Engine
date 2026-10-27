@@ -2366,10 +2366,39 @@ function ghKick_(wf, why, opt) {
 function ghRenderDue_(why) {
   if (CFG.GH_KICK_ON === false) return null;
   try { props_().setProperty(PK.GH_RENDER_DUE, nowStr_() + '|' + String(why || '').slice(0, 80)); } catch (e) {}
+  /* ۱۳.۹: DUE با هر درخواستِ تازه بازنویسی می‌شود، پس «از کِی منتظر» را نمی‌گوید — SINCE فقط بارِ اول. */
+  try { if (!props_().getProperty(PK.GH_RENDER_SINCE)) props_().setProperty(PK.GH_RENDER_SINCE, nowStr_()); } catch (e2) {}
   return ghKick_(CFG.GH_RENDER_WF || 'render.yml', why);
 }
 
-function ghRenderDueClear_() { try { props_().deleteProperty(PK.GH_RENDER_DUE); } catch (e) {} }
+function ghRenderDueClear_() {
+  try { props_().deleteProperty(PK.GH_RENDER_DUE); } catch (e) {}
+  try { props_().deleteProperty(PK.GH_RENDER_SINCE); props_().deleteProperty(PK.GH_RENDER_TOLD); } catch (e2) {}
+}
+
+/**
+ * ۱۳.۹ — «هشدار برای رندر ۶ ساعت بدون آپلود». ۲۷ اکتبر رانر از ۱۵:۲۹ تا ۲۳:۵۷ هر بار
+ * سرِ خواندنِ ریلیز مُرد و تنها خبرش ایمیل‌های خطای گیت‌هاب بود. این در ساعتی است و فقط
+ * Properties می‌خوانَد؛ برای هر نوبتِ انتظار یک پیام، نه هر ساعت یکی.
+ */
+function ghRenderStallTell_() {
+  var since = '';
+  try { since = String(props_().getProperty(PK.GH_RENDER_SINCE) || ''); } catch (e) { return null; }
+  if (!since) return null;
+  var t = parseWhen_(since);
+  var hrs = isNaN(t) ? 0 : (new Date().getTime() - t) / 3600000;
+  if (hrs < Math.max(1, Number(CFG.GH_RENDER_ALERT_H) || 6)) return null;
+  try { if (String(props_().getProperty(PK.GH_RENDER_TOLD) || '') === since) return null; } catch (e2) { return null; }
+  var w = ghKickState_()[CFG.GH_RENDER_WF || 'render.yml'] || {};
+  var msg = '⚠️ رندرِ ویدئو ' + faDigitsOut_(String(Math.floor(hrs))) + ' ساعت است کارِ منتظر دارد و هیچ ویدئویی برنداشته شده (از ' + since + ').' +
+            (w.why ? '\nآخرین راه‌اندازی: ' + String(w.at || '') + ' — ' + String(w.why) : '') +
+            '\nلاگِ آخرین اجرا: github.com/' + CFG.GITHUB_OWNER + '/' + CFG.GITHUB_REPO + '/actions/workflows/' + (CFG.GH_RENDER_WF || 'render.yml');
+  var ok = false;
+  try { ok = !!(tgEnabled_() && tgSend_(tgEsc_(msg))); } catch (eT) { ok = false; }
+  try { logLine_(msg.replace(/\n/g, ' · ')); } catch (eL) {}
+  if (ok) { try { props_().setProperty(PK.GH_RENDER_TOLD, since); } catch (eS) {} }
+  return { hrs: Math.floor(hrs), told: ok };
+}
 
 /**
  * درِ ساعتی: فقط Script Properties (۷.۶۳/۷.۸۴). اگر کاری منتظر مانده و آخرین
@@ -2385,6 +2414,7 @@ function ghRenderKickDue_() {
   var t = parseWhen_(v.split('|')[0]);
   var maxMs = Math.max(1, Number(CFG.GH_RENDER_DUE_H) || 24) * 3600000;
   if (isNaN(t) || new Date().getTime() - t > maxMs) { ghRenderDueClear_(); return null; }
+  try { ghRenderStallTell_(); } catch (eSt) {}
   if (!ghToken_()) return null;
   var w = ghKickState_()[CFG.GH_RENDER_WF || 'render.yml'] || {};
   var tLast = parseWhen_(String(w.at || ''));

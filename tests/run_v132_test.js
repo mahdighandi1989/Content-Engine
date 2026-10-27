@@ -151,7 +151,7 @@ print(json.dumps({"ok": r.get("ok"), "mode": r.get("mode"), "frames": r.get("fra
   ok('۵.۴ رانر: «soft» بی VBR_HX اجرا می‌شود؛ «splice» هنوز پشتِ VBR_HX', /if it\.get\("hx"\) and \(HX_SPLICE_ON or hxSoft\):/.test(vb5) && /HX_SPLICE_ON = os\.environ\.get\("VBR_HX"\) == "1"/.test(vb5));
   ok('۵.۵ موتور «soft» را از بذر تا ردیف می‌برد', /row\.hx = \(o\.hx === 'soft'\) \? 'soft' : true/.test(s365) && /seedHx\[sk\] = se\.hx === 'soft' \? 'soft' : true/.test(s365) &&
      /hx: seedHx\[k\] === 'soft' \? 'soft' : !!seedHx\[k\]/.test(s365) && /tagO\.hx = pick\.hx === 'soft' \? 'soft' : true/.test(s365));
-  const sd = (CFG.VOICE_SOUL_SEED || []).filter((x) => x.hx === 'soft' && !x.pitchAlt);
+  const sd = (CFG.VOICE_SOUL_SEED || []).filter((x) => x.hx === 'soft' && !x.pitchAlt && !x.variants);
   ok('۵.۶ بذرِ تازه: گلدوز، درسِ ۷۴، Charon خام + «خ» نرم؛ برچسبِ یکتا', sd.length === 1 && sd[0].speaker === 'spk-1g0r95d' && String(sd[0].ep) === '74' &&
      sd[0].voice === 'Charon' && sd[0].pitchFix === '0' && /نرم‌شده/.test(sd[0].tag) &&
      (CFG.VOICE_SOUL_SEED || []).filter((x) => x.tag === sd[0].tag).length === 1);

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 13.8
+ *  موتور محتوا و پادکست — نسخهٔ 13.9
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -945,6 +945,8 @@ var CFG = {
   WD_MONITOR_DAYS: 2,          // ناظرِ روزانه (Cowork، ۱۲:۰۰)
   WD_ENRICH_DAYS: 2,           // تسکِ غنی‌سازی (هر ساعت)
   WD_RENDER_DAYS: 1,           // اکشنِ رندر (GitHub، هر ساعت)
+  WD_RENDER_HOURS: 6,          // ۱۳.۹: «رندر ۶ ساعت بی آپلود» — سلامتی و ناظر از این ساعت ایراد می‌گویند
+  YT_REL_ASSET_WARN: 800,      // ۱۳.۹: ریلیزِ «renders» بیش از ۱۰۰۰ فایل نمی‌پذیرد؛ از این عدد هشدار
   REPEAT_ALERT: 10,            // این‌قدر یافتهٔ تکراری = حلقه بسته نمی‌شود
   HANDOUT_TRY_MAX: 4,          // چند تلاشِ ناموفق تا «رهاشده» شمرده شود
   /* چند واژهٔ معنادارِ مشترک تا «این فصل همان مرحله است» (۶٫۹۵). دو، چون
@@ -1558,6 +1560,7 @@ var CFG = {
   GH_KICK_RETRY_MIN: 50,       // درِ ساعتی: کارِ منتظر، دوباره پس از این‌قدر
   GH_KICK_MAX_DAY: 40,         // سقفِ روزانهٔ تلاش برای هر گردش‌کار
   GH_KICK_BAD_H: 6,            // توکنِ ردشده تا عوض نشده، هر این‌قدر یک بار
+  GH_RENDER_ALERT_H: 6,        // ۱۳.۹: کارِ رندر این‌قدر منتظر ⇒ یک پیامِ تلگرام (یک بار برای هر نوبتِ انتظار)
   GH_RENDER_DUE_H: 24,         // نشانهٔ «کارِ منتظر» بیش از این خودش می‌افتد
   GH_TOKEN_WARN_DAYS: 14,      // انقضای نزدیک‌تر از این ⇒ ایرادِ روز
   /* ══ آنچه بیننده می‌بیند، نه آنچه ما نوشتیم (۸.۵۵) ══
@@ -2365,7 +2368,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '13.8',
+  CODE_VERSION: '13.9',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2782,7 +2785,11 @@ var CFG = {
     /* ۱۳.۵: او همان را شنید — «ه بهتر شد، ولی گاهی هنوز خ … کمی بم‌تر ولی در همان مفهوم و شباهت به گلدوز … جاهایی خش مثلِ نوارِ
        قدیمی». همان نمونه (گامِ ۰، «خ» نرم) به‌اضافهٔ سه نسخه از **همان مبدأ** با ۰٫۵ و ۱ و ۱٫۵ نیم‌پردهٔ بم‌تر (`pitchAlt`)، و سنجشِ
        خشِ افزوده در هر مرحله (`crackleScan`: تبدیل، رنگ، بلندی، «خ»، و کنارِ مرزِ تکه‌ها). فقط نمونه؛ تولید دست نمی‌خورد. */
-    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · خام · Charon · «خ» نرم · گامِ ۰ و ۰٫۵ و ۱ و ۱٫۵ نیم‌پردهٔ بم‌تر · سنجشِ خش', nospans: true, voice: 'Charon', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true, hx: 'soft', pitchAlt: '-0.5,-1,-1.5' }
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · خام · Charon · «خ» نرم · گامِ ۰ و ۰٫۵ و ۱ و ۱٫۵ نیم‌پردهٔ بم‌تر · سنجشِ خش', nospans: true, voice: 'Charon', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true, hx: 'soft', pitchAlt: '-0.5,-1,-1.5' },
+    /* ۱۳.۹: او هر سه نسخهٔ بم‌تر را شنید — «ه هنوز خ؛ و س، ش، چ، ج مثلِ کسی که زبانش می‌گیرد». همان مبدأ، در همان اجرا: Charonِ خام
+       (بی تبدیل)، مدلِ پیشینِ گلدوز (از «پیشین»، که گفته بود شبیه‌تر است)، تبدیلِ ملایم (index_rate ۰٫۵، protect ۰٫۵) و بهترینِ تازه (گامِ ۰،
+       «خ» نرم) — و سنجشِ سایشی‌ها در هر مرحله (`fricScan`: مرکزِ طیف، تیزی، «خ‌شدگیِ ه»). فقط نمونه؛ تولید دست نمی‌خورد. */
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · گامِ ۰ · مقایسه: Charon خام · مدلِ پیشین · تبدیلِ ملایم · بهترینِ تازه · سنجشِ سایشی‌ها', nospans: true, voice: 'Charon', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true, hx: 'soft', variants: 'raw,old,mild:0.5/0.5' }
   ],
   VBR_Q_CRACK_PER_MIN: 2.5,       // ۱۳.۱ (سنجیده: رضوی ۱٫۸، گلدوز ۳٫۳ تا ۶٫۶): بیش از این شکستنِ صدا در دقیقه ⇒ ساختِ دوباره، و اگر باز ⇒ صوتِ قسمت جای اصلی نمی‌نشیند
   VBR_Q_JITTER_ST: 0.18,          // ۱۳.۱ (سنجیده: گفتارِ واقعی ۰٫۱۲ تا ۰٫۱۳، لرزشِ ساختگیِ ±۱٫۲ نیم‌پرده ۰٫۲۱): میانگینِ لرزشِ زیروبم (نیم‌پرده بینِ دو قابِ ۲۰ میلی‌ثانیه‌ای)
@@ -3629,6 +3636,8 @@ var PK = {
   MR_STATE: 'MUSIC_REVIEW_STATE',  // ۹.۷۵: {offset, day, dayN, first, hotUntil, answeredAt, lastSentAt, nagAt, nm[], polledAt}
   IG_STATE: 'IG_REELS_STATE',      // ۹.۲۱: {done, inflight[], fails{}, stats{published, day, dayN}, armedAt, ranAt, lastWhy}
   GH_KICK: 'GH_KICK_STATE',        // {<wf>: {at, okAt, code, n, nDay, day, fail, why, fp}, exp}
+  GH_RENDER_SINCE: 'GH_RENDER_SINCE',  // ۱۳.۹: نخستین لحظهٔ همین نوبتِ انتظار (بازنویسی نمی‌شود)
+  GH_RENDER_TOLD: 'GH_RENDER_TOLD',    // ۱۳.۹: برای کدام SINCE پیامِ «گیر کرده» رفت
   GH_RENDER_DUE: 'GH_RENDER_DUE',  // «کاری برای رانر نوشته شد» — زمان|علت
   YT_PL_SQ: 'YT_PL_SQ_REQ',        // کاورهای مربعِ پلی‌لیست که از رانر خواسته شده‌اند (۸.۵۵)
   YT_THUMB_AUDIT: 'YT_THUMB_AUDIT', // آنچه بیننده می‌بیند: سنجشِ کاورِ عمومیِ هر ویدئو با نقاشی (۸.۵۵)
@@ -19480,20 +19489,32 @@ function whRenderLag_() {
   try { d = ytRenderRead_(); } catch (e) { return null; }
   var map = null;
   try { map = ytRenderMap_(); } catch (e2) { map = null; }
-  var now = new Date().getTime(), lag = 0, oldest = 0;
+  var now = new Date().getTime(), lag = 0, oldest = 0, made = 0, madeOld = 0;
+  var stuckH = Math.max(1, Number(CFG.WD_RENDER_HOURS) || 6);
   for (var i = 0; i < ((d && d.items) || []).length; i++) {
     var it = d.items[i];
     if (String(it.status || '') !== 'در انتظار') continue;
     if (!it.shared) continue;                       // هنوز اجازه نگرفته؛ نوبتِ اکشن نیست
-    if (map && map[it.key] && map[it.key].url) continue;   // ساخته شده
     var t = parseWhen_(String(it.sharedAt || it.at || ''));
     if (isNaN(t)) continue;
     var hrs = (now - t) / 3600000;
+    /* ۱۳.۹: ساخته شده ولی برداشته نشده هم «بی آپلود» است — نیمهٔ دومِ همان راه */
+    if (map && map[it.key] && map[it.key].url) {
+      var mAt = String(map[it.key].at || '');   // رانر به UTC می‌نویسد («2026-10-27 19:49»)
+      var tm = /^\d{4}-\d\d-\d\d \d\d:\d\d$/.test(mAt) ? new Date(mAt.replace(' ', 'T') + ':00Z').getTime() : NaN;
+      var hm = isNaN(tm) ? hrs : (now - tm) / 3600000;
+      if (hm >= stuckH) { made++; if (hm > madeOld) madeOld = hm; }
+      continue;
+    }
     lag++;
     if (hrs > oldest) oldest = hrs;
   }
-  if (!lag) return null;
-  return { key: 'render', name: 'اکشنِ رندرِ ویدئو',
+  var rel = ytRenderRel_();
+  var relWarn = Math.max(1, Number(CFG.YT_REL_ASSET_WARN) || 800);
+  var relBad = !!(rel && Number(rel.assets) >= relWarn);
+  if (!lag && !made && !relBad) return null;
+  return { key: 'render', name: 'اکشنِ رندرِ ویدئو', stuckH: stuckH,
+           made: made, madeHours: Math.round(madeOld), rel: rel, relBad: relBad,
            what: 'ساختِ MP4 از صوت و کاور',
            at: '', days: Math.floor(oldest / 24), hours: Math.round(oldest), n: lag,
            maxDays: Math.max(1, Number(CFG.WD_RENDER_DAYS) || 1),
@@ -19516,7 +19537,19 @@ function watchdog_(st, problems, notes) {
   for (var i = 0; i < hb.length; i++) {
     var w = hb[i];
     if (w.key === 'render') {
-      if (w.days >= w.maxDays || (w.notMade && w.hours >= 6)) {
+      if (w.relBad) {
+        problems.push(HY_ + 'ریلیزِ «renders» در گیت‌هاب ' + faDigitsOut_(String(w.rel.assets)) + ' فایل دارد (' +
+          faDigitsOut_(String(w.rel.gb)) + ' گیگ) — سقفِ گیت‌هاب ۱۰۰۰ است و پس از آن هیچ ویدئویی بالا نمی‌رود. ' +
+          'فایل‌های قسمت‌های منتشرشده قابلِ حذف‌اند (نسخهٔ درایو هست).');
+      }
+      if (w.made) {
+        problems.push(HY_ + faDigitsOut_(String(w.made)) + ' ویدئو ساخته شده ولی ' + faDigitsOut_(String(w.madeHours)) +
+          ' ساعت است برداشته و آپلود نشده — برداشتن کارِ ytPublishTick است (هر ' + faDigitsOut_(String(CFG.YT_TICK_HOURS || 2)) +
+          ' ساعت)؛ سهمیهٔ امروزِ یوتیوب و «اجرای ناتمام»ِ ytPublishTick را ببینید.');
+        late.push(w.key);
+      }
+      if (!w.n) continue;
+      if (w.hours >= w.stuckH || w.days >= w.maxDays || (w.notMade && w.hours >= 6)) {
         problems.push(HY_ + 'اکشنِ رندرِ ویدئو کار نمی‌کند: ' +
           faDigitsOut_(String(w.n)) + ' قسمت اجازه و نشانی گرفته‌اند ولی ساخته نشده‌اند' +
           (w.hours ? ' (قدیمی‌ترین ' + faDigitsOut_(String(w.hours)) + ' ساعت)' : '') +
@@ -39867,10 +39900,39 @@ function ghKick_(wf, why, opt) {
 function ghRenderDue_(why) {
   if (CFG.GH_KICK_ON === false) return null;
   try { props_().setProperty(PK.GH_RENDER_DUE, nowStr_() + '|' + String(why || '').slice(0, 80)); } catch (e) {}
+  /* ۱۳.۹: DUE با هر درخواستِ تازه بازنویسی می‌شود، پس «از کِی منتظر» را نمی‌گوید — SINCE فقط بارِ اول. */
+  try { if (!props_().getProperty(PK.GH_RENDER_SINCE)) props_().setProperty(PK.GH_RENDER_SINCE, nowStr_()); } catch (e2) {}
   return ghKick_(CFG.GH_RENDER_WF || 'render.yml', why);
 }
 
-function ghRenderDueClear_() { try { props_().deleteProperty(PK.GH_RENDER_DUE); } catch (e) {} }
+function ghRenderDueClear_() {
+  try { props_().deleteProperty(PK.GH_RENDER_DUE); } catch (e) {}
+  try { props_().deleteProperty(PK.GH_RENDER_SINCE); props_().deleteProperty(PK.GH_RENDER_TOLD); } catch (e2) {}
+}
+
+/**
+ * ۱۳.۹ — «هشدار برای رندر ۶ ساعت بدون آپلود». ۲۷ اکتبر رانر از ۱۵:۲۹ تا ۲۳:۵۷ هر بار
+ * سرِ خواندنِ ریلیز مُرد و تنها خبرش ایمیل‌های خطای گیت‌هاب بود. این در ساعتی است و فقط
+ * Properties می‌خوانَد؛ برای هر نوبتِ انتظار یک پیام، نه هر ساعت یکی.
+ */
+function ghRenderStallTell_() {
+  var since = '';
+  try { since = String(props_().getProperty(PK.GH_RENDER_SINCE) || ''); } catch (e) { return null; }
+  if (!since) return null;
+  var t = parseWhen_(since);
+  var hrs = isNaN(t) ? 0 : (new Date().getTime() - t) / 3600000;
+  if (hrs < Math.max(1, Number(CFG.GH_RENDER_ALERT_H) || 6)) return null;
+  try { if (String(props_().getProperty(PK.GH_RENDER_TOLD) || '') === since) return null; } catch (e2) { return null; }
+  var w = ghKickState_()[CFG.GH_RENDER_WF || 'render.yml'] || {};
+  var msg = '⚠️ رندرِ ویدئو ' + faDigitsOut_(String(Math.floor(hrs))) + ' ساعت است کارِ منتظر دارد و هیچ ویدئویی برنداشته شده (از ' + since + ').' +
+            (w.why ? '\nآخرین راه‌اندازی: ' + String(w.at || '') + ' — ' + String(w.why) : '') +
+            '\nلاگِ آخرین اجرا: github.com/' + CFG.GITHUB_OWNER + '/' + CFG.GITHUB_REPO + '/actions/workflows/' + (CFG.GH_RENDER_WF || 'render.yml');
+  var ok = false;
+  try { ok = !!(tgEnabled_() && tgSend_(tgEsc_(msg))); } catch (eT) { ok = false; }
+  try { logLine_(msg.replace(/\n/g, ' · ')); } catch (eL) {}
+  if (ok) { try { props_().setProperty(PK.GH_RENDER_TOLD, since); } catch (eS) {} }
+  return { hrs: Math.floor(hrs), told: ok };
+}
 
 /**
  * درِ ساعتی: فقط Script Properties (۷.۶۳/۷.۸۴). اگر کاری منتظر مانده و آخرین
@@ -39886,6 +39948,7 @@ function ghRenderKickDue_() {
   var t = parseWhen_(v.split('|')[0]);
   var maxMs = Math.max(1, Number(CFG.GH_RENDER_DUE_H) || 24) * 3600000;
   if (isNaN(t) || new Date().getTime() - t > maxMs) { ghRenderDueClear_(); return null; }
+  try { ghRenderStallTell_(); } catch (eSt) {}
   if (!ghToken_()) return null;
   var w = ghKickState_()[CFG.GH_RENDER_WF || 'render.yml'] || {};
   var tLast = parseWhen_(String(w.at || ''));
@@ -53845,12 +53908,17 @@ function ytRenderMapCached_() {
   return _ytMapMemo;
 }
 
+var YT_RENDER_REL_ = null;
+/** ۱۳.۹: اندازهٔ ریلیز که رانر در همان نقشه می‌نویسد (پس از ytRenderMap_؛ بی خواندنِ دوباره). */
+function ytRenderRel_() { return YT_RENDER_REL_; }
+
 function ytRenderMap_() {
   try {
     var res = UrlFetchApp.fetch(githubRawUrl_(CFG.YT_RENDER_MAP || 'docs/renders.json'),
                 { muteHttpExceptions: true, followRedirects: true });
     if (res.getResponseCode() !== 200) return null;
     var d = JSON.parse(res.getContentText());
+    YT_RENDER_REL_ = (d && d.release && typeof d.release === 'object') ? d.release : null;
     var m = (d && d.items) || null;
     return (m && typeof m === 'object') ? m : null;
   } catch (e) { return null; }
@@ -80123,6 +80191,38 @@ function vbrModelAside_(f) {
   return to;
 }
 
+/**
+ * ۱۳.۹ — مدلِ کنارگذاشتهٔ همین گوینده از «پیشین» (تازه‌ترین)، برای نمونهٔ مقایسه‌ای فقط.
+ * او گفته بود مدلِ قدیمیِ گلدوز «شبیه‌تر» است (۹.۰۵)؛ بی این، مقایسه با آن فقط از حافظه بود.
+ * نامِ فایل از `vbrModelAside_` می‌آید: «<کلید>.pth — کنار رفت yyyy-MM-dd HH:mm» — مرتب‌سازیِ رشته‌ای همان ترتیبِ زمان است.
+ */
+function vbrModelOld_(key) {
+  var k = String(key || '').trim(), out = { ok: false, pth: '', index: '', ids: [], from: '', why: '' };
+  if (!k) { out.why = 'کلیدِ گوینده خالی است'; return out; }
+  var it = vbrFolder_().getFoldersByName(String(CFG.VBR_MODEL_OLD_FOLDER || 'پیشین'));
+  if (!it.hasNext()) { out.why = 'پوشهٔ مدل‌های پیشین نیست'; return out; }
+  var sub = it.next(), best = { pth: null, index: null }, nm = { pth: '', index: '' };
+  var fs = sub.getFiles();
+  while (fs.hasNext()) {
+    var f = fs.next(), n = String(f.getName());
+    for (var kind in best) {
+      if (!Object.prototype.hasOwnProperty.call(best, kind)) continue;
+      if (n.indexOf(k + '.' + kind + ' — کنار رفت') !== 0) continue;
+      if (n > nm[kind]) { nm[kind] = n; best[kind] = f; }
+    }
+  }
+  if (!best.pth) { out.why = 'مدلِ پیشینی برای «' + k + '» در «پیشین» نیست'; return out; }
+  for (var kk in best) {
+    if (!Object.prototype.hasOwnProperty.call(best, kk) || !best[kk]) continue;
+    try { driveShareOn_(best[kk].getId()); } catch (eS) {}
+    out[kk] = ytDlUrl_(best[kk].getId());
+    out.ids.push({ id: best[kk].getId() });
+  }
+  out.from = nm.pth.replace(/^.*کنار رفت\s*/, '');
+  out.ok = true;
+  return out;
+}
+
 /** اندازه و اثرانگشتِ یک فایل از خودِ درایو — `{size, sha256Checksum}`؛ نبودنش `{}`. */
 function vbrDriveMeta_(id, tok) {
   try {
@@ -80628,6 +80728,16 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   if (o.qNoRetry) row.qNoRetry = true;
   /* ۱۳.۵: «کمی بم‌تر ولی همان گلدوز» — جابه‌جاییِ نیم‌پرده (کسری مجاز) نسبت به گامِ همین نمونه، فقط نمونه؛ رانر از همان مبدأ می‌سازد. */
   if (o.pitchAlt) row.params.pitchAlt = String(o.pitchAlt).replace(/[^0-9.,+\-]/g, '').slice(0, 40);
+  /* ۱۳.۹: «Charon خام، مدلِ قدیمیِ گلدوز، بهترین نسخهٔ تازه، و بی تبدیل/تبدیلِ ملایم‌تر» — همه از همان مبدأ در همان اجرا،
+     تا تفاوت از خواندنِ تازهٔ جمینای نیاید. فقط نمونه. نبودِ مدلِ پیشین ردیف را نمی‌اندازد؛ فقط آن نسخه نیست و گفته می‌شود. */
+  if (o.variants) {
+    row.variants = String(o.variants).replace(/[^a-z0-9.,:\/]/gi, '').slice(0, 80);
+    if (/(^|,)old(,|$)/.test(row.variants)) {
+      var mo = vbrModelOld_(speaker);
+      if (mo.ok) row.modelOld = { pth: mo.pth, index: mo.index, from: mo.from, ids: mo.ids };
+      else row.modelOldWhy = mo.why;
+    }
+  }
   /* برچسبِ نمایشی، وقتی این ردیف «خودِ قسمت» نیست بلکه نمونه‌ای از آن است
      (۷٫۷۴). بی آن، فایل و کپشنِ تلگرام «قسمت ۴۹ با صدای …» می‌شدند برای
      چیزی که چهار دقیقه از آن قسمت است — همان ادعای نیمه‌ای که این نسخه و
@@ -80923,7 +81033,8 @@ function vbrColourRefs_(speaker, from) {
 /** اشتراکِ موقتِ یک ردیف را پس بگیر — پیش از بستنِ ردیف، نه بعدش. */
 function vbrUnshare_(item) {
   var n = 0;
-  var au = ((item && item.audio) || []).concat((item && item.colour && item.colour.refs) || []);
+  var au = ((item && item.audio) || []).concat((item && item.colour && item.colour.refs) || [])
+             .concat((item && item.modelOld && item.modelOld.ids) || []);   // ۱۳.۹
   for (var i = 0; i < au.length; i++) {
     try { if (driveShareOff_(au[i].id)) n++; } catch (e) {}
   }
@@ -81021,6 +81132,8 @@ function vbrIngest_(hub) {
       if (hit.quality) it.qualityOut = hit.quality;  // ۱۳.۱: شکستن، لرزش، مرزها
       if (hit.crackle) it.crackleOut = hit.crackle;  // ۱۳.۵: خشِ افزوده در هر مرحله
       if (hit.pitchAlt) it.pitchAltOut = hit.pitchAlt;   // ۱۳.۵: نمونه‌های بم‌تر
+      if (hit.variants) it.variantsOut = hit.variants;   // ۱۳.۹: خام / مدلِ پیشین / ملایم
+      if (hit.fric) it.fricOut = hit.fric;               // ۱۳.۹: سایشی‌ها در هر مرحله
       if (hit.f0Out) it.f0Out = hit.f0Out;
       out.unshared += vbrUnshare_(it);
       /* ══ سدِ پایانِ بالارونده (۹.۶۳) ══ «جمله‌های خبری را جوری تموم می‌کرد که اصلاً مناسب نبود» — اندازه‌اش (۴۳٪ گلدوز)
@@ -81413,6 +81526,23 @@ function vbrTgMeasure_(item, who) {
            (a.medianHz != null ? ' · میانه ' + a.medianHz + ' هرتز' : '') + (a.crackPerMin != null ? ' · شکستن ' + a.crackPerMin + '/دقیقه' : '') +
            (a.crackle != null ? ' · خشِ تبدیل ' + a.crackle : '') + (a.why ? ' — نشد: ' + a.why : ''));
   });
+  /* ۱۳.۹: سایشی‌ها (س ش چ ج / ه خ) در هر مرحله — مرحله‌ای که تیزی را بیش از همه پایین آورد، مقصر نامیده می‌شود. */
+  var fr = item.fricOut || null;
+  if (fr && fr.stages) {
+    L.push('🔬 سایشی‌ها (۳ تا ۱۲ کیلوهرتز، ' + (fr.nSib || 0) + ' قابِ «س/ش/چ/ج» و ' + (fr.nH || 0) + ' قابِ «ه/خ» در مبدأ):');
+    fr.stages.forEach(function (s) {
+      L.push('  · ' + s.name + ': مرکزِ طیف ' + (s.sibCentroid != null ? s.sibCentroid : '—') + ' هرتز · تیزی ' +
+             (s.sibSharpDb != null ? s.sibSharpDb : '—') + ' دسی‌بل · «خ‌شدگیِ ه» ' + (s.hKhDb != null ? s.hKhDb : '—') + ' دسی‌بل' +
+             (s.dSharp != null ? ' (تیزی ' + (s.dSharp > 0 ? '+' : '') + s.dSharp + ' نسبت به مرحلهٔ قبل)' : ''));
+    });
+    if (fr.guiltySib) L.push('  ⇐ بیشترین کُندشدنِ «س/ش»: ' + fr.guiltySib + (fr.guiltyH ? ' · بیشترین «خ»شدنِ «ه»: ' + fr.guiltyH : ''));
+  }
+  (item.variantsOut || []).forEach(function (a) {
+    L.push('🆚 ' + a.label + (a.url ? ': ' + a.url : '') + (a.medianHz != null ? ' · میانه ' + a.medianHz + ' هرتز' : '') +
+           (a.fric && a.fric.sibSharpDb != null ? ' · تیزیِ «س» ' + a.fric.sibSharpDb + ' · «خ‌شدگیِ ه» ' + a.fric.hKhDb : '') +
+           (a.why ? ' — نشد: ' + a.why : ''));
+  });
+  if (item.modelOldWhy) L.push('🆚 مدلِ پیشین: ' + item.modelOldWhy);
   /* ۱۲.۵: سنجهٔ اوج — همان «ناگهان زیر» که او می‌شنود، به عدد. */
   var fo = item.f0Out || {}, fc = item.f0capOut || null;
   if (fo.p95Hz != null) L.push('📈 اوجِ زیروبم: میانه ' + fo.medianHz + ' هرتز · ۹۵٪ زیرِ ' + fo.p95Hz + ' هرتز · ' +
@@ -82697,7 +82827,7 @@ function vbrSoulPick_() {
     var seedNoSpans = {};
     var seedCalm = {};
     var seedVoice = {};
-    var seedHx = {}, seedSegP = {}, seedF0cap = {}, seedPitchFix = {}, seedCueFix = {}, seedQNo = {}, seedPAlt = {};
+    var seedHx = {}, seedSegP = {}, seedF0cap = {}, seedPitchFix = {}, seedCueFix = {}, seedQNo = {}, seedPAlt = {}, seedVariants = {};
     var seedBase = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
@@ -82722,6 +82852,7 @@ function vbrSoulPick_() {
       if (se.cueFix) seedCueFix[sk] = String(se.cueFix);   // ۱۲.۹: دستورِ سبکِ آماده، به‌جای کارتِ سبکِ گوینده — فقط نمونه
       if (se.qNoRetry) seedQNo[sk] = true;                // ۱۳.۱: بی ساختِ دوبارهٔ کیفیت (نمونهٔ خام)
       if (se.pitchAlt) seedPAlt[sk] = String(se.pitchAlt);   // ۱۳.۵: نمونه‌های «کمی بم‌تر» از همان مبدأ، در همان اجرا
+      if (se.variants) seedVariants[sk] = String(se.variants);   // ۱۳.۹: خام / مدلِ پیشین / تبدیلِ ملایم، از همان مبدأ
       seedBase[sk] = String(se.tagBase == null ? (se.tag || '') : se.tagBase);
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
       if (se.colour) seedColour[sk] = String(se.colour);
@@ -82779,7 +82910,7 @@ function vbrSoulPick_() {
       return { ok: true, key: key, name: name, cue: cue, item: item,
                seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k], calm: !!seedCalm[k],
                voice: seedVoice[k] || '', hx: seedHx[k] === 'soft' ? 'soft' : !!seedHx[k], segPitch: !!seedSegP[k], f0cap: seedF0cap[k] || 0, tagBase: seedBase[k] || '',
-               pitchFix: seedPitchFix[k] != null ? seedPitchFix[k] : '', cueFix: seedCueFix[k] || '', qNoRetry: !!seedQNo[k], pitchAlt: seedPAlt[k] || '' };
+               pitchFix: seedPitchFix[k] != null ? seedPitchFix[k] : '', cueFix: seedCueFix[k] || '', qNoRetry: !!seedQNo[k], pitchAlt: seedPAlt[k] || '', variants: seedVariants[k] || '' };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -83197,6 +83328,7 @@ function runVoiceSoulTest() {
     if (pick.cueFix) tagO.cueFix = pick.cueFix;          // ۱۲.۹: برای کپشن
     if (pick.qNoRetry) tagO.qNoRetry = true;              // ۱۳.۱
     if (pick.pitchAlt) tagO.pitchAlt = pick.pitchAlt;      // ۱۳.۵
+    if (pick.variants) tagO.variants = pick.variants;      // ۱۳.۹
     if (pick.tagBase) tagO.tagBase = pick.tagBase;
     if (pick.colour) tagO.colour = pick.colour;          // ۹.۰۵
     if (pick.ab) tagO.ab = pick.ab;                      // ۹.۱۱

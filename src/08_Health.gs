@@ -1225,20 +1225,32 @@ function whRenderLag_() {
   try { d = ytRenderRead_(); } catch (e) { return null; }
   var map = null;
   try { map = ytRenderMap_(); } catch (e2) { map = null; }
-  var now = new Date().getTime(), lag = 0, oldest = 0;
+  var now = new Date().getTime(), lag = 0, oldest = 0, made = 0, madeOld = 0;
+  var stuckH = Math.max(1, Number(CFG.WD_RENDER_HOURS) || 6);
   for (var i = 0; i < ((d && d.items) || []).length; i++) {
     var it = d.items[i];
     if (String(it.status || '') !== 'در انتظار') continue;
     if (!it.shared) continue;                       // هنوز اجازه نگرفته؛ نوبتِ اکشن نیست
-    if (map && map[it.key] && map[it.key].url) continue;   // ساخته شده
     var t = parseWhen_(String(it.sharedAt || it.at || ''));
     if (isNaN(t)) continue;
     var hrs = (now - t) / 3600000;
+    /* ۱۳.۹: ساخته شده ولی برداشته نشده هم «بی آپلود» است — نیمهٔ دومِ همان راه */
+    if (map && map[it.key] && map[it.key].url) {
+      var mAt = String(map[it.key].at || '');   // رانر به UTC می‌نویسد («2026-10-27 19:49»)
+      var tm = /^\d{4}-\d\d-\d\d \d\d:\d\d$/.test(mAt) ? new Date(mAt.replace(' ', 'T') + ':00Z').getTime() : NaN;
+      var hm = isNaN(tm) ? hrs : (now - tm) / 3600000;
+      if (hm >= stuckH) { made++; if (hm > madeOld) madeOld = hm; }
+      continue;
+    }
     lag++;
     if (hrs > oldest) oldest = hrs;
   }
-  if (!lag) return null;
-  return { key: 'render', name: 'اکشنِ رندرِ ویدئو',
+  var rel = ytRenderRel_();
+  var relWarn = Math.max(1, Number(CFG.YT_REL_ASSET_WARN) || 800);
+  var relBad = !!(rel && Number(rel.assets) >= relWarn);
+  if (!lag && !made && !relBad) return null;
+  return { key: 'render', name: 'اکشنِ رندرِ ویدئو', stuckH: stuckH,
+           made: made, madeHours: Math.round(madeOld), rel: rel, relBad: relBad,
            what: 'ساختِ MP4 از صوت و کاور',
            at: '', days: Math.floor(oldest / 24), hours: Math.round(oldest), n: lag,
            maxDays: Math.max(1, Number(CFG.WD_RENDER_DAYS) || 1),
@@ -1261,7 +1273,19 @@ function watchdog_(st, problems, notes) {
   for (var i = 0; i < hb.length; i++) {
     var w = hb[i];
     if (w.key === 'render') {
-      if (w.days >= w.maxDays || (w.notMade && w.hours >= 6)) {
+      if (w.relBad) {
+        problems.push(HY_ + 'ریلیزِ «renders» در گیت‌هاب ' + faDigitsOut_(String(w.rel.assets)) + ' فایل دارد (' +
+          faDigitsOut_(String(w.rel.gb)) + ' گیگ) — سقفِ گیت‌هاب ۱۰۰۰ است و پس از آن هیچ ویدئویی بالا نمی‌رود. ' +
+          'فایل‌های قسمت‌های منتشرشده قابلِ حذف‌اند (نسخهٔ درایو هست).');
+      }
+      if (w.made) {
+        problems.push(HY_ + faDigitsOut_(String(w.made)) + ' ویدئو ساخته شده ولی ' + faDigitsOut_(String(w.madeHours)) +
+          ' ساعت است برداشته و آپلود نشده — برداشتن کارِ ytPublishTick است (هر ' + faDigitsOut_(String(CFG.YT_TICK_HOURS || 2)) +
+          ' ساعت)؛ سهمیهٔ امروزِ یوتیوب و «اجرای ناتمام»ِ ytPublishTick را ببینید.');
+        late.push(w.key);
+      }
+      if (!w.n) continue;
+      if (w.hours >= w.stuckH || w.days >= w.maxDays || (w.notMade && w.hours >= 6)) {
         problems.push(HY_ + 'اکشنِ رندرِ ویدئو کار نمی‌کند: ' +
           faDigitsOut_(String(w.n)) + ' قسمت اجازه و نشانی گرفته‌اند ولی ساخته نشده‌اند' +
           (w.hours ? ' (قدیمی‌ترین ' + faDigitsOut_(String(w.hours)) + ' ساعت)' : '') +
