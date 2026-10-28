@@ -1,246 +1,286 @@
 {
- "updatedAt": "2026-10-28 12:26",
+ "updatedAt": "2026-10-28 23:00",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-1.mp4",
    "bytes": 14431881,
    "parts": 1,
-   "at": "2026-08-26 04:51"
+   "at": "2026-08-26 04:51",
+   "pruned": "2026-10-28"
   },
   "special:2": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-2.mp4",
    "bytes": 16155684,
    "parts": 8,
-   "at": "2026-08-26 04:51"
+   "at": "2026-08-26 04:51",
+   "pruned": "2026-10-28"
   },
   "special:3": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-3.mp4",
    "bytes": 13647325,
    "parts": 1,
-   "at": "2026-08-26 04:52"
+   "at": "2026-08-26 04:52",
+   "pruned": "2026-10-28"
   },
   "special:4": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-4.mp4",
    "bytes": 15820631,
    "parts": 2,
-   "at": "2026-08-26 05:01"
+   "at": "2026-08-26 05:01",
+   "pruned": "2026-10-28"
   },
   "special:5": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-5.mp4",
    "bytes": 11575808,
    "parts": 2,
-   "at": "2026-08-26 05:02"
+   "at": "2026-08-26 05:02",
+   "pruned": "2026-10-28"
   },
   "special:6": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-6.mp4",
    "bytes": 10298141,
    "parts": 1,
-   "at": "2026-08-26 05:02"
+   "at": "2026-08-26 05:02",
+   "pruned": "2026-10-28"
   },
   "special:7": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-7.mp4",
    "bytes": 15125619,
    "parts": 2,
-   "at": "2026-08-26 05:08"
+   "at": "2026-08-26 05:08",
+   "pruned": "2026-10-28"
   },
   "special:8": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-8.mp4",
    "bytes": 13301316,
    "parts": 2,
-   "at": "2026-08-26 05:09"
+   "at": "2026-08-26 05:09",
+   "pruned": "2026-10-28"
   },
   "special:22": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-22.mp4",
    "bytes": 7023290,
    "parts": 1,
-   "at": "2026-08-29 02:25"
+   "at": "2026-08-29 02:25",
+   "pruned": "2026-10-28"
   },
   "variety:20": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-20.mp4",
    "bytes": 10853714,
    "parts": 1,
-   "at": "2026-08-29 02:26"
+   "at": "2026-08-29 02:26",
+   "pruned": "2026-10-28"
   },
   "special:9": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-9.mp4",
    "bytes": 18429315,
    "parts": 2,
-   "at": "2026-08-29 02:27"
+   "at": "2026-08-29 02:27",
+   "pruned": "2026-10-28"
   },
   "variety:21": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-21.mp4",
    "bytes": 12483923,
    "parts": 2,
-   "at": "2026-08-29 09:21"
+   "at": "2026-08-29 09:21",
+   "pruned": "2026-10-28"
   },
   "special:10": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-10.mp4",
    "bytes": 18005447,
    "parts": 2,
-   "at": "2026-08-29 09:22"
+   "at": "2026-08-29 09:22",
+   "pruned": "2026-10-28"
   },
   "variety:22": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-22.mp4",
    "bytes": 8332357,
    "parts": 1,
-   "at": "2026-08-29 09:22"
+   "at": "2026-08-29 09:22",
+   "pruned": "2026-10-28"
   },
   "special:11": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-11.mp4",
    "bytes": 7578019,
    "parts": 1,
-   "at": "2026-08-29 14:40"
+   "at": "2026-08-29 14:40",
+   "pruned": "2026-10-28"
   },
   "special:12": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-12.mp4",
    "bytes": 16068889,
    "parts": 2,
-   "at": "2026-08-29 14:41"
+   "at": "2026-08-29 14:41",
+   "pruned": "2026-10-28"
   },
   "special:23": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-23.mp4",
    "bytes": 10438364,
    "parts": 1,
-   "at": "2026-08-29 14:42"
+   "at": "2026-08-29 14:42",
+   "pruned": "2026-10-28"
   },
   "special:24": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-24.mp4",
    "bytes": 12375093,
    "parts": 1,
-   "at": "2026-08-30 05:46"
+   "at": "2026-08-30 05:46",
+   "pruned": "2026-10-28"
   },
   "special:17": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-17.mp4",
    "bytes": 8190342,
    "parts": 1,
-   "at": "2026-08-31 07:34"
+   "at": "2026-08-31 07:34",
+   "pruned": "2026-10-28"
   },
   "special:25": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-25.mp4",
    "bytes": 7742738,
    "parts": 1,
-   "at": "2026-08-31 07:34"
+   "at": "2026-08-31 07:34",
+   "pruned": "2026-10-28"
   },
   "variety:23": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-23.mp4",
    "bytes": 5694153,
    "parts": 1,
-   "at": "2026-08-31 07:34"
+   "at": "2026-08-31 07:34",
+   "pruned": "2026-10-28"
   },
   "variety:24": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-24.mp4",
    "bytes": 8239052,
    "parts": 1,
-   "at": "2026-08-31 15:21"
+   "at": "2026-08-31 15:21",
+   "pruned": "2026-10-28"
   },
   "special:18": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-18.mp4",
    "bytes": 11329172,
    "parts": 1,
-   "at": "2026-08-31 15:21"
+   "at": "2026-08-31 15:21",
+   "pruned": "2026-10-28"
   },
   "variety:25": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-25.mp4",
    "bytes": 8047518,
    "parts": 1,
-   "at": "2026-08-31 15:22"
+   "at": "2026-08-31 15:22",
+   "pruned": "2026-10-28"
   },
   "special:19": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-19.mp4",
    "bytes": 12396035,
    "parts": 2,
-   "at": "2026-08-31 21:02"
+   "at": "2026-08-31 21:02",
+   "pruned": "2026-10-28"
   },
   "special:20": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-20.mp4",
    "bytes": 9335246,
    "parts": 1,
-   "at": "2026-08-31 21:03"
+   "at": "2026-08-31 21:03",
+   "pruned": "2026-10-28"
   },
   "special:26": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-26.mp4",
    "bytes": 19854437,
    "parts": 2,
-   "at": "2026-09-01 06:44"
+   "at": "2026-09-01 06:44",
+   "pruned": "2026-10-28"
   },
   "special:21": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-21.mp4",
    "bytes": 7226715,
    "parts": 1,
-   "at": "2026-09-02 01:19"
+   "at": "2026-09-02 01:19",
+   "pruned": "2026-10-28"
   },
   "special:27": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-27.mp4",
    "bytes": 18861951,
    "parts": 2,
-   "at": "2026-09-02 06:23"
+   "at": "2026-09-02 06:23",
+   "pruned": "2026-10-28"
   },
   "variety:26": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-26.mp4",
    "bytes": 8144414,
    "parts": 1,
-   "at": "2026-09-02 06:23"
+   "at": "2026-09-02 06:23",
+   "pruned": "2026-10-28"
   },
   "variety:27": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-27.mp4",
    "bytes": 9326743,
    "parts": 1,
-   "at": "2026-09-03 04:57"
+   "at": "2026-09-03 04:57",
+   "pruned": "2026-10-28"
   },
   "special:28": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-28.mp4",
    "bytes": 13160851,
    "parts": 2,
-   "at": "2026-09-03 10:03"
+   "at": "2026-09-03 10:03",
+   "pruned": "2026-10-28"
   },
   "variety:28": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-28.mp4",
    "bytes": 9501043,
    "parts": 1,
-   "at": "2026-09-03 10:04"
+   "at": "2026-09-03 10:04",
+   "pruned": "2026-10-28"
   },
   "special:29": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-29.mp4",
    "bytes": 13968721,
    "parts": 2,
-   "at": "2026-09-04 05:01"
+   "at": "2026-09-04 05:01",
+   "pruned": "2026-10-28"
   },
   "variety:29": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-29.mp4",
    "bytes": 7978646,
    "parts": 1,
-   "at": "2026-09-04 05:02"
+   "at": "2026-09-04 05:02",
+   "pruned": "2026-10-28"
   },
   "special:30": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-30.mp4",
    "bytes": 16645053,
    "parts": 2,
-   "at": "2026-09-05 06:17"
+   "at": "2026-09-05 06:17",
+   "pruned": "2026-10-28"
   },
   "variety:30": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-30.mp4",
    "bytes": 10122832,
    "parts": 1,
-   "at": "2026-09-05 06:17"
+   "at": "2026-09-05 06:17",
+   "pruned": "2026-10-28"
   },
   "special:31": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-31.mp4",
    "bytes": 14639745,
    "parts": 2,
-   "at": "2026-09-06 06:28"
+   "at": "2026-09-06 06:28",
+   "pruned": "2026-10-28"
   },
   "variety:31": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-31.mp4",
    "bytes": 7830403,
    "parts": 1,
-   "at": "2026-09-06 06:28"
+   "at": "2026-09-06 06:28",
+   "pruned": "2026-10-28"
   },
   "special:32": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-32.mp4",
    "bytes": 14357918,
    "parts": 2,
-   "at": "2026-09-07 06:36"
+   "at": "2026-09-07 06:36",
+   "pruned": "2026-10-28"
   },
   "variety:32": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-32.mp4",
@@ -5923,10 +5963,10 @@
   },
   "variety:86": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-86.mp4",
-   "bytes": 46332815,
+   "bytes": 38559043,
    "parts": 2,
-   "at": "2026-10-28 06:15",
-   "replace": "qa-13.9",
+   "at": "2026-10-28 23:00",
+   "replace": "qa-14.3",
    "mode": "media",
    "media": {
     "clips": 21,
@@ -5953,32 +5993,19 @@
     "moments": {
      "asked": 3,
      "placed": 3,
-     "made": 3,
-     "why": [],
-     "sec": 125,
-     "whole": 1,
-     "fallback": 1
+     "made": 0,
+     "why": [
+      "109s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 36٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا",
+      "362s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 44٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا",
+      "607s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 50٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا"
+     ],
+     "music": 3
     },
     "fit": {
-     "mb": 44.2,
-     "was": 124.8,
-     "how": "بازکدگذاری"
+     "mb": 36.8,
+     "how": "زیرِ سقف"
     }
    },
-   "inserts": [
-    {
-     "at": 109,
-     "d": 33.4
-    },
-    {
-     "at": 361.5,
-     "d": 58.5
-    },
-    {
-     "at": 607.4,
-     "d": 32.8
-    }
-   ],
    "scenes": 44,
    "want": 44,
    "snapped": 32,
@@ -5991,7 +6018,7 @@
     ],
     "blank": [],
     "ok": false,
-    "why": "تصویر 2 جا یخ زد (640.8–651ث، 875.7–901ث)",
+    "why": "تصویر 2 جا یخ زد (547.4–557.8ث، 750.8–776.5ث)",
     "durDiff": 0,
     "sync": {
      "n": 3,
@@ -6027,14 +6054,14 @@
     },
     "freeze": [
      {
-      "s": 640.8,
-      "e": 651,
-      "d": 10.3
+      "s": 547.4,
+      "e": 557.8,
+      "d": 10.4
      },
      {
-      "s": 875.7,
-      "e": 901,
-      "d": 25.3
+      "s": 750.8,
+      "e": 776.5,
+      "d": 25.7
      }
     ]
    },
@@ -6066,7 +6093,7 @@
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-86-cover.jpg",
    "notes": [
-    "اندازه: 124.8 ⇒ 44.2 مگابایت"
+    "لحظه‌ها: 109s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 36٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 362s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 44٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 607s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 50٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا"
    ]
   },
   "special:86": {
@@ -7947,8 +7974,8 @@
   }
  },
  "release": {
-  "assets": 562,
-  "gb": 6.15,
-  "at": "2026-10-28 12:26"
+  "assets": 522,
+  "gb": 5.68,
+  "at": "2026-10-28 23:00"
  }
 }
