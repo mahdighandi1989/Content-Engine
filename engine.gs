@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 13.9
+ *  موتور محتوا و پادکست — نسخهٔ 14.0
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -946,6 +946,7 @@ var CFG = {
   WD_ENRICH_DAYS: 2,           // تسکِ غنی‌سازی (هر ساعت)
   WD_RENDER_DAYS: 1,           // اکشنِ رندر (GitHub، هر ساعت)
   WD_RENDER_HOURS: 6,          // ۱۳.۹: «رندر ۶ ساعت بی آپلود» — سلامتی و ناظر از این ساعت ایراد می‌گویند
+  YT_PL_MISSING_MAX: 10,       // ۱۴.۰: ویدئوی جامانده از پلی‌لیست که در هر دورِ ترتیب به ته افزوده می‌شود
   YT_REL_ASSET_WARN: 800,      // ۱۳.۹: ریلیزِ «renders» بیش از ۱۰۰۰ فایل نمی‌پذیرد؛ از این عدد هشدار
   REPEAT_ALERT: 10,            // این‌قدر یافتهٔ تکراری = حلقه بسته نمی‌شود
   HANDOUT_TRY_MAX: 4,          // چند تلاشِ ناموفق تا «رهاشده» شمرده شود
@@ -2368,7 +2369,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '13.9',
+  CODE_VERSION: '14.0',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -54183,15 +54184,30 @@ function ytPlPlace_(plId, videoId, wantPos, existing) {
         playlistId: plId, position: wantPos,
         resourceId: { kind: 'youtube#video', videoId: videoId } } }, 'snippet');
       return 'جابه‌جا شد';
-    } catch (e) { return 'نشد: ' + String(e.message).slice(0, 60); }
+    } catch (e) { return 'نشد: ' + ytErrWhy_(e); }
   }
   if (!ytQuotaTake_(YT_COST.itemsInsert, false)) return 'سهمیه';
+  var why = '', sn = { playlistId: plId, resourceId: { kind: 'youtube#video', videoId: videoId } };
+  if (wantPos != null) sn.position = wantPos;
+  try {
+    yt.PlaylistItems.insert({ snippet: sn }, 'snippet');
+    return wantPos != null ? 'افزوده شد' : 'افزوده شد (ته)';
+  } catch (e2) { why = ytErrWhy_(e2); }
+  /* ۱۴.۰: از ۲۶ اکتبر هر افزودن «نشد: API call to youtube.playlistItems.insert failed with error: » ثبت شد — بُرشِ ۶۰ نویسه‌ای
+     درست به اندازهٔ همان پیشوند بود و علت هرگز دیده نشد. حالا متنِ خودِ خطا می‌ماند، و ویدئو دست‌کم به تهِ پلی‌لیست می‌رود
+     (پلی‌لیستی که در Studio ترتیبش «دستی» نیست، `position` را نمی‌پذیرد) — ترتیب را همگام‌سازیِ شبانه می‌سنجد. */
+  if (wantPos == null || !ytQuotaTake_(YT_COST.itemsInsert, false)) return 'نشد: ' + why;
   try {
     yt.PlaylistItems.insert({ snippet: {
-      playlistId: plId, position: wantPos,
-      resourceId: { kind: 'youtube#video', videoId: videoId } } }, 'snippet');
-    return 'افزوده شد';
-  } catch (e2) { return 'نشد: ' + String(e2.message).slice(0, 60); }
+      playlistId: plId, resourceId: { kind: 'youtube#video', videoId: videoId } } }, 'snippet');
+    return 'افزوده شد (ته، بی جایگاه: ' + why.slice(0, 90) + ')';
+  } catch (e3) { return 'نشد: ' + why + ' · بی جایگاه هم: ' + ytErrWhy_(e3).slice(0, 80); }
+}
+
+/** متنِ خطای سرویسِ یوتیوب بی پیشوندِ ثابتِ «API call to … failed with error:» — همان پیشوندی که ۶۰ نویسه را پر می‌کرد. */
+function ytErrWhy_(e) {
+  var m = String((e && e.message) || e || '').replace(/^API call to [\w.]+ failed with error:\s*/i, '');
+  return (m || 'بی پیام').slice(0, 160);
 }
 
 /* ─────────────────── ۸) ثبت در شیت — یک ردیف برای هر تلاش ───────────────────
@@ -62510,7 +62526,7 @@ function ytUploadOne_(item, hub, pub) {
         plName = pl.title;
         ytPlOrderDirty_();             // سنجشِ ترتیب همین دور، از خودِ پلی‌لیست (۸.۵۷)
       }
-    } catch (eP) { plPos = 'نشد: ' + String(eP.message).slice(0, 60); }
+    } catch (eP) { plPos = 'نشد: ' + ytErrWhy_(eP); }
   }
 
   // ── و تازه حالا عمومی ──
@@ -62686,6 +62702,34 @@ function ytVidEps_(hub) {
 }
 
 /**
+ * ۱۴.۰ — ویدئوهایی که تبِ انتشار برایشان پلی‌لیست نوشته ولی افزودن «نشد» و هیچ ردیفِ بعدی‌ای «افزوده شد» نگفته:
+ * {عنوانِ پلی‌لیست: [شناسهٔ ویدئو]}. همان یک خواندنِ تب (حافظهٔ انتشار)، بی جست‌وجوی یوتیوب.
+ */
+function ytPlMissingOf_(hubIn) {
+  if (YT_PL_MISS_ && YT_PL_MISS_.hub === hubIn) return YT_PL_MISS_.m;
+  var m = {}, ok = {};
+  try {
+    var sh = (hubIn || getHub_()).getSheetByName(CFG.YT_TAB);
+    if (sh && sh.getLastRow() >= 2) {
+      var v = sh.getRange(2, 1, sh.getLastRow() - 1, YU.POS).getValues();
+      for (var i = 0; i < v.length; i++) {
+        var vid = String(v[i][YU.VID - 1] || '').trim(), pl = String(v[i][YU.PL - 1] || '').trim(), pos = String(v[i][YU.POS - 1] || '');
+        if (!vid) continue;
+        if (/افزوده|سرِ جایش|جابه‌جا/.test(pos)) ok[vid] = 1;
+        else if (pl && /^نشد/.test(pos)) (m[pl] = m[pl] || []).push(vid);
+      }
+    }
+  } catch (e) {}
+  for (var k in m) {
+    if (!Object.prototype.hasOwnProperty.call(m, k)) continue;
+    m[k] = m[k].filter(function (x, j, a) { return !ok[x] && a.indexOf(x) === j; });
+  }
+  YT_PL_MISS_ = { hub: hubIn, m: m };
+  return m;
+}
+var YT_PL_MISS_ = null;
+
+/**
  * نقشهٔ جابه‌جایی — تابعِ خالص، تا بشود بی یوتیوب سنجیدش.
  * @param {Array} cur  اقلامِ پلی‌لیست به ترتیبِ فعلی: {id, videoId}
  * @param {Function} epOf  شناسهٔ ویدئو ⇒ شمارهٔ قسمت (۰ = ناشناخته)
@@ -62752,7 +62796,7 @@ function ytPlOrderDue_() {
  * سهمیهٔ یک آپلود همیشه کنار می‌مانَد: ترتیب منتظر می‌مانَد، انتشار نه.
  */
 function ytPlOrderFix_(budgetMs, hubIn) {
-  var out = { checked: 0, wrong: 0, moved: 0, left: 0, failed: 0, why: '', pls: [] };
+  var out = { checked: 0, wrong: 0, moved: 0, left: 0, failed: 0, added: 0, addFail: 0, why: '', pls: [] };
   var yt = ytSvc_(); if (!yt || CFG.YT_PL_ORDER === false) { out.why = 'خاموش'; return out; }
   var t0 = new Date().getTime(), budget = Math.max(10000, Number(budgetMs) || 60000);
   var q = ytQuota_(), capU = Math.max(100, Number(CFG.YT_QUOTA_UNITS) || 9000);
@@ -62769,6 +62813,18 @@ function ytPlOrderFix_(budgetMs, hubIn) {
     if (!rec.id) continue;
     if (new Date().getTime() - t0 > budget) { out.why = out.why || 'وقتِ این دور تمام شد'; break; }
     var items = ytPlItems_(rec.id);
+    /* ۱۴.۰: ویدئویی که افزودنش «نشد» و هنوز در پلی‌لیست نیست، اول به ته می‌رود — ترتیب را همین دور می‌چیند.
+       بی این، قسمت‌های ۸۳ تا ۸۵ (۲۶ تا ۲۸ اکتبر) برای همیشه بیرونِ پلی‌لیست می‌ماندند. */
+    var miss = (ytPlMissingOf_(hubIn)[String(rec.title || '')] || []).filter(function (v) {
+      return !items.some(function (x) { return x.videoId === v; });
+    });
+    var addedHere = 0;
+    for (var mi = 0; mi < miss.length && out.added < Math.max(1, Number(CFG.YT_PL_MISSING_MAX) || 10); mi++) {
+      if (new Date().getTime() - t0 > budget) break;
+      var ar = ytPlPlace_(rec.id, miss[mi], null, items);
+      if (/^افزوده/.test(ar)) { out.added++; addedHere++; } else { out.addFail++; out.why = out.why || ar; }
+    }
+    if (addedHere) items = ytPlItems_(rec.id);
     out.checked++;
     var plan = ytPlOrderPlan_(items, function (vid) { return (eps[vid] || {}).ep || 0; });
     var row = { key: key, n: items.length, wrong: plan.wrong, moved: 0 };
@@ -62794,9 +62850,9 @@ function ytPlOrderFix_(budgetMs, hubIn) {
   }
   out.left = Math.max(0, out.wrong - out.moved);
   ytPlOrderSave_({ at: nowStr_(), wrong: out.wrong, moved: out.moved, left: out.left,
-                   failed: out.failed, why: out.why, pls: out.pls, dirty: false });
-  if (out.moved || out.failed) {
-    logLine_('ترتیبِ پلی‌لیست‌ها: ' + out.moved + ' ویدئو جابه‌جا شد' +
+                   failed: out.failed, added: out.added, addFail: out.addFail, why: out.why, pls: out.pls, dirty: false });
+  if (out.moved || out.failed || out.added || out.addFail) {
+    logLine_('ترتیبِ پلی‌لیست‌ها: ' + (out.added ? out.added + ' ویدئوی جامانده افزوده شد، ' : '') + out.moved + ' ویدئو جابه‌جا شد' +
              (out.left ? '، ' + out.left + ' مانده' : '') + (out.why ? ' — ' + out.why : '') + '.');
   }
   return out;
