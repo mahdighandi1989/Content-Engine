@@ -138,7 +138,7 @@ print(json.dumps({"a":r,"b":r2,"one":vb.fricOne(d+"/dull.wav",d+"/s.wav")},ensur
      /tagO\.variants = pick\.variants/.test(vbs) && /row\.modelOld = \{ pth: mo\.pth/.test(vbs) && /row\.modelOldWhy = mo\.why/.test(vbs));
   ok('۲.۱۱ پیامِ نمونه سایشی‌ها را مرحله‌به‌مرحله و نسخه‌های مقایسه را با پیوند می‌گوید',
      /it\.fricOut = hit\.fric/.test(vbs) && /it\.variantsOut = hit\.variants/.test(vbs) && /بیشترین کُندشدنِ «س\/ش»/.test(vbs));
-  const sd = (CFG.VOICE_SOUL_SEED || []).filter(s => s.variants);
+  const sd = (CFG.VOICE_SOUL_SEED || []).filter(s => s.variants && !s.afterRetrain);
   ok('۲.۱۲ بذرِ مقایسهٔ گلدوز: Charonِ خام، مدلِ پیشین، تبدیلِ ملایم، و بهترینِ تازه (گامِ ۰، «خ» نرم) — فقط نمونه',
      sd.length === 1 && sd[0].speaker === 'spk-1g0r95d' && sd[0].variants === 'raw,old,mild:0.5/0.5' && sd[0].hx === 'soft' && sd[0].pitchFix === '0');
   ok('۲.۱۳ مرزِ تولید سرِ جاست: VBR_EP_HOLD روشن، VBR_SEG_PITCH خاموش', CFG.VBR_EP_HOLD === true && CFG.VBR_SEG_PITCH !== true);

@@ -178,6 +178,22 @@ def dispatch(voice, file_ids, epochs, fresh):
         return ""
 
 
+def bandReport(run_id, voice):
+    """۱۴.۱: `band-report.json`ِ همان اجرا (سدِ پهنای باند در voicetrain)، خلاصه — یا None."""
+    import tempfile
+    d = tempfile.mkdtemp(prefix="band-")
+    r = sh(["gh", "run", "download", str(run_id), "-R", REPO, "-n", "voice-" + voice, "-D", d])
+    p = os.path.join(d, "band-report.json")
+    if r.returncode != 0 or not os.path.exists(p):
+        return None
+    try:
+        b = json.load(io.open(p, encoding="utf-8"))
+    except Exception:
+        return None
+    return {"minHz": b.get("minHz"), "files": b.get("files"), "kept": b.get("kept"),
+            "low": [[x.get("n"), x.get("edgeHz")] for x in (b.get("rows") or []) if not x.get("ok")][:40]}
+
+
 def artifactState(run_id, voice, dest):
     """`state.json` از artifactِ آن اجرا — تنها جوابِ «تمام شد؟».
 
@@ -319,6 +335,11 @@ def plan(q, st):
             elif info.get("conclusion") not in ("success", "cancelled"):
                 cur["stage"] = ST_FAIL
                 cur["note"] = "اجرای آموزش قرمز تمام شد (%s)." % info.get("conclusion")
+                # ۱۴.۱: سدِ پهنای باند پیش از دیتاست می‌ایستد و علتش در artifact است — بی این، شکست فقط «قرمز» گفته می‌شد.
+                bd = bandReport(rid_, key)
+                if bd:
+                    cur["band"] = bd
+                    cur["note"] += " پهنای باند: %d از %d ضبط پرباند (لبه ≥ %d هرتز)." % (bd.get("kept", 0), bd.get("files", 0), bd.get("minHz", 0))
                 sp[key] = cur
                 changed = True
                 say("«%s»: آموزش شکست خورد." % name)
@@ -343,6 +364,14 @@ def plan(q, st):
                 # رفت. شکست فقط `failure`/`timed_out` است.
                 stt = artifactState(cur.get("runId"), key,
                                     os.path.join("vi-art", key))
+                try:   # ۱۴.۱: گزارشِ پهنای باندِ همان اجرا (اجرای نخستِ یک آموزش آن را دارد)
+                    bp = os.path.join("vi-art", key, "band-report.json")
+                    if os.path.exists(bp):
+                        b_ = json.load(io.open(bp, encoding="utf-8"))
+                        cur["band"] = {"minHz": b_.get("minHz"), "files": b_.get("files"), "kept": b_.get("kept"),
+                                       "low": [[x.get("n"), x.get("edgeHz")] for x in (b_.get("rows") or []) if not x.get("ok")][:40]}
+                except Exception:
+                    pass
                 if stt is None:
                     # ══ artifact نرسید ⇒ شکست، نه «ادامه بده» (۷٫۲۲) ══
                     # ۷٫۲۱ اینجا می‌افتاد توی شاخهٔ «هنوز تمام نشده» و یک

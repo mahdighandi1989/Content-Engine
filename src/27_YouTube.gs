@@ -1629,7 +1629,7 @@ function ytAudioParts_(folder) {
  */
 function ytRenderBuilt_(row, map) {
   var rec = map && row ? map[String(row.key)] : null;
-  if (!rec || !rec.url) return null;
+  if (!rec || !rec.url || rec.pruned) return null;    // ۱۴.۱: فایلِ پاک‌شده از ریلیز، برداشتنی نیست
   if (row.replace && String(rec.replace || '') !== String(row.replace)) return null;
   return rec;
 }
@@ -12032,6 +12032,13 @@ function ytTick_(budgetMs) {
     try { ytRedoStuckNightly_(Math.min(45000, left() - 20000)); ytStuckTickMark_(); }
     catch (eSt) { out.why += (out.why ? ' · ' : '') + 'گیرکرده‌ها: ' + String(eSt.message).slice(0, 60); }
   }
+  /* ۱۴.۱: Content-ID — مسدودی و ردِ ویدئوهای منتشرشده، هر YT_CLAIM_HOURS یک بار (هر ۵۰ ویدئو یک واحد). */
+  if (left() > 40000 && ytRenderPruneDue_()) {
+    try { ytRenderPruneMark_(Math.min(30000, left() - 30000)); } catch (ePm) { out.why += (out.why ? ' · ' : '') + 'ریلیز: ' + String(ePm.message).slice(0, 60); }
+  }
+  if (left() > 20000 && ytClaimDue_()) {
+    try { ytClaimScan_(); } catch (eCl) { out.why += (out.why ? ' · ' : '') + 'حقِ نشر: ' + String(eCl.message).slice(0, 60); }
+  }
   /* هشدارِ «نقشهٔ نحیف» برای درسی که منتشر شده، دیگر جبران‌شدنی نیست (۸.۵۴). */
   if (left() > 15000) {
     try { lvThinPrune_(); } catch (eTp) {}
@@ -12076,6 +12083,121 @@ function ytTick_(budgetMs) {
  * می‌داند باید در `_STATUS.json` و در یک جملهٔ فارسیِ آمادهٔ ایمیل باشد،
  * **هر روز، حتی وقتی همه‌چیز خوب است**. سکوت را نمی‌شود از سلامت تشخیص داد.
  */
+/* ══ Content-ID پس از انتشار (۱۴.۱) ══
+ * «از همه جا» ۸۵ «Organ Variation — Hans Zimmer» خورد (در برخی کشورها مسدود) و ۸۲ کامل مسدود شد — و موتور هیچ‌کدام را نمی‌دانست؛
+ * صاحبِ کانال در Studio دید. Data API جزئیاتِ ادعا (مدعی، بازه) را به کانالِ معمولی نمی‌دهد — آن فقط در Studio است — ولی **اثرِ**
+ * ادعا را می‌دهد: `contentDetails.regionRestriction` (کشورهای مسدود/مجاز) و `status.uploadStatus = rejected` با `rejectionReason`.
+ * پس موتور اثر را می‌خوانَد، در تبِ «گزارش‌های نظارت» ثبت می‌کند (یک ردیف برای هر ویدئو، با کلیدِ خودش) و یک بار به تلگرام
+ * می‌گوید؛ «چه کسی و کدام بازه» را صاحبِ کانال در Studio ← Copyright می‌بیند و پیام همین را می‌گوید.
+ */
+/**
+ * ۱۴.۱ — «پاک‌کردنِ فایل‌های ریلیزِ قسمت‌های منتشرشده = بله (نسخهٔ درایو بماند و قبل از پاک‌کردن وجودش تأیید شود)».
+ * هر کلید فقط وقتی به `prune`ِ صف می‌رود که سه چیز را **همین‌جا** سنجیده باشیم: ردیفِ رندر «رسید» است و دست‌کم
+ * `YT_PRUNE_DAYS` روز گذشته، در دفترِ انتشار شناسهٔ ویدئو دارد، و در پوشهٔ قسمت یک mp4ِ بزرگ‌تر از یک مگابایت هست.
+ * رانر فقط همین فهرست را پاک می‌کند؛ خودش هیچ داوری‌ای نمی‌کند.
+ */
+function ytRenderPruneMark_(budgetMs, hubIn) {
+  var out = { added: 0, checked: 0, noDrive: 0, why: '' };
+  if (CFG.YT_RELEASE_PRUNE === false) { out.why = 'خاموش'; return out; }
+  var d = ytRenderRead_(), pub = ytPublished_(hubIn || getHub_());
+  d.prune = Array.isArray(d.prune) ? d.prune : [];
+  var minMs = Math.max(1, Number(CFG.YT_PRUNE_DAYS) || 2) * 86400000, now = new Date().getTime(), t0 = now;
+  var budget = Math.max(5000, Number(budgetMs) || 30000), cap = Math.max(1, Number(CFG.YT_PRUNE_MARK_MAX) || 40);
+  for (var i = 0; i < d.items.length && out.added < cap; i++) {
+    if (new Date().getTime() - t0 > budget) { out.why = 'وقتِ این دور تمام شد'; break; }
+    var it = d.items[i], k = String(it.key || '');
+    if (!k || /-نمونه$/.test(k) || String(it.status || '') !== 'رسید' || d.prune.indexOf(k) !== -1) continue;
+    var td = parseWhen_(String(it.doneAt || ''));
+    if (isNaN(td) || now - td < minMs) continue;
+    if (!(pub[k] && pub[k].videoId)) continue;
+    out.checked++;
+    var fo = null, v = null;
+    try { fo = it.folderId ? DriveApp.getFolderById(String(it.folderId)) : ytFolderOf_(it.show, it.ep, ''); v = fo ? ytVideoIn_(fo) : null; } catch (eF) { v = null; }
+    var sz = 0; try { sz = v ? v.getSize() : 0; } catch (eS) {}
+    if (!v || sz < 1000000) { out.noDrive++; continue; }
+    d.prune.push(k); out.added++;
+  }
+  if (d.prune.length > 400) d.prune = d.prune.slice(-400);
+  if (out.added) ytRenderSave_(d);
+  try { props_().setProperty(PK.YT_PRUNE_AT, JSON.stringify({ at: nowStr_(), added: out.added, total: d.prune.length, noDrive: out.noDrive })); } catch (eP) {}
+  return out;
+}
+function ytRenderPruneDue_() {
+  var st = {}; try { st = JSON.parse(props_().getProperty(PK.YT_PRUNE_AT) || '{}') || {}; } catch (e) {}
+  var t = parseWhen_(String(st.at || ''));
+  return CFG.YT_RELEASE_PRUNE !== false && (isNaN(t) || (new Date().getTime() - t) / 3600000 >= 20);
+}
+
+function ytClaimDue_() {
+  if (CFG.YT_CLAIM_WATCH === false) return false;
+  var st = ytClaimState_(), t = parseWhen_(String(st.at || ''));
+  return isNaN(t) || (new Date().getTime() - t) / 3600000 >= Math.max(1, Number(CFG.YT_CLAIM_HOURS) || 6);
+}
+function ytClaimState_() {
+  try { return JSON.parse(props_().getProperty(PK.YT_CLAIM_WATCH) || '{}') || {}; } catch (e) { return {}; }
+}
+/** خلاصهٔ اثرِ ادعا روی یک قلمِ videos.list: '' یعنی سالم. */
+function ytClaimOf_(it) {
+  if (!it) return '';
+  var st = it.status || {}, rr = (it.contentDetails && it.contentDetails.regionRestriction) || null;
+  if (String(st.uploadStatus || '') === 'rejected') return 'رد شد: ' + String(st.rejectionReason || '—');
+  if (rr && rr.allowed && !rr.allowed.length) return 'در همهٔ کشورها مسدود';
+  if (rr && rr.allowed && rr.allowed.length) return 'فقط در ' + rr.allowed.length + ' کشور دیده می‌شود';
+  if (rr && rr.blocked && rr.blocked.length) return 'در ' + rr.blocked.length + ' کشور مسدود' + (rr.blocked.length <= 6 ? ' (' + rr.blocked.join('، ') + ')' : '');
+  return '';
+}
+function ytClaimScan_(hubIn) {
+  var out = { checked: 0, hit: [], why: '' };
+  var yt = ytSvc_(); if (!yt || !yt.Videos) { out.why = 'یوتیوب در دسترس نیست'; return out; }
+  var hub = hubIn || getHub_(), pub = ytPublished_(hub), vids = [], keyOf = {};
+  Object.keys(pub).forEach(function (k) { var v = pub[k].videoId; if (v && !keyOf[v]) { keyOf[v] = k; vids.push(v); } });
+  vids = vids.slice(-Math.max(10, Number(CFG.YT_CLAIM_MAX) || 100));
+  var st = ytClaimState_(), seen = st.v || {}, nowS = nowStr_();
+  for (var i = 0; i < vids.length; i += 50) {
+    if (!ytQuotaTake_(YT_COST.videosList, false)) { out.why = 'سهمیهٔ امروز'; break; }
+    var vl = yt.Videos.list('status,contentDetails', { id: vids.slice(i, i + 50).join(','), maxResults: 50 });
+    ((vl && vl.items) || []).forEach(function (it) {
+      out.checked++;
+      var v = String(it.id), what = ytClaimOf_(it), k = keyOf[v] || '';
+      var prev = seen[v] || {};
+      if (!what) { if (prev.what) seen[v] = { what: '', at: nowS, was: prev.what }; return; }
+      out.hit.push({ key: k, vid: v, what: what });
+      if (prev.what === what) return;                      // همان حالِ قبلی ⇒ خبرِ تازه نیست
+      seen[v] = { what: what, at: nowS, key: k };
+      var p = pub[k] || {}, url = 'https://www.youtube.com/watch?v=' + v;
+      var txt = 'حقِ نشرِ یوتیوب (Content-ID): «' + String(p.title || k) + '» — ' + what + '. جزئیات (مدعی و بازه) فقط در Studio ← محتوا ← ' +
+                'همین ویدئو ← محدودیت‌ها/Copyright دیده می‌شود. گزینه‌ها: بریدنِ همان بازه در Studio (نشانی و بازدید می‌ماند)، جایگزینیِ آهنگ (فقط ' +
+                'اگر ادعا روی آهنگ باشد)، یا ساختِ دوبارهٔ ویدئو بی آن تکه. هر تغییر روی ویدئوی عمومی با تصمیمِ شماست.';
+      try {
+        logSelfFinding_(hub, { priority: 'جدی', category: 'یوتیوب', key: 'yt-claim-' + v, title: 'Content-ID: ' + String(p.title || k).slice(0, 60) + ' — ' + what,
+                               detail: txt + ' ' + url, instruction: '', owner: 'کاربر' });
+      } catch (eF) {}
+      try { if (tgEnabled_()) tgSend_('⚠️ ' + tgEsc_(txt) + '\n' + url); } catch (eT) {}
+      try { mailQueue_('yt-claim', 'یوتیوب — حقِ نشر', txt + '\n' + url); } catch (eM) {}
+    });
+  }
+  st.at = nowS; st.v = seen; st.checked = out.checked; st.seenIds = vids.slice(-150); st.hit = out.hit.slice(0, 20); st.why = out.why;
+  try { props_().setProperty(PK.YT_CLAIM_WATCH, JSON.stringify(st)); } catch (eS) {}
+  return out;
+}
+/** خطِ روزانه، از Properties (بی خواندنِ یوتیوب). */
+function ytClaimWatchLine_() {
+  var st = ytClaimState_();
+  if (!st.at) return { line: 'حقِ نشرِ یوتیوب: هنوز سنجیده نشده.', hit: [], blind: [] };
+  var h = st.hit || [];
+  /* خودآزمون: ویدئوهایی که صاحبِ کانال در Studio مسدود دیده (`YT_CLAIM_KNOWN`). اگر این راه آن‌ها را سالم ببیند، یعنی Data API
+     این نوع مسدودی را نشان نمی‌دهد — و «هیچ مسدودی‌ای نیست» دروغ می‌شد. */
+  var known = (CFG.YT_CLAIM_KNOWN || []).map(String), blind = known.filter(function (v) {
+    return (st.seenIds || []).indexOf(v) !== -1 && !h.some(function (x) { return x.vid === v; });
+  });
+  var base = h.length ? '⚠️ حقِ نشرِ یوتیوب (' + st.at + '): ' + h.map(function (x) { return (x.key || x.vid) + ' — ' + x.what; }).join(' · ') +
+                        ' — جزئیات در Studio ← Copyright.'
+                      : 'حقِ نشرِ یوتیوب: ' + (st.checked || 0) + ' ویدئو سنجیده شد، هیچ مسدودی‌ای از این راه دیده نشد (' + st.at + ').';
+  if (blind.length) base += ' ⚠️ ولی ' + blind.length + ' ویدئویی که در Studio مسدود است این‌جا سالم دیده شد — Data API این مسدودی را ' +
+                            'نشان نمی‌دهد؛ شاهدِ قطعی فقط Studio ← Copyright است.';
+  return { at: st.at, checked: st.checked || 0, hit: h, blind: blind, line: base };
+}
+
 function ytStatus_() {
   var out = { enabled: CFG.YT_ENABLED !== false, service: !!ytSvc_(), why: ytOffWhy_(),
               published: 0, unlisted: 0, failed: 0, due: 0, waitingRender: 0,
@@ -12166,6 +12288,7 @@ function ytStatus_() {
   /* ترتیبِ پلی‌لیست‌ها و جایگزینی‌ها (۸.۵۷) — از Properties، بی خواندنِ یوتیوب. */
   try { out.plOrder = ytPlOrderState_(); out.plOrderLine = ytPlOrderLine_(); } catch (e7) {}
   try { out.titleFix = ytTitleSweepStatus_(); } catch (e7b) { out.titleFix = null; }
+  try { out.claims = ytClaimWatchLine_(); } catch (e7c) { out.claims = null; }   // ۱۴.۱
   try { out.replace = ytReplaceStatus_(); } catch (e8) { out.replace = null; }
   try { out.kick = ghKickStatus_(); } catch (e9) { out.kick = null; }
   out.line = ytLine_(out);

@@ -42,6 +42,10 @@ function mkWav(rate, ch, bits, seconds, sampleAt) {
   return b.map(x => x > 127 ? x - 256 : x);
 }
 
+/* ۱۴.۱: بانکِ این آزمون ستونِ «منبع» ندارد و سدِ مجوز آن را درست بیرون می‌گذاشت. این مجموعه انتخاب و پخش را می‌سنجد؛
+   سدِ مجوز در run_v141 (۲.۱/۲.۲) سنجیده می‌شود. */
+CFG.MUSIC_LICENSE_STRICT = false;
+
 console.log('\n=== ۱. خواندنِ هدرِ WAV ===');
 {
   const w = mkWav(44100, 2, 16, 0.5, () => 1000);

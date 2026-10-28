@@ -1649,6 +1649,17 @@ function vintTrainWatch_(doc) {
         changed = true;               // اجرای تازه بی دورِ تازه: ثبت، بی خبر
       }
     }
+    /* ۱۴.۱: سدِ پهنای باند — همان بارِ اولی که گزارشش در دفتر آمد، با شمار و شمارهٔ ضبط‌های کنارگذاشته. */
+    var bd = r.band && typeof r.band === 'object' ? r.band : null;
+    var bSig = bd ? [bd.kept, bd.files, bd.minHz].join('/') : '';
+    if (bd && (!prev || prev.band !== bSig)) {
+      out.msgs.push('📶 ' + what + ' — پهنای باندِ واقعیِ ضبط‌ها: ' + fa(bd.kept) + ' از ' + fa(bd.files) + ' پرباند (لبه ≥ ' +
+                    fa(Math.round((Number(bd.minHz) || 0) / 100) / 10) + ' کیلوهرتز)' +
+                    ((bd.low || []).length ? '؛ کنار: ' + bd.low.map(function (x) { return 'ضبطِ ' + fa(x[0]) + ' (' + (x[1] == null ? '؟' : fa(Math.round(x[1] / 100) / 10) + ' کیلوهرتز') + ')'; }).join('، ') : '') +
+                    (Number(bd.kept) < 5 ? '. کمتر از ۵ ضبط ⇒ آموزش شروع نشد؛ ضبطِ تازه با کیفیتِ بالاتر لازم است.' : '. آموزش فقط با همین‌ها.'));
+      changed = true;
+    }
+    cur.band = bSig || (prev ? prev.band : '');
     if (changed) { cur.ch = now; cur.quiet = 0; }
     else if (now - cur.ch >= quietMs && now - (cur.quiet || 0) >= quietMs) {
       out.msgs.push('⏳ ' + what + ' ' + fa(Math.round((now - cur.ch) / 3600000)) + ' ساعت است هیچ ' +

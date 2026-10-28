@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 14.0
+ *  موتور محتوا و پادکست — نسخهٔ 14.1
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -946,6 +946,13 @@ var CFG = {
   WD_ENRICH_DAYS: 2,           // تسکِ غنی‌سازی (هر ساعت)
   WD_RENDER_DAYS: 1,           // اکشنِ رندر (GitHub، هر ساعت)
   WD_RENDER_HOURS: 6,          // ۱۳.۹: «رندر ۶ ساعت بی آپلود» — سلامتی و ناظر از این ساعت ایراد می‌گویند
+  YT_RELEASE_PRUNE: true,      // ۱۴.۱: mp4ِ قسمت‌های منتشرشده که در درایو هستند از ریلیزِ renders پاک می‌شود
+  YT_PRUNE_DAYS: 2,
+  YT_PRUNE_MARK_MAX: 40,
+  YT_CLAIM_WATCH: true,        // ۱۴.۱: اثرِ Content-ID (مسدودی/رد) روی ویدئوهای منتشرشده
+  YT_CLAIM_HOURS: 6,
+  YT_CLAIM_MAX: 100,
+  YT_CLAIM_KNOWN: ['-VvEBkl9KVM', '-l1rMaPuH1I'],   // ۱۴.۱: مسدود به گواهِ Studio (۸۵ بخشی، ۸۲ کامل) — خودآزمونِ دیده‌شدن
   YT_PL_MISSING_MAX: 10,       // ۱۴.۰: ویدئوی جامانده از پلی‌لیست که در هر دورِ ترتیب به ته افزوده می‌شود
   YT_REL_ASSET_WARN: 800,      // ۱۳.۹: ریلیزِ «renders» بیش از ۱۰۰۰ فایل نمی‌پذیرد؛ از این عدد هشدار
   REPEAT_ALERT: 10,            // این‌قدر یافتهٔ تکراری = حلقه بسته نمی‌شود
@@ -1784,7 +1791,7 @@ var CFG = {
   MUSIC_BANK_MAX: 0,
   /* مجوز (۹.۷۹): «جوری نباشه که غیرقانونی باشه و بعداً یوتیوب ویدئو رو ممنوع کنه.» غیرتجاری (NC) و بی‌تغییر (ND) نه آورده
      می‌شوند نه پخش. «نامعلوم» برچسب می‌خورد و در کارت پرسیده می‌شود؛ با true حتی پخش هم نمی‌شود. */
-  MUSIC_LICENSE_STRICT: false,
+  MUSIC_LICENSE_STRICT: true,    // ۱۴.۱: «فقط منبع‌های واقعاً royalty-free/CC0» — نامعلوم نه آورده می‌شود نه پخش (کنار، نه پاک)
   // اشباعِ امتیازِ «کم‌مصرف‌تر جلوتر». تا ۵٫۶۴ عددش ۵ بود، پس وقتی همهٔ
   // قطعه‌ها پنج بار پخش می‌شدند این معیار از کار می‌افتاد و نوبت‌دهی کور
   // می‌شد — دقیقاً همان‌جا که تازه لازم می‌شد.
@@ -2369,7 +2376,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '14.0',
+  CODE_VERSION: '14.1',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2790,7 +2797,10 @@ var CFG = {
     /* ۱۳.۹: او هر سه نسخهٔ بم‌تر را شنید — «ه هنوز خ؛ و س، ش، چ، ج مثلِ کسی که زبانش می‌گیرد». همان مبدأ، در همان اجرا: Charonِ خام
        (بی تبدیل)، مدلِ پیشینِ گلدوز (از «پیشین»، که گفته بود شبیه‌تر است)، تبدیلِ ملایم (index_rate ۰٫۵، protect ۰٫۵) و بهترینِ تازه (گامِ ۰،
        «خ» نرم) — و سنجشِ سایشی‌ها در هر مرحله (`fricScan`: مرکزِ طیف، تیزی، «خ‌شدگیِ ه»). فقط نمونه؛ تولید دست نمی‌خورد. */
-    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · گامِ ۰ · مقایسه: Charon خام · مدلِ پیشین · تبدیلِ ملایم · بهترینِ تازه · سنجشِ سایشی‌ها', nospans: true, voice: 'Charon', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true, hx: 'soft', variants: 'raw,old,mild:0.5/0.5' }
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · گامِ ۰ · مقایسه: Charon خام · مدلِ پیشین · تبدیلِ ملایم · بهترینِ تازه · سنجشِ سایشی‌ها', nospans: true, voice: 'Charon', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true, hx: 'soft', variants: 'raw,old,mild:0.5/0.5' },
+    /* ۱۴.۱: همان مقایسه **پس از** بازآموزیِ r3-band (فقط ضبط‌های پرباند) — ساخته نمی‌شود تا آن آموزش «آماده» شود
+       (`afterRetrain`). «پیشین» آن‌وقت مدلِ r2 است؛ سنجهٔ سایشی‌ها مدلِ تازه را کنارِ Charonِ خام می‌گذارد. */
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · گامِ ۰ · پس از بازآموزیِ r3-band · Charon خام · مدلِ پیشین · بهترینِ تازه · سنجشِ سایشی‌ها', nospans: true, voice: 'Charon', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true, hx: 'soft', variants: 'raw,old', afterRetrain: 'r3-band' }
   ],
   VBR_Q_CRACK_PER_MIN: 2.5,       // ۱۳.۱ (سنجیده: رضوی ۱٫۸، گلدوز ۳٫۳ تا ۶٫۶): بیش از این شکستنِ صدا در دقیقه ⇒ ساختِ دوباره، و اگر باز ⇒ صوتِ قسمت جای اصلی نمی‌نشیند
   VBR_Q_JITTER_ST: 0.18,          // ۱۳.۱ (سنجیده: گفتارِ واقعی ۰٫۱۲ تا ۰٫۱۳، لرزشِ ساختگیِ ±۱٫۲ نیم‌پرده ۰٫۲۱): میانگینِ لرزشِ زیروبم (نیم‌پرده بینِ دو قابِ ۲۰ میلی‌ثانیه‌ای)
@@ -2911,9 +2921,12 @@ var CFG = {
      `docs/voices.json`): فایلی که وسطِ آموزش به پوشه اضافه شود، اثرِ انگشتِ
      دیتاست را عوض می‌کرد و `freshStart_` آموزشِ چندروزه را از صفر می‌گرفت. */
   VOICE_RETRAIN: {
-    'spk-1g0r95d': { tag: 'r2-22k', since: '2026-09-29',
-                     why: 'سی ضبطِ ۲۲ کیلوهرتزیِ ۲۹ سپتامبر؛ مدلِ فعلی از ضبط‌های ۱۱ ' +
-                          'کیلوهرتزی آموخته و بالای ~۵٫۵ کیلوهرتز چیزی ندیده' }
+    /* ۱۴.۱ (تأییدِ صاحبِ برنامه، ۲۸ اکتبر): r2-22k هم «س/ش» را کُند ساخت — سنجهٔ سایشی‌ها روی خروجی: مرکزِ طیف ۷٫۶ ⇐ ۳٫۵
+       کیلوهرتز، تیزی ‎−۱۴٫۶ دسی‌بل. نرخِ سرآیند ۲۲ کیلوهرتز بود ولی پهنای باندِ واقعی نه. r3-band همان فایل‌هاست با سدِ
+       `voicetrain.bandGate_` (لبه ≥ ۹ کیلوهرتز، کمینه ۵ ضبط) — و اثرِ انگشتِ تازه، پس از کشِ r2 هرگز ادامه نمی‌دهد. */
+    'spk-1g0r95d': { tag: 'r3-band', since: '2026-09-29',
+                     why: 'بازآموزی فقط با ضبط‌های پرباند (لبهٔ واقعیِ طیف ≥ ۹ کیلوهرتز)؛ r2-22k با نرخِ ۲۲ کیلوهرتز ' +
+                          'هم «س/ش» را کُند می‌ساخت' }
   },
   /* ══ آموزش زیرِ نظر، در تلگرام (۸.۴۳) ══
      هر تغییرِ گام یا دور، هر درجازدن و هر شکست همان ساعت به تلگرام می‌رود؛
@@ -3587,7 +3600,8 @@ var PK = {
   YT_DESC_MINE: 'YT_DESC_MINE',
   YT_CHAN_MINE: 'YT_CHAN_MINE',    // ۱۱.۸: اثرِ انگشتِ «دربارهٔ کانال» و کلیدواژه‌هایی که موتور نوشت    // ۱۱.۶: اثرِ انگشتِ توضیحی که موتور نوشت {videoId: fp} — ویرایشِ Studio از روی آن شناخته می‌شود
   YT_DESC_ARCH: 'YT_DESC_ARCH',    // ۱۱.۰: بایگانیِ توضیحاتِ ویدئوهای بلند در تلگرام {rev, done[], at}
-  YT_CLAIMS: 'YT_CLAIMS',         // ۱۲.۵: ویدئوهای محدودشده (rejectionReason/regionRestriction) — فقط سنجش
+  YT_CLAIMS: 'YT_CLAIMS',
+  YT_PRUNE_AT: 'YT_PRUNE_AT',          // ۱۴.۱: آخرین علامت‌گذاریِ پاک‌کردنِ ریلیز         // ۱۲.۵: ویدئوهای محدودشده (rejectionReason/regionRestriction) — فقط سنجش
   BIO_TG_AT: 'BIO_TG_AT',         // ۱۲.۲: آخرین فرستادنِ هفتگیِ پیشنهادِ بیوها به تلگرام
   MUSIC_SEEK_LAST: 'MUSIC_SEEK_LAST', // ۱۲.۸: نتیجهٔ گشتن و آوردنِ موسیقیِ آخرین شب — در _STATUS.music.seekLast
   JUDGE_TICK_AT: 'JUDGE_TICK_AT',    // ۱۳.۰: آخرین زمان‌بندیِ داوریِ ادامه‌دار
@@ -3637,6 +3651,7 @@ var PK = {
   MR_STATE: 'MUSIC_REVIEW_STATE',  // ۹.۷۵: {offset, day, dayN, first, hotUntil, answeredAt, lastSentAt, nagAt, nm[], polledAt}
   IG_STATE: 'IG_REELS_STATE',      // ۹.۲۱: {done, inflight[], fails{}, stats{published, day, dayN}, armedAt, ranAt, lastWhy}
   GH_KICK: 'GH_KICK_STATE',        // {<wf>: {at, okAt, code, n, nDay, day, fail, why, fp}, exp}
+  YT_CLAIM_WATCH: 'YT_CLAIM_WATCH',    // ۱۴.۱: حالِ Content-ID هر ویدئو و آخرین سنجش (جدا از YT_CLAIMSِ ۱۲.۵)
   GH_RENDER_SINCE: 'GH_RENDER_SINCE',  // ۱۳.۹: نخستین لحظهٔ همین نوبتِ انتظار (بازنویسی نمی‌شود)
   GH_RENDER_TOLD: 'GH_RENDER_TOLD',    // ۱۳.۹: برای کدام SINCE پیامِ «گیر کرده» رفت
   GH_RENDER_DUE: 'GH_RENDER_DUE',  // «کاری برای رانر نوشته شد» — زمان|علت
@@ -21061,6 +21076,7 @@ function healthCheck() {
   try { var hyp = ytHypoRun_(); if (hyp && hyp.line) notes.push(hyp.line); } catch (eHy) {}   // ۱۲.۰: فقط سنجش
   try { bioSuggest_(false); } catch (eBio) {}   // ۱۲.۲: پیشنهادِ بیوها، هفتگی به تلگرام
   try { var clL = ytClaimLine_(); if (clL) notes.push(clL); } catch (eCl) {}   // ۱۲.۵: فقط سنجش
+  try { var clW = ytClaimWatchLine_(); if (clW && clW.line) (clW.hit.length || clW.blind.length ? problems : notes).push(clW.line); } catch (eCw) {}   // ۱۴.۱
   try { var fbS = fbStatus_(); if (fbS.on || fbS.queued) notes.push(fbS.line); } catch (eFs) {}
   try { var spS = seriesParStatus_(); if (spS.line) notes.push(spS.line); } catch (eSp) {}
   try { var ytOffL = ytShowsOffLine_(); if (ytOffL) notes.push(ytOffL); } catch (eYo) {}
@@ -42671,7 +42687,8 @@ function musicBank_(hub) {
     /* ۹.۷۹: مجوزی که کانالِ درآمددار را به خطر می‌اندازد هرگز پخش نمی‌شود — قطعه‌هایی که پیش از این سد آمده‌اند هم. */
     var licI = musicLicense_(String(v[i][MC.SRC - 1] || '') + ' ' + String(v[i][MC.NOTE - 1] || ''));
     if (licI.ok === false) continue;
-    if (licI.ok === null && CFG.MUSIC_LICENSE_STRICT === true && !(rvi && rvi.verdict === 'تأیید')) continue;
+    /* ۱۴.۱: تأییدِ سلیقه در تلگرام مجوز نیست — Content-ID به سلیقه کاری ندارد. نامعلوم پخش نمی‌شود؛ فایل سرِ جایش می‌ماند. */
+    if (licI.ok === null && CFG.MUSIC_LICENSE_STRICT !== false) continue;
     out.push({
       row: i + 2, id: String(v[i][MC.ID - 1]), name: String(v[i][MC.NAME - 1] || ''),
       kind: String(v[i][MC.KIND - 1] || 'موسیقی'),
@@ -45256,7 +45273,7 @@ function musicSeek_(slots, sfxOnly, optS) {
       if (!meta || !meta.files) continue;
       var lic = String((meta.metadata && meta.metadata.licenseurl) || docs[di].licenseurl || '');
       if (!lic) continue;                       // مجوزِ نامعلوم = رد
-      if (musicLicense_(lic).ok === false) continue;   // ۹.۷۹: غیرتجاری (NC) و بی‌تغییر (ND) هم رد
+      if (musicLicense_(lic).ok !== true) continue;   // ۹.۷۹: NC/ND رد؛ ۱۴.۱: نامعلوم هم — فقط مالکیتِ عمومی/CC0/CC BY
       var title = String((meta.metadata && meta.metadata.title) || docs[di].title || id);
       // ارزان‌ترین سد: نامی که خودش می‌گوید گفتار است، اصلاً دانلود نشود
       var pre = musicIsSpeech_(null, null, title + ' ' + id);
@@ -45367,7 +45384,7 @@ function musicSeek_(slots, sfxOnly, optS) {
       if (!smeta || !smeta.files) continue;
       var slic = String((smeta.metadata && smeta.metadata.licenseurl) || sdocs[sd].licenseurl || '');
       if (!slic) continue;
-      if (musicLicense_(slic).ok === false) continue;            // ۹.۷۹: NC/ND هرگز
+      if (musicLicense_(slic).ok !== true) continue;             // ۹.۷۹: NC/ND هرگز؛ ۱۴.۱: نامعلوم هم
       /* افکت کوتاه است؛ فایلِ چندمگابایتی احتمالاً یک آلبومِ کامل است.
          ۹.۷۹: تا ۸ فایل از هر اثر (کتابخانه‌های جلوه ده‌ها فایل دارند و تا ۹.۷۸ فقط یکی برداشته می‌شد)، و هر کدام با
          **عنوانِ خودِ کتابخانه** — عنوانِ فایل در شناسنامهٔ اثر، وگرنه نامِ فایل بی پسوند — و دسته‌ای که از همان عنوان و
@@ -53522,7 +53539,7 @@ function ytAudioParts_(folder) {
  */
 function ytRenderBuilt_(row, map) {
   var rec = map && row ? map[String(row.key)] : null;
-  if (!rec || !rec.url) return null;
+  if (!rec || !rec.url || rec.pruned) return null;    // ۱۴.۱: فایلِ پاک‌شده از ریلیز، برداشتنی نیست
   if (row.replace && String(rec.replace || '') !== String(row.replace)) return null;
   return rec;
 }
@@ -63925,6 +63942,13 @@ function ytTick_(budgetMs) {
     try { ytRedoStuckNightly_(Math.min(45000, left() - 20000)); ytStuckTickMark_(); }
     catch (eSt) { out.why += (out.why ? ' · ' : '') + 'گیرکرده‌ها: ' + String(eSt.message).slice(0, 60); }
   }
+  /* ۱۴.۱: Content-ID — مسدودی و ردِ ویدئوهای منتشرشده، هر YT_CLAIM_HOURS یک بار (هر ۵۰ ویدئو یک واحد). */
+  if (left() > 40000 && ytRenderPruneDue_()) {
+    try { ytRenderPruneMark_(Math.min(30000, left() - 30000)); } catch (ePm) { out.why += (out.why ? ' · ' : '') + 'ریلیز: ' + String(ePm.message).slice(0, 60); }
+  }
+  if (left() > 20000 && ytClaimDue_()) {
+    try { ytClaimScan_(); } catch (eCl) { out.why += (out.why ? ' · ' : '') + 'حقِ نشر: ' + String(eCl.message).slice(0, 60); }
+  }
   /* هشدارِ «نقشهٔ نحیف» برای درسی که منتشر شده، دیگر جبران‌شدنی نیست (۸.۵۴). */
   if (left() > 15000) {
     try { lvThinPrune_(); } catch (eTp) {}
@@ -63969,6 +63993,121 @@ function ytTick_(budgetMs) {
  * می‌داند باید در `_STATUS.json` و در یک جملهٔ فارسیِ آمادهٔ ایمیل باشد،
  * **هر روز، حتی وقتی همه‌چیز خوب است**. سکوت را نمی‌شود از سلامت تشخیص داد.
  */
+/* ══ Content-ID پس از انتشار (۱۴.۱) ══
+ * «از همه جا» ۸۵ «Organ Variation — Hans Zimmer» خورد (در برخی کشورها مسدود) و ۸۲ کامل مسدود شد — و موتور هیچ‌کدام را نمی‌دانست؛
+ * صاحبِ کانال در Studio دید. Data API جزئیاتِ ادعا (مدعی، بازه) را به کانالِ معمولی نمی‌دهد — آن فقط در Studio است — ولی **اثرِ**
+ * ادعا را می‌دهد: `contentDetails.regionRestriction` (کشورهای مسدود/مجاز) و `status.uploadStatus = rejected` با `rejectionReason`.
+ * پس موتور اثر را می‌خوانَد، در تبِ «گزارش‌های نظارت» ثبت می‌کند (یک ردیف برای هر ویدئو، با کلیدِ خودش) و یک بار به تلگرام
+ * می‌گوید؛ «چه کسی و کدام بازه» را صاحبِ کانال در Studio ← Copyright می‌بیند و پیام همین را می‌گوید.
+ */
+/**
+ * ۱۴.۱ — «پاک‌کردنِ فایل‌های ریلیزِ قسمت‌های منتشرشده = بله (نسخهٔ درایو بماند و قبل از پاک‌کردن وجودش تأیید شود)».
+ * هر کلید فقط وقتی به `prune`ِ صف می‌رود که سه چیز را **همین‌جا** سنجیده باشیم: ردیفِ رندر «رسید» است و دست‌کم
+ * `YT_PRUNE_DAYS` روز گذشته، در دفترِ انتشار شناسهٔ ویدئو دارد، و در پوشهٔ قسمت یک mp4ِ بزرگ‌تر از یک مگابایت هست.
+ * رانر فقط همین فهرست را پاک می‌کند؛ خودش هیچ داوری‌ای نمی‌کند.
+ */
+function ytRenderPruneMark_(budgetMs, hubIn) {
+  var out = { added: 0, checked: 0, noDrive: 0, why: '' };
+  if (CFG.YT_RELEASE_PRUNE === false) { out.why = 'خاموش'; return out; }
+  var d = ytRenderRead_(), pub = ytPublished_(hubIn || getHub_());
+  d.prune = Array.isArray(d.prune) ? d.prune : [];
+  var minMs = Math.max(1, Number(CFG.YT_PRUNE_DAYS) || 2) * 86400000, now = new Date().getTime(), t0 = now;
+  var budget = Math.max(5000, Number(budgetMs) || 30000), cap = Math.max(1, Number(CFG.YT_PRUNE_MARK_MAX) || 40);
+  for (var i = 0; i < d.items.length && out.added < cap; i++) {
+    if (new Date().getTime() - t0 > budget) { out.why = 'وقتِ این دور تمام شد'; break; }
+    var it = d.items[i], k = String(it.key || '');
+    if (!k || /-نمونه$/.test(k) || String(it.status || '') !== 'رسید' || d.prune.indexOf(k) !== -1) continue;
+    var td = parseWhen_(String(it.doneAt || ''));
+    if (isNaN(td) || now - td < minMs) continue;
+    if (!(pub[k] && pub[k].videoId)) continue;
+    out.checked++;
+    var fo = null, v = null;
+    try { fo = it.folderId ? DriveApp.getFolderById(String(it.folderId)) : ytFolderOf_(it.show, it.ep, ''); v = fo ? ytVideoIn_(fo) : null; } catch (eF) { v = null; }
+    var sz = 0; try { sz = v ? v.getSize() : 0; } catch (eS) {}
+    if (!v || sz < 1000000) { out.noDrive++; continue; }
+    d.prune.push(k); out.added++;
+  }
+  if (d.prune.length > 400) d.prune = d.prune.slice(-400);
+  if (out.added) ytRenderSave_(d);
+  try { props_().setProperty(PK.YT_PRUNE_AT, JSON.stringify({ at: nowStr_(), added: out.added, total: d.prune.length, noDrive: out.noDrive })); } catch (eP) {}
+  return out;
+}
+function ytRenderPruneDue_() {
+  var st = {}; try { st = JSON.parse(props_().getProperty(PK.YT_PRUNE_AT) || '{}') || {}; } catch (e) {}
+  var t = parseWhen_(String(st.at || ''));
+  return CFG.YT_RELEASE_PRUNE !== false && (isNaN(t) || (new Date().getTime() - t) / 3600000 >= 20);
+}
+
+function ytClaimDue_() {
+  if (CFG.YT_CLAIM_WATCH === false) return false;
+  var st = ytClaimState_(), t = parseWhen_(String(st.at || ''));
+  return isNaN(t) || (new Date().getTime() - t) / 3600000 >= Math.max(1, Number(CFG.YT_CLAIM_HOURS) || 6);
+}
+function ytClaimState_() {
+  try { return JSON.parse(props_().getProperty(PK.YT_CLAIM_WATCH) || '{}') || {}; } catch (e) { return {}; }
+}
+/** خلاصهٔ اثرِ ادعا روی یک قلمِ videos.list: '' یعنی سالم. */
+function ytClaimOf_(it) {
+  if (!it) return '';
+  var st = it.status || {}, rr = (it.contentDetails && it.contentDetails.regionRestriction) || null;
+  if (String(st.uploadStatus || '') === 'rejected') return 'رد شد: ' + String(st.rejectionReason || '—');
+  if (rr && rr.allowed && !rr.allowed.length) return 'در همهٔ کشورها مسدود';
+  if (rr && rr.allowed && rr.allowed.length) return 'فقط در ' + rr.allowed.length + ' کشور دیده می‌شود';
+  if (rr && rr.blocked && rr.blocked.length) return 'در ' + rr.blocked.length + ' کشور مسدود' + (rr.blocked.length <= 6 ? ' (' + rr.blocked.join('، ') + ')' : '');
+  return '';
+}
+function ytClaimScan_(hubIn) {
+  var out = { checked: 0, hit: [], why: '' };
+  var yt = ytSvc_(); if (!yt || !yt.Videos) { out.why = 'یوتیوب در دسترس نیست'; return out; }
+  var hub = hubIn || getHub_(), pub = ytPublished_(hub), vids = [], keyOf = {};
+  Object.keys(pub).forEach(function (k) { var v = pub[k].videoId; if (v && !keyOf[v]) { keyOf[v] = k; vids.push(v); } });
+  vids = vids.slice(-Math.max(10, Number(CFG.YT_CLAIM_MAX) || 100));
+  var st = ytClaimState_(), seen = st.v || {}, nowS = nowStr_();
+  for (var i = 0; i < vids.length; i += 50) {
+    if (!ytQuotaTake_(YT_COST.videosList, false)) { out.why = 'سهمیهٔ امروز'; break; }
+    var vl = yt.Videos.list('status,contentDetails', { id: vids.slice(i, i + 50).join(','), maxResults: 50 });
+    ((vl && vl.items) || []).forEach(function (it) {
+      out.checked++;
+      var v = String(it.id), what = ytClaimOf_(it), k = keyOf[v] || '';
+      var prev = seen[v] || {};
+      if (!what) { if (prev.what) seen[v] = { what: '', at: nowS, was: prev.what }; return; }
+      out.hit.push({ key: k, vid: v, what: what });
+      if (prev.what === what) return;                      // همان حالِ قبلی ⇒ خبرِ تازه نیست
+      seen[v] = { what: what, at: nowS, key: k };
+      var p = pub[k] || {}, url = 'https://www.youtube.com/watch?v=' + v;
+      var txt = 'حقِ نشرِ یوتیوب (Content-ID): «' + String(p.title || k) + '» — ' + what + '. جزئیات (مدعی و بازه) فقط در Studio ← محتوا ← ' +
+                'همین ویدئو ← محدودیت‌ها/Copyright دیده می‌شود. گزینه‌ها: بریدنِ همان بازه در Studio (نشانی و بازدید می‌ماند)، جایگزینیِ آهنگ (فقط ' +
+                'اگر ادعا روی آهنگ باشد)، یا ساختِ دوبارهٔ ویدئو بی آن تکه. هر تغییر روی ویدئوی عمومی با تصمیمِ شماست.';
+      try {
+        logSelfFinding_(hub, { priority: 'جدی', category: 'یوتیوب', key: 'yt-claim-' + v, title: 'Content-ID: ' + String(p.title || k).slice(0, 60) + ' — ' + what,
+                               detail: txt + ' ' + url, instruction: '', owner: 'کاربر' });
+      } catch (eF) {}
+      try { if (tgEnabled_()) tgSend_('⚠️ ' + tgEsc_(txt) + '\n' + url); } catch (eT) {}
+      try { mailQueue_('yt-claim', 'یوتیوب — حقِ نشر', txt + '\n' + url); } catch (eM) {}
+    });
+  }
+  st.at = nowS; st.v = seen; st.checked = out.checked; st.seenIds = vids.slice(-150); st.hit = out.hit.slice(0, 20); st.why = out.why;
+  try { props_().setProperty(PK.YT_CLAIM_WATCH, JSON.stringify(st)); } catch (eS) {}
+  return out;
+}
+/** خطِ روزانه، از Properties (بی خواندنِ یوتیوب). */
+function ytClaimWatchLine_() {
+  var st = ytClaimState_();
+  if (!st.at) return { line: 'حقِ نشرِ یوتیوب: هنوز سنجیده نشده.', hit: [], blind: [] };
+  var h = st.hit || [];
+  /* خودآزمون: ویدئوهایی که صاحبِ کانال در Studio مسدود دیده (`YT_CLAIM_KNOWN`). اگر این راه آن‌ها را سالم ببیند، یعنی Data API
+     این نوع مسدودی را نشان نمی‌دهد — و «هیچ مسدودی‌ای نیست» دروغ می‌شد. */
+  var known = (CFG.YT_CLAIM_KNOWN || []).map(String), blind = known.filter(function (v) {
+    return (st.seenIds || []).indexOf(v) !== -1 && !h.some(function (x) { return x.vid === v; });
+  });
+  var base = h.length ? '⚠️ حقِ نشرِ یوتیوب (' + st.at + '): ' + h.map(function (x) { return (x.key || x.vid) + ' — ' + x.what; }).join(' · ') +
+                        ' — جزئیات در Studio ← Copyright.'
+                      : 'حقِ نشرِ یوتیوب: ' + (st.checked || 0) + ' ویدئو سنجیده شد، هیچ مسدودی‌ای از این راه دیده نشد (' + st.at + ').';
+  if (blind.length) base += ' ⚠️ ولی ' + blind.length + ' ویدئویی که در Studio مسدود است این‌جا سالم دیده شد — Data API این مسدودی را ' +
+                            'نشان نمی‌دهد؛ شاهدِ قطعی فقط Studio ← Copyright است.';
+  return { at: st.at, checked: st.checked || 0, hit: h, blind: blind, line: base };
+}
+
 function ytStatus_() {
   var out = { enabled: CFG.YT_ENABLED !== false, service: !!ytSvc_(), why: ytOffWhy_(),
               published: 0, unlisted: 0, failed: 0, due: 0, waitingRender: 0,
@@ -64059,6 +64198,7 @@ function ytStatus_() {
   /* ترتیبِ پلی‌لیست‌ها و جایگزینی‌ها (۸.۵۷) — از Properties، بی خواندنِ یوتیوب. */
   try { out.plOrder = ytPlOrderState_(); out.plOrderLine = ytPlOrderLine_(); } catch (e7) {}
   try { out.titleFix = ytTitleSweepStatus_(); } catch (e7b) { out.titleFix = null; }
+  try { out.claims = ytClaimWatchLine_(); } catch (e7c) { out.claims = null; }   // ۱۴.۱
   try { out.replace = ytReplaceStatus_(); } catch (e8) { out.replace = null; }
   try { out.kick = ghKickStatus_(); } catch (e9) { out.kick = null; }
   out.line = ytLine_(out);
@@ -75078,6 +75218,17 @@ function vintTrainWatch_(doc) {
         changed = true;               // اجرای تازه بی دورِ تازه: ثبت، بی خبر
       }
     }
+    /* ۱۴.۱: سدِ پهنای باند — همان بارِ اولی که گزارشش در دفتر آمد، با شمار و شمارهٔ ضبط‌های کنارگذاشته. */
+    var bd = r.band && typeof r.band === 'object' ? r.band : null;
+    var bSig = bd ? [bd.kept, bd.files, bd.minHz].join('/') : '';
+    if (bd && (!prev || prev.band !== bSig)) {
+      out.msgs.push('📶 ' + what + ' — پهنای باندِ واقعیِ ضبط‌ها: ' + fa(bd.kept) + ' از ' + fa(bd.files) + ' پرباند (لبه ≥ ' +
+                    fa(Math.round((Number(bd.minHz) || 0) / 100) / 10) + ' کیلوهرتز)' +
+                    ((bd.low || []).length ? '؛ کنار: ' + bd.low.map(function (x) { return 'ضبطِ ' + fa(x[0]) + ' (' + (x[1] == null ? '؟' : fa(Math.round(x[1] / 100) / 10) + ' کیلوهرتز') + ')'; }).join('، ') : '') +
+                    (Number(bd.kept) < 5 ? '. کمتر از ۵ ضبط ⇒ آموزش شروع نشد؛ ضبطِ تازه با کیفیتِ بالاتر لازم است.' : '. آموزش فقط با همین‌ها.'));
+      changed = true;
+    }
+    cur.band = bSig || (prev ? prev.band : '');
     if (changed) { cur.ch = now; cur.quiet = 0; }
     else if (now - cur.ch >= quietMs && now - (cur.quiet || 0) >= quietMs) {
       out.msgs.push('⏳ ' + what + ' ' + fa(Math.round((now - cur.ch) / 3600000)) + ' ساعت است هیچ ' +
@@ -82837,6 +82988,14 @@ function vtestText_(id) {
   return out;
 }
 
+/** ۱۴.۱: آموزشِ دوبارهٔ `tag` برای این گوینده تمام شده؟ از `docs/voices.json` (`retrainDone`). خوانده‌نشده ⇒ نه. */
+function vbrRetrainDone_(key, tag) {
+  if (!VBR_RT_DOC_) { try { VBR_RT_DOC_ = { d: vintReadResult_() }; } catch (e) { VBR_RT_DOC_ = { d: null }; } }
+  var sp = VBR_RT_DOC_.d && VBR_RT_DOC_.d.speakers && VBR_RT_DOC_.d.speakers[key];
+  return !!(sp && String(sp.retrainDone || '') === String(tag));
+}
+var VBR_RT_DOC_ = null;
+
 function vbrSoulPick_() {
   var out = { ok: false, why: '' };
   var rows = [];
@@ -82896,6 +83055,9 @@ function vbrSoulPick_() {
       var se = sd[sdi] || {};
       if (String(se.speaker || '').trim() !== key) continue;
       if (!se.show || !se.ep) continue;
+      /* ۱۴.۱: بذری که منتظرِ پایانِ یک آموزشِ دوباره است (`afterRetrain`) تا آن آموزش «آماده» نشده ساخته نمی‌شود —
+         وگرنه نمونهٔ «پس از بازآموزی» با مدلِ پیش از آن ساخته و اسمش دروغ می‌شد. */
+      if (se.afterRetrain && !vbrRetrainDone_(key, String(se.afterRetrain))) continue;
       /* ۹.۶۳: کلیدِ هر بذر جدا (`#شماره`) — پیش از این دو بذرِ یک گوینده روی یک قسمت یکی می‌شدند و فقط آخری
          ساخته می‌شد؛ مقایسهٔ دو صدای مبدأ روی یک متن ممکن نبود. */
       var sk = String(se.show) + ':' + String(se.ep) + '#' + sdi;

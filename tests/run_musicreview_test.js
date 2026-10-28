@@ -23,6 +23,8 @@ global.logSelfFinding_ = (h, f) => { findings.push(f); return true; };
 /* بانک: سه قطعه — یکی بسیار پخش‌شده، یکی شنیده‌نشده (مدل داوری نکرده)، یکی «آهنگ». */
 const mk = (name) => global.__ROOT_FOLDER.createFile(Utilities.newBlob(new Array(400).fill(1), 'audio/wav', name));
 const fA = mk('A.wav'), fB = mk('B.wav'), fC = mk('C.wav'), fD = mk('D.wav');
+/* ۱۴.۱: بانکِ این آزمون منبع ندارد؛ سدِ مجوز را run_v141 می‌سنجد. */
+CFG.MUSIC_LICENSE_STRICT = false;
 const mus = ensureTab_(hub, CFG.MUSIC_TAB, MUSIC_HEADERS);
 const row = (f, name, used, heard, slots) => {
   const r = MUSIC_HEADERS.map(() => '');
@@ -381,7 +383,7 @@ console.log('=== ۱۰) «۵ تای بعدی رو زدم و ده دقیقه گذ�
   mus.getRange(b1 + 1, 1, 2, MUSIC_HEADERS.length).setValues([rN, rB]);
   const bank = musicBank_(hub);
   ok('۱۰.۳ قطعهٔ NC که پیش از این سد آمده بود هم دیگر پخش نمی‌شود', !bank.some(b => b.id === fN.getId()) && bank.some(b => b.id === fB2.getId() && b.licCredit));
-  ok('۱۰.۴ جست‌وجو هم NC/ND را نمی‌آورد (موسیقی و افکت)', (fs.readFileSync('src/23_Music.gs', 'utf8').match(/musicLicense_\((s?lic)\)\.ok === false\) continue/g) || []).length === 2);
+  ok('۱۰.۴ جست‌وجو هم NC/ND را نمی‌آورد (موسیقی و افکت)', (fs.readFileSync('src/23_Music.gs', 'utf8').match(/musicLicense_\((s?lic)\)\.ok !== true\) continue/g) || []).length === 2   /* ۱۴.۱: سخت‌تر — نامعلوم هم */);
 
   /* ذکرِ نام در توضیحِ یوتیوب برای قطعهٔ CC BY که در همان قسمت پخش شده. */
   musicMarkUsed_(hub, [{ row: b1 + 2, id: fB2.getId(), name: 'BY.wav', kind: 'موسیقی', slot: 'میانه', used: 0, mood: '', gain: 1, sec: 30 }], 'درس‌نامه 78', CFG.SPECIAL_SHOW_NAME);

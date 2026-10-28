@@ -1028,7 +1028,8 @@ function musicBank_(hub) {
     /* ۹.۷۹: مجوزی که کانالِ درآمددار را به خطر می‌اندازد هرگز پخش نمی‌شود — قطعه‌هایی که پیش از این سد آمده‌اند هم. */
     var licI = musicLicense_(String(v[i][MC.SRC - 1] || '') + ' ' + String(v[i][MC.NOTE - 1] || ''));
     if (licI.ok === false) continue;
-    if (licI.ok === null && CFG.MUSIC_LICENSE_STRICT === true && !(rvi && rvi.verdict === 'تأیید')) continue;
+    /* ۱۴.۱: تأییدِ سلیقه در تلگرام مجوز نیست — Content-ID به سلیقه کاری ندارد. نامعلوم پخش نمی‌شود؛ فایل سرِ جایش می‌ماند. */
+    if (licI.ok === null && CFG.MUSIC_LICENSE_STRICT !== false) continue;
     out.push({
       row: i + 2, id: String(v[i][MC.ID - 1]), name: String(v[i][MC.NAME - 1] || ''),
       kind: String(v[i][MC.KIND - 1] || 'موسیقی'),
@@ -3613,7 +3614,7 @@ function musicSeek_(slots, sfxOnly, optS) {
       if (!meta || !meta.files) continue;
       var lic = String((meta.metadata && meta.metadata.licenseurl) || docs[di].licenseurl || '');
       if (!lic) continue;                       // مجوزِ نامعلوم = رد
-      if (musicLicense_(lic).ok === false) continue;   // ۹.۷۹: غیرتجاری (NC) و بی‌تغییر (ND) هم رد
+      if (musicLicense_(lic).ok !== true) continue;   // ۹.۷۹: NC/ND رد؛ ۱۴.۱: نامعلوم هم — فقط مالکیتِ عمومی/CC0/CC BY
       var title = String((meta.metadata && meta.metadata.title) || docs[di].title || id);
       // ارزان‌ترین سد: نامی که خودش می‌گوید گفتار است، اصلاً دانلود نشود
       var pre = musicIsSpeech_(null, null, title + ' ' + id);
@@ -3724,7 +3725,7 @@ function musicSeek_(slots, sfxOnly, optS) {
       if (!smeta || !smeta.files) continue;
       var slic = String((smeta.metadata && smeta.metadata.licenseurl) || sdocs[sd].licenseurl || '');
       if (!slic) continue;
-      if (musicLicense_(slic).ok === false) continue;            // ۹.۷۹: NC/ND هرگز
+      if (musicLicense_(slic).ok !== true) continue;             // ۹.۷۹: NC/ND هرگز؛ ۱۴.۱: نامعلوم هم
       /* افکت کوتاه است؛ فایلِ چندمگابایتی احتمالاً یک آلبومِ کامل است.
          ۹.۷۹: تا ۸ فایل از هر اثر (کتابخانه‌های جلوه ده‌ها فایل دارند و تا ۹.۷۸ فقط یکی برداشته می‌شد)، و هر کدام با
          **عنوانِ خودِ کتابخانه** — عنوانِ فایل در شناسنامهٔ اثر، وگرنه نامِ فایل بی پسوند — و دسته‌ای که از همان عنوان و

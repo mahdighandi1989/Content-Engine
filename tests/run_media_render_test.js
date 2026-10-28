@@ -248,7 +248,9 @@ console.log('=== ۳) سرتاسری: ویدئوی رسانه‌ای با یک ل
       { n: 4, t0: 36.9, url: url('wphoto.jpg'), say: 'ت', media: { kind: 'photo' } }
     ],
     moments: [{ at: 24.0, url: url('hclip.mp4'), quote: 'عبارتِ کلیپِ افقی', max: 5 }],
-    mute: [[44, 48]] };
+    mute: [[44, 48]],
+    /* کلیپِ آزمون صدای سینوسی دارد که سنجهٔ موسیقیِ ۱۴.۱ درست «موسیقی» می‌خوانَدش؛ این بخش جای‌گذاری را می‌سنجد، دروازه را run_v141. */
+    musicGate: false };
   /* شنیدن بیرون از اکشن نیست؛ جوابِ «پیدا شد» ساختگی است تا مسیرِ برش و لای‌گذاری واقعاً بدود. */
   const realFind = MKIT.find;
   MKIT.find = reqs => reqs.map(r => /افقی/.test(r.quote) ? { found: true, from: 3, to: 5.5, score: 1 }
@@ -563,7 +565,7 @@ console.log('=== ۱۵) لحظه‌ای که تصویرش ساکن است، کن�
                moCut: [{ ok: true, m: { at: 20 }, url: 'S', from: 2, len: 25 }, { ok: true, m: { at: 60 }, url: 'M', from: 2, len: 25 }] };
   const notes = [];
   ff(['-f', 'lavfi', '-i', 'sine=f=300:d=40', '-ac', '1', '-c:a', 'pcm_s16le', P('narr.wav')]);
-  const res = R.spliceMoments({ moments: [{}, {}] }, [{}, {}], mp, silent, P('narr.wav'), dest, d15, notes);
+  const res = R.spliceMoments({ moments: [{}, {}], musicGate: false }, [{}, {}], mp, silent, P('narr.wav'), dest, d15, notes);   // ۱۴.۱: صدای ساختگیِ سینوسی
   MKIT.splice = keepSplice;
   ok('۱۵.۱ کلیپِ ساکن به لای‌گذاری نرسید، کلیپِ متحرک رسید', got && got.length === 1 && got[0].at === 60, JSON.stringify((got || []).map(x => x.at)));
   ok('۱۵.۲ و علت گفته شد (نه بی‌صدا)', res.stat.still === 1 && /ساکن/.test(notes.join(' ')), notes.join(' | '));

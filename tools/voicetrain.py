@@ -246,14 +246,21 @@ def staleWork_(work, sigWas, sigNow):
 # و در ۷٫۲۱ دوباره عوض شد (۲ → ۳): کلیدِ گوینده وارد اثر شد. بی این
 # بالا بردن، کشِ رضوی برای همان هشت فایل «جور» می‌مانْد و اولین
 # گویندهٔ تازه‌ای که همان سقف را داشت، کشِ او را می‌گرفت.
-DS_SIG_VER = 3
+DS_SIG_VER = 4   # ۱۴.۱: سدِ پهنای باند در اثرِ انگشت — کشِ آموزشِ بی‌سد (r2-22k) هرگز «ادامه» خوانده نمی‌شود
+
+# ══ پهنای باندِ واقعی، نه نرخِ سرآیند (۱۴.۱) ══
+# آموزشِ r2-22k روی ضبط‌های «۲۲ کیلوهرتزی» بود و سنجهٔ سایشی‌ها روی خروجی‌اش نشان داد بالای ~۵ کیلوهرتز چیزی نمی‌سازد
+# («س/ش» ۷٫۶ ⇐ ۳٫۵ کیلوهرتز، تیزی ‎−۱۴٫۶ دسی‌بل). نرخِ سرآیند فقط سقفِ ممکن است. هر ضبط پیش از دیتاست با
+# `bandprobe.bandEdge` سنجیده می‌شود؛ زیرِ VT_MIN_BAND_HZ کنار، با نام و عدد. کمتر از VT_MIN_BAND_FILES ⇒ آموزش شروع نمی‌شود.
+MIN_BAND = float(os.environ.get("VT_MIN_BAND_HZ", "9000"))
+MIN_BAND_FILES = int(os.environ.get("VT_MIN_BAND_FILES", "5"))
 
 
 def dsSig_():
     """اثرِ انگشتِ ورودیِ دیتاست — **کدام گوینده**، کدام ضبط‌ها، با چه سقفی."""
     import hashlib
     raw = ("v%d|" % DS_SIG_VER) + VOICE + "|" + "|".join(sorted(DRIVE_IDS)) + \
-        "@" + ("%.1f" % DS_MAX_MIN)
+        "@" + ("%.1f" % DS_MAX_MIN) + ("|band%d" % int(MIN_BAND))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
@@ -546,6 +553,7 @@ def main():
                 "سهمیهٔ درایو است و چند ساعت بعد خودش باز می‌شود؛ اگر "
                 "«permission» بود، اشتراکِ آن فایل باید «هر کسی با لینک» "
                 "شود." % (len(DRIVE_IDS) - len(srcs), len(DRIVE_IDS)))
+        srcs = bandGate_(srcs, out)
         say_("ساختِ دیتاست از %d ضبط" % len(srcs))
         segs, rep = D.buildDataset_(
             srcs, ds, sampleDir=out, totalMax=DS_MAX_MIN * 60.0,
@@ -641,6 +649,43 @@ def main():
         io.open(gh0, "a", encoding="utf-8").write(
             "base_ok=%s\n" % ("true" if base["ok"] else "false"))
     return finish_(P, root, out, complete=not broke)
+
+
+def bandGate_(srcs, out, probe=None):
+    """ضبط‌های کم‌باند را پیش از دیتاست کنار می‌گذارد و گزارش می‌نویسد (`band-report.json` در artifact)."""
+    if MIN_BAND <= 0:
+        return srcs
+    if probe is None:
+        import bandprobe as B
+        import dsprep as D
+        ffx = D.ffmpeg()
+        probe = lambda p: B.bandEdge(B.decode(p, ff=ffx))
+    rows, keep = [], []
+    for i, p in enumerate(srcs):
+        try:
+            r = probe(p)
+        except Exception as e:
+            r = {"edgeHz": None, "why": str(e)[:80]}
+        e = r.get("edgeHz")
+        ok = e is not None and e >= MIN_BAND
+        rows.append({"n": i + 1, "id": DRIVE_IDS[i] if i < len(DRIVE_IDS) else "", "edgeHz": e,
+                     "hi6to10Db": r.get("hi6to10Db"), "ok": ok, "why": r.get("why", "")})
+        if ok:
+            keep.append(p)
+    rep = {"minHz": int(MIN_BAND), "files": len(srcs), "kept": len(keep), "rows": rows}
+    try:
+        io.open(os.path.join(out, "band-report.json"), "w", encoding="utf-8").write(json.dumps(rep, ensure_ascii=False, indent=1))
+    except (IOError, OSError):
+        pass
+    say_("پهنای باند: %d از %d ضبط پرباند (لبه ≥ %d هرتز) · کنار: %s" % (
+        len(keep), len(srcs), int(MIN_BAND),
+        "، ".join("%d (%s هرتز)" % (x["n"], x["edgeHz"]) for x in rows if not x["ok"]) or "هیچ"))
+    if len(keep) < MIN_BAND_FILES:
+        raise SystemExit(
+            "فقط %d ضبط از %d پرباند است (لبه ≥ %d هرتز؛ کمینه %d). آموزش روی ضبطِ کم‌باند همان «س/ش»ِ کُند را می‌سازد، "
+            "پس شروع نمی‌شود. چاره: ضبطِ تازه با کیفیتِ بالاتر (WAV یا MP3 ≥ ۱۹۲ کیلوبیت، ۴۴٫۱ کیلوهرتز)."
+            % (len(keep), len(srcs), int(MIN_BAND), MIN_BAND_FILES))
+    return keep
 
 
 def stateSync_(root, out=None):

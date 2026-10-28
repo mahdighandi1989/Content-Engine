@@ -581,6 +581,8 @@ and avsync all come for free. `row.media` + `scene.media` is the only switch.
   and `ytDescFinal_` shifts the chapter times.
 - **Gate:** mode `media` has its own approval counter (`YT_MEDIA_APPROVE`/`PK.YT_MEDIA_OK`): two درس‌نامه
   approvals say nothing about how a source clip is cut and framed.
+- **Content-ID (14.1):** a moment plays the clip's *own* audio, and Instagram clips usually carry a music bed — that
+  is what claimed 85 and blocked 82. `tools/musicgate.py` hears every moment first; music or a failed check ⇒ dropped.
 - The only generated image is the cover (`vmCover_`). Watched daily: `_STATUS.varietyMedia`, finding
   `vm-fallback`, required monitor check `variety-media` (prompt v104), ledger `R-20261014-07..10`.
 
@@ -920,6 +922,7 @@ mistake shows as a repeat instead of a fresh row every night.
 `run_wiring_test.js` §۱۷ سقفِ اندازهٔ این فایل را نگه می‌دارد. هیچ‌چیز پاک نشد: ۱۱۸ بخشِ پیشین عیناً در
 `docs/claude_history.md` است و هر سطرِ زیر نامِ همان بخش است — پیش از کار روی همان حوزه، بخشش را بخوان.
 
+- «Content-ID روی ۸۵ و ۸۲» و «فقط ضبط‌های پرباند» (14.1)
 - «پلی‌لیست نشد» بی علت، و «س/ش» که در تبدیل کُند می‌شد (14.0)
 - «رندر ۶ ساعت بی آپلود» و «س ش چ ج زبان‌گرفته» (13.9)
 - «در کتابش نیست» — ارجاع با شاهد (13.8)
@@ -1246,6 +1249,7 @@ mistake shows as a repeat instead of a fresh row every night.
     بالای ~۵٫۵ کیلوهرتز ندارند و هیچ آموزشی آن را نمی‌سازد (۷٫۸۰). سدِ قدیم فقط
     **یک** فایل از هر گوینده را می‌سنجید؛ پوشه‌ای با ضبط‌های قدیم و تازه را با همان یک
     فایلِ قدیمی رد می‌کرد (۸.۴۳).
+10-ب. **نرخِ سرآیند پهنای باند نیست** (۱۴.۱): r2-22k «۲۲ کیلوهرتزی» بود و «س/ش» را کُند ساخت. `bandGate_` لبهٔ واقعی را می‌سنجد (≥ ۹ ک).
 11. دقیقه را از نرخِ بیتِ واقعی حساب کن، نه از ۱۲۸ — گلدوز ۷ برابر کم برآورد شد.
 12. ضبط‌های قدیم و تازه را قاطی نکن: نیمی از داده بی فرکانسِ بالا یعنی مدلی گرفته‌تر.
 
@@ -1595,14 +1599,8 @@ OmniVoice. مشکل تلفظ و اعراب است، نه رنگِ صدا.
 آن «موفق» یعنی **بیدارباش تحویل داده شد**، نه اینکه کار درست انجام شد. شاهدِ کار
 همان فایلِ OUTPUT است و جای دیگری نیست.
 
-### آنچه این قاعده هنوز نمی‌دهد، و صریح گفته می‌شود
-`monChecksStatus_` آستانه‌اش **روزانه** است و پنجره‌اش به سنِ گزارشِ روزانه بسته
-است، پس کلیدی با ریتمِ فصلی در آن همیشه «گزارش نشده» خوانده می‌شود. یعنی
-`tts-model-scan` عمداً در `CFG.MONITOR_CHECKS` **نیست**: زنگی که هر روز برای
-کارِ سه‌ماهه بزند، همان زنگی است که یاد می‌گیرند نخوانندش. آستانهٔ هر کلید
-(`days` روی هر ردیفِ `MONITOR_CHECKS`) کارِ نسخهٔ بعد است، و اولین نوشتنِ واقعیِ
-آن کلید ۱ ژانویه است — پس امروز ساختنش یعنی سنجیدنِ حالتی که تولید تا سه ماه
-نمی‌سازدش (۷٫۲۲).
+### آنچه این قاعده هنوز نمی‌دهد
+آستانهٔ روزانهٔ `monChecksStatus_` برای کلیدِ فصلی (`tts-model-scan`) — شرحش در `docs/claude_history.md` (۱۴.۱).
 
 ## تسک‌های زمان‌بندی‌شدهٔ مرتبط با این موتور — شرحِ دو تای اصلی
 

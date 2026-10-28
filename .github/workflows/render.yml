@@ -57,7 +57,7 @@ jobs:
         if: steps.probe.outputs.work == '1'
         run: |
           set -euo pipefail
-          python3 -m pip install --quiet imageio-ffmpeg
+          python3 -m pip install --quiet imageio-ffmpeg numpy   # numpy: سنجهٔ موسیقیِ لحظه‌ها (۱۴.۱)
           FF="$(python3 -c 'import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())')"
           # بدون pipefail، «ffmpeg -version | head -1» کدِ خروجیِ head را
           # می‌دهد و نبودِ ffmpeg سبز رد می‌شود. یک بار همین شد.

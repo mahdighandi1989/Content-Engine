@@ -3095,6 +3095,14 @@ function vtestText_(id) {
   return out;
 }
 
+/** ۱۴.۱: آموزشِ دوبارهٔ `tag` برای این گوینده تمام شده؟ از `docs/voices.json` (`retrainDone`). خوانده‌نشده ⇒ نه. */
+function vbrRetrainDone_(key, tag) {
+  if (!VBR_RT_DOC_) { try { VBR_RT_DOC_ = { d: vintReadResult_() }; } catch (e) { VBR_RT_DOC_ = { d: null }; } }
+  var sp = VBR_RT_DOC_.d && VBR_RT_DOC_.d.speakers && VBR_RT_DOC_.d.speakers[key];
+  return !!(sp && String(sp.retrainDone || '') === String(tag));
+}
+var VBR_RT_DOC_ = null;
+
 function vbrSoulPick_() {
   var out = { ok: false, why: '' };
   var rows = [];
@@ -3154,6 +3162,9 @@ function vbrSoulPick_() {
       var se = sd[sdi] || {};
       if (String(se.speaker || '').trim() !== key) continue;
       if (!se.show || !se.ep) continue;
+      /* ۱۴.۱: بذری که منتظرِ پایانِ یک آموزشِ دوباره است (`afterRetrain`) تا آن آموزش «آماده» نشده ساخته نمی‌شود —
+         وگرنه نمونهٔ «پس از بازآموزی» با مدلِ پیش از آن ساخته و اسمش دروغ می‌شد. */
+      if (se.afterRetrain && !vbrRetrainDone_(key, String(se.afterRetrain))) continue;
       /* ۹.۶۳: کلیدِ هر بذر جدا (`#شماره`) — پیش از این دو بذرِ یک گوینده روی یک قسمت یکی می‌شدند و فقط آخری
          ساخته می‌شد؛ مقایسهٔ دو صدای مبدأ روی یک متن ممکن نبود. */
       var sk = String(se.show) + ':' + String(se.ep) + '#' + sdi;

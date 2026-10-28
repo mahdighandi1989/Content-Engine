@@ -136,6 +136,33 @@ function ensureRelease() {
     })]));
 }
 
+/** ۱۴.۱: کلیدهای `queue.prune` (موتور درایو و یوتیوب را سنجیده) ⇒ mp4ِ همان قسمت از ریلیز پاک و در نقشه `pruned` می‌شود.
+    نشانیِ نقشه می‌ماند (تاریخچه)، فقط پشتش فایلی نیست — موتور ردیفِ «رسید» را دیگر برنمی‌دارد. */
+function pruneRelease(queue, map, relIn, cap) {
+  const out = { deleted: 0, failed: 0, skipped: 0 };
+  const keys = Array.isArray(queue && queue.prune) ? queue.prune : [];
+  if (!keys.length) return out;
+  const rel = relIn || ensureRelease();
+  const max = Math.max(1, Number(cap) || 60);
+  for (const k of keys) {
+    if (out.deleted >= max) break;
+    const it = map.items[k];
+    if (!it || !it.url || it.pruned) { out.skipped++; continue; }
+    const name = decodeURIComponent(String(it.url).split('/').pop() || '');
+    if (!/\.mp4$/i.test(name)) { out.skipped++; continue; }
+    const a = (rel.assets || []).find(x => x.name === name);
+    if (!a) { it.pruned = new Date().toISOString().slice(0, 10); out.skipped++; continue; }
+    try {
+      gh(['-X', 'DELETE', 'https://api.github.com/repos/' + REPO + '/releases/assets/' + a.id]);
+      it.pruned = new Date().toISOString().slice(0, 10);
+      rel.assets = rel.assets.filter(x => x.id !== a.id);
+      RELSTAT.assets = Math.max(0, RELSTAT.assets - 1); RELSTAT.bytes = Math.max(0, RELSTAT.bytes - (Number(a.size) || 0));
+      out.deleted++;
+    } catch (e) { out.failed++; }
+  }
+  return out;
+}
+
 function uploadAsset(rel, file, name, ctype) {
   // نامِ تکراری اول پاک می‌شود، وگرنه گیت‌هاب ۴۲۲ می‌دهد و اسمِ فایل را عوض می‌کند
   for (const a of (rel.assets || [])) {
@@ -940,6 +967,17 @@ function fitSize(dest, dir, notes, capMB) {
   return out;
 }
 
+/** ۱۴.۱: موسیقی در یک فایلِ صوتی هست؟ {music, why, tonal, fill}. هر خطا ⇒ music:true با علت (پیش‌فرضِ رد). */
+function musicGateOf(wavPath) {
+  try {
+    const o = execFileSync('python3', [path.join(__dirname, 'musicgate.py'), wavPath], { encoding: 'utf8', maxBuffer: 1 << 20, timeout: 120000 });
+    const r = JSON.parse(String(o).trim().split('\n').pop());
+    return { music: !!r.music, why: String(r.why || ''), tonal: r.tonal, fill: r.fill };
+  } catch (e) {
+    return { music: true, why: 'سنجهٔ موسیقی نشد: ' + String((e && e.message) || e).split('\n')[0].slice(0, 60) };
+  }
+}
+
 function spliceMoments(it, placed, mp, silent, wav, dest, dir, notes) {
   const MKIT = require('./mediakit.js');
   const SKIT = require('./scenekit.js');
@@ -966,6 +1004,18 @@ function spliceMoments(it, placed, mp, silent, wav, dest, dir, notes) {
         st.still = (st.still || 0) + 1;
         st.why.push(Math.round(m.at) + 's: تصویرِ کلیپ ساکن بود (' + fzM.map(x => x.d + 'ث').join('، ') + ') — لحظه کنار رفت');
         continue;
+      }
+      /* ۱۴.۱ — Content-ID: «از همه جا» ۸۵ سرِ ۹:۲۲–۹:۵۵ «Organ Variation — Hans Zimmer» خورد و ۸۲ کامل مسدود شد. آن بازه
+         لحظه‌ای بود که کلیپِ منبع با **صدای خودش** پخش می‌شد و زیرِ حرفش موسیقیِ فیلم داشت. صدای کلیپ مالِ ما نیست؛
+         موسیقیِ زیرِ آن هم. پس هر لحظه پیش از نشستن شنیده می‌شود (`musicgate.py`): موسیقی ⇒ لحظه کنار، کلیپ بی‌صدا در
+         صحنه‌اش، و جمله‌های گوینده سرِ جایشان. خطای سنجه هم کنار می‌گذارد — شک یعنی نه، چون ویدئوی مسدود برنمی‌گردد. */
+      if (it.musicGate !== false) {
+        const mg = musicGateOf(a);
+        if (mg.music) {
+          st.music = (st.music || 0) + 1;
+          st.why.push(Math.round(m.at) + 's: موسیقی در صدای کلیپ (' + mg.why + ') — لحظه کنار رفت، کلیپ بی‌صدا');
+          continue;
+        }
       }
       parts.push({ at: m.at, v: v, a: a, len: r.len, cut: Number(m.cut) || 0 });
       if (m.cut) st.replaced = (st.replaced || 0) + 1;                  // ۹.۱۴: جای بازگویی، نه کنارش
@@ -1555,6 +1605,7 @@ function probeWork(queue, map, hold, now) {
 function builtFor(x, map) {
   const m = map.items[x.key];
   if (!m) return false;
+  if (m.pruned) return false;           // ۱۴.۱: فایلش از ریلیز پاک شد؛ درخواستِ تازهٔ همان قسمت یعنی ساختنِ دوباره
   if (x.replace && String(m.replace || '') !== String(x.replace)) return false;
   return true;
 }
@@ -1632,6 +1683,10 @@ function main() {
   if (rlTodo.length) log('ریلزِ اینستاگرام: ' + rlTodo.length + ' تا در صف.');
   const muTodo = musicConvTodo(queue, map), mpTodo = musicPrevTodo(queue, map);
   if (muTodo.length) log('موسیقیِ صاحبِ برنامه برای تبدیل: ' + muTodo.length + ' تا.');
+  /* ۱۴.۱: فایل‌های ریلیزِ قسمت‌هایی که موتور برداشته، در درایو دارد و در یوتیوب منتشر کرده (`queue.prune`). گیت‌هاب بیش از
+     ۱۰۰۰ فایل در یک ریلیز نمی‌پذیرد و ۲۷ اکتبر ۵۲۸ فایل و ۵٫۸ گیگ بود. فقط mp4ِ قسمت؛ کاور و نقشه دست نمی‌خورند. */
+  try { const pr = pruneRelease(queue, map); if (pr.deleted || pr.failed) { log('ریلیز: ' + pr.deleted + ' فایلِ قسمتِ منتشرشده پاک شد' + (pr.failed ? '، ' + pr.failed + ' نشد' : '') + '.'); writeMap(map); } }
+  catch (ePr) { log('پاک‌کردنِ ریلیز نشد: ' + String(ePr.message).split('\n')[0].slice(0, 120)); }
   if (!todo.length && !plTodo.length && !bannerTodo(queue, map) && !rlTodo.length && !muTodo.length && !mpTodo.length) { log('کاری نیست.'); return; }
 
   let rel = null, made = 0;
@@ -1826,7 +1881,7 @@ function main() {
 if (require.main === module) main();
 
 module.exports = {
-  relStat, RELSTAT, isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
+  pruneRelease, musicGateOf, relStat, RELSTAT, isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
   specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo, prepMedia, spliceMoments, fitSize,
   momentSize, plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, brandMark, itemsTodo, slugOf, probeWork, builtFor,
