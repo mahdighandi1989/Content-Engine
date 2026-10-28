@@ -10760,9 +10760,10 @@ function ytPlFor_(item, seriesName, showName) {
 function ytWantPos_(pub, item, seriesName) {
   var mine = Number(item.ep) || 0;
   var myShow = ytShowKey_(item.show);
-  var n = 0;
+  var n = 0, gone = {};
+  try { gone = ytRetireDone_(); } catch (eR) {}      // ۱۴.۴: کنارگذاشته در پلی‌لیست نیست، پس جایی نمی‌گیرد
   for (var k in pub) {
-    if (!Object.prototype.hasOwnProperty.call(pub, k)) continue;
+    if (!Object.prototype.hasOwnProperty.call(pub, k) || gone[k]) continue;
     var rec = pub[k];
     if (!rec || !rec.videoId) continue;
     var cut = String(k).lastIndexOf(':');
@@ -11006,7 +11007,9 @@ function ytReplaceList_() {
       for (var k in it) {
         if (!Object.prototype.hasOwnProperty.call(it, k) || !it[k]) continue;
         var tag = String((typeof it[k] === 'object' ? it[k].tag : it[k]) || '').trim();
-        if (tag) out[k] = { tag: tag, why: String((it[k] && it[k].why) || '') };
+        if (tag) out[k] = { tag: tag, why: String((it[k] && it[k].why) || ''),
+                            /* ۱۴.۴: رسانه‌هایی که در ساختِ دوباره نباید بمانند — 'video' یا فهرستِ شناسه‌ها */
+                            strip: (it[k] && it[k].strip) || '' };
       }
     }
   } catch (e) {}
@@ -11160,14 +11163,24 @@ function ytRetireTick_(budgetMs, hubIn) {
           }
         }
       }
+      /* ۱۴.۴: کنار گذاشتن در دفترِ انتشار هم می‌نشیند — «فهرست را با دلیل در شیت ثبت کن». شناسه همان است، پس رکوردِ انتشار
+         می‌ماند و کاوشِ گذشته آن را دوباره بالا نمی‌برد؛ ستونِ «حریم» private می‌گوید. تکراری‌ها (keepVid) ردیفِ ماندنی را دارند. */
+      if (!keepVid) {
+        ytLog_(hubIn || getHub_(), { show: showK === ENRICH_SHOW_SPECIAL ? CFG.SPECIAL_SHOW_NAME : CFG.SHOW_NAME,
+               ep: ep, series: String(rec.series || ''), title: String(rec.title || ''), videoId: gone[0],
+               url: String(rec.url || ''), privacy: 'private', result: 'کنار رفت (خصوصی، پاک نشد)',
+               note: String(list[key].why || '').slice(0, 300) });
+      }
       st[key] = { phase: 'done', at: nowStr_(), videoId: gone.join(','), keepVid: keepVid, pulled: pulled,
                   why: list[key].why, keep: list[key].keep, sig: sig, keepIn: keepIn };
       changed = true; out.done++;
       ytPlOrderDirty_();
-      var msg = '🗂 ویدئوی تکراریِ ' + key + ' کنار رفت: خصوصی شد و از ' + pulled + ' پلی‌لیست بیرون آمد (پاک نشد).' +
+      var isDup = !!(keepVid || dupIds.length || list[key].keep);
+      var msg = '🗂 ویدئوی ' + (isDup ? 'تکراریِ ' : '') + key + ' کنار رفت: خصوصی شد و از ' + pulled + ' پلی‌لیست بیرون آمد (پاک نشد).' +
                 (list[key].keep ? ' می‌مانَد: ' + list[key].keep + '.' : '') + (list[key].why ? ' — ' + list[key].why : '');
       logLine_(msg);
-      try { mailQueue_('یوتیوب', 'ویدئوی تکراری کنار رفت', msg + '\n' + String(rec.url || '')); } catch (eMq) {}
+      try { mailQueue_('یوتیوب', isDup ? 'ویدئوی تکراری کنار رفت' : 'ویدئوی ' + key + ' خصوصی شد', msg + '\n' + String(rec.url || '')); } catch (eMq) {}
+      try { if (tgEnabled_()) tgApi_('sendMessage', { chat_id: tgChat_(), text: msg, disable_web_page_preview: true }); } catch (eTg) {}
     } catch (e) {
       cur.why = 'خطا: ' + String(e.message).slice(0, 120); cur.errAt = nowStr_(); st[key] = cur; changed = true;
       out.notes.push(key + ': ' + cur.why);
@@ -11187,7 +11200,7 @@ function ytRetireLine_() {
     L.push(k + ': ' + (c.phase === 'done' ? 'کنار رفت (خصوصی، ' + (c.pulled || 0) + ' پلی‌لیست)'
                      : c.phase === 'skip' ? 'لازم نشد — ' + (c.why || '') : 'در انتظار' + (c.why ? ' — ' + c.why : '')));
   }
-  return L.length ? '🗂 ویدئوی تکراری: ' + L.join(' · ') : '';
+  return L.length ? '🗂 ویدئوهای کنارگذاشته (تکراری یا حقِ تصویر): ' + L.join(' · ') : '';
 }
 
 /** ویدئوهای پوشه (فقط سطحِ بالا) به زیرپوشهٔ «پیشین» — برمی‌گرداند چند تا رفت. */
@@ -11343,9 +11356,24 @@ function ytReplaceTick_(budgetMs, hubIn) {
             changed = true; continue;
           }
         }
+        /* ══ ساختِ دوباره بی کلیپ‌های سریال/فیلم (۱۴.۴) ══ «قسمت ۸۲: ساختِ دوباره بدونِ هر چهار کلیپ … با همان صوت، کاور و کارت».
+           پیش از کنار رفتنِ ویدئوی قبلی: اگر کنار گذاشتن نشود، نسخهٔ تازه همان کلیپ‌ها را دوباره بالا می‌برد — پس شکست یعنی ایست،
+           و ویدئوی قبلی سرِ جایش می‌مانَد. (۲۷ ⇒ ۳۷ رو به جلوست؛ پس در try و با typeof.) */
+        var stNote = '';
+        if (list[key].strip) {
+          var sr = null;
+          try { sr = typeof vmStripMedia_ === 'function' ? vmStripMedia_(folder, list[key].strip, list[key].why) : null; }
+          catch (eSt) { sr = { ok: false, why: String(eSt.message).slice(0, 100) }; }
+          if (!sr || !sr.ok) {
+            st[key] = { tag: tag, phase: 'fail', at: nowStr_(), why: 'کنار گذاشتنِ کلیپ‌ها نشد: ' + ((sr && sr.why) || 'بخشِ رسانه در دسترس نیست') };
+            changed = true; continue;
+          }
+          stNote = sr.n + ' کلیپ کنار رفت و جایش کاورِ قسمت با همان کارت نشست';
+        }
         var aside = ytReplaceAside_(folder);
         var scNote = '';
         try { scNote = ytReplaceScenes_(folder, tag); } catch (eSc) { scNote = 'صحنه‌ها: ' + eSc.message; }
+        if (stNote) scNote = scNote ? stNote + '، ' + scNote : stNote;
         var sKey = '';
         try {
           var reg = readSeriesReg_(hub);

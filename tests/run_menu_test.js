@@ -110,7 +110,8 @@ console.log('=== ۳) مرزِ کدِ موتور و کدِ تحلیلگرها ===
      engineTextProblems_('x'.repeat(capE + 1) + engine).some(e => /نامعقول/.test(e)) &&
      /* و فایلی بزرگ‌تر از سقفِ قدیمِ ۳ میلیون ولی زیرِ سقفِ تازه پذیرفته می‌شود —
         بی این، سقفِ ثابتِ قدیم برگردد و این سنجه هنوز سبز بماند. */
-     !engineTextProblems_(engine + '/*' + ' '.repeat(Math.floor(capE * 0.75) - engine.length) + '*/')
+     /* ۱۴.۴: پر کردن تا ۹۵٪ سقف، نه ۷۵٪ — موتور خودش از ۷۵٪ گذشت (۴٫۵ میلیون) و repeat منفی شد؛ سنجه افتاد بی آنکه چیزی بسنجد */
+     !engineTextProblems_(engine + '/*' + ' '.repeat(Math.max(0, Math.floor(capE * 0.95) - engine.length)) + '*/')
         .some(e => /نامعقول/.test(e)),
      engine.length + ' / ' + capE);
 

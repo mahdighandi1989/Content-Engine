@@ -841,6 +841,39 @@ function vmBroadcastSplit_(raw, items) {
   return { items: keep, dropped: dropped, what: what };
 }
 
+/**
+ * ۱۴.۴ — رسانه‌هایی که نباید دیده شوند از نقشهٔ **آمادهٔ** یک قسمتِ منتشرشده بیرون، برای ساختِ دوباره و جایگزینی.
+ * «قسمت ۸۲: ساختِ دوبارهٔ ویدئو بدونِ هر چهار کلیپِ سریال/فیلم (با همان صوت، کاور و کارت)». جای هر کلیپ کاورِ همان
+ * قسمت می‌نشیند — همان زمان، همان کارت (`ov`) — و لحظه‌هایش (صدای خودِ کلیپ) کنار می‌روند؛ صوتِ پادکست دست نمی‌خورد.
+ * کاور نباشد ⇒ نه: صحنه‌ای که چیزی ندارد به قبلی می‌پیوندد و کلیپِ قبلی می‌توانست همان‌جا بماند.
+ * strip: 'video' (همهٔ کلیپ‌ها) یا فهرستِ شناسه‌ها. ⇒ {ok, n, why}
+ */
+function vmStripMedia_(folder, strip, why) {
+  var d = vmRead_(folder);
+  if (!d || d.phase !== 'ready' || !d.scenes || !d.scenes.length) return { ok: false, n: 0, why: '`' + vmName_() + '` آماده نیست' };
+  var cov = String((d.cover || {}).fileId || '');
+  if (!cov) return { ok: false, n: 0, why: 'کاورِ قسمت نیست؛ جای کلیپ‌ها چیزی نمی‌ماند' };
+  var all = String(strip) === 'video';
+  var ids = all ? [] : [].concat(strip || []).map(String);
+  var gone = {}, n = 0;
+  d.copies = d.copies || {};
+  for (var i = 0; i < d.scenes.length; i++) {
+    var s = d.scenes[i];
+    if (!(all ? s.kind === 'video' : ids.indexOf(String(s.id)) !== -1)) continue;
+    gone[s.id] = 1;
+    var nid = 'cover-' + (i + 1);
+    d.scenes[i] = { id: nid, kind: 'photo', fileId: cov, sn: s.sn, t0: s.t0, quote: '', say: s.say,
+                    ov: s.ov || null, n: s.n, was: String(s.id) };
+    d.copies[nid] = cov;
+    n++;
+  }
+  if (!n) return { ok: true, n: 0, why: '' };
+  d.moments = (d.moments || []).filter(function (m) { return !gone[m.id]; });
+  d.stripped = { at: nowStr_(), ids: Object.keys(gone), why: String(why || '').slice(0, 300) };
+  if (!vmWrite_(folder, d)) return { ok: false, n: 0, why: 'نوشتنِ `' + vmName_() + '` نشد' };
+  return { ok: true, n: n, why: '' };
+}
+
 function vmBuild_(folder, meta, plan, ctx) {
   var out = { active: false, done: false, fallback: false, why: '', items: [], cover: null,
               moments: [], music: [], info: null };
