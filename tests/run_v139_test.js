@@ -45,6 +45,9 @@ console.log('\n=== ۱) رندر: ریلیز، «ساخته ولی بالا نر�
   global.ytRenderRead_ = () => ({ items: [{ key: 'variety:85', status: 'در انتظار', shared: true, sharedAt: ago(3) }] });
   global.ytRenderRel_ = () => ({ assets: 528, gb: 5.77 });
   ok('۱.۶ همه‌چیز در مهلت ⇒ هیچ ردیفی (بی هشدارِ دروغ)', whRenderLag_() === null);
+  global.ytRenderMap_ = () => ({ 'variety:72-3-نمونه': { url: 'u', at: ago(324) } });
+  global.ytRenderRead_ = () => ({ items: [{ key: 'variety:72-3-نمونه', status: 'در انتظار', shared: true, sharedAt: ago(50) }] });
+  ok('۱.۶-ب نمونه‌ای که عمداً برداشته نمی‌شود «ساخته ولی آپلودنشده» نیست (۱۴.۳ — ۳۲۴ ساعت هشدارِ دروغ)', whRenderLag_() === null);
   global.ytRenderRead_ = keepR; global.ytRenderMap_ = keepM; global.ytRenderRel_ = keepRel; global.watchdogHeartbeats_ = keepH;
 
   /* هشدارِ ساعتی: SINCE با درخواستِ بعدی جابه‌جا نمی‌شود، پیام یک بار */

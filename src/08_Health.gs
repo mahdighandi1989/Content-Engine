@@ -1234,7 +1234,10 @@ function whRenderLag_() {
     var t = parseWhen_(String(it.sharedAt || it.at || ''));
     if (isNaN(t)) continue;
     var hrs = (now - t) / 3600000;
-    /* ۱۳.۹: ساخته شده ولی برداشته نشده هم «بی آپلود» است — نیمهٔ دومِ همان راه */
+    /* ۱۳.۹: ساخته شده ولی برداشته نشده هم «بی آپلود» است — نیمهٔ دومِ همان راه.
+       ۱۴.۳: جز نمونه — `ytRenderCollect_` آن را عمداً برنمی‌دارد، پس «۳۲۴ ساعت بی آپلود»ِ variety:72-3-نمونه
+       هشداری بود برای حالتِ درست، که هرگز خاموش نمی‌شد. */
+    if (/-نمونه$/.test(String(it.key || ''))) continue;
     if (map && map[it.key] && map[it.key].url) {
       var mAt = String(map[it.key].at || '');   // رانر به UTC می‌نویسد («2026-10-27 19:49»)
       var tm = /^\d{4}-\d\d-\d\d \d\d:\d\d$/.test(mAt) ? new Date(mAt.replace(' ', 'T') + ':00Z').getTime() : NaN;
