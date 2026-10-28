@@ -582,7 +582,8 @@ and avsync all come for free. `row.media` + `scene.media` is the only switch.
 - **Gate:** mode `media` has its own approval counter (`YT_MEDIA_APPROVE`/`PK.YT_MEDIA_OK`): two درس‌نامه
   approvals say nothing about how a source clip is cut and framed.
 - **Content-ID (14.1):** a moment plays the clip's *own* audio, and Instagram clips usually carry a music bed — that
-  is what claimed 85 and blocked 82. `tools/musicgate.py` hears every moment first; music or a failed check ⇒ dropped.
+  is what claimed 85. `tools/musicgate.py` hears every moment first; music or a failed check ⇒ dropped. And 82's
+  *visual* claim (14.2): a cut from a TV series/film is never shown — `rights` judges every item, doubt ⇒ out.
 - The only generated image is the cover (`vmCover_`). Watched daily: `_STATUS.varietyMedia`, finding
   `vm-fallback`, required monitor check `variety-media` (prompt v104), ledger `R-20261014-07..10`.
 
@@ -922,6 +923,7 @@ mistake shows as a repeat instead of a fresh row every night.
 `run_wiring_test.js` §۱۷ سقفِ اندازهٔ این فایل را نگه می‌دارد. هیچ‌چیز پاک نشد: ۱۱۸ بخشِ پیشین عیناً در
 `docs/claude_history.md` است و هر سطرِ زیر نامِ همان بخش است — پیش از کار روی همان حوزه، بخشش را بخوان.
 
+- «Motaham Gorikht E22» — تصویرِ سریال در «از همه جا» (14.2)
 - «Content-ID روی ۸۵ و ۸۲» و «فقط ضبط‌های پرباند» (14.1)
 - «پلی‌لیست نشد» بی علت، و «س/ش» که در تبدیل کُند می‌شد (14.0)
 - «رندر ۶ ساعت بی آپلود» و «س ش چ ج زبان‌گرفته» (13.9)

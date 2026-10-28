@@ -46,7 +46,7 @@ w(d+"/bed.wav",sp+mu)
     const a = run('speech.wav'), b = run('bed.wav');
     ok('۱.۱ گفتارِ تنها موسیقی خوانده نمی‌شود', a.music === false, JSON.stringify(a));
     ok('۱.۲ همان گفتار با آکوردِ نگه‌داشتهٔ زیرش موسیقی است، با علت', b.music === true && /نگه‌داشته/.test(b.why) && b.tonal > a.tonal, JSON.stringify(b));
-  } else ok('۱.۱ (numpy نیست؛ سنجه در رانر)', true);
+  } else ok('۱.۰ (numpy نیست؛ سنجه در رانر)', true);
   const R = require('../tools/render.js');
   const g = R.musicGateOf(tmp + '/nope.wav');
   ok('۱.۳ شکستِ سنجه ⇒ موسیقی (پیش‌فرضِ رد)، با علت', g.music === true && /سنجهٔ موسیقی نشد/.test(g.why), JSON.stringify(g));
@@ -203,4 +203,19 @@ print(json.dumps({"keep": keep, "kept": rep["kept"], "low": [x["n"] for x in rep
      a0 === false && a1 === true && sd.length === 1 && sd[0].variants === 'raw,old' && /afterRetrain && !vbrRetrainDone_\(key/.test(src('36_')));
 }
 
-summary('۱۴.۱');
+console.log('\n=== ۶) تصویرِ اثرِ حرفه‌ای (۱۴.۲، «از همه جا» ۸۲: ادعای تصویریِ «Motaham Gorikht E22») ===');
+{
+  const items = [{ id: 'A' }, { id: 'B' }, { id: 'C' }, { id: 'D' }];
+  const raw = { placements: [{ item: 'A', from: '1' }, { item: 'B', from: '3' }, { item: 'C', from: '5' }, { item: 'B', from: '9' }],
+                rights: [{ item: 'A', broadcast: 'بله', what: 'متهم گریخت' }, { item: 'B', broadcast: 'نه' }, { item: 'D', broadcast: 'شاید' }] };
+  const r = vmBroadcastSplit_(raw, items);
+  ok('۶.۱ «بله» و «بی جواب» کنار؛ فقط «نه»ِ صریح می‌ماند، و از خودِ نقشه هم پاک می‌شود (تا vmScenes_ برش نگرداند)',
+     r.items.map(x => x.id).join() === 'B' && r.dropped.join() === 'A,C,D' && r.what.join() === 'متهم گریخت' &&
+     raw.placements.every(p => p.item === 'B'), JSON.stringify(r));
+  const vm = src('37_');
+  ok('۶.۲ فیلد در شِمای نقشه الزامی است و پیش از vmScenes_ اعمال می‌شود', /required: \['placements', 'rights'\]/.test(vm) &&
+     vm.indexOf('var bc = vmBroadcastSplit_(raw, items);') > 0 && vm.indexOf('var bc = vmBroadcastSplit_(raw, items);') < vm.indexOf('var vs = vmScenes_(raw, sents, items, rp.secs, rp.music);'));
+  ok('۶.۳ همه برشِ سریال ⇒ ویدئوی ساده با نامِ اثر، نه افتادن', /همهٔ رسانه‌های این قسمت برش از سریال\/فیلم\/شبکه بودند/.test(vm));
+}
+
+summary('۱۴.۱ / ۱۴.۲');

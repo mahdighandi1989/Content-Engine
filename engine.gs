@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 14.1
+ *  موتور محتوا و پادکست — نسخهٔ 14.2
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2376,7 +2376,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '14.1',
+  CODE_VERSION: '14.2',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -64075,7 +64075,8 @@ function ytClaimScan_(hubIn) {
       if (prev.what === what) return;                      // همان حالِ قبلی ⇒ خبرِ تازه نیست
       seen[v] = { what: what, at: nowS, key: k };
       var p = pub[k] || {}, url = 'https://www.youtube.com/watch?v=' + v;
-      var txt = 'حقِ نشرِ یوتیوب (Content-ID): «' + String(p.title || k) + '» — ' + what + '. جزئیات (مدعی و بازه) فقط در Studio ← محتوا ← ' +
+      var txt = 'حقِ نشرِ یوتیوب (Content-ID): «' + String(p.title || k) + '» — ' + what + '. نوعِ ادعا (صوتی یا تصویری)، مدعی و بازه را Data API ' +
+                'نمی‌دهد؛ هر دو نوع همین اثر را می‌گذارند و این‌جا دیده می‌شوند. جزئیات فقط در Studio ← محتوا ← ' +
                 'همین ویدئو ← محدودیت‌ها/Copyright دیده می‌شود. گزینه‌ها: بریدنِ همان بازه در Studio (نشانی و بازدید می‌ماند)، جایگزینیِ آهنگ (فقط ' +
                 'اگر ادعا روی آهنگ باشد)، یا ساختِ دوبارهٔ ویدئو بی آن تکه. هر تغییر روی ویدئوی عمومی با تصمیمِ شماست.';
       try {
@@ -83994,9 +83995,12 @@ var VM_SCHEMA = {
       moment: { type: 'STRING' }, momentAfter: { type: 'STRING' },
       ov: { type: 'STRING' }, ovTitle: { type: 'STRING' }, ovLines: { type: 'STRING' } },
       required: ['item', 'from'] } },
+    rights: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+      item: { type: 'STRING' }, broadcast: { type: 'STRING' }, what: { type: 'STRING' } },
+      required: ['item', 'broadcast'] } },
     cover: { type: 'STRING' }
   },
-  required: ['placements']
+  required: ['placements', 'rights']
 };
 
 function vmPrompt_(sents, items, ctx) {
@@ -84021,6 +84025,11 @@ function vmPrompt_(sents, items, ctx) {
   L.push('   سوی قاب می‌نشیند و سوی دیگر جای همین نوشته است، پس برای بیشترِ رسانه‌ها یکی بنویس — به شرطِ اینکه چیزی');
   L.push('   بیفزاید: نامِ آدمِ روی صفحه، یک عدد، یک نقل‌قولِ کوتاه، تیترِ همان ماجرا. نوع: headline | quote | points. ovTitle تا ۶۰');
   L.push('   نویسه؛ ovLines برای points سه سطرِ کوتاه با « | » جدا. نوشتهٔ تکراریِ همان چیزی که روی تصویر هست، نه.');
+  L.push('۷) rights: برای **هر** رسانهٔ فهرست — چه جایش دادی چه نه — یک ردیف {item, broadcast, what}. broadcast = «بله» برای هر رسانه‌ای که **برش یا قابی از اثرِ تولیدِ حرفه‌ای** است: سریال، فیلم، برنامهٔ تلویزیونی یا');
+  L.push('   خبرِ شبکه، موزیک‌ویدئو، کلیپِ تبلیغاتیِ برند، مستندِ شبکه — حتی اگر کسی آن را در اینستاگرام دوباره گذاشته باشد. نشانه‌ها:');
+  L.push('   نامِ سریال/فیلم/شبکه در خلاصه یا گفتار، شخصیت‌های داستانی، بازیگرِ شناخته، آرمِ شبکه، دیالوگِ نمایشی. what = نامِ همان اثر');
+  L.push('   اگر پیداست. کلیپی که خودِ یک آدم با گوشی ساخته (ولاگ، آموزش، واکنش، گفت‌وگوی خیابانی) «نه» است. شک ⇒ «بله».');
+  L.push('   (یوتیوب تصویرِ این آثار را با Content-ID می‌شناسد و ویدئو را مسدود می‌کند — «از همه جا» ۸۲ با «متهم گریخت» همین شد.)');
   L.push('۶) cover: یک جملهٔ انگلیسی برای **کاورِ** این قسمت — صحنه‌ای نمادین و چشم‌گیر از کلِ حالِ قسمت؛');
   L.push('   بی هیچ نوشته، بی هیچ آدمِ واقعیِ شناختنی، بی نشان و آرم. (تنها تصویری که ساخته می‌شود همین است.)');
   L.push('');
@@ -84563,6 +84572,29 @@ function vmCards_(ready, sents, music, secs, coverId) {
  *   plan ⇒ (مدل، یک بار) · copy ⇒ (رونوشت‌ها، شاید در چند اجرا) · cover ⇒ ready.
  * @return {active, done, fallback, why, items, cover, moments, music, info}
  */
+/**
+ * ۱۴.۲ — رسانه‌هایی که مدل در `rights` «broadcast» گفته — یا اصلاً داوری نکرده — از فهرست و از نقشه بیرون. {items, dropped, what}.
+ * `rights` برای همهٔ رسانه‌هاست، جداگانه از جای‌دادن: رسانه‌ای که مدل جایش نداد هنوز به صحنه برمی‌گردد (`vmScenes_`)، پس داوری
+ * باید مستقل از placement باشد. «نه»ِ صریح لازم است.
+ */
+function vmBroadcastSplit_(raw, items) {
+  var rt = (raw && raw.rights) || [], verdict = {}, what = [];
+  for (var i = 0; i < rt.length; i++) {
+    var id = String((rt[i] && rt[i].item) || ''), b = String((rt[i] && rt[i].broadcast) || '').trim();
+    if (!id) continue;
+    var yes = !/^(نه|خیر|no)$/i.test(b);
+    verdict[id] = verdict[id] === true ? true : yes;   // یک «بله» برای یک رسانه کافی است
+    var w = String((rt[i] && rt[i].what) || '').trim();
+    if (yes && w && what.indexOf(w) === -1) what.push(w.slice(0, 60));
+  }
+  var keep = [], dropped = [];
+  for (var j = 0; j < items.length; j++) {
+    if (verdict[items[j].id] === false) keep.push(items[j]); else dropped.push(items[j].id);
+  }
+  if (raw && raw.placements) raw.placements = raw.placements.filter(function (p) { return verdict[String((p && p.item) || '')] === false; });
+  return { items: keep, dropped: dropped, what: what };
+}
+
 function vmBuild_(folder, meta, plan, ctx) {
   var out = { active: false, done: false, fallback: false, why: '', items: [], cover: null,
               moments: [], music: [], info: null };
@@ -84629,13 +84661,25 @@ function vmBuild_(folder, meta, plan, ctx) {
       raw = geminiText_(vmPrompt_(sents, items, ctx), VM_SCHEMA,
                         Math.max(2048, Number(CFG.VM_PLAN_TOKENS) || 12288), { exact: true });
     } catch (eA) { return planFail('مدل جواب نداد: ' + String(eA.message).slice(0, 120)); }
+    /* ══ تصویرِ اثرِ حرفه‌ای هرگز در ویدئو (۱۴.۲) ══ «از همه جا» ۸۲ در یوتیوب «Video blocked globally» شد با ادعای **تصویری**
+       «Motaham Gorikht E22»: هر چهار کلیپش برش از سریال و فیلم بود (شب‌های برره، متهم گریخت، …) که در اینستاگرام دوباره گذاشته شده
+       بودند. رسانهٔ «broadcast» نه صحنه می‌شود نه لحظه — `vmScenes_` رسانهٔ جامانده را خودش به صحنه برمی‌گرداند، پس از خودِ فهرست
+       بیرون می‌رود؛ صوتِ پادکست دست نمی‌خورد. خطای مدل یا جوابِ بی این فیلد ⇒ آن رسانه کنار (شک یعنی نه). */
+    var bc = vmBroadcastSplit_(raw, items);
+    items = bc.items;
+    if (!items.length) {
+      out.fallback = true; out.none = true; out.why = 'همهٔ رسانه‌های این قسمت برش از سریال/فیلم/شبکه بودند (' + bc.what.join('، ') + ') — ویدئوی ساده';
+      vmNote_(key, { ok: false, none: true, broadcast: bc.dropped.length, why: out.why });
+      try { logLine_('رسانه‌های منبعِ ' + key + ': ' + out.why); } catch (eBc) {}
+      return out;
+    }
     var vs = vmScenes_(raw, sents, items, rp.secs, rp.music);
     if (vs.scenes.length < Math.max(1, Number(CFG.VM_MIN_SCENES) || 3)) {
       return planFail('فقط ' + vs.scenes.length + ' صحنه از ' + items.length + ' رسانه درآمد');
     }
     d = { v: 1, key: key, at: nowStr_(), phase: 'copy', failed: 0, secs: rp.secs, align: rp.how,
           scenes: vs.scenes, moments: vs.moments, music: rp.music, coverIdea: vs.cover,
-          dropped: vs.dropped, added: vs.added, autoMoments: vs.autoMoments || 0, momentDrops: vs.momentDrops || [], items: items.length, copies: {}, skipped: [],
+          dropped: vs.dropped, added: vs.added, broadcast: bc.dropped, broadcastWhat: bc.what, autoMoments: vs.autoMoments || 0, momentDrops: vs.momentDrops || [], items: items.length, copies: {}, skipped: [],
           cover: { fileId: '', why: '' },
           sents: sents.map(function (z) { return [Math.round(Number(z.t) * 10) / 10, String(z.text || '').slice(0, 160)]; }),
           hookEnd: (function () { for (var h = 0; h < sents.length; h++) if (Number(sents[h].sec) >= 1) return Number(sents[h].t) || 0; return 0; })() };
@@ -84718,7 +84762,7 @@ function vmBuild_(folder, meta, plan, ctx) {
                skipped: (d.skipped || []).length, cover: d.cover && d.cover.fileId ? 'ساخته شد' : String((d.cover || {}).why || 'نه'),
                cards: cards.added,
                align: String(d.align || '') };
-  vmNote_(key, { ok: true, why: '', scenes: ready.length, clips: nClip, moments: moments.length,
+  vmNote_(key, { ok: true, why: '', scenes: ready.length, clips: nClip, moments: moments.length, broadcast: (d.broadcast || []).length,
                  cover: !!(d.cover && d.cover.fileId), skipped: (d.skipped || []).length });
   return out;
 }
@@ -84743,7 +84787,8 @@ function vmStatus_() {
     ? '🎞 «از همه جا» با رسانه‌های منبع — آخرین (' + r.key + '، ' + r.at + '): ' + faDigitsOut_(String(r.scenes || 0)) +
       ' صحنه، ' + faDigitsOut_(String(r.clips || 0)) + ' کلیپ، ' + faDigitsOut_(String(r.moments || 0)) +
       ' لحظهٔ با صدای کلیپ، کاور ' + (r.cover ? 'ساخته شد' : 'کارتی') +
-      (r.skipped ? ' · ' + faDigitsOut_(String(r.skipped)) + ' رسانه رونوشت نشد' : '') + '.'
+      (r.skipped ? ' · ' + faDigitsOut_(String(r.skipped)) + ' رسانه رونوشت نشد' : '') +
+      (r.broadcast ? ' · ' + faDigitsOut_(String(r.broadcast)) + ' رسانهٔ برش از سریال/فیلم کنار رفت (Content-ID)' : '') + '.'
     : '🎞 ❌ «از همه جا» (' + r.key + ') با رسانهٔ منبع ساخته نشد و ویدئوی ساده رفت — علت: ' + String(r.why || 'بی علت');
   return { on: true, ok: !!r.ok, last: r, line: line };
 }

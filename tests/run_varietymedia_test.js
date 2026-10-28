@@ -237,6 +237,7 @@ console.log('=== ۷) سرتاسری: نقشه ⇒ رونوشت ⇒ کاور ⇒ 
       return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify({
         placements: [{ item: 'V1', from: '2', clipQuote: 'سخن کلیپ اول', moment: 'خیر' },
                      { item: 'V2', from: '6', clipQuote: 'سخن کلیپ دوم' }],
+        rights: ['V1', 'P1', 'V2', 'P2'].map(x => ({ item: x, broadcast: 'نه' })),   // ۱۴.۲: «نه»ِ صریح برای هر رسانه
         cover: 'A quiet harbor at dawn' }) }] } }] } };
     }
     return { code: 200, json: { candidates: [{ content: { parts: [{ text: '{}' }] } }] } };
