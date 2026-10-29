@@ -94,7 +94,7 @@ ok('۲.۰ (۱۱.۱) پیش‌فرض: هیچ برنامه‌ای در یوتیو�
   Object.assign(global, sv);
   resetProps([PK.YT_DUE, PK.YT_DUE_PARKED]);
   const src = require('fs').readFileSync('src/27_YouTube.gs', 'utf8');
-  ok('۲-ب.۷ جایگزینی پیش از آغاز می‌پرسد', /ytItemOff_\(\{ show: showK, ep: ep[^}]*\}\) \|\| ytHandsOff_\(rec\.videoId, 'جایگزینی'\)/.test(src));
+  ok('۲-ب.۷ جایگزینیِ خودکار پیش از آغاز می‌پرسد (دستوری معاف، ۱۴.۸)', /ytItemOff_\(\{ show: showK, ep: ep[^}]*\}\) \|\| \(list\[key\]\.auto && ytHandsOff_\(rec\.videoId, 'جایگزینی'\)\)/.test(src));
 }
 {
   CFG.YT_SHOWS_OFF = ['variety'];
