@@ -318,6 +318,12 @@ def plan(q, st):
            cur.get("retrainDone") != cur.get("retrainTag"):
             ids = [str(x) for x in cur["retrainIds"]]
 
+        # ۱۴.۷: «ناموفق»ی که علتش ردِ پهنای باند است و پیش از `bandBlock_` ثبت شده (گلدوز، ۲۹ اکتبر ۱۰:۵۰) — همان بستن، نه فرستادنِ دوباره.
+        if stage == ST_FAIL and bandBlock_(cur, cur.get("band"), str(cur.get("runId") or "")):
+            sp[key] = cur
+            changed = True
+            say("«%s»: %s" % (name, cur["note"]))
+            continue
         if stage in DONE:
             continue
         cur.setdefault("name", name)

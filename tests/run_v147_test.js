@@ -34,6 +34,8 @@ print(json.dumps({"a": a, "c": c, "b": b, "c2": c2, "d": d, "ready": V.ST_READY,
   ok('۱.۳ بی آموزشِ دوباره ⇒ دست نمی‌خورد', out.d === false);
   ok('۱.۴ کمینه همان کمینهٔ voicetrain است', out.min === 5 && /MIN_BAND_FILES = int\(os\.environ\.get\("VT_MIN_BAND_FILES", "5"\)\)/.test(fs.readFileSync('tools/voicetrain.py', 'utf8')));
   const vi = fs.readFileSync('tools/voiceintake.py', 'utf8');
+  ok('۱.۶ «ناموفق»ِ پیشین با پهنای باندِ ثبت‌شده هم بسته می‌شود، پیش از فرستادنِ دوباره', /if stage == ST_FAIL and bandBlock_\(cur, cur\.get\("band"\)/.test(fs.readFileSync('tools/voiceintake.py', 'utf8')) &&
+     fs.readFileSync('tools/voiceintake.py', 'utf8').indexOf('if stage == ST_FAIL and bandBlock_') < fs.readFileSync('tools/voiceintake.py', 'utf8').indexOf('        if stage in DONE:\n            continue\n        cur.setdefault'));
   ok('۱.۵ شاخهٔ «قرمز تمام شد» همین را صدا می‌زند و ردیف را «آماده» نگه می‌دارد', /if bandBlock_\(cur, bd, rid_\):\s*\n\s*sp\[key\] = cur\s*\n\s*changed = True/.test(vi));
 }
 
