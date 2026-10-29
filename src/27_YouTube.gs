@@ -2577,6 +2577,19 @@ function ytItemOff_(it) {
   return true;
 }
 
+/** ۱۴.۸: جایگزینیِ **دستوری** (فهرستِ گیت‌هاب، نه خودکار) با همان tag؟ — تنها جایی که ویدئوی خصوصیِ قبلی سدِ آپلودِ تازه نیست.
+ * «ویدئوی -l1rMaPuH1I خصوصی است — آپلودِ دوباره انجام نشد»: ۸۲ را ادعای محتوا مسدود کرده بود، و محافظِ ۱۱.۲ («قسمتی که ویدئوی
+ * منتشرشده‌اش خصوصی است دوباره بالا نمی‌رود») جایگزینی‌ای را که خودِ صاحبِ کانال خواسته بود بست. آن محافظ برای ویدئویی است که **او**
+ * خصوصی کرده تا دیده نشود؛ این‌جا خودش گفته «ویدئوی تازه جدا آپلود شود و قدیمی خصوصی بماند». قدیمی دست نمی‌خورد جز خصوصی ماندن. */
+function ytReplaceExplicit_(it) {
+  if (!it || !it.replace) return false;
+  try {
+    var n = parseInt(String(it.ep || '').replace(/[^\d]/g, ''), 10);
+    var rl = ytReplaceList_()[String(it.key || (ytShowKey_(it.show) + ':' + n))];
+    return !!(rl && !rl.auto && String(rl.tag) === String(it.replace));
+  } catch (e) { return false; }
+}
+
 /* ══ کنار به دستورِ صاحبِ کانال (۱۳.۴) ══ «قسمت ۸۴ … از صفِ انتشار کنار بگذارید، حذف نکنید». دو منبع، یک در:
    `CFG.YT_OWNER_HOLD` (دستورِ صریح، با کلید) و `PK.YT_OWNER_HOLD` (آنچه `vgHoldSweep_` از مجموعهٔ نویسندگی پیدا کرد).
    برداشتنِ کلید از هر دو ⇒ ردیف در اولین خواندنِ صف خودش برمی‌گردد. ⇒ دلیل یا ''. */
@@ -10008,7 +10021,7 @@ function ytUploadOne_(item, hub, pub) {
      همان قسمت، عمومی، با شناسهٔ دیگر — که محافظِ «دست نزن» نمی‌بیند چون ویدئو تازه است. */
   try {
     var prevRec = (pub || {})[String(item.key || (item.show + ':' + item.ep))];
-    if (ytItemOff_(item) || (prevRec && prevRec.videoId && ytHandsOff_(prevRec.videoId, 'آپلودِ دوباره'))) {
+    if (ytItemOff_(item) || (prevRec && prevRec.videoId && !ytReplaceExplicit_(item) && ytHandsOff_(prevRec.videoId, 'آپلودِ دوباره'))) {
       ytDueDrop_(String(item.key || (item.show + ':' + item.ep)));
       try {
         var hw0 = ytOwnerHoldWhy_(item);
@@ -11330,6 +11343,15 @@ function ytReplaceTick_(budgetMs, hubIn) {
     /* ۱۴.۵: «بیرون از انتشار»ی که کدِ پیش از ۱۴.۵ نوشت (کفِ شماره، variety:82) یک بار دوباره سنجیده می‌شود — `v145` یعنی این
        داوری را کدِ تازه داده است. بی این، همان tag برای همیشه «لازم نشد» می‌ماند. */
     if (cur.tag === tag && cur.phase === 'skip' && !cur.v145 && /بیرون از انتشار/.test(String(cur.why || ''))) cur = {};
+    /* ۱۴.۸: تلاش‌هایی که محافظِ «خصوصی» سوزاند به حساب نمی‌آیند — یک بار از نو، برای جایگزینیِ دستوری. */
+    if (cur.tag === tag && !list[key].auto && !cur.v148 && (cur.phase === 'build' || cur.phase === 'fail') && cur.oldVid) {
+      cur.v148 = true; cur.tries = 0; cur.phase = 'build'; cur.why = String(list[key].why || cur.why || '');
+      try {
+        var pk8 = ytDueParked_().filter(function (x) { return String(x.key) !== key; });
+        props_().setProperty(PK.YT_DUE_PARKED, JSON.stringify(pk8));
+      } catch (ePk8) {}
+      st[key] = cur; changed = true;
+    }
     if (cur.tag === tag && !cur.notPub && ['done', 'skip', 'fail'].indexOf(String(cur.phase || '')) !== -1) continue;
     if (cur.tag === tag && cur.notPub) {
       var recNp = getPub()[showK0_(key) + ':' + key.slice(key.lastIndexOf(':') + 1)];
@@ -11349,7 +11371,7 @@ function ytReplaceTick_(budgetMs, hubIn) {
           changed = true; continue;
         }
         /* ۱۱.۲: جایگزینی یعنی ویدئوی **تازه**ای که عمومی می‌شود — قسمتی که او خصوصی کرده، از این راه برنمی‌گردد. */
-        if (ytItemOff_({ show: showK, ep: ep, key: showK + ':' + ep, replace: tag }) || ytHandsOff_(rec.videoId, 'جایگزینی')) {
+        if (ytItemOff_({ show: showK, ep: ep, key: showK + ':' + ep, replace: tag }) || (list[key].auto && ytHandsOff_(rec.videoId, 'جایگزینی'))) {
           st[key] = { tag: tag, phase: 'skip', at: nowStr_(), v145: true, why: 'ویدئوی این قسمت خصوصی است یا قسمت بیرون از انتشار است — جایگزین نمی‌شود' };
           changed = true; continue;
         }
