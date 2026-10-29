@@ -891,6 +891,20 @@ console.log('\n=== ی) صفِ تعویضِ کد — چرا خالی نمی‌ش�
      String(rowOf('ENG-20260902-1000#tts-cue-unsupported')[RC.STATUS-1]) === RST.SKIPPED,
      'تصمیمِ آدم بر مشاهدهٔ کد مقدم است');
 
+  // ── ک.۵-ب ردیفی که صاحبش «کد» نیست به صفِ کد برنمی‌گردد (۱۴.۶) ──
+  /* ۲۹ اکتبر: ۱۳.۷ `tts-pin-drift` را به «کاربر» داد و از صفِ کد بیرون برد؛ همین حلقه هر روز برش می‌گرداند. */
+  const a1b = rt.getLastRow() + 1;
+  const rUser = mkR('ENG-20260902-1001#tts-pin-drift', RST.CLOSED, 'از صفِ کد بیرون رفت: صاحبش «کاربر» است');
+  rUser[RC.OWNER-1] = ROWNER_ENGINE;
+  const rCode = mkR('ENG-20260902-1002#tts-pin-drift', RST.INSTALLED, 'کدِ نسخهٔ 7.48 خودکار نصب شد');
+  rt.getRange(a1b, 1, 2, REPORT_HEADERS.length).setValues([rUser, rCode]);
+  const stDrift = Object.assign({}, stOff, { ttsModel: { drift: 3 } });
+  const un2b = quiet(); selfVerifySweep_(hub, stDrift); un2b();
+  ok('ک.۵-ب ردیفِ غیرِ «کد» با شرطِ برقرار بسته می‌ماند؛ ردیفِ «کد» با همان شرط بازگشایی می‌شود',
+     String(rowOf('ENG-20260902-1001#tts-pin-drift')[RC.STATUS-1]) === RST.CLOSED &&
+     String(rowOf('ENG-20260902-1002#tts-pin-drift')[RC.STATUS-1]) === RST.NEEDS_CODE,
+     rowOf('ENG-20260902-1001#tts-pin-drift')[RC.STATUS-1] + ' / ' + rowOf('ENG-20260902-1002#tts-pin-drift')[RC.STATUS-1]);
+
   // ── ک.۶ دروازهٔ نصب: ادعا در برابرِ شرطِ زنده می‌بازد ─────────────
   const a2 = rt.getLastRow() + 1;
   rt.getRange(a2, 1, 2, REPORT_HEADERS.length).setValues([
