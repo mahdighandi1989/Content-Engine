@@ -751,8 +751,9 @@ function prepMedia(it, scenes, dir, notes, placed) {
     if (reqOf[key] === undefined) { reqOf[key] = reqs.length; reqs.push({ file: g.file, quote: quote }); }
     return reqOf[key];
   };
-  const scIdx = scenes.map(s => ask(s.url, s.media && s.media.quote));
+  /* ۱۴.۸: لحظه‌ها اول — صدای خودِ کلیپ فقط با جای دقیق پخش می‌شود؛ صحنه‌ای که شنیده نشد فقط از آغازِ کلیپ است */
   const moIdx = (placed || []).map(m => ask(m.url, m.quote));
+  const scIdx = scenes.map(s => ask(s.url, s.media && s.media.quote));
   const heard = MKIT.find(reqs, dir);
   stage('شنیدنِ کلیپ‌ها تمام شد (' + reqs.length + ')');
   /* ══ برشِ هر لحظه، **یک بار** — همان که صحنه دورش می‌بُرد و همان که با صدا لای گفتار می‌نشیند ══

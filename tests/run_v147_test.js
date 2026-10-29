@@ -105,4 +105,26 @@ console.log('\n=== ۴) بذر و سیم‌کشی ===');
   ok('۴.۳ مرزِ تولید سرِ جاست: VBR_EP_HOLD روشن، VBR_SEG_PITCH خاموش، VBR_REPLACE خاموش', CFG.VBR_EP_HOLD === true && CFG.VBR_SEG_PITCH !== true && !CFG.VBR_REPLACE);
 }
 
+console.log('\n=== ۵) شنیدنِ کلیپ‌ها (رانر، ۲۹ اکتبر) — «از همه جا» ۸۷: ۱۸ کلیپ، ETIMEDOUT، هر ۵ لحظه رفت ===');
+{
+  const MK = require('../tools/mediakit.js');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cf-'));
+  const bin = path.join(tmp, 'bin'); fs.mkdirSync(bin);
+  /* پایتونِ ساختگی: نتیجهٔ کلیپِ اول را روی دیسک می‌نویسد و بعد گیر می‌کند — همان شکلِ ۸۷ */
+  fs.writeFileSync(path.join(bin, 'python3'), '#!/bin/sh\nprintf \'%s\' \'[{"found":true,"from":3,"to":5,"why":""},{"found":false,"why":"شنیده نشد"}]\' > "$3"\nsleep 20\n');
+  fs.chmodSync(path.join(bin, 'python3'), 0o755);
+  const keep = { p: process.env.PATH, g: process.env.GITHUB_ACTIONS, t: MK.MK.findTimeoutS };
+  process.env.PATH = bin + ':' + keep.p; process.env.GITHUB_ACTIONS = 'true'; MK.MK.findTimeoutS = 2;
+  const r = MK.find([{ file: 'a.mp4', quote: 'x' }, { file: 'b.mp4', quote: 'y' }], tmp);
+  process.env.PATH = keep.p; MK.MK.findTimeoutS = keep.t;
+  if (keep.g === undefined) delete process.env.GITHUB_ACTIONS; else process.env.GITHUB_ACTIONS = keep.g;
+  ok('۵.۱ کشته شد ⇒ کلیپی که شنیده شده بود سرِ جایش می‌ماند', r[0].found === true && r[0].from === 3, JSON.stringify(r));
+  ok('۵.۲ و نشنیده‌ها علتِ واقعی را می‌گیرند', r[1].found === false && /شنیدن نشد/.test(r[1].why), r[1].why);
+  ok('۵.۳ بودجهٔ ابزار زیرِ سقفِ فراخوان', MK.MK.findBudgetS < MK.MK.findTimeoutS && MK.MK.findTimeoutS * 1000 < 50 * 60 * 1000);
+  const cf = fs.readFileSync('tools/clipfind.py', 'utf8');
+  ok('۵.۴ ابزار پس از هر کلیپ می‌نویسد و کلیپِ تازه را بیرونِ بودجه نمی‌شنود', /_save\(part, out\)/.test(cf) && /CLIPFIND_BUDGET_S/.test(cf));
+  const rj = fs.readFileSync('tools/render.js', 'utf8');
+  ok('۵.۵ لحظه‌ها پیش از صحنه‌ها شنیده می‌شوند', rj.indexOf('const moIdx = (placed') < rj.indexOf('const scIdx = scenes.map'));
+}
+
 summary('۱۴.۷');

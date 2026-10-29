@@ -132,8 +132,24 @@ def main_part(spans, near=None, min_len=6.0, max_len=20.0, gap=0.6):
     end = sentence_end(spans, start, start + 0.1, min_len, max_len)
     return {'from': round(start, 2), 'end': round(end, 2), 'how': how}
 
+def _save(path, out):
+    """۱۴.۸: نتیجه پس از هر کلیپ روی دیسک — «از همه جا» ۸۷ با ۱۸ کلیپ از سقفِ ۱۲ دقیقه‌ایِ فراخوان گذشت، فرآیند کشته شد و
+    نتیجهٔ کلیپ‌هایی هم که شنیده شده بودند با آن رفت: هر ۵ لحظه «شنیدن نشد: ETIMEDOUT». شاهدی که با حادثه می‌میرد شاهد نیست."""
+    if not path:
+        return
+    try:
+        with open(path + '.tmp', 'w', encoding='utf-8') as fh:
+            json.dump(out, fh, ensure_ascii=False)
+        os.replace(path + '.tmp', path)
+    except Exception:
+        pass
+
 def main():
     reqs = json.load(open(sys.argv[1], encoding='utf-8'))
+    part = sys.argv[2] if len(sys.argv) > 2 else ''
+    budget = float(os.environ.get('CLIPFIND_BUDGET_S') or 0)
+    import time
+    t0 = time.time()
     out = [{'found': False, 'why': 'شنیده نشد'} for _ in reqs]
     try:
         from faster_whisper import WhisperModel
@@ -145,6 +161,10 @@ def main():
     cache = {}
     for i, r in enumerate(reqs):
         f, quote = r.get('file'), r.get('quote') or ''
+        if budget and f not in cache and time.time() - t0 > budget:
+            # کلیپِ تازه‌ای که دیگر وقت ندارد: «وقت تمام شد» با علت، و آنچه شنیده شد سرِ جایش
+            out[i] = {'found': False, 'why': 'وقتِ شنیدن تمام شد (' + str(int(budget)) + ' ثانیه)'}
+            continue
         if not f or not quote.strip():
             out[i] = {'found': False, 'why': 'عبارتی نبود'}
             continue
@@ -181,6 +201,7 @@ def main():
                           'why': ''}
         except Exception as e:
             out[i] = {'found': False, 'why': 'شنیدن نشد: ' + str(e)[:80]}
+        _save(part, out)
     print(json.dumps(out, ensure_ascii=False))
 
 if __name__ == '__main__':

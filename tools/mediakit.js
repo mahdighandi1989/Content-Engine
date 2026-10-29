@@ -23,6 +23,7 @@ const path = require('path');
 const { spawnSync, execFileSync } = require('child_process');
 
 const MK = {
+  findTimeoutS: 780, findBudgetS: 660,   // ۱۴.۸: سقفِ شنیدنِ کلیپ‌ها، و بودجهٔ خودِ ابزار زیرِ آن (کلیپِ دراز هم تا سقف جا دارد)
   momentGap: 8,                    // ۹.۳۵: فقط سدِ روی‌هم‌افتادن — فاصلهٔ واقعی (`VM_MOMENT_GAP`) را موتور با زمان‌های خودش می‌سنجد
   w: 1920, h: 1080, fps: 24,      // همان SK.fps — لحظه و تکه‌های بی‌صدا باید بی بازکدگذاری پشتِ‌هم بنشینند
   wideMin: 1.55, wideMax: 2.1,     // در این بازه قاب را پر می‌کند؛ بیرونش کامل + حاشیهٔ تار
@@ -480,16 +481,26 @@ function find(reqs, dir) {
   if (process.env.GITHUB_ACTIONS !== 'true' && process.env.CLIPFIND !== '1') {
     return reqs.map(() => ({ found: false, why: 'بیرون از اکشن شنیده نشد' }));
   }
+  const f = path.join(dir, 'clipfind.json'), part = path.join(dir, 'clipfind.part.json');
   try {
-    const f = path.join(dir, 'clipfind.json');
     fs.writeFileSync(f, JSON.stringify(reqs));
-    const res = execFileSync('python3', [path.join(__dirname, 'clipfind.py'), f],
-                             { encoding: 'utf8', timeout: 12 * 60 * 1000, maxBuffer: 8 * 1024 * 1024 });
+    try { fs.unlinkSync(part); } catch (e0) {}
+    /* ۱۴.۸: بودجهٔ خودِ ابزار زیرِ سقفِ فراخوان — کلیپِ تازه پس از آن «وقت تمام شد» می‌گیرد و آنچه شنیده شد می‌ماند */
+    const res = execFileSync('python3', [path.join(__dirname, 'clipfind.py'), f, part],
+                             { encoding: 'utf8', timeout: MK.findTimeoutS * 1000, maxBuffer: 8 * 1024 * 1024,
+                               env: Object.assign({}, process.env, { CLIPFIND_BUDGET_S: String(MK.findBudgetS) }) });
     const j = JSON.parse(String(res).trim().split('\n').pop());
     if (Array.isArray(j) && j.length === reqs.length) return j;
     return out.map(() => ({ found: false, why: 'پاسخِ شنیدن ناقص بود' }));
   } catch (e) {
-    return out.map(() => ({ found: false, why: 'شنیدن نشد: ' + String(e.message).split('\n')[0].slice(0, 80) }));
+    const why = 'شنیدن نشد: ' + String(e.message).split('\n')[0].slice(0, 80);
+    /* ۱۴.۸: کشته شد ⇒ نتیجهٔ کلیپ‌هایی که پیش از آن شنیده شدند از دیسک، نه دور ریختن همه */
+    let pj = null;
+    try { pj = JSON.parse(fs.readFileSync(part, 'utf8')); } catch (e1) { pj = null; }
+    if (Array.isArray(pj) && pj.length === reqs.length) {
+      return pj.map(x => (x && x.why === 'شنیده نشد') ? { found: false, why: why } : x);
+    }
+    return out.map(() => ({ found: false, why: why }));
   }
 }
 
