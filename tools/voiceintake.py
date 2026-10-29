@@ -47,6 +47,7 @@ ST_SEEN, ST_QUEUED = "دیده‌شد", "در صف"
 ST_TRAIN, ST_MEASURE = "آموزش", "سنجش"
 ST_READY, ST_THIN = "آماده", "دادهٔ کم"
 ST_FAIL, ST_GIVEUP = "ناموفق", "رهاشده"
+BAND_MIN_FILES = int(os.environ.get("VT_MIN_BAND_FILES") or 5)   # همان کمینهٔ `voicetrain.MIN_BAND_FILES`
 DONE = (ST_READY, ST_GIVEUP)
 
 REPO = os.environ.get("GITHUB_REPOSITORY", "mahdighandi1989/Content-Engine")
@@ -194,6 +195,26 @@ def bandReport(run_id, voice):
             "low": [[x.get("n"), x.get("edgeHz")] for x in (b.get("rows") or []) if not x.get("ok")][:40]}
 
 
+
+def bandBlock_(cur, bd, rid_):
+    """══ ردِ پهنای باند پایانِ همان آموزش است، نه «ناموفق» (۱۴.۷) ══
+
+    همان فایل‌ها هر بار همان عدد را می‌دهند (گلدوز، ۲۹ اکتبر: ۳ از ۲۹)؛ «ناموفق» یعنی دوباره فرستادن، و سه بار یعنی
+    «رهاشده» برای گوینده‌ای که مدلِ سالمش سرِ جایش است. پس آموزشِ همین tag بسته می‌شود (`retrainBlocked`)، گوینده با
+    مدل و عددهای پیشینش (`prev`) به «آماده» برمی‌گردد، و موتور دیگر به صفش نمی‌فرستد. tagِ تازه (ضبط‌های تازه) دوباره
+    باز می‌کند. ⇒ True اگر بست."""
+    if not bd or not cur.get("retrainTag") or int(bd.get("kept") or 0) >= BAND_MIN_FILES:
+        return False
+    for k_, v_ in (cur.get("prev") or {}).items():
+        cur[k_] = v_
+    cur["retrainBlocked"] = {"tag": cur.get("retrainTag"), "why": "پهنای باند", "kept": bd.get("kept"),
+                             "files": bd.get("files"), "minHz": bd.get("minHz"), "runId": rid_,
+                             "at": __import__("datetime").datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")}
+    cur["stage"] = ST_READY
+    cur["note"] = ("آموزشِ دوبارهٔ «%s» شروع نشد: فقط %d از %d ضبط پرباند است (کمینه %d). مدلِ پیشین سرِ جایش است."
+                   % (cur.get("retrainTag"), int(bd.get("kept") or 0), int(bd.get("files") or 0), BAND_MIN_FILES))
+    return True
+
 def artifactState(run_id, voice, dest):
     """`state.json` از artifactِ آن اجرا — تنها جوابِ «تمام شد؟».
 
@@ -340,6 +361,11 @@ def plan(q, st):
                 if bd:
                     cur["band"] = bd
                     cur["note"] += " پهنای باند: %d از %d ضبط پرباند (لبه ≥ %d هرتز)." % (bd.get("kept", 0), bd.get("files", 0), bd.get("minHz", 0))
+                    if bandBlock_(cur, bd, rid_):
+                        sp[key] = cur
+                        changed = True
+                        say("«%s»: %s" % (name, cur["note"]))
+                        continue
                 sp[key] = cur
                 changed = True
                 say("«%s»: آموزش شکست خورد." % name)

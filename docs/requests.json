@@ -1627,7 +1627,7 @@
    "id": "R-20261028-01",
    "at": "2026-10-28",
    "ask": "گلدوز: بازآموزی با فقط ضبط‌های پرباند، با همهٔ احتیاط‌های آموزش‌های قبلی؛ پیش از شروع ۲۹ ضبط سنجیده و شمارِ پرباندها گفته شود؛ پس از آموزش سنجهٔ سایشی و نمونهٔ A/B؛ تا تأییدِ گوشِ مالک VBR_EP_HOLD روشن",
-   "done": "`docs/voices.json` → `spk-1g0r95d.band` (kept/files/minHz) و پیامِ «📶» در تلگرام؛ اگر kept ≥ ۵ آموزشِ r3-band تا `retrainDone: r3-band` پیش می‌رود و نمونهٔ «پس از بازآموزیِ r3-band» با خطِ «🔬 سایشی‌ها» و «🆚» می‌رسد؛ VBR_EP_HOLD در تمامِ مدت true",
+   "done": "`docs/voices.json` → `spk-1g0r95d.band` (kept/files/minHz) و پیامِ «📶» در تلگرام؛ اگر kept ≥ ۵ آموزشِ r3-band تا `retrainDone: r3-band` پیش می‌رود و نمونهٔ «پس از بازآموزیِ r3-band» با خطِ «🔬 سایشی‌ها» و «🆚» می‌رسد؛ VBR_EP_HOLD در تمامِ مدت true؛ ۱۴.۷: اگر kept < ۵ (۲۹ اکتبر: ۳ از ۲۹) ⇒ `retrainBlocked` و گزینهٔ «ب»: نمونهٔ «درسِ ۷۴ · گامِ ۰ · گزینهٔ «ب»» با نسخه‌های hb و hb:all در `docs/voice-renders.json` و پیامِ «🆚»",
    "how": "`docs/voices.json` + تلگرام + `docs/voice-renders.json` (ردیفِ نمونه)",
    "ver": "14.1"
   },

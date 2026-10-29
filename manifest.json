@@ -1,14 +1,18 @@
 {
-  "version": "14.6",
+  "version": "14.7",
   "codeFile": "engine.gs",
-  "sha256": "b5255205484ce5bc57fd58d2c78af9745e1e680a8103bf637afbb8731c3b818f",
-  "releasedAt": "2026-10-29T09:30:00Z",
-  "summary": "ردیفِ «tts-pin-drift» که ۱۳.۷ به «کاربر» داده بود، هر روز دوباره «کارِ کدِ امروز» می‌شد: selfVerifySweep_ هر ردیفِ بسته‌ای را که شرطش برقرار بود به «نیازمند تعویض کد» برمی‌گرداند، بی نگاه به صاحبِ ردیف. حالا فقط ردیفِ «کد» بازگشایی می‌شود. و «برای همهٔ تیک‌ها نمونه ساخته شده» (runVoiceSoulTest) دیگر خطای منو شمرده نمی‌شود.",
+  "sha256": "93eee3a44def1ed15dec8ff62c256e0641da48acb6f0fa85ed97f7e92bc60b80",
+  "releasedAt": "2026-10-29T11:00:00Z",
+  "summary": "گلدوز: اجرای ۱۰۰ِ voice-train نشان داد فقط ۳ از ۲۹ ضبط پرباند است (۲۶ ضبط لبه ~۷٫۷ کیلوهرتز)؛ بازآموزیِ r3-band بسته شد — نه «ناموفق»، گوینده با مدلِ پیشینش «آماده» می‌ماند و دیگر به صف نمی‌رود. گزینهٔ «ب» (تأییدِ ۲۸ اکتبر): نمونهٔ مقایسهٔ «باندِ بالا از Charon» در سایشی‌ها و همه‌جا؛ تولید دست نمی‌خورد.",
   "fixes": [
-    "selfVerifySweep_: ردیفِ بسته‌ای که صاحبش «کد» ندارد بازگشایی نمی‌شود (run_reports_test ک.۵-ب)",
-    "runVoiceSoulTest: «همه ساخته شده» ⇒ benign، همان قاعدهٔ ۸.۸۴ (run_bridge_voice_test ۲۴.۱۳-ب)"
+    "voiceintake.bandBlock_: ردِ پهنای باند آموزشِ همان tag را می‌بندد (retrainBlocked) و prev را برمی‌گرداند",
+    "vintRetrainPending_: retrainBlocked با همان tag یعنی مانده نیست",
+    "voicebridge.hbRestore + نسخه‌های hb/hb:all در مقایسه",
+    "VOICE_SOUL_SEED: نمونهٔ «درسِ ۷۴ · گامِ ۰ · گزینهٔ «ب»»"
   ],
-  "sourceReportIds": [],
+  "sourceReportIds": [
+    "R-20261028-01"
+  ],
   "answers": [],
   "promptImpact": []
 }

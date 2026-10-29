@@ -2357,7 +2357,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '14.6',
+  CODE_VERSION: '14.7',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2781,7 +2781,11 @@ var CFG = {
     { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · گامِ ۰ · مقایسه: Charon خام · مدلِ پیشین · تبدیلِ ملایم · بهترینِ تازه · سنجشِ سایشی‌ها', nospans: true, voice: 'Charon', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true, hx: 'soft', variants: 'raw,old,mild:0.5/0.5' },
     /* ۱۴.۱: همان مقایسه **پس از** بازآموزیِ r3-band (فقط ضبط‌های پرباند) — ساخته نمی‌شود تا آن آموزش «آماده» شود
        (`afterRetrain`). «پیشین» آن‌وقت مدلِ r2 است؛ سنجهٔ سایشی‌ها مدلِ تازه را کنارِ Charonِ خام می‌گذارد. */
-    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · گامِ ۰ · پس از بازآموزیِ r3-band · Charon خام · مدلِ پیشین · بهترینِ تازه · سنجشِ سایشی‌ها', nospans: true, voice: 'Charon', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true, hx: 'soft', variants: 'raw,old', afterRetrain: 'r3-band' }
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · گامِ ۰ · پس از بازآموزیِ r3-band · Charon خام · مدلِ پیشین · بهترینِ تازه · سنجشِ سایشی‌ها', nospans: true, voice: 'Charon', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true, hx: 'soft', variants: 'raw,old', afterRetrain: 'r3-band' },
+    /* ۱۴.۷: r3-band شروع نشد — فقط ۳ از ۲۹ ضبط پرباند بود (کمینه ۵؛ ۲۶ ضبط لبه‌شان ~۷٫۷ کیلوهرتز). پس گزینهٔ «ب» (تأییدِ ۲۸ اکتبر:
+       «ب فقط اگر الف شکست خورد»): همان بهترینِ تازه، و باندِ بالای ۷ کیلوهرتز از خودِ Charon — یک بار فقط در سایشی‌ها، یک بار همه‌جا
+       (`hbRestore`) — کنارِ Charonِ خام، با سنجهٔ سایشی‌ها. فقط نمونه؛ تولید دست نمی‌خورد و VBR_EP_HOLD روشن می‌ماند. */
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · گامِ ۰ · گزینهٔ «ب»: باندِ بالا از Charon (فقط سایشی‌ها · همه‌جا) · Charon خام · سنجشِ سایشی‌ها', nospans: true, voice: 'Charon', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, qNoRetry: true, hx: 'soft', variants: 'raw,hb,hb:all' }
   ],
   VBR_Q_CRACK_PER_MIN: 2.5,       // ۱۳.۱ (سنجیده: رضوی ۱٫۸، گلدوز ۳٫۳ تا ۶٫۶): بیش از این شکستنِ صدا در دقیقه ⇒ ساختِ دوباره، و اگر باز ⇒ صوتِ قسمت جای اصلی نمی‌نشیند
   VBR_Q_JITTER_ST: 0.18,          // ۱۳.۱ (سنجیده: گفتارِ واقعی ۰٫۱۲ تا ۰٫۱۳، لرزشِ ساختگیِ ±۱٫۲ نیم‌پرده ۰٫۲۱): میانگینِ لرزشِ زیروبم (نیم‌پرده بینِ دو قابِ ۲۰ میلی‌ثانیه‌ای)

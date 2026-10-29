@@ -823,6 +823,81 @@ def fricSplice(outPath, srcPath, dstPath, thrDb=8.0, maxPct=12.0, maxRun=18, fad
             "gainDb": round(20 * np.log10(g), 1), "thrDb": th, "mode": "splice"}
 
 
+def hbRestore(outPath, srcPath, dstPath, cutHz=7000.0, mode="fric", fricShare=0.30, fadeS=0.012):
+    """۱۴.۷ — گزینهٔ «ب»: باندِ بالا از خودِ Charon، چون مدل آن را **ندارد**.
+
+    سدِ پهنای باند (۲۹ اکتبر) نشان داد ۲۶ از ۲۹ ضبطِ گلدوز لبه‌شان ~۷٫۷ کیلوهرتز است: مدلی که روی آن‌ها آموخته بالای
+    همان لبه چیزی برای ساختن ندارد، و «س/ش» درست همان‌جاست — «کُند و زبان‌گرفته» (۱۳.۹: مرکزِ طیفِ سایشی ۷۵۸۹ ⇐ ۳۴۶۹).
+    بازآموزی با سه ضبطِ پرباند شدنی نبود، پس این‌جا آنچه مدل ندارد از مبدأ برمی‌گردد:
+      • `fric`: فقط در قاب‌هایی که **مبدأ** سایشی است (سهمِ انرژیِ ۳ تا ۱۲ کیلوهرتز ≥ `fricShare`) باندِ بالای `cutHz`
+        از Charon می‌آید، با گینِ هم‌ترازِ دو فایل؛ باقیِ صدا همان تبدیل.
+      • `all`: باندِ بالا همه‌جا از Charon — هوای کلِ صدا هم، با بهای رنگِ Charon در همان باند.
+    زیرِ `cutHz` هرگز دست نمی‌خورد، پس واکه و زیروبم و رنگِ گلدوز همان است. تبدیل زمان را نگه می‌دارد (`fricSplice`).
+    ⇒ {ok, frames, pct, gainDb, cutHz, mode} یا {ok: False, why}."""
+    import wave
+    import numpy as np
+    try:
+        y, sr = _wavRead(outPath)
+        s, ssr = _wavRead(srcPath)
+    except Exception as e:
+        return {"ok": False, "why": str(e)[:120]}
+    if ssr != sr:
+        t = np.arange(int(len(s) * float(sr) / ssr)) * (float(ssr) / sr)
+        s = np.interp(t, np.arange(len(s)), s).astype(np.float32)
+    n = min(len(y), len(s))
+    if n < sr:
+        return {"ok": False, "why": "کوتاه"}
+    y, s = y[:n].astype(np.float32), s[:n].astype(np.float32)
+    top = min(float(ssr) / 2.0, float(sr) / 2.0) - 1.0
+    if top <= cutHz + 500:
+        return {"ok": False, "why": "مبدأ بالای %d هرتز چیزی ندارد" % int(cutHz)}
+    fq = np.fft.rfftfreq(n, 1.0 / sr)
+    tr = 800.0                                    # گذارِ نرمِ ۸۰۰ هرتزی، نه دیوار
+    hp = np.clip((fq - (cutHz - tr / 2)) / tr, 0.0, 1.0)
+    S, Y = np.fft.rfft(s), np.fft.rfft(y)
+    sHi = np.fft.irfft(S * hp, n).astype(np.float32)
+    yHi = np.fft.irfft(Y * hp, n).astype(np.float32)
+    hop, win = max(1, int(sr * 0.01)), max(8, int(sr * 0.025))
+    nf = (n - win) // hop + 1
+    f = np.fft.rfftfreq(win, 1.0 / sr)
+    band = (f >= 3000) & (f <= min(12000, top))
+    w = np.hanning(win)
+    tot, fb, ry, rs = np.zeros(nf), np.zeros(nf), np.zeros(nf), np.zeros(nf)
+    for a in range(0, nf, 4000):
+        b = min(nf, a + 4000)
+        idx = np.arange(win)[None, :] + hop * np.arange(a, b)[:, None]
+        P = np.abs(np.fft.rfft(s[idx] * w[None, :], axis=1)) ** 2
+        tot[a:b] = P.sum(1) + 1e-12
+        fb[a:b] = P[:, band].sum(1)
+        ry[a:b] = np.sqrt((y[idx] ** 2).mean(1) + 1e-12)
+        rs[a:b] = np.sqrt((s[idx] ** 2).mean(1) + 1e-12)
+    db = 10 * np.log10(tot)
+    speech = db > np.percentile(db, 95) - 35
+    if speech.sum() < 50:
+        return {"ok": False, "why": "گفتار پیدا نشد"}
+    g = float(np.median(ry[speech]) / max(1e-9, np.median(rs[speech])))
+    g = min(4.0, max(0.25, g))
+    if mode == "all":
+        m = speech.copy()
+    else:
+        m = speech & (fb / tot >= float(fricShare))
+        m = m | np.r_[m[1:], False] | np.r_[False, m[:-1]]
+    if not m.any():
+        return {"ok": False, "why": "قابِ سایشی‌ای در مبدأ پیدا نشد"}
+    wv = np.zeros(n, np.float32)
+    for i in np.nonzero(m)[0]:
+        wv[i * hop:min(n, i * hop + win)] = 1.0
+    k = max(1, int(sr * fadeS))
+    wv = np.convolve(wv, np.ones(k, np.float32) / k, mode="same")
+    z = np.clip(y + wv * (sHi * g - yHi), -1.0, 1.0)
+    with wave.open(dstPath, "wb") as wo:
+        wo.setnchannels(1)
+        wo.setsampwidth(2)
+        wo.setframerate(sr)
+        wo.writeframes((z * 32767.0).astype("<i2").tobytes())
+    return {"ok": True, "frames": int(m.sum()), "pct": round(100.0 * m.sum() / max(1, speech.sum()), 1),
+            "gainDb": round(20 * np.log10(g), 1), "cutHz": int(cutHz), "mode": mode}
+
 def hearCompare(src, out, alt=None, model=None):
     """۹.۱۱: شنیدنِ ورودی و خروجی روی **همان بازه‌های زمانی** — تبدیل زمان را نگه می‌دارد، پس هر جمله‌ای که
     whisper در صدای جمینای شنید، با همان بازه از خروجی مقایسه می‌شود. واژه‌ای که در ورودی درست و در خروجی خراب
@@ -2237,6 +2312,17 @@ def runOne(it, mp):
                 lab = "Charon خام (بی تبدیل)"
                 n8 = "vb/src-loud.wav"
                 cur8 = n8 if loudFix("vb/src.wav", n8) else "vb/src.wav"
+            elif vv in ("hb", "hb:all"):
+                # ۱۴.۷ — گزینهٔ «ب»: روی **همان** خروجیِ نهایی (بهترین)، بی تبدیلِ دوباره؛ فقط باندِ بالا از Charon.
+                hm = "all" if vv == "hb:all" else "fric"
+                lab = "باندِ بالا از Charon — " + ("همه‌جا" if hm == "all" else "فقط در سایشی‌ها")
+                n8 = os.path.join(os.path.dirname(best) or ".", "hb-%s.wav" % hm)
+                hbr = hbRestore(best, "vb/src.wav", n8, cutHz=float(pr.get("hbCutHz", 7000)), mode=hm)
+                if not hbr.get("ok"):
+                    variants.append({"kind": vv, "label": lab, "why": hbr.get("why")})
+                    continue
+                cur8 = n8
+                say("  «%s»: %s قاب (%s٪ گفتار)، گین %s دسی‌بل، از %s هرتز" % (lab, hbr["frames"], hbr["pct"], hbr["gainDb"], hbr["cutHz"]))
             else:
                 a8 = list(args)
                 od = "vblab-v%d" % len(variants)

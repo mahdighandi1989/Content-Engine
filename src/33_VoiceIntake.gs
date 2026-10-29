@@ -602,6 +602,9 @@ function vintRetrainPending_(key, doc) {
   if (!spec) return null;
   var r = doc && doc.speakers && doc.speakers[key];
   if (r && String(r.retrainDone || '') === spec.tag) return null;
+  /* ۱۴.۷: آموزشی که رانر پیش از شروع بست (سدِ پهنای باند: همان فایل‌ها هر بار همان عدد) مانده نیست — وگرنه هر شب دوباره
+     به صف، دوباره سه دقیقه رانر، و پوشه هرگز بایگانی نمی‌شد. tagِ تازه (ضبط‌های تازه) دوباره باز می‌کند. */
+  if (r && r.retrainBlocked && String(r.retrainBlocked.tag || '') === spec.tag) return null;
   return spec;
 }
 
