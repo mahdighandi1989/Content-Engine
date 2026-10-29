@@ -2564,7 +2564,17 @@ function ytItemOff_(it) {
   if (ytOwnerHoldWhy_(it)) return true;     // ۱۳.۴: کنار به دستورِ صاحبِ کانال — نه پاک، و با برداشتنِ دستور برمی‌گردد
   var floor = Number((CFG.YT_SHOW_MIN_EP || {})[String(it.show)]) || 0;
   var n = parseInt(String(it.ep || '').replace(/[^\d]/g, ''), 10);
-  return floor > 0 && n > 0 && n < floor;
+  if (!(floor > 0 && n > 0 && n < floor)) return false;
+  /* ══ کف برای آپلودِ قسمتِ قدیمی است، نه برای جایگزینیِ دستوری (۱۴.۵) ══ «قسمت ۸۲: ساختِ دوباره … و جایگزینی» — ۸۲ زیرِ کفِ
+     ۸۴ بود و ۱۴.۴ آن را «بیرون از انتشار» گرفت و رد شد. کف می‌گوید «قدیمی‌ها دوباره بالا نروند»؛ ویدئوی منتشرشده‌ای که صاحبِ
+     کانال صریحاً گفته عوض شود (فهرستِ گیت‌هاب، نه خودکار) همان «دوباره» نیست. خاموشیِ برنامه و کنارِ دستوری همچنان سد است. */
+  if (it.replace) {
+    try {
+      var rl = ytReplaceList_()[String(it.key || (ytShowKey_(it.show) + ':' + n))];
+      if (rl && !rl.auto && String(rl.tag) === String(it.replace)) return false;
+    } catch (eRl) {}
+  }
+  return true;
 }
 
 /* ══ کنار به دستورِ صاحبِ کانال (۱۳.۴) ══ «قسمت ۸۴ … از صفِ انتشار کنار بگذارید، حذف نکنید». دو منبع، یک در:
@@ -11317,6 +11327,9 @@ function ytReplaceTick_(budgetMs, hubIn) {
     /* میان‌بُر، نه سد (۷.۷۱): حالتِ تمام‌شده به هیچ شاخهٔ پایین نمی‌رسد؛ این فقط شمارش را تمیز نگه می‌دارد. */
     /* `notPub` (۹.۶۵): «هنوز منتشر نشده» پایان نیست — special:76 همین‌جا «لازم نشد» گرفت و ساعتی بعد با کارتِ ساده
        منتشر شد، و همان tag دیگر هرگز به آن نرسید. */
+    /* ۱۴.۵: «بیرون از انتشار»ی که کدِ پیش از ۱۴.۵ نوشت (کفِ شماره، variety:82) یک بار دوباره سنجیده می‌شود — `v145` یعنی این
+       داوری را کدِ تازه داده است. بی این، همان tag برای همیشه «لازم نشد» می‌ماند. */
+    if (cur.tag === tag && cur.phase === 'skip' && !cur.v145 && /بیرون از انتشار/.test(String(cur.why || ''))) cur = {};
     if (cur.tag === tag && !cur.notPub && ['done', 'skip', 'fail'].indexOf(String(cur.phase || '')) !== -1) continue;
     if (cur.tag === tag && cur.notPub) {
       var recNp = getPub()[showK0_(key) + ':' + key.slice(key.lastIndexOf(':') + 1)];
@@ -11336,8 +11349,8 @@ function ytReplaceTick_(budgetMs, hubIn) {
           changed = true; continue;
         }
         /* ۱۱.۲: جایگزینی یعنی ویدئوی **تازه**ای که عمومی می‌شود — قسمتی که او خصوصی کرده، از این راه برنمی‌گردد. */
-        if (ytItemOff_({ show: showK, ep: ep }) || ytHandsOff_(rec.videoId, 'جایگزینی')) {
-          st[key] = { tag: tag, phase: 'skip', at: nowStr_(), why: 'ویدئوی این قسمت خصوصی است یا قسمت بیرون از انتشار است — جایگزین نمی‌شود' };
+        if (ytItemOff_({ show: showK, ep: ep, key: showK + ':' + ep, replace: tag }) || ytHandsOff_(rec.videoId, 'جایگزینی')) {
+          st[key] = { tag: tag, phase: 'skip', at: nowStr_(), v145: true, why: 'ویدئوی این قسمت خصوصی است یا قسمت بیرون از انتشار است — جایگزین نمی‌شود' };
           changed = true; continue;
         }
         var rq = ytRenderRead_(), folderId = '';

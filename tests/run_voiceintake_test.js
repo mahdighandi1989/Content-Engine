@@ -1018,6 +1018,9 @@ console.log('\n=== ۲۹) صفِ گویندگان درِ دوم دارد — شب
   ok('۲۹.۱ نوشتنِ صف شاهدِ خودش را می‌زند', !!w1 && ((vintReadQueue_() || {}).rev || 0) > rev0,
      JSON.stringify({ w1: w1, rev0: rev0 }));
 
+  /* ۱۴.۵: آموزشِ دوبارهٔ پیکربندی (r3-band) در این جهانِ آزمون هرگز به صف نمی‌رسد و درِ ساعتی درست برایش زمان‌بندی می‌کند؛
+     این سنجه «صفی که همه‌چیزش رسیده» را می‌خواهد — پس نشانهٔ صفِ همان tag (`vintQueue_`) را خودش می‌گذارد. */
+  for (const rk of Object.keys(CFG.VOICE_RETRAIN || {})) { const sp0 = vintRetrainSpec_(rk); if (sp0) P['VINT_RT_' + rk] = sp0.tag; }
   const d0 = vintQueueDue_();
   ok('۲۹.۲ صفِ تازه‌نوشته اجرای دوم نمی‌خواهد', d0.scheduled === false && later() === 0, JSON.stringify(d0));
 

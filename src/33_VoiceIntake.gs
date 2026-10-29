@@ -1913,6 +1913,7 @@ function vintNightly_(force) {
   catch (e1) { try { logLine_('خواندنِ پاسخِ گویندگان ناموفق: ' + e1.message); } catch (e1b) {} }
 
   var scan = null, state = null;
+  try { out.restored = vintRetrainRestore_().restored; } catch (eRs) {}
   try {
     scan = vintScan_();
     if (scan.error) throw new Error('پوشه خوانده نشد: ' + scan.error);
@@ -1964,7 +1965,11 @@ function vintQueueDue_() {
     var t = new Date(last.replace(' ', 'T') + ':00').getTime();
     if (!isNaN(t)) out.ageH = Math.max(0, (new Date().getTime() - t) / 3600000);
   }
-  if (out.ageH !== null && out.ageH < hrs) { out.why = 'تازه است'; return out; }
+  /* ۱۴.۵: آموزشِ دوباره‌ای که برای tagِ خودش هنوز یک بار هم به صف نرسیده، صبر تا شبِ بعد نمی‌کند. r3-band با نصبِ
+     دستیِ ۲۸ اکتبر آمد و صفِ ۰۲:۲۹ خالی بود؛ «تازه است» یعنی تا ۰۲:۳۰ِ فردا هیچ دری بازش نمی‌کرد. فقط Properties و CFG. */
+  var rtWait = vintRetrainUnqueued_();
+  if (out.ageH !== null && out.ageH < hrs && !rtWait.length) { out.why = 'تازه است'; return out; }
+  if (rtWait.length) out.retrain = rtWait;
   var max = Math.max(1, Number(CFG.VINT_QUEUE_LATER_MAX) || 2);
   var today = String(nowStr_()).slice(0, 10);
   var pkey = 'VINT_QLATER_DAY', n = 0;
@@ -1979,6 +1984,63 @@ function vintQueueDue_() {
     props_().setProperty(pkey, today + '|' + (n + 1));
     out.scheduled = true;
   } catch (eT) { out.why = 'زمان‌بندی نشد: ' + String((eT && eT.message) || eT).slice(0, 60); }
+  return out;
+}
+
+/** کلیدهای آموزشِ دوباره‌ای که نشانهٔ صفِ همان tag را ندارند (`VINT_RT_<key>`، در `vintQueue_`) — بی شبکه. */
+function vintRetrainUnqueued_() {
+  var out = [], m = CFG.VOICE_RETRAIN || {};
+  for (var k in m) {
+    if (!Object.prototype.hasOwnProperty.call(m, k)) continue;
+    var spec = vintRetrainSpec_(k);
+    if (!spec) continue;
+    var was = '';
+    try { was = String(props_().getProperty('VINT_RT_' + k) || ''); } catch (e) {}
+    if (was !== spec.tag) out.push(k);
+  }
+  return out;
+}
+
+/**
+ * ۱۴.۵ — پوشهٔ گوینده‌ای که آموزشِ دوباره‌اش هنوز مانده، از بایگانی برمی‌گردد.
+ *
+ * گلدوز r2-22k را ۱۴ اکتبر تمام کرد و ۲۵ اکتبر (۰۲:۳۳) `vintRetire_` پوشه‌اش را بایگانی کرد — درست، چون آن روز هیچ آموزشی
+ * نمانده بود. ۱۴.۱ r3-band را تعریف کرد؛ سدِ ۸.۴۳ (`vintKeepSet_`) فقط جلوی **رفتن** را می‌گیرد، نه برگشتن را، و
+ * `vintScan_` بایگانی را نمی‌بیند. پس صفِ ۲۹ اکتبر خالی نوشته شد و آموزشی که صاحبِ برنامه تأیید کرده بود هرگز راه
+ * نمی‌افتاد — بی هیچ خطایی. همان شکلِ ۸.۴۳، این بار از آن طرف: دری که فقط در یک جهت باز می‌شود.
+ * فقط جابه‌جایی، هیچ پاک‌کردنی؛ پاسخِ نخوانده ⇒ هیچ کاری (برگرداندنِ پوشه‌ای که کارش تمام شده بی‌جاست).
+ */
+function vintRetrainRestore_() {
+  var out = { restored: [] };
+  var m = CFG.VOICE_RETRAIN || {}, keys = [];
+  for (var k0 in m) if (Object.prototype.hasOwnProperty.call(m, k0) && vintRetrainSpec_(k0)) keys.push(k0);
+  if (!keys.length) return out;
+  var doc = null;
+  try { doc = vintReadResult_(); } catch (eD) { doc = null; }
+  if (!doc || !doc.speakers) return out;
+  var want = {}, n = 0;
+  for (var i = 0; i < keys.length; i++) if (vintRetrainPending_(keys[i], doc)) { want[keys[i]] = 1; n++; }
+  if (!n) return out;
+  var par = vintCloneFolder_();
+  var arcName = String(CFG.VOICE_CLONE_ARCHIVE || 'بایگانی — نمونه‌های آزمایشی');
+  var live = {}, di = par.getFolders();
+  while (di.hasNext()) { var d0 = di.next(), n0 = String(d0.getName()); if (n0 !== arcName) live[vintSlug_(n0)] = 1; }
+  var ai = par.getFoldersByName(arcName);
+  if (!ai.hasNext()) return out;
+  var it = ai.next().getFolders();
+  while (it.hasNext()) {
+    var d = it.next(), nm = String(d.getName()), key = vintSlug_(nm);
+    if (!want[key] || live[key]) continue;
+    try {
+      if (typeof d.moveTo === 'function') d.moveTo(par); else { par.addFolder(d); }
+      live[key] = 1;
+      out.restored.push(key);
+      var tag = (vintRetrainSpec_(key) || {}).tag;
+      vintLog_(null, { key: key, name: nm, step: VINT_ST.QUEUED, result: 'از بایگانی برگشت',
+                       note: 'آموزشِ دوبارهٔ «' + tag + '» مانده بود و پوشه بایگانی شده بود؛ برگشت (چیزی پاک نشد).' });
+      logLine_('گوینده‌ها: پوشهٔ «' + nm + '» برای آموزشِ دوبارهٔ ' + tag + ' از بایگانی برگشت.');
+    } catch (eM) { try { logLine_('برگرداندنِ پوشهٔ «' + nm + '» نشد: ' + eM.message); } catch (e2) {} }
+  }
   return out;
 }
 
