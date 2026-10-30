@@ -84,7 +84,10 @@ function ytDrain_(dueCount) {
 }
 
 function ytQuota_() {
-  var today = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  /* ۱۴.۹: روزِ سهمیه روزِ **یوتیوب** است، نه روزِ دبی — Data API سرِ نیمه‌شبِ اقیانوس آرام (۱۱:۰۰ دبی) صفر می‌شود.
+     با روزِ دبی، شمارندهٔ ما از ۱۱ تا نیمه‌شب «پر» می‌ماند در حالی که سهمِ تازه آماده بود (۳۰ اکتبر: ۸۲ از ۰۰:۲۷ ساخته و
+     در صف، «blocked: واحد» تا ۲۰:۱۴ و بیشتر)، و از نیمه‌شب تا ۱۱ «خالی» می‌دید در حالی که یوتیوب ۴۰۳ می‌داد. */
+  var today = Utilities.formatDate(new Date(), String(CFG.YT_QUOTA_TZ || 'America/Los_Angeles'), 'yyyy-MM-dd');
   var q = null;
   try { q = JSON.parse(props_().getProperty(PK.YT_QUOTA) || 'null'); } catch (e) {}
   if (!q || q.day !== today) q = { day: today, units: 0, uploads: 0, blocked: '' };

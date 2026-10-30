@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 14.8
+ *  موتور محتوا و پادکست — نسخهٔ 14.9
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1588,6 +1588,7 @@ var CFG = {
      از ۱۰٬۰۰۰ واحدِ مشترک خرج می‌کنند. `search.list` صد واحد است و اصلاً
      به کار نمی‌رود — فهرستِ ما در تب است، نه در جست‌وجوی یوتیوب. */
   YT_QUOTA_UNITS: 9000,                 // حاشیه زیرِ ۱۰٬۰۰۰
+  YT_QUOTA_TZ: 'America/Los_Angeles', // ۱۴.۹: سهمیهٔ Data API سرِ نیمه‌شبِ اقیانوس آرام صفر می‌شود (۱۱:۰۰ دبی)
   YT_QUOTA_UPLOADS: 90,                 // حاشیه زیرِ ~۱۰۰
   HANDOUT_ENABLED: true,
   HANDOUT_JSON: '_HANDOUT.json',   // مدلِ ساختاریِ کتاب، کنارِ خودِ جزوه
@@ -2376,7 +2377,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '14.8',
+  CODE_VERSION: '14.9',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -52007,7 +52008,10 @@ function ytDrain_(dueCount) {
 }
 
 function ytQuota_() {
-  var today = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  /* ۱۴.۹: روزِ سهمیه روزِ **یوتیوب** است، نه روزِ دبی — Data API سرِ نیمه‌شبِ اقیانوس آرام (۱۱:۰۰ دبی) صفر می‌شود.
+     با روزِ دبی، شمارندهٔ ما از ۱۱ تا نیمه‌شب «پر» می‌ماند در حالی که سهمِ تازه آماده بود (۳۰ اکتبر: ۸۲ از ۰۰:۲۷ ساخته و
+     در صف، «blocked: واحد» تا ۲۰:۱۴ و بیشتر)، و از نیمه‌شب تا ۱۱ «خالی» می‌دید در حالی که یوتیوب ۴۰۳ می‌داد. */
+  var today = Utilities.formatDate(new Date(), String(CFG.YT_QUOTA_TZ || 'America/Los_Angeles'), 'yyyy-MM-dd');
   var q = null;
   try { q = JSON.parse(props_().getProperty(PK.YT_QUOTA) || 'null'); } catch (e) {}
   if (!q || q.day !== today) q = { day: today, units: 0, uploads: 0, blocked: '' };
