@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-30 01:20",
+ "updatedAt": "2026-10-30 07:30",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -6387,6 +6387,82 @@
     "fade": 23
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-87-cover.jpg"
+  },
+  "special:88": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-88.mp4",
+   "bytes": 44743986,
+   "parts": 2,
+   "at": "2026-10-30 07:30",
+   "mode": "scenes",
+   "scenes": 53,
+   "want": 53,
+   "snapped": 47,
+   "seconds": 1212,
+   "qa": {
+    "n": 53,
+    "matched": 50,
+    "miss": [
+     9,
+     36,
+     50
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 14,
+       "t": 348.6,
+       "own": 0.67,
+       "nb": 0.19,
+       "ok": true,
+       "heard": "چند تجربه‌های تایید کننده منتقا مستلزم وجود چمنزار نیستند.  اما دلیلی نداریم که معرفت یا قطییت فقط از زمینهای این"
+      },
+      {
+       "n": 27,
+       "t": 623,
+       "own": 0.46,
+       "nb": 0.08,
+       "ok": true,
+       "heard": "بزام به مسابعی شرط توجی هستنتاجی و نقد اصل پوشتبانی.  اصل پوشتبانی میگوید برای داشتن مارفت"
+      },
+      {
+       "n": 40,
+       "t": 887.5,
+       "own": 0.56,
+       "nb": 0.12,
+       "ok": true,
+       "heard": "اما آیا میدانید که این هیوان قاتری نیست که ماهران رنگامیزی شده باشت.  این مثال مشهور فیلسوفی بنامه"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 19,
+    "placed": 11,
+    "busy": 8,
+    "failed": 0,
+    "kinds": {
+     "points": 5,
+     "quote": 2,
+     "steps": 2,
+     "headline": 1,
+     "compare": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 45,
+   "xf": {
+    "smoothright": 26,
+    "fade": 21
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-88-cover.jpg"
   }
  },
  "art": {
@@ -8329,8 +8405,8 @@
   }
  },
  "release": {
-  "assets": 513,
-  "gb": 5.47,
-  "at": "2026-10-30 01:20"
+  "assets": 515,
+  "gb": 5.52,
+  "at": "2026-10-30 07:30"
  }
 }
