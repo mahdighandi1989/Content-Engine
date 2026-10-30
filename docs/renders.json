@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-29 22:46",
+ "updatedAt": "2026-10-30 00:27",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -5220,78 +5220,44 @@
   },
   "variety:82": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-82.mp4",
-   "bytes": 44050983,
+   "bytes": 46979583,
    "parts": 1,
-   "at": "2026-10-24 07:52",
+   "at": "2026-10-30 00:27",
+   "replace": "r1-14.4",
    "mode": "media",
    "media": {
-    "clips": 11,
-    "photos": 9,
-    "found": 4,
+    "clips": 0,
+    "photos": 21,
+    "found": 0,
     "notFound": 0,
     "failed": 0,
     "why": [],
     "layouts": {
-     "fill": 9,
-     "left": 4,
-     "right": 3,
-     "center": 4
+     "fill": 21
     },
-    "teaserTiles": 5,
+    "teaserTiles": 1,
     "teaserSec": 28.8,
-    "teaser": 2,
-    "cropped": 13,
-    "filled": 2,
-    "filledSec": 0,
-    "tailCut": 5,
-    "cardOwn": 7,
-    "cards": 7,
+    "cardFlat": 7,
     "moments": {
-     "asked": 4,
-     "placed": 4,
-     "made": 4,
-     "why": [],
-     "replaced": 4,
-     "sec": 148,
-     "whole": 1,
-     "fallback": 1
+     "asked": 0,
+     "placed": 0,
+     "made": 0
     },
     "fit": {
-     "mb": 42,
-     "was": 69.1,
-     "how": "بازکدگذاری"
+     "mb": 44.8,
+     "how": "زیرِ سقف"
     }
    },
-   "inserts": [
-    {
-     "at": 46.3,
-     "d": 37.3,
-     "cut": 60.6
-    },
-    {
-     "at": 139.8,
-     "d": 44.6,
-     "cut": 63.8
-    },
-    {
-     "at": 230,
-     "d": 32.6,
-     "cut": 55.4
-    },
-    {
-     "at": 313.7,
-     "d": 33.1,
-     "cut": 67.2
-    }
-   ],
-   "scenes": 22,
-   "want": 22,
-   "snapped": 18,
+   "scenes": 21,
+   "want": 21,
+   "snapped": 17,
    "seconds": 427,
    "qa": {
-    "n": 22,
-    "matched": 22,
-    "miss": [],
+    "n": 21,
+    "matched": 20,
+    "miss": [
+     14
+    ],
     "blank": [],
     "ok": true,
     "why": "",
@@ -5301,7 +5267,7 @@
      "ok": true,
      "points": [
       {
-       "n": 9,
+       "n": 8,
        "t": 129.7,
        "own": 0.65,
        "nb": 0.3,
@@ -5309,7 +5275,7 @@
        "heard": "این videoی جدید مردی در جم ادوستانش خاطره یکی از روفقایشان را تریف می کند  که تازه ازدواج کرده بود و داماد سرخانش ده بود"
       },
       {
-       "n": 14,
+       "n": 13,
        "t": 220,
        "own": 0.67,
        "nb": 0,
@@ -5317,12 +5283,12 @@
        "heard": "و درخواست تلاق دارد."
       },
       {
-       "n": 17,
+       "n": 16,
        "t": 298.6,
-       "own": 0.33,
-       "nb": 0.1,
+       "own": 0.38,
+       "nb": 0.08,
        "ok": true,
-       "heard": "که در آن، پیدر ای بنام حاشم خان مخواهد زوحر با خان وادش بشهرشان برگر دد.  أما به اومی گویند، اب با ساق...\""
+       "heard": "ایسی یک فیلم یا سریال قدیمیست  که در آن  پیداری بینام هاشمخان  میخا هد زوهر با خانوادهش بشهرشان برگر دد  اما بe او میگوی"
       }
      ],
      "why": "",
@@ -5332,34 +5298,39 @@
    },
    "ov": {
     "asked": 10,
-    "placed": 10,
-    "busy": 0,
+    "placed": 8,
+    "busy": 2,
     "failed": 0,
     "kinds": {
-     "headline": 2,
      "points": 7,
      "quote": 1
     },
-    "forced": 2
+    "forced": 7
    },
    "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
    "clip": {
-    "asked": 22,
-    "used": 22,
+    "asked": 21,
+    "used": 21,
     "why": []
    },
    "xf": {
     "circleopen": 3,
-    "dissolve": 7,
+    "fade": 2,
+    "wiperight": 3,
     "zoomin": 2,
     "slideright": 2,
     "radial": 2,
-    "wiperight": 2,
-    "fade": 1
+    "dissolve": 2,
+    "smoothright": 2
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-82-cover.jpg",
    "notes": [
-    "اندازه: 69.1 ⇒ 42 مگابایت"
+    "صحنهٔ 4: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 6: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 9: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 11: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 14: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 17: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت"
    ]
   },
   "special:82": {
@@ -8360,6 +8331,6 @@
  "release": {
   "assets": 513,
   "gb": 5.47,
-  "at": "2026-10-29 22:46"
+  "at": "2026-10-30 00:27"
  }
 }
