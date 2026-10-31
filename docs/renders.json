@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-31 10:28",
+ "updatedAt": "2026-10-31 11:24",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -6533,6 +6533,147 @@
     "fade": 21
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-88-cover.jpg"
+  },
+  "variety:88": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-88.mp4",
+   "bytes": 33191837,
+   "parts": 1,
+   "at": "2026-10-31 11:24",
+   "mode": "media",
+   "media": {
+    "clips": 10,
+    "photos": 24,
+    "found": 4,
+    "notFound": 0,
+    "failed": 0,
+    "why": [],
+    "layouts": {
+     "fill": 15,
+     "right": 3,
+     "center": 4,
+     "left": 3,
+     "scroll": 9
+    },
+    "teaserTiles": 5,
+    "teaserSec": 47.1,
+    "teaser": 4,
+    "filled": 2,
+    "filledSec": 0,
+    "tailCut": 10,
+    "cardOwn": 5,
+    "cards": 5,
+    "cropped": 13,
+    "cardFlat": 8,
+    "moments": {
+     "asked": 4,
+     "placed": 4,
+     "made": 0,
+     "why": [
+      "73s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 24٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا",
+      "145s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 24٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا",
+      "230s: تصویرِ کلیپ ساکن بود (11.1ث) — لحظه کنار رفت",
+      "474s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 22٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا"
+     ],
+     "music": 3,
+     "still": 1
+    },
+    "fit": {
+     "mb": 31.7,
+     "how": "زیرِ سقف"
+    }
+   },
+   "scenes": 38,
+   "want": 38,
+   "snapped": 31,
+   "seconds": 693,
+   "qa": {
+    "n": 38,
+    "matched": 35,
+    "miss": [
+     22,
+     30,
+     32
+    ],
+    "blank": [],
+    "ok": false,
+    "why": "تصویر 1 جا یخ زد (247.7–267.5ث)",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 9,
+       "t": 125.6,
+       "own": 0.52,
+       "nb": 0.1,
+       "ok": true,
+       "heard": "ایرگی که از قسمتهای پیشین همین برنامه هم شنیدیم  که چتور پروجه این مطنباز روی گیتاب  با همین کلود کود  یک میزگرد مشاوریی"
+      },
+      {
+       "n": 17,
+       "t": 293.9,
+       "own": 0.67,
+       "nb": 0.11,
+       "ok": true,
+       "heard": "وزو ایک تصویر خبری و فنی در آرشیف در باری مدل جمینای سی از شرکت گوگل است.  در مطن این تصویر آمده است"
+      },
+      {
+       "n": 24,
+       "t": 429.1,
+       "own": 0.57,
+       "nb": 0.13,
+       "ok": true,
+       "heard": "ویدیوی آموزشی در آرشیف دقیقا به همین گره در حوش مصنوی کلوٹ می پردازد.  گوینده یه ویدیو الت برخورد بهین سقفرا این تور تو."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    },
+    "freeze": [
+     {
+      "s": 247.7,
+      "e": 267.5,
+      "d": 19.8
+     }
+    ]
+   },
+   "ov": {
+    "asked": 15,
+    "placed": 14,
+    "busy": 0,
+    "failed": 1,
+    "kinds": {
+     "points": 12,
+     "headline": 2
+    },
+    "forced": 9
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 38,
+    "used": 38,
+    "why": []
+   },
+   "xf": {
+    "circleopen": 5,
+    "dissolve": 8,
+    "wiperight": 5,
+    "zoomin": 4,
+    "radial": 3,
+    "smoothright": 3,
+    "fade": 3,
+    "slideright": 3
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-88-cover.jpg",
+   "notes": [
+    "صحنهٔ 18: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 20: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 22: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 27: زمینهٔ کارت یکدست بود (sd 2.6) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 30: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 32: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت"
+   ]
   }
  },
  "art": {
@@ -8608,8 +8749,8 @@
   }
  },
  "release": {
-  "assets": 470,
-  "gb": 3.5,
-  "at": "2026-10-31 10:28"
+  "assets": 472,
+  "gb": 3.53,
+  "at": "2026-10-31 11:24"
  }
 }
