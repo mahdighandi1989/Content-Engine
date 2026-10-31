@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-31 06:57",
+ "updatedAt": "2026-10-31 09:26",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -1242,7 +1242,8 @@
     "smoothright": 19,
     "fade": 16
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-69-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-69-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "special:70": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-70.mp4",
@@ -1321,13 +1322,15 @@
     "smoothright": 16,
     "fade": 12
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-70-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-70-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "variety:72": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-72.mp4",
    "bytes": 10703571,
    "parts": 1,
-   "at": "2026-10-14 06:16"
+   "at": "2026-10-14 06:16",
+   "pruned": "2026-10-31"
   },
   "special:71": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-71.mp4",
@@ -1402,7 +1405,8 @@
     "smoothright": 17,
     "fade": 13
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-71-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-71-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "variety:72-نمونه": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-72-.mp4",
@@ -2062,7 +2066,8 @@
     "smoothright": 9,
     "fade": 8
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-72-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-72-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "variety:73": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-73.mp4",
@@ -2195,7 +2200,8 @@
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-73-cover.jpg",
    "notes": [
     "اندازه: 53.6 ⇒ 36.1 مگابایت"
-   ]
+   ],
+   "pruned": "2026-10-31"
   },
   "variety:72-7-نمونه": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-72-7-.mp4",
@@ -2959,7 +2965,8 @@
    "notes": [
     "برشِ کلیپ از آغاز: صحنهٔ 7: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)",
     "اندازه: 66.5 ⇒ 37.4 مگابایت"
-   ]
+   ],
+   "pruned": "2026-10-31"
   },
   "special:73": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-73.mp4",
@@ -3037,7 +3044,8 @@
     "smoothright": 15,
     "fade": 12
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-73-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-73-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "variety:73-5-نمونه": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-73-5-.mp4",
@@ -3961,7 +3969,8 @@
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-75-cover.jpg",
    "notes": [
     "اندازه: 73.7 ⇒ 39.3 مگابایت"
-   ]
+   ],
+   "pruned": "2026-10-31"
   },
   "special:74": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-74.mp4",
@@ -4038,7 +4047,8 @@
     "smoothright": 13,
     "fade": 10
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-74-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-74-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "variety:76": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-76.mp4",
@@ -4183,7 +4193,8 @@
     "لحظهٔ 49s: مکثی بیرون از موسیقی نزدیکش نبود",
     "برشِ کلیپ از آغاز: صحنهٔ 5: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (probable) · صحنهٔ 16: گفتاری در کلیپ شنیده نشد",
     "اندازه: 62.3 ⇒ 37.4 مگابایت"
-   ]
+   ],
+   "pruned": "2026-10-31"
   },
   "special:75": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-75.mp4",
@@ -4259,7 +4270,8 @@
     "smoothright": 12,
     "fade": 10
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-75-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-75-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "variety:77": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-77.mp4",
@@ -4329,7 +4341,8 @@
     "smoothright": 4,
     "fade": 3
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-77-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-77-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "special:76": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-76.mp4",
@@ -4576,7 +4589,8 @@
     "لحظهٔ 119s: مکثی بیرون از موسیقی نزدیکش نبود",
     "برشِ کلیپ از آغاز: صحنهٔ 17: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)",
     "اندازه: 125.9 ⇒ 42.3 مگابایت"
-   ]
+   ],
+   "pruned": "2026-10-31"
   },
   "variety:71": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-71.mp4",
@@ -4665,7 +4679,8 @@
     "smoothright": 44,
     "fade": 36
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-77-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-77-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "variety:79": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-79.mp4",
@@ -4816,7 +4831,8 @@
    "notes": [
     "برشِ کلیپ از آغاز: صحنهٔ 15: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)",
     "اندازه: 85.9 ⇒ 37.5 مگابایت"
-   ]
+   ],
+   "pruned": "2026-10-31"
   },
   "special:78": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-78.mp4",
@@ -4890,7 +4906,8 @@
     "smoothright": 37,
     "fade": 29
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-78-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-78-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "special:79": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-79.mp4",
@@ -4971,7 +4988,8 @@
     "smoothright": 58,
     "fade": 47
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-79-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-79-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "variety:80": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-80.mp4",
@@ -5094,7 +5112,8 @@
     "لحظهٔ 56s: مکثی بیرون از موسیقی نزدیکش نبود",
     "برشِ کلیپ از آغاز: صحنهٔ 6: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)",
     "اندازه: 82.5 ⇒ 38.6 مگابایت"
-   ]
+   ],
+   "pruned": "2026-10-31"
   },
   "special:80": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-80.mp4",
@@ -5173,7 +5192,8 @@
     "smoothright": 51,
     "fade": 40
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-80-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-80-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "special:81": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-81.mp4",
@@ -5250,7 +5270,8 @@
     "smoothright": 20,
     "fade": 16
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-81-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-81-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "variety:81": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-81.mp4",
@@ -5447,7 +5468,8 @@
     "smoothright": 26,
     "fade": 20
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-82-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-82-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "variety:83": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-83.mp4",
@@ -5636,7 +5658,8 @@
     "smoothright": 27,
     "fade": 22
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-83-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-83-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "special:84": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-84.mp4",
@@ -5711,7 +5734,8 @@
     "smoothright": 31,
     "fade": 25
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-84-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-84-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "variety:84": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-84.mp4",
@@ -5933,7 +5957,8 @@
     "صحنهٔ 26: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 29: زمینهٔ کارت یکدست بود (sd 0) ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 31: زمینهٔ کارت یکدست بود (sd 0.8) ⇒ خودِ عکس، کنارِ کارت"
-   ]
+   ],
+   "pruned": "2026-10-31"
   },
   "special:85": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-85.mp4",
@@ -6009,7 +6034,8 @@
     "smoothright": 35,
     "fade": 28
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-85-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-85-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "variety:86": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-86.mp4",
@@ -6148,7 +6174,8 @@
    "notes": [
     "برشِ کلیپ از آغاز: صحنهٔ 5: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (probable)",
     "لحظه‌ها: 109s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 36٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 362s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 44٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 607s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 50٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا"
-   ]
+   ],
+   "pruned": "2026-10-31"
   },
   "special:86": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-86.mp4",
@@ -6223,7 +6250,8 @@
     "smoothright": 33,
     "fade": 26
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-86-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-86-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "variety:87": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-87.mp4",
@@ -6347,7 +6375,8 @@
    "notes": [
     "صحنهٔ 7: زمینهٔ کارت یکدست بود (sd 5.7) ⇒ خودِ عکس، کنارِ کارت",
     "برشِ کلیپ از آغاز: صحنهٔ 6: شنیدن نشد: spawnSync python3 ETIMEDOUT · صحنهٔ 9: شنیدن نشد: spawnSync python3 ETIMEDOUT · صحنهٔ 12: شنیدن نشد: spawnSync python3 ETIMEDOUT · صحنهٔ 19: شنیدن نشد: spawnSync python3 ETIMEDOUT"
-   ]
+   ],
+   "pruned": "2026-10-31"
   },
   "special:87": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-87.mp4",
@@ -6426,7 +6455,8 @@
     "smoothright": 29,
     "fade": 23
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-87-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-87-cover.jpg",
+   "pruned": "2026-10-31"
   },
   "special:88": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-88.mp4",
@@ -7746,6 +7776,22 @@
    "segs": 5,
    "subs": 37,
    "at": "2026-10-31 06:57"
+  },
+  "ig:special:46.9": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-46-9.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-46-9-cover.jpg",
+   "sig": "fcc1f4dbe724",
+   "seconds": 37.8,
+   "bytes": 8370984,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-46-9-short.mp4",
+   "shortSeconds": 33.8,
+   "align": "faster-whisper",
+   "phrases": 18,
+   "trans": 4,
+   "imgs": 5,
+   "segs": 5,
+   "subs": 14,
+   "at": "2026-10-31 09:26"
   }
  },
  "musicPrev": {
@@ -8546,8 +8592,8 @@
   }
  },
  "release": {
-  "assets": 494,
-  "gb": 4.8,
-  "at": "2026-10-31 06:57"
+  "assets": 467,
+  "gb": 3.47,
+  "at": "2026-10-31 09:26"
  }
 }
