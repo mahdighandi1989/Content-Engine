@@ -446,13 +446,30 @@ function clip(ff, file, out, from, len, info, skip, opt) {
   run(ff, inArgs.concat(['-filter_complex', pre + frameFilter(p.w, p.h, 's', 'o', opt),
            '-map', '[o]', '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(MK.crf),
            '-pix_fmt', 'yuv420p', '-r', String(MK.fps), out]));
+  /* ۱۵.۰ — کلیپِ ساکن در صحنهٔ خودش. «از همه جا» ۸۸: لحظهٔ ۲۳۰s با «تصویرِ کلیپ ساکن بود (۱۶٫۲ث) — لحظه کنار رفت» درست
+     کنار رفت (۹.۹۴)، ولی همان کلیپ بی‌صدا در صحنه‌اش ماند و فایلِ نهایی «تصویر ۱ جا یخ زد (۲۴۷٫۷–۲۶۸٫۳ث)» خورد و Unlisted ماند
+     (`yt-scene-qa`). سدِ ۹.۹۴ فقط لحظه را می‌سنجید، نه تکهٔ بی‌صدای صحنه را. پس همین‌جا: تکه‌ای که بیش از `freezeMax` ساکن است با
+     همان قابِ خودش و حرکتِ آرامِ دوربین (مثلِ هر عکس) ساخته می‌شود — همان تصویر، بی یخ‌زدگی. */
+  let stillFix = null;
+  try {
+    const fz = L > MK.freezeMax ? freezes(ff, out, MK.freezeMax) : [];
+    if (fz.length) {
+      const fr = out.replace(/\.mp4$/, '') + '-frz.jpg';
+      run(ff, ['-ss', Math.min(Math.max(0, L - 0.3), fz[0].s + Math.min(1, fz[0].d / 2)).toFixed(2), '-i', out, '-frames:v', '1', '-q:v', '3', fr]);
+      const tmp = out.replace(/\.mp4$/, '') + '-mv.mp4';
+      photoClip(ff, fr, tmp, L, { layout: 'center' });
+      fs.renameSync(tmp, out);
+      stillFix = fz.map(x => x.d);
+    }
+  } catch (eS) { stillFix = null; }
   const still = out.replace(/\.mp4$/, '') + '-last.jpg';
   run(ff, ['-sseof', '-0.2', '-i', out, '-frames:v', '1', '-q:v', '3', still]);
   const played = Math.min(L, (probe(ff, out) || {}).dur || L);
   let filled = 0;
   if (opt && opt.fill && len - played >= MK.fillFrom) filled = fillTail(ff, out, played, len - played);
   return { file: out, still: still, len: filled ? len : L, played: L, filled: filled, cut: Math.round((p.dur - E) * 10) / 10,
-           from: from, darkMoved: !!(darkInfo && darkInfo.was > MK.darkMax), darkWas: darkInfo ? darkInfo.was : -1 };
+           from: from, darkMoved: !!(darkInfo && darkInfo.was > MK.darkMax), darkWas: darkInfo ? darkInfo.was : -1,
+           stillFix: stillFix };
 }
 
 /** «لحظه»: همان تکه، **با صدای خودش** — بلندیِ یکسان، آغاز و پایانِ نرم، صوتِ ۴۸ کیلوهرتزِ دوکاناله. */

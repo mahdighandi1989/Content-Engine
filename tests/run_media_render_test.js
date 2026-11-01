@@ -598,4 +598,23 @@ console.log('=== ۱۶) «از همه جا» ۸۳: کارت روی محوِ اس�
   if (process.env.KEEP !== '1') { try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {} }
 }
 
+console.log('=== ۱۷) کلیپِ ساکن در صحنهٔ خودش (۱۵.۰، «از همه جا» ۸۸: لحظه کنار رفت ولی تکهٔ بی‌صدا ۲۰ ثانیه یخ زد) ===');
+{
+  const d17 = fs.mkdtempSync(path.join(os.tmpdir(), 'mrt17-')), P = n => path.join(d17, n);
+  ff(['-f', 'lavfi', '-i', 'color=c=gray:s=640x360:r=24:d=30', '-vf', 'drawbox=x=100:y=80:w=200:h=120:color=red:t=fill',
+      '-c:v', 'libx264', '-pix_fmt', 'yuv420p', P('still.mp4')]);
+  ff(['-f', 'lavfi', '-i', 'testsrc2=s=640x360:r=24:d=30', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', P('moving.mp4')]);
+  const cs = MKIT.clip(FF, P('still.mp4'), P('cs.mp4'), 2, 20, null, null, { layout: 'center' });
+  const fzS = MKIT.freezes(FF, cs.file, MKIT.MK.freezeMax);
+  const ps = MKIT.probe(FF, cs.file) || {};
+  ok('۱۷.۱ تکهٔ کلیپِ ساکن دیگر یخ نمی‌زند، و گفته می‌شود که عوض شد',
+     fzS.length === 0 && Array.isArray(cs.stillFix) && cs.stillFix.length >= 1 && Math.abs((ps.dur || 0) - cs.len) < 0.6 && ps.w === 1920,
+     JSON.stringify({ fz: fzS, fix: cs.stillFix, dur: ps.dur, len: cs.len, w: ps.w }));
+  const cm = MKIT.clip(FF, P('moving.mp4'), P('cm.mp4'), 2, 20, null, null, { layout: 'center' });
+  ok('۱۷.۲ کلیپِ متحرک دست نمی‌خورد', cm.stillFix === null, JSON.stringify(cm.stillFix));
+  const rj = fs.readFileSync('tools/render.js', 'utf8');
+  ok('۱۷.۳ رانر شمار و علت را در یادداشتِ برش می‌آورد', /if \(c\.stillFix\) \{ st\.stillFix = /.test(rj));
+  if (process.env.KEEP !== '1') { try { fs.rmSync(d17, { recursive: true, force: true }); } catch (e) {} }
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ ساختِ ویدئوی رسانه‌ای گذشت.');

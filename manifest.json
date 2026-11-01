@@ -1,15 +1,20 @@
 {
-  "version": "14.9",
+  "version": "15.0",
   "codeFile": "engine.gs",
-  "sha256": "3ba5d696d74b83d40cbf6c3a5f3da78d649d8f593f8563ee3c23e909ef01fdc0",
-  "releasedAt": "2026-10-30T19:30:00Z",
-  "summary": "روزِ سهمیهٔ یوتیوب به وقتِ اقیانوس آرام (صفر شدنِ Data API در ۱۱:۰۰ دبی)، نه دبی — شمارنده تا نیمه‌شبِ دبی سهمِ تازه را نمی‌دید",
+  "sha256": "d5e97dfaaaa4dde70f8f47d94b25716f3476bb3aa9ec7d3217881e2e937df2f9",
+  "releasedAt": "2026-11-01T08:30:00Z",
+  "summary": "(رانر) کلیپِ ساکن در صحنهٔ خودش با همان قاب و حرکتِ دوربین ساخته می‌شود — «از همه جا» ۸۸ یخ‌زدگیِ ۲۰ ثانیه‌ای از کلیپی گرفت که لحظه‌اش برای سکون کنار رفته بود، و Unlisted ماند (yt-scene-qa)",
   "fixes": [
-    "ytQuota_: روز با CFG.YT_QUOTA_TZ (America/Los_Angeles)، نه CFG.TIMEZONE — variety:82 از ۰۰:۲۷ در صف و «blocked: واحد» تا ۲۰:۱۴"
+    "tools/mediakit.js clip(): تکهٔ صحنه‌ای که بیش از freezeMax ساکن است ⇒ photoClip روی همان قاب (stillFix)؛ رانر شمار و علت را در یادداشتِ برش می‌آورد",
+    "run_media_render_test.js ۱۷ با ffmpegِ واقعی"
   ],
   "sourceReportIds": [
-    "R-20261030-01"
+    "ENG-20261018-0058#yt-scene-qa"
   ],
-  "answers": [],
+  "answers": {
+    "15.0": [
+      "yt-scene-qa"
+    ]
+  },
   "promptImpact": []
 }
