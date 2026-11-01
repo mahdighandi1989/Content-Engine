@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 15.1
+ *  موتور محتوا و پادکست — نسخهٔ 15.2
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2378,7 +2378,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '15.1',
+  CODE_VERSION: '15.2',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -64174,6 +64174,14 @@ function ytRenderPruneMark_(budgetMs, hubIn) {
     var td = parseWhen_(String(it.doneAt || ''));
     if (isNaN(td) || now - td < minMs) continue;
     if (!(pub[k] && pub[k].videoId)) continue;
+    /* ۱۵.۲ — «تا بررسی کیفیت و صدا تمام نشده و قسمت عمومی نشده پاک نشود». ۸۵ تا ۸۷ پس از آپلود پاک شدند و دیگر نمی‌شد
+       فایلِ واقعی‌شان را برای «صدای کلیپ» سنجید. حالا دو شرطِ دیگر: سنجشِ رانر روی همین فایل ثبت شده (qa، و برای حالتِ
+       رسانه‌ای `qa.clipSound`)، و آخرین وضعِ ثبت‌شدهٔ ویدئو «عمومی» است — Unlisted یعنی هنوز کسی باید ببیندش. */
+    var rmP = null;
+    try { rmP = (ytRenderMapCached_() || {})[k] || null; } catch (eRp) { rmP = null; }
+    if (!rmP || !rmP.qa) { out.held = (out.held || 0) + 1; continue; }
+    if (String(rmP.mode || '') === 'media' && !rmP.qa.clipSound) { out.held = (out.held || 0) + 1; continue; }
+    if (String(pub[k].privacy || '') !== (CFG.YT_PRIVACY_FINAL || 'public')) { out.held = (out.held || 0) + 1; continue; }
     out.checked++;
     var fo = null, v = null;
     try { fo = it.folderId ? DriveApp.getFolderById(String(it.folderId)) : ytFolderOf_(it.show, it.ep, ''); v = fo ? ytVideoIn_(fo) : null; } catch (eF) { v = null; }
@@ -64183,7 +64191,7 @@ function ytRenderPruneMark_(budgetMs, hubIn) {
   }
   if (d.prune.length > 400) d.prune = d.prune.slice(-400);
   if (out.added) ytRenderSave_(d);
-  try { props_().setProperty(PK.YT_PRUNE_AT, JSON.stringify({ at: nowStr_(), added: out.added, total: d.prune.length, noDrive: out.noDrive })); } catch (eP) {}
+  try { props_().setProperty(PK.YT_PRUNE_AT, JSON.stringify({ at: nowStr_(), added: out.added, total: d.prune.length, noDrive: out.noDrive, held: out.held || 0 })); } catch (eP) {}
   return out;
 }
 function ytRenderPruneDue_() {

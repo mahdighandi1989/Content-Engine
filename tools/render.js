@@ -1005,6 +1005,20 @@ function clipSoundOf(dest, mo, stat) {
   return out;
 }
 
+/** ۱۵.۲: گفتارِ جداشده از موسیقی (`vocalsep.py`). ⇒ {ok, file, why, sec} */
+function vocalsOf(wavPath, dir) {
+  const out = path.join(dir, 'vs-' + path.basename(wavPath));
+  try {
+    const o = execFileSync('python3', [path.join(__dirname, 'vocalsep.py'), wavPath, out],
+                           { encoding: 'utf8', maxBuffer: 1 << 22, timeout: Number(process.env.VSEP_TIMEOUT_MS) || 15 * 60 * 1000 });
+    const r = JSON.parse(String(o).trim().split('\n').pop());
+    if (r.ok && fs.existsSync(out)) return { ok: true, file: out, why: '', sec: r.sec };
+    return { ok: false, why: String(r.why || 'جداسازی نشد') };
+  } catch (e) {
+    return { ok: false, why: 'جداسازی نشد: ' + String((e && e.message) || e).split('\n')[0].slice(0, 60) };
+  }
+}
+
 function spliceMoments(it, placed, mp, silent, wav, dest, dir, notes) {
   const MKIT = require('./mediakit.js');
   const SKIT = require('./scenekit.js');
@@ -1037,7 +1051,21 @@ function spliceMoments(it, placed, mp, silent, wav, dest, dir, notes) {
          موسیقیِ زیرِ آن هم. پس هر لحظه پیش از نشستن شنیده می‌شود (`musicgate.py`): موسیقی ⇒ لحظه کنار، کلیپ بی‌صدا در
          صحنه‌اش، و جمله‌های گوینده سرِ جایشان. خطای سنجه هم کنار می‌گذارد — شک یعنی نه، چون ویدئوی مسدود برنمی‌گردد. */
       if (it.musicGate !== false) {
-        const mg = musicGateOf(a);
+        let mg = musicGateOf(a);
+        /* ۱۵.۲ — «جداسازیِ موسیقی از گفتار در صدای کلیپ را بساز»: آهنگ‌دار ⇒ گفتار جدا، و **دوباره** شنیده می‌شود. فقط اگر
+           سنجه دیگر موسیقی نشنود، گفتارِ جداشده جای صدای کلیپ می‌نشیند؛ وگرنه مثلِ پیش کنار (شک یعنی نه). */
+        if (mg.music && it.vocalSep !== false) {
+          const vs = vocalsOf(a, dir);
+          if (vs.ok) {
+            const mg2 = musicGateOf(vs.file);
+            if (!mg2.music) {
+              fs.copyFileSync(vs.file, a);
+              st.separated = (st.separated || 0) + 1;
+              notes.push('لحظهٔ ' + Math.round(m.at) + 's: موسیقی جدا شد (' + vs.sec + 'ث)؛ فقط گفتارِ کلیپ پخش می‌شود');
+              mg = mg2;
+            } else mg = { music: true, why: mg.why + '؛ پس از جداسازی هم: ' + mg2.why };
+          } else mg = { music: true, why: mg.why + '؛ ' + vs.why };
+        }
         if (mg.music) {
           st.music = (st.music || 0) + 1;
           st.why.push(Math.round(m.at) + 's: موسیقی در صدای کلیپ (' + mg.why + ') — لحظه کنار رفت، کلیپ بی‌صدا');
@@ -1922,7 +1950,7 @@ function main() {
 if (require.main === module) main();
 
 module.exports = {
-  pruneRelease, musicGateOf, clipSoundOf, meanDbAt, relStat, RELSTAT, isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
+  pruneRelease, musicGateOf, vocalsOf, clipSoundOf, meanDbAt, relStat, RELSTAT, isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
   specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo, prepMedia, spliceMoments, fitSize,
   momentSize, plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, brandMark, itemsTodo, slugOf, probeWork, builtFor,

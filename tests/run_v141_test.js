@@ -51,7 +51,7 @@ w(d+"/bed.wav",sp+mu)
   const g = R.musicGateOf(tmp + '/nope.wav');
   ok('۱.۳ شکستِ سنجه ⇒ موسیقی (پیش‌فرضِ رد)، با علت', g.music === true && /سنجهٔ موسیقی نشد/.test(g.why), JSON.stringify(g));
   const rj = fs.readFileSync('tools/render.js', 'utf8');
-  const i1 = rj.indexOf('const mg = musicGateOf(a);'), i2 = rj.indexOf('parts.push({ at: m.at, v: v, a: a');
+  const i1 = rj.indexOf('let mg = musicGateOf(a);')   /* ۱۵.۲: «let» — جداسازیِ گفتار می‌تواند داوری را عوض کند */, i2 = rj.indexOf('parts.push({ at: m.at, v: v, a: a');
   ok('۱.۴ دروازه پیش از نشستنِ لحظه است و لحظهٔ رد‌شده `continue` می‌شود (جمله‌های گوینده سرِ جا)', i1 > 0 && i2 > i1 &&
      /if \(mg\.music\) \{[\s\S]{0,260}continue;/.test(rj.slice(i1, i2)));
   ok('۱.۵ رانر numpy را نصب می‌کند', /pip install --quiet imageio-ffmpeg numpy/.test(fs.readFileSync('.github/workflows/render.yml', 'utf8')));
@@ -139,8 +139,13 @@ console.log('\n=== ۴) پاک‌کردنِ ریلیز ===');
     { key: 'special:4', show: 'special', ep: 4, status: 'در انتظار', doneAt: '', folderId: fo1.getId() },
     { key: 'special:5', show: 'special', ep: 5, status: 'رسید', doneAt: ago(5), folderId: fo1.getId() }] });
   global.ytRenderSave_ = d => { saved = d; return true; };
-  global.ytPublished_ = () => ({ 'special:1': { videoId: 'a' }, 'special:2': { videoId: 'b' }, 'special:3': { videoId: 'c' }, 'special:4': { videoId: 'd' } });
+  /* ۱۵.۲: پاک‌کردن سنجش و حریمِ عمومی را هم می‌خواهد (`run_v152_test.js`)؛ این‌جا هر چهار همان را دارند. */
+  global.ytPublished_ = () => ({ 'special:1': { videoId: 'a', privacy: 'public' }, 'special:2': { videoId: 'b', privacy: 'public' },
+                                 'special:3': { videoId: 'c', privacy: 'public' }, 'special:4': { videoId: 'd', privacy: 'public' } });
+  const keepM = global.ytRenderMapCached_;
+  global.ytRenderMapCached_ = () => ({ 'special:1': { qa: { ok: true } }, 'special:2': { qa: { ok: true } }, 'special:3': { qa: { ok: true } }, 'special:4': { qa: { ok: true } } });
   const o = ytRenderPruneMark_(30000, hub);
+  global.ytRenderMapCached_ = keepM;
   ok('۴.۱ فقط «رسید» + کهنه‌تر از دو روز + منتشرشده + mp4ِ درایو ≥ یک مگ', saved && JSON.stringify(saved.prune) === '["special:1"]' && o.noDrive === 1,
      JSON.stringify({ p: saved && saved.prune, o }));
   global.ytRenderRead_ = keepR; global.ytRenderSave_ = keepW; global.ytPublished_ = keepP;
