@@ -2688,6 +2688,63 @@ function ytVidPrivacy_(vid) {
   return p;
 }
 
+/* ══ «هیچ قسمتِ غیرعلمیِ «از همه جا» عمومی نشود» — دو لایه، پیش از آپلود (۱۵.۱) ══
+ * ۱ نوامبر: «قسمت ۸۲ … طلاق به خاطر خروپف … فقط صدا و یک عکس ثابت است و موضوعش طنز است». ۸۲ پیش از دروازهٔ منبعِ
+ * ۱۳.۴ ساخته شده بود (منبعش طنز)، و تنها سدِ انتشار برای قسمتِ قدیمی کفِ شماره بود — که ۱۴.۵ برای جایگزینیِ دستوری
+ * برداشت. **دروازهٔ منبع فقط سرِ ساختن بود، نه سرِ در.** حالا هر قسمتِ «از همه جا» پیش از آپلود:
+ *   ۱) از کد: همهٔ منبع‌هایش در `_episode.json` نشانِ دروازهٔ ۱۳.۴ را دارند (`vgLoose` روی هر عضو؛ عضوِ بی‌مجموعه با «بله»ی
+ *      داور). قسمتی که بی این دروازه ساخته شده، بی داوری بیرون است؛
+ *   ۲) از محتوا: مدل عنوان، خلاصه و بخش‌ها را می‌خوانَد — «علمی/آموزشی» یا «طنز/سرگرمی/روزمره». **نامطمئن یعنی نه**؛
+ *      مدلِ در دسترس‌نبود یعنی «منتظر» (دوباره، نه انتشار).
+ * داوری یک بار برای هر قسمت ثبت می‌شود (`PK.YT_SCI`) و دلیلش در صفِ کنارگذاشته و خطِ روزانه می‌آید. ⇒ {ok, why, wait} */
+var YT_SCI_SCHEMA = { type: 'object', properties: { scientific: { type: 'string' }, why: { type: 'string' } },
+                      required: ['scientific', 'why'] };
+function ytSciMap_() { try { return JSON.parse(props_().getProperty(PK.YT_SCI) || '{}') || {}; } catch (e) { return {}; } }
+function ytSciSave_(m) { try { props_().setProperty(PK.YT_SCI, JSON.stringify(m)); } catch (e) {} }
+
+/** لایهٔ ۱ (کد): منبع‌ها از دروازهٔ ۱۳.۴ گذشته‌اند؟ ⇒ '' یا دلیلِ رد. */
+function ytSciSrcWhy_(meta) {
+  var items = (meta && meta.items) || [];
+  if (!items.length) return 'منبع‌های قسمت در پرونده‌اش ثبت نیست';
+  var pre = items.filter(function (x) { return !x || typeof x.vgLoose !== 'boolean'; }).length;
+  if (pre) return 'پیش از دروازهٔ منبعِ علمی (۱۳.۴) ساخته شده — ' + pre + ' از ' + items.length + ' منبع بی داوری';
+  var bad = items.filter(function (x) { return x.vgLoose && !x.vgSci; }).length;
+  if (bad) return bad + ' منبعِ بی‌مجموعه بی «بله»ی داورِ علمی';
+  return '';
+}
+
+function ytSciPrompt_(ep) {
+  var L = ['تو داورِ کانالی علمی و آموزشی هستی. فقط بگو این قسمت از برنامهٔ «' + CFG.SHOW_NAME + '» **محتوای علمی/آموزشی** است یا نه.',
+           'علمی/آموزشی = علم، فناوری، روان‌شناسی، سلامت، تاریخ، فلسفه، اقتصاد و مانندِ این‌ها، با توضیح و دانسته.',
+           'نه = طنز، شوخی، سرگرمی، ماجرای روزمره، سریال و فیلم، دعوای خانوادگی، نویسندگیِ خلاق، حتی اگر نتیجه‌ای اخلاقی بگیرد.',
+           'نامطمئن یعنی «خیر».', '', 'عنوان: ' + String(ep.title || ''), 'خلاصه: ' + String(ep.summary || ep.hook || '').slice(0, 600)];
+  (ep.sections || []).slice(0, 8).forEach(function (s, i) {
+    L.push('بخشِ ' + (i + 1) + ': ' + String((s && s.title) || '') + ' — ' + String((s && s.narration) || '').replace(/\s+/g, ' ').slice(0, 260));
+  });
+  L.push('', 'scientific: «بله» یا «خیر» · why: یک جملهٔ کوتاه.');
+  return L.join('\n');
+}
+
+function ytVarSci_(item, meta) {
+  if (CFG.YT_SCI_GATE === false || String(item && item.show) !== ENRICH_SHOW_VARIETY) return { ok: true, why: '' };
+  var key = String(item.key || (item.show + ':' + item.ep));
+  var m = ytSciMap_();
+  if (m[key] && typeof m[key].ok === 'boolean') return m[key];
+  var rec = null;
+  var w = ytSciSrcWhy_(meta);
+  if (w) rec = { ok: false, why: w, by: 'کد', at: nowStr_() };
+  else {
+    var r = null;
+    try { r = geminiText_(ytSciPrompt_((meta && meta.ep) || {}), YT_SCI_SCHEMA, 1024, { exact: true }); } catch (e) { r = null; }
+    if (!r || !r.scientific) return { ok: false, wait: true, why: 'داوریِ علمی‌بودن انجام نشد؛ دورِ بعد' };
+    var yes = /^\s*(بله|آری|yes)/i.test(String(r.scientific));
+    rec = { ok: yes, why: String(r.why || '').slice(0, 200), by: 'مدل', at: nowStr_() };
+  }
+  m[key] = rec;
+  ytSciSave_(m);
+  return rec;
+}
+
 /** ⇒ true یعنی «دست نزن». `what` برای لاگ («عمومی‌کردن»، «عنوان و توضیح»، «کاور»). */
 function ytHandsOff_(vid, what) {
   if (CFG.YT_PRIVATE_HANDS_OFF === false || !vid) return false;
@@ -10037,6 +10094,21 @@ function ytUploadOne_(item, hub, pub) {
   } catch (ePv) {}
   var meta = ytEpisodeMeta_(folder);
   if (!meta || !meta.ep) { res.why = 'پروندهٔ قسمت (‌_episode/_special.json) نبود'; return res; }
+  /* ۱۵.۱: قسمتِ غیرعلمیِ «از همه جا» اصلاً بالا نمی‌رود — جایگزینیِ دستوری هم از این در نمی‌گذرد. */
+  var sci = ytVarSci_(item, meta);
+  if (!sci.ok) {
+    if (sci.wait) { res.waiting = true; res.why = sci.why; return res; }
+    var sKey = String(item.key || (item.show + ':' + item.ep));
+    ytDueDrop_(sKey);
+    try {
+      var pkS = ytDueParked_().filter(function (x) { return String(x.key) !== sKey; });
+      pkS.push(Object.assign({}, item, { why: 'غیرعلمی (' + sci.by + '): ' + sci.why, at: nowStr_() }));
+      props_().setProperty(PK.YT_DUE_PARKED, JSON.stringify(pkS.slice(-200)));
+    } catch (ePk2) {}
+    logLine_('یوتیوب ' + sKey + ': بالا نرفت — غیرعلمی (' + sci.by + '): ' + sci.why);
+    res.why = 'غیرعلمی — بالا نمی‌رود: ' + sci.why;
+    return res;
+  }
   var ep = meta.ep;
   var isSpecial = String(item.show) === ENRICH_SHOW_SPECIAL;
   var showName = isSpecial ? CFG.SPECIAL_SHOW_NAME : CFG.SHOW_NAME;

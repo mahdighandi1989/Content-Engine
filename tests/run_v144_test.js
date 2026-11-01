@@ -130,11 +130,12 @@ console.log('\n=== ۵) فهرست‌های گیت‌هاب ===');
 {
   const rp = JSON.parse(fs.readFileSync('docs/yt-replace.json', 'utf8')).items;
   const rt = JSON.parse(fs.readFileSync('docs/yt-retire.json', 'utf8')).items;
-  ok('۵.۱ ۸۲ از نو بی هیچ کلیپ', rp['variety:82'] && rp['variety:82'].strip === 'video' && !!rp['variety:82'].tag);
+  /* ۱۵.۱: تصمیمِ ۱ نوامبرِ صاحبِ کانال جای تصمیمِ ۲۸ اکتبر را گرفت — ۸۲ طنز است و خصوصی می‌شود، نه جایگزین. */
+  ok('۵.۱ ۸۲ دیگر در فهرستِ جایگزینی نیست (۱۵.۱: طنز ⇒ خصوصی)', !rp['variety:82']);
   const want = ['variety:75', 'variety:76', 'variety:78', 'variety:79', 'variety:80'];
   ok('۵.۲ پنج قسمتِ قدیمی با دلیل در فهرستِ کنار گذاشتن، هیچ‌کدام «ماندنی»/«تکراری» ندارد',
      want.every(k => rt[k] && String(rt[k].why).length > 40 && !rt[k].keepVid && !rt[k].dup));
-  ok('۵.۳ ۸۲ کنار گذاشته نمی‌شود (جایگزین می‌شود)', !rt['variety:82']);
+  ok('۵.۳ ۸۲ِ تازه کنار می‌رود (خصوصی، پاک نه) — ۱۵.۱', rt['variety:82'] && (rt['variety:82'].dup || []).indexOf('AsEl3Jzlgk0') !== -1);
 }
 
 summary('۱۴.۴');

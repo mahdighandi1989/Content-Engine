@@ -980,6 +980,31 @@ function musicGateOf(wavPath) {
   }
 }
 
+/** میانگینِ بلندی (dBFS) یک بازه از صوتِ فایل؛ null یعنی سنجیده نشد. */
+function meanDbAt(file, from, dur) {
+  const r = require('child_process').spawnSync(ffmpegExe(), ['-hide_banner', '-ss', String(Math.max(0, from)), '-t', String(Math.max(0.2, dur)),
+    '-i', file, '-vn', '-af', 'volumedetect', '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 1 << 22 });
+  const m = /mean_volume:\s*(-?[\d.]+|-inf) dB/.exec(String(r.stderr || ''));
+  if (!m) return null;
+  return m[1] === '-inf' ? -120 : Number(m[1]);
+}
+
+/** ۱۵.۱: صدای هر لحظه در **فایلِ نهایی**. ⇒ {clips, asked, made, heard, quiet[], why} */
+function clipSoundOf(dest, mo, stat) {
+  const st = (mo && mo.stat) || { asked: 0, made: 0, why: [] };
+  const out = { clips: Number((stat || {}).clips) || 0, asked: Number(st.asked) || 0, made: Number(st.made) || 0, heard: 0, quiet: [], why: '' };
+  let shift = 0;
+  for (const ins of ((mo && mo.inserts) || [])) {
+    const at = Number(ins.at) + shift, d = Number(ins.d) || 0;
+    const db = meanDbAt(dest, at + 0.3, Math.max(0.5, d - 0.6));
+    if (db !== null && db > -45) out.heard++; else out.quiet.push({ at: Math.round(at * 10) / 10, db: db });
+    shift += d - (Number(ins.cut) || 0);
+  }
+  if (out.clips && !out.made) out.why = out.asked ? 'کلیپ هست ولی هیچ لحظه‌ای با صدای خودش نماند: ' + (st.why || []).slice(0, 3).join(' · ')
+                                                 : 'کلیپ هست ولی هیچ لحظه‌ای خواسته نشد';
+  return out;
+}
+
 function spliceMoments(it, placed, mp, silent, wav, dest, dir, notes) {
   const MKIT = require('./mediakit.js');
   const SKIT = require('./scenekit.js');
@@ -1188,6 +1213,20 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
                  fz.slice(0, 3).map(x => x.s + '–' + x.e + 'ث').join('، ') + ')';
       }
     } catch (eFz) { notes.push('سنجشِ یخ‌زدگی نشد: ' + String(eFz.message).split('\n')[0].slice(0, 80)); }
+  }
+  /* ۱۵.۱ — «کلیپ‌ها پخش می‌شد ولی فقط صدای گوینده شنیده می‌شد»: صدای کلیپ فقط در «لحظه»ها پخش می‌شود و تا امروز هیچ‌کس
+     **فایلِ نهایی** را برای آن نمی‌شنید — شمارِ `made` حرفِ برنامه بود. حالا بلندیِ هر لحظه روی همان ثانیه‌های فایلِ نهایی
+     سنجیده می‌شود (جای لحظه با برداشتِ بازگویی‌های پیشین جابه‌جا شده). لحظهٔ ساخته‌شده‌ای که آن‌جا صدا ندارد سنجش را رد
+     می‌کند؛ «کلیپ هست، هیچ لحظه‌ای نه» رد نیست (اغلب سدِ موسیقیِ ۱۴.۱ است) ولی با علت در qa می‌آید تا موتور بگوید. */
+  if (mp) {
+    stage('سنجشِ فایلِ نهایی: صدای کلیپ‌ها');
+    try { qa.clipSound = clipSoundOf(dest, mo, mp.stat); }
+    catch (eCs) { qa.clipSound = { why: 'سنجشِ صدای کلیپ نشد: ' + String(eCs.message).split('\n')[0].slice(0, 80) }; }
+    if (qa.clipSound && qa.clipSound.made > 0 && qa.clipSound.heard < qa.clipSound.made) {
+      qa.ok = false;
+      qa.why = (qa.why ? qa.why + ' · ' : '') + 'صدای ' + (qa.clipSound.made - qa.clipSound.heard) + ' لحظه از ' + qa.clipSound.made +
+               ' در فایلِ نهایی شنیده نشد';
+    }
   }
   const media = mp ? Object.assign({}, mp.stat, { moments: mo ? mo.stat : { asked: (it.moments || []).length, placed: placed.length, made: 0 } }, fit ? { fit: fit } : {}) : null;
   return { media: media, inserts: mo ? mo.inserts : [],
@@ -1883,7 +1922,7 @@ function main() {
 if (require.main === module) main();
 
 module.exports = {
-  pruneRelease, musicGateOf, relStat, RELSTAT, isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
+  pruneRelease, musicGateOf, clipSoundOf, meanDbAt, relStat, RELSTAT, isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
   specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo, prepMedia, spliceMoments, fitSize,
   momentSize, plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, brandMark, itemsTodo, slugOf, probeWork, builtFor,
