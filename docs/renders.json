@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-01 09:44",
+ "updatedAt": "2026-11-01 11:35",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -6874,6 +6874,167 @@
     "fade": 33
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-89-cover.jpg"
+  },
+  "variety:90": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-90.mp4",
+   "bytes": 41530438,
+   "parts": 1,
+   "at": "2026-11-01 11:31",
+   "mode": "media",
+   "media": {
+    "clips": 15,
+    "photos": 13,
+    "found": 4,
+    "notFound": 0,
+    "failed": 0,
+    "why": [
+     "صحنهٔ 8: تکهٔ برگزیده 90٪ تیره بود ⇒ از ثانیهٔ 18.0",
+     "صحنهٔ 10: تکهٔ برگزیده 94٪ تیره بود ⇒ از ثانیهٔ 5.0",
+     "صحنهٔ 12: تکهٔ برگزیده 100٪ تیره بود ⇒ از ثانیهٔ 29.5",
+     "صحنهٔ 14: تکهٔ برگزیده 93٪ تیره بود ⇒ از ثانیهٔ 9.5",
+     "صحنهٔ 16: تکهٔ برگزیده 100٪ تیره بود ⇒ از ثانیهٔ 30.5",
+     "صحنهٔ 18: تکهٔ برگزیده 94٪ تیره بود ⇒ از ثانیهٔ 0.0"
+    ],
+    "layouts": {
+     "fill": 13,
+     "right": 6,
+     "center": 4,
+     "left": 5
+    },
+    "teaserTiles": 5,
+    "teaserSec": 49.3,
+    "teaser": 4,
+    "cropped": 12,
+    "tailCut": 15,
+    "cardFlat": 7,
+    "darkMoved": 6,
+    "filled": 3,
+    "filledSec": 10,
+    "cardOwn": 4,
+    "cards": 4,
+    "moments": {
+     "asked": 4,
+     "placed": 4,
+     "made": 1,
+     "why": [
+      "62s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 33٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا",
+      "316s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 25٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا",
+      "482s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 14٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا"
+     ],
+     "music": 3,
+     "replaced": 1,
+     "sec": 57,
+     "whole": 1
+    },
+    "fit": {
+     "mb": 39.6,
+     "was": 87.2,
+     "how": "بازکدگذاری"
+    }
+   },
+   "inserts": [
+    {
+     "at": 525.2,
+     "d": 56.6,
+     "cut": 64.6
+    }
+   ],
+   "scenes": 32,
+   "want": 32,
+   "snapped": 25,
+   "seconds": 678,
+   "qa": {
+    "n": 32,
+    "matched": 32,
+    "miss": [],
+    "blank": [],
+    "ok": false,
+    "why": "تصویر 1 جا یخ زد (599.8–610.5ث)",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 19,
+       "t": 317.1,
+       "own": 0.58,
+       "nb": 0.23,
+       "ok": true,
+       "heard": "این videoی تازه یکی از همین محارتهای یا از کلها را در امل نشان میدهد  و با این پرسی شروع می کند  چرا از کلاود میخای کودت"
+      },
+      {
+       "n": 22,
+       "t": 406.1,
+       "own": 0.48,
+       "nb": 0.29,
+       "ok": true,
+       "heard": "قدم بقدم راه نمایی می کرد.  حالا در این ویدیوی جدید سراخ ابزار دیگر یه از گوگل  بنام نوتبوک لیم می رویم."
+      },
+      {
+       "n": 27,
+       "t": 526,
+       "own": 0.59,
+       "nb": 0.14,
+       "ok": true,
+       "heard": "که باقی میوفت وقتی به چت جپیتی دستور میدی دیگه باهاد خوب رفتار نکنه  و بجاش واقعاً باهاد بحس کنه.  گویند میگوید هر وقت ب"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    },
+    "freeze": [
+     {
+      "s": 599.8,
+      "e": 610.5,
+      "d": 10.8
+     }
+    ],
+    "clipSound": {
+     "clips": 15,
+     "asked": 4,
+     "made": 1,
+     "heard": 1,
+     "quiet": [],
+     "why": ""
+    }
+   },
+   "ov": {
+    "asked": 13,
+    "placed": 13,
+    "busy": 0,
+    "failed": 0,
+    "kinds": {
+     "points": 11,
+     "headline": 1,
+     "quote": 1
+    },
+    "forced": 5
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 32,
+    "used": 32,
+    "why": []
+   },
+   "xf": {
+    "circleopen": 4,
+    "dissolve": 11,
+    "radial": 3,
+    "smoothright": 3,
+    "wiperight": 3,
+    "zoomin": 2,
+    "slideright": 2
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-90-cover.jpg",
+   "notes": [
+    "صحنهٔ 7: زمینهٔ کارت یکدست بود (sd 0) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 9: زمینهٔ کارت یکدست بود (sd 0) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 11: زمینهٔ کارت یکدست بود (sd 0) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 13: زمینهٔ کارت یکدست بود (sd 0) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 15: زمینهٔ کارت یکدست بود (sd 0) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 17: زمینهٔ کارت یکدست بود (sd 0) ⇒ خودِ عکس، کنارِ کارت"
+   ]
   }
  },
  "art": {
@@ -8261,6 +8422,22 @@
    "segs": 5,
    "subs": 40,
    "at": "2026-11-01 09:44"
+  },
+  "ig:special:51.2": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-51-2.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-51-2-cover.jpg",
+   "sig": "945d87655e5d",
+   "seconds": 74.5,
+   "bytes": 12789448,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-51-2-short.mp4",
+   "shortSeconds": 70.6,
+   "align": "faster-whisper",
+   "phrases": 36,
+   "trans": 2,
+   "imgs": 3,
+   "segs": 3,
+   "subs": 33,
+   "at": "2026-11-01 11:35"
   }
  },
  "musicPrev": {
@@ -9066,8 +9243,8 @@
   }
  },
  "release": {
-  "assets": 496,
-  "gb": 3.72,
-  "at": "2026-11-01 09:44"
+  "assets": 501,
+  "gb": 3.78,
+  "at": "2026-11-01 11:35"
  }
 }
