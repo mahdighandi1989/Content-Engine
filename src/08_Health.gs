@@ -615,6 +615,7 @@ function writeStatus_(hub, note) {
     /* دفترِ درخواست‌ها (۸.۹۲) — **نسخهٔ ذخیره‌شدهٔ وارسیِ سلامت**، نه خواندنِ ریپو: این‌جا داغ‌ترین مسیرِ
        موتور است و پس از هر تریگر می‌دود. نسخهٔ اول از همین‌جا ریپو را می‌خواند و v4 سرخ شد. */
     requests: (function () { try { return reqStatusCached_(); } catch (e) { return null; } })(),
+    tgResend: (function () { try { return JSON.parse(props_().getProperty(PK.VBR_RESEND_LOG) || 'null'); } catch (e) { return null; } })(),   // ۱۵.۸: رسیدِ ارسالِ دوبارهٔ نمونه‌ها
     srcQuality: (function () { try { return sqStatus_(); } catch (e) { return null; } })(),
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     speakSkip: (function () { try { return speakSkipStatus_(); } catch (e) { return null; } })(),

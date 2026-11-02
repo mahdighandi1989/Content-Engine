@@ -1630,6 +1630,61 @@ function vbrResendLatest_(tag) {
   return n;
 }
 
+/**
+ * ۱۵.۸ — «دو نمونهٔ ب و نمونهٔ مقایسهٔ گلدوز را دوباره بفرست؛ او دریافتشان نکرده … بنویس چه ساعتی و با چه نام فایلی رفت
+ * و اگر تلگرام خطا داد علتش را بگو». vbrResendLatest_ فقط «آخرین نمونهٔ هر گوینده» را می‌شناسد و نسخه‌های جانبی (فقط
+ * سایشی‌ها / همه‌جا) نشانیِ ریلیزند، نه فایلِ درایو. پس فهرستِ صریح در `CFG.VBR_RESEND_SET` ({tag, items:[{name, url}]})،
+ * یک بار برای هر tag، و **رسیدِ هر فایل** (ساعت، نام، روش، علتِ خطا) در `PK.VBR_RESEND_LOG` و سیاهه و ایمیلِ ۱۰ صبح —
+ * «فرستاده شد» بی رسید همان ادعایی است که این بار دروغ از آب درآمد.
+ */
+function vbrResendSet_() {
+  var set = CFG.VBR_RESEND_SET || null;
+  if (!set || !set.tag || !(set.items || []).length) return null;
+  var P = props_(), log = {};
+  try { log = JSON.parse(P.getProperty(PK.VBR_RESEND_LOG) || '{}') || {}; } catch (e0) { log = {}; }
+  if (log.tag === set.tag && log.done) return null;
+  if (!tgEnabled_()) { log = { tag: set.tag, done: false, why: 'تلگرام تنظیم نشده', at: nowStr_() }; P.setProperty(PK.VBR_RESEND_LOG, JSON.stringify(log)); return log; }
+  if (log.tag !== set.tag) log = { tag: set.tag, items: [] };
+  log.items = log.items || [];
+  var t0 = new Date().getTime();
+  for (var i = 0; i < set.items.length; i++) {
+    var it = set.items[i];
+    if (log.items.some(function (x) { return x.name === it.name && x.ok; })) continue;
+    if (new Date().getTime() - t0 > 150000) break;          // باقی در نوبتِ ساعتیِ بعد
+    var r = { name: it.name, at: nowStr_(), ok: false, how: '', why: '' };
+    try {
+      var blob;
+      if (it.driveId) blob = DriveApp.getFileById(it.driveId).getBlob().setName(it.name);   // نشانیِ ریلیزِ برخی‌شان دیگر نیست (۴۰۴)
+      else {
+        var res = UrlFetchApp.fetch(it.url, { muteHttpExceptions: true, followRedirects: true });
+        if (res.getResponseCode() !== 200) throw new Error('دانلود از ریلیز: HTTP ' + res.getResponseCode());
+        blob = res.getBlob().setName(it.name);
+      }
+      var cap = '🎙 ' + tgEsc_(it.caption || it.name);
+      try { tgApi_('sendAudio', { chat_id: tgChat_(), audio: blob, caption: cap, parse_mode: 'HTML', title: it.name, performer: 'موتور محتوا' }); r.how = 'sendAudio'; }
+      catch (eA) {
+        r.why = 'sendAudio: ' + String(eA.message).slice(0, 120);
+        tgApi_('sendDocument', { chat_id: tgChat_(), document: blob, caption: cap, parse_mode: 'HTML' }); r.how = 'sendDocument';
+      }
+      r.ok = true;
+    } catch (e) {
+      r.why = (r.why ? r.why + ' · ' : '') + String(e.message).slice(0, 160);
+      try { tgSend_('🎙 ' + (it.caption || it.name) + '\n' + (it.url || driveLink_(it.driveId))); r.how = 'پیوند'; r.ok = true; } catch (eL) { r.why += ' · پیوند هم نرفت: ' + String(eL.message).slice(0, 80); }
+    }
+    log.items = log.items.filter(function (x) { return x.name !== it.name; }).concat([r]);
+    P.setProperty(PK.VBR_RESEND_LOG, JSON.stringify(log));
+  }
+  log.done = set.items.every(function (it2) { return log.items.some(function (x) { return x.name === it2.name && x.ok; }); });
+  log.at = nowStr_();
+  P.setProperty(PK.VBR_RESEND_LOG, JSON.stringify(log));
+  var line = 'تلگرام — ارسالِ دوبارهٔ نمونه‌ها (' + set.tag + '): ' + log.items.map(function (x) {
+    return x.name + ' · ' + x.at + ' · ' + (x.ok ? x.how : 'نرفت') + (x.why ? ' (' + x.why + ')' : ''); }).join(' | ');
+  /* فقط Properties — نه سیاههٔ هاب: این در ساعتی است و خواندنِ هابِ ۲۹ مگابایتی در آن همان هزینه‌ای است که ۷.۶۳ از آن مُرد
+     (`run_bridge_voice_test` ۲۶.۳). رسید در `_STATUS.tgResend` و ایمیلِ ۱۰ (صفِ ایمیل هم Properties است). */
+  try { mailQueue_('تلگرام', log.done ? 'نمونه‌ها دوباره فرستاده شد' : 'ارسالِ دوبارهٔ نمونه‌ها — ناتمام', line); } catch (eQ) {}
+  return log;
+}
+
 function vbrTgTell_(item, speakerName, got) {
   var out = { sent: false, how: '', why: '' };
   try {
@@ -2427,6 +2482,7 @@ function vbrCollectHourly() {
   try { epCatchUp_(); } catch (eCu) {}
   /* و یک بار (۹.۶۱): آخرین نمونهٔ هر گوینده دوباره در تلگرام — «آخرین نمونه‌هاش بفرست نظر بدم». */
   try { vbrResendLatest_('961'); } catch (eRs) {}
+  try { vbrResendSet_(); } catch (eRs2) {}        // ۱۵.۸: فهرستِ نام‌بردهٔ نمونه‌ها، یک بار برای هر tag، با رسیدِ هر فایل
   /* و رانرِ ویدئو، وقتی کاری برایش نوشته شده و هنوز برداشته نشده (۸.۵۸) — فقط
      Properties و یک POSTِ کوچک؛ پیش از سدِ پل، چون ویدئو به پل ربطی ندارد. */
   try { ghRenderKickDue_(); } catch (eGk) {}

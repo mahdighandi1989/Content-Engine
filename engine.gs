@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 15.7
+ *  موتور محتوا و پادکست — نسخهٔ 15.8
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1304,6 +1304,18 @@ var CFG = {
   VM_INTRO_SEC: 10,                // کاور در آغاز حداکثر این‌قدر؛ نمونهٔ ۷۲ یک دقیقهٔ کامل فقط کاور بود (۸.۹۸)
   VM_TEASER_SEC: 10,               // ۹.۱۴: از ۶ — هر کاشیِ کلاژ کم‌تر عوض شود («هی تکرار می‌شود»)؛                // باقیِ پیش از نخستین رسانه: پیش‌نمایشی از رسانه‌های خودِ قسمت، هر کدام ~این‌قدر
   /* نمونهٔ یک‌باره روی قسمتِ منتشرشده (۸.۹۷): همان راه، به یوتیوب نمی‌رود؛ نشانی به تلگرام. خالی ⇒ خاموش. */
+  /* ۱۵.۸ — «دو نمونهٔ ب و نمونهٔ مقایسهٔ گلدوز را دوباره بفرست؛ دریافتشان نکرده» (۲ نوامبر). رسید در PK.VBR_RESEND_LOG. */
+  VBR_RESEND_SET: { tag: 'b-golduz-1102', items: [
+    { name: 'گلدوز — گزینهٔ ب — فقط سایشی‌ها.wav', caption: 'گلدوز · گزینهٔ «ب»: باندِ بالا از Charon فقط در سایشی‌ها (درسِ ۷۴)',
+      url: 'https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/spk-1g0r95d-Charon-Charon-2026-10-14-74-hb-c665f956.wav' },
+    { name: 'گلدوز — گزینهٔ ب — همه‌جا.wav', caption: 'گلدوز · گزینهٔ «ب»: باندِ بالا از Charon همه‌جا (درسِ ۷۴)',
+      url: 'https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/spk-1g0r95d-Charon-Charon-2026-10-14-74-hb-all-705f0829.wav' },
+    { name: 'گلدوز — نمونهٔ ب (فایلِ اصلی).wav', caption: 'گلدوز · نمونهٔ گزینهٔ «ب»، فایلِ اصلیِ ۲۹ اکتبر (درسِ ۷۴)',
+      driveId: '1U4Khva6hTQSTogTq7DLNoZffh3c6BoKg' },
+    { name: 'گلدوز — نمونهٔ مقایسه (۲۷ اکتبر).wav', caption: 'گلدوز · نمونهٔ مقایسه: Charon خام · مدلِ پیشین · تبدیلِ ملایم · بهترینِ تازه (درسِ ۷۴)',
+      driveId: '1lAyH3xGBMmmN-UHfjmvh5_AB74NsiB2O' },
+    { name: 'گلدوز — مقایسه — Charon خام.wav', caption: 'مرجع: Charon خام، بی هیچ تبدیل (درسِ ۷۴)',
+      url: 'https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/spk-1g0r95d-Charon-Charon-2026-10-14-74-raw-f75c6fcf.wav' }] },
   VM_SAMPLE: null,                 // ۹.۳۷: نمونه‌سازی بس — سبک تأیید شد و قسمت‌های واقعی از همین راه می‌روند (نمونهٔ ۱۰ِ قسمتِ ۷۳ آخرین بود)
   // پیشین: rev ۴ (۹.۰۰): چیدمان و افکتِ ۸.۹۹ + لحظهٔ تا پایانِ جمله + نقشهٔ تازه (نوشتهٔ برداریِ بیشتر)
   YT_MEDIA_APPROVE: 0,             // ۹.۳۷: «به نظرم دیگه خوب بود .. از فردا با همین سبک» — سبک تأیید شد؛ سدِ خودکارِ رانر (qa) و وارسیِ نشتی سرِ جایشان (پیش‌تر ۲)
@@ -2380,7 +2392,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '15.7',
+  CODE_VERSION: '15.8',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3577,7 +3589,8 @@ var PK = {
   LV_SCENE_FB: 'LV_SCENE_FB',      // آخرین درسی که از صحنه به کارتِ ساده افتاد: کدام، کِی، چرا، چند بارِ پیاپی (۸.۶۰)
   VM_LAST: 'VM_LAST',              // آخرین قسمتِ «از همه جا» با رسانهٔ منبع: صحنه‌ها، کلیپ‌ها، لحظه‌ها، یا علتِ نشدن (۸.۹۶)
   VM_SAMPLE: 'VM_SAMPLE_STATE',
-  VM_SAMPLE_SWEEP: 'VM_SAMPLE_SWEEP',   // ۱۵.۳: روزی یک بار ردیف‌های نمونهٔ کهنه بسته می‌شوند
+  VM_SAMPLE_SWEEP: 'VM_SAMPLE_SWEEP',
+  VBR_RESEND_LOG: 'VBR_RESEND_LOG',   // ۱۵.۸: رسیدِ ارسالِ دوبارهٔ نمونه‌ها   // ۱۵.۳: روزی یک بار ردیف‌های نمونهٔ کهنه بسته می‌شوند
   GROUND_LAST: 'GROUND_LAST',      // آخرین دروازهٔ زمین‌گیریِ «از همه جا»: چند جملهٔ ساختگی پیش از صدا حذف شد (۹.۱۱)   // نمونهٔ یک‌باره: خواسته شد / خبر داده شد (۸.۹۷)
   YT_MEDIA_OK: 'YT_MEDIA_OK_N',     // چند ویدئوی حالتِ رسانه تا حالا عمومی شده (۸.۹۶)
   LV_CLIP_LAST: 'LV_CLIP_LAST',    // آخرین کلیپِ آغاز: چه شد و چرا (۸.۵۱) + شمارِ شکستِ پیاپی (۸.۵۲)
@@ -18906,6 +18919,7 @@ function writeStatus_(hub, note) {
     /* دفترِ درخواست‌ها (۸.۹۲) — **نسخهٔ ذخیره‌شدهٔ وارسیِ سلامت**، نه خواندنِ ریپو: این‌جا داغ‌ترین مسیرِ
        موتور است و پس از هر تریگر می‌دود. نسخهٔ اول از همین‌جا ریپو را می‌خواند و v4 سرخ شد. */
     requests: (function () { try { return reqStatusCached_(); } catch (e) { return null; } })(),
+    tgResend: (function () { try { return JSON.parse(props_().getProperty(PK.VBR_RESEND_LOG) || 'null'); } catch (e) { return null; } })(),   // ۱۵.۸: رسیدِ ارسالِ دوبارهٔ نمونه‌ها
     srcQuality: (function () { try { return sqStatus_(); } catch (e) { return null; } })(),
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     speakSkip: (function () { try { return speakSkipStatus_(); } catch (e) { return null; } })(),
@@ -81885,6 +81899,61 @@ function vbrResendLatest_(tag) {
   return n;
 }
 
+/**
+ * ۱۵.۸ — «دو نمونهٔ ب و نمونهٔ مقایسهٔ گلدوز را دوباره بفرست؛ او دریافتشان نکرده … بنویس چه ساعتی و با چه نام فایلی رفت
+ * و اگر تلگرام خطا داد علتش را بگو». vbrResendLatest_ فقط «آخرین نمونهٔ هر گوینده» را می‌شناسد و نسخه‌های جانبی (فقط
+ * سایشی‌ها / همه‌جا) نشانیِ ریلیزند، نه فایلِ درایو. پس فهرستِ صریح در `CFG.VBR_RESEND_SET` ({tag, items:[{name, url}]})،
+ * یک بار برای هر tag، و **رسیدِ هر فایل** (ساعت، نام، روش، علتِ خطا) در `PK.VBR_RESEND_LOG` و سیاهه و ایمیلِ ۱۰ صبح —
+ * «فرستاده شد» بی رسید همان ادعایی است که این بار دروغ از آب درآمد.
+ */
+function vbrResendSet_() {
+  var set = CFG.VBR_RESEND_SET || null;
+  if (!set || !set.tag || !(set.items || []).length) return null;
+  var P = props_(), log = {};
+  try { log = JSON.parse(P.getProperty(PK.VBR_RESEND_LOG) || '{}') || {}; } catch (e0) { log = {}; }
+  if (log.tag === set.tag && log.done) return null;
+  if (!tgEnabled_()) { log = { tag: set.tag, done: false, why: 'تلگرام تنظیم نشده', at: nowStr_() }; P.setProperty(PK.VBR_RESEND_LOG, JSON.stringify(log)); return log; }
+  if (log.tag !== set.tag) log = { tag: set.tag, items: [] };
+  log.items = log.items || [];
+  var t0 = new Date().getTime();
+  for (var i = 0; i < set.items.length; i++) {
+    var it = set.items[i];
+    if (log.items.some(function (x) { return x.name === it.name && x.ok; })) continue;
+    if (new Date().getTime() - t0 > 150000) break;          // باقی در نوبتِ ساعتیِ بعد
+    var r = { name: it.name, at: nowStr_(), ok: false, how: '', why: '' };
+    try {
+      var blob;
+      if (it.driveId) blob = DriveApp.getFileById(it.driveId).getBlob().setName(it.name);   // نشانیِ ریلیزِ برخی‌شان دیگر نیست (۴۰۴)
+      else {
+        var res = UrlFetchApp.fetch(it.url, { muteHttpExceptions: true, followRedirects: true });
+        if (res.getResponseCode() !== 200) throw new Error('دانلود از ریلیز: HTTP ' + res.getResponseCode());
+        blob = res.getBlob().setName(it.name);
+      }
+      var cap = '🎙 ' + tgEsc_(it.caption || it.name);
+      try { tgApi_('sendAudio', { chat_id: tgChat_(), audio: blob, caption: cap, parse_mode: 'HTML', title: it.name, performer: 'موتور محتوا' }); r.how = 'sendAudio'; }
+      catch (eA) {
+        r.why = 'sendAudio: ' + String(eA.message).slice(0, 120);
+        tgApi_('sendDocument', { chat_id: tgChat_(), document: blob, caption: cap, parse_mode: 'HTML' }); r.how = 'sendDocument';
+      }
+      r.ok = true;
+    } catch (e) {
+      r.why = (r.why ? r.why + ' · ' : '') + String(e.message).slice(0, 160);
+      try { tgSend_('🎙 ' + (it.caption || it.name) + '\n' + (it.url || driveLink_(it.driveId))); r.how = 'پیوند'; r.ok = true; } catch (eL) { r.why += ' · پیوند هم نرفت: ' + String(eL.message).slice(0, 80); }
+    }
+    log.items = log.items.filter(function (x) { return x.name !== it.name; }).concat([r]);
+    P.setProperty(PK.VBR_RESEND_LOG, JSON.stringify(log));
+  }
+  log.done = set.items.every(function (it2) { return log.items.some(function (x) { return x.name === it2.name && x.ok; }); });
+  log.at = nowStr_();
+  P.setProperty(PK.VBR_RESEND_LOG, JSON.stringify(log));
+  var line = 'تلگرام — ارسالِ دوبارهٔ نمونه‌ها (' + set.tag + '): ' + log.items.map(function (x) {
+    return x.name + ' · ' + x.at + ' · ' + (x.ok ? x.how : 'نرفت') + (x.why ? ' (' + x.why + ')' : ''); }).join(' | ');
+  /* فقط Properties — نه سیاههٔ هاب: این در ساعتی است و خواندنِ هابِ ۲۹ مگابایتی در آن همان هزینه‌ای است که ۷.۶۳ از آن مُرد
+     (`run_bridge_voice_test` ۲۶.۳). رسید در `_STATUS.tgResend` و ایمیلِ ۱۰ (صفِ ایمیل هم Properties است). */
+  try { mailQueue_('تلگرام', log.done ? 'نمونه‌ها دوباره فرستاده شد' : 'ارسالِ دوبارهٔ نمونه‌ها — ناتمام', line); } catch (eQ) {}
+  return log;
+}
+
 function vbrTgTell_(item, speakerName, got) {
   var out = { sent: false, how: '', why: '' };
   try {
@@ -82682,6 +82751,7 @@ function vbrCollectHourly() {
   try { epCatchUp_(); } catch (eCu) {}
   /* و یک بار (۹.۶۱): آخرین نمونهٔ هر گوینده دوباره در تلگرام — «آخرین نمونه‌هاش بفرست نظر بدم». */
   try { vbrResendLatest_('961'); } catch (eRs) {}
+  try { vbrResendSet_(); } catch (eRs2) {}        // ۱۵.۸: فهرستِ نام‌بردهٔ نمونه‌ها، یک بار برای هر tag، با رسیدِ هر فایل
   /* و رانرِ ویدئو، وقتی کاری برایش نوشته شده و هنوز برداشته نشده (۸.۵۸) — فقط
      Properties و یک POSTِ کوچک؛ پیش از سدِ پل، چون ویدئو به پل ربطی ندارد. */
   try { ghRenderKickDue_(); } catch (eGk) {}

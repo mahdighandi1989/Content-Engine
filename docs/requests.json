@@ -1755,6 +1755,20 @@
    "done": "رندرِ variety:88 و variety:86 با tag r3-15.7 در `docs/renders.json` با `qa.ok` و بی `freeze`؛ variety:89 در دفترِ یوتیوب «عمومی شد»",
    "how": "`docs/renders.json` qa.freeze · `_STATUS.youtube.unlistedKeys` · `ytFlipDueTick_`",
    "ver": "15.7"
+  },
+  {
+   "id": "R-20261102-05",
+   "ask": "دو نمونهٔ «ب» (فقط سایشی‌ها / همه‌جا) و نمونهٔ مقایسهٔ گلدوز را دوباره به تلگرام بفرست و بگو چه ساعتی، با چه نام فایلی رفت و اگر خطا داد علتش",
+   "done": "`_STATUS.tgResend` با tag `b-golduz-1102`، `done: true`، و برای هر پنج فایل `at` و `how` (sendAudio/sendDocument/پیوند) و `why` در صورتِ خطا",
+   "how": "`vbrResendSet_` · `PK.VBR_RESEND_LOG` · `_STATUS.tgResend`",
+   "ver": "15.8"
+  },
+  {
+   "id": "R-20261102-06",
+   "ask": "هر درسی که از امروز گرفتی (۱۵٫۳ تا ۱۵٫۷) را در CLAUDE.md و دستورهای موتور ثبت کن",
+   "done": "بخشِ «یخ زد و گیر کرد» در CLAUDE.md و یادداشتِ ۱۱۶ در `docs/prompts/_PROMPT-monitor-v116.md`؛ ناظر در گزارشِ روزانه `youtube.flipDue`، `tgResend` و تاریخِ `requests.at` را می‌آورد",
+   "how": "CLAUDE.md · `_PROMPT-monitor-v116.md` · `_REPORT-YYYYMMDD.json`",
+   "ver": "15.8"
   }
  ]
 }

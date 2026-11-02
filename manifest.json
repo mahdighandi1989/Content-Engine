@@ -1,18 +1,22 @@
 {
-  "version": "15.7",
+  "version": "15.8",
   "codeFile": "engine.gs",
-  "sha256": "b268a3ea501ab2ccc3685dee9c81a1d401f41d370c2884f1cc039793d4988242",
-  "releasedAt": "2026-11-02T16:00:00+04:00",
-  "summary": "(رانر) یخِ ۸۶/۸۸ صحنهٔ کارت بود: زمینهٔ کارت خودِ کلیپِ پیشین (محو، در حلقه)؛ هر دو از نو",
+  "sha256": "290c6775235a885970b059a0c221dff6018cbb5ecc7aa138e2d93e61504ac148",
+  "releasedAt": "2026-11-02T17:30:00+04:00",
+  "summary": "ارسالِ دوبارهٔ نمونه‌های «ب» و مقایسهٔ گلدوز با رسیدِ هر فایل؛ درس‌های ۱۵.۳–۱۵.۷ در CLAUDE.md و دستورِ ناظرِ v116",
   "fixes": [
-    "mediakit.photoClip card: bgVideo با -stream_loop، و بی کلیپ زوم ۱۴٪ و پیمایش",
-    "render.js: کارتِ پس از کلیپ ⇒ bgVideo"
+    "vbrResendSet_ + CFG.VBR_RESEND_SET + _STATUS.tgResend",
+    "_PROMPT-monitor-v116: freeze با قاب، flipDue، tgResend، requests.at"
   ],
   "sourceReportIds": [
-    "R-20261102-04"
+    "R-20261102-05",
+    "R-20261102-06"
   ],
-  "answers": [
-    "۸۶ و ۸۸: کارت روی محوِ تیرهٔ قابِ آخر — کدِ پیشین روی همان قاب ۱۸٫۳ ثانیه یخ زد"
+  "answers": [],
+  "promptImpact": [
+    "monitor: v116 — بندهای flipDue، tgResend، requests.at و تشخیصِ یخ با قاب"
   ],
-  "promptImpact": []
+  "promptImpactKinds": [
+    "monitor"
+  ]
 }
