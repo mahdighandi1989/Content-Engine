@@ -34,6 +34,7 @@ const SK = {
   zoom: 0.035,        // بیشینهٔ حرکت: ۳٫۵٪ از هر لبه — آرام، نه تبلیغ
   focusZoom: 0.14,    // حرکتِ معنادار (۸.۵۱): نزدیک‌شدن به کانون — موتور با `mv.z` می‌گوید
   clipXf: 0.8,        // میان‌محوِ کلیپِ آغاز به نقاشیِ همان صحنه (ثانیه)
+  loopFrom: 4,        // ۱۵.۵: کلیپِ منبعی که دست‌کم این‌قدر از صحنه کوتاه‌تر است تکرار می‌شود، نه قابِ ساکن
   clipRest: 1.5,      // کلیپ دست‌کم این‌قدر زودتر از پایانِ صحنه تمام می‌شود
   group: 10,          // صحنه در هر دستهٔ ffmpeg (حافظه به دسته بند است، نه به قسمت)
   capFrom: 0.5, capTo: 7.0, capFade: 0.45,
@@ -432,6 +433,13 @@ function vmaxFor(durSec) {
  * ساختِ ویدئو.
  * @param ctx {ff, exe, wav, durSec, dest, dir, imgs:{n:file}, mark, notes}
  */
+/** ۱۵.۵: کلیپِ منبع در صحنه — کلِ صحنه (`only`)، تکرارشونده (`loop`)، یا کلیپ و سپس آخرین قاب (کمبودِ کوچک). */
+function fullPlan(len, want) {
+  const only = len >= want - 0.05;
+  const loop = !only && want - len >= SK.loopFrom;
+  return { only: only || loop, loop: loop };
+}
+
 function build(it, ctx) {
   const scenes = scenesOf(it);
   if (!scenes) throw new Error('کمتر از سه صحنه');
@@ -481,8 +489,15 @@ function build(it, ctx) {
     if (full) {
       const want = x.d + (k === tl.length - 1 ? 0 : SK.xf);
       if (len < 1) { clipStat.why.push('صحنهٔ ' + s.n + ': کلیپِ منبع خوانده نشد'); return; }
-      const only = len >= want - 0.05;
-      clipPlan[k] = { file: cfile, cd: Math.round(Math.min(len, want) * 1000) / 1000, full: true, only: only };
+      const fp = fullPlan(len, want);
+      let only = fp.only;
+      /* ۱۵.۵ — «فریزِ ۸۸ (۲۴۷٫۷–۲۶۸٫۳ث)»: کلیپِ منبعی که از صحنه کوتاه‌تر بود به «آخرین قابِ خودش» میان‌محو می‌شد، و برای
+         رسانهٔ منبع `s.mv` نیست ⇒ آن قاب **بی هیچ حرکتی** ماند: ۲۰ ثانیه فقط پس‌زمینهٔ تار (آخرین قابِ ۸۸ پس‌زمینهٔ تنها بود)
+         و سنجش «یخ زد». پرکردنِ دمِ کلیپ در mediakit فقط با `want`ِ رانر کار می‌کند، و `x.d`ِ این‌جا می‌تواند بلندتر باشد
+         (صحنهٔ بعدیِ افتاده در `have`). پس این‌جا هم: کمبودِ بیش از `loopFrom` ⇒ همان کلیپ، بی‌صدا، از نو — حرکت، نه قابِ ساکن. */
+      const loop = fp.loop;
+      clipPlan[k] = { file: cfile, cd: Math.round(Math.min(len, want) * 1000) / 1000, full: true, only: only, loop: loop };
+      if (loop) clipStat.looped = (clipStat.looped || 0) + 1;
       clipStat.used++;
       return;
     }
@@ -571,6 +586,7 @@ function build(it, ctx) {
       let cur = 'b' + k;
       if (cp && cp.only) {
         /* کلیپِ منبع کلِ صحنه را پر می‌کند (۸.۹۶): نه نقاشی، نه میان‌محو — همان کلیپ، بی صدا. */
+        if (cp.loop) a.push('-stream_loop', '-1');   // ۱۵.۵
         a.push('-i', cp.file);
         const ia0 = inIdx++;
         f.push('[' + ia0 + ':v]trim=duration=' + clip.toFixed(3) + ',setpts=PTS-STARTPTS,fps=' + SK.fps +
@@ -724,6 +740,16 @@ function build(it, ctx) {
   tl.forEach((x, k) => {
     const cp = clipPlan[k], st = still[k] || { start: 0, len: x.d, z: 0 };
     let t = Math.min(x.d * 0.5, Math.max(0.3, x.d - 0.9));
+    if (cp && cp.loop) {
+      /* ۱۵.۵: کلیپِ تکرارشونده ⇒ مرجع قابِ همان کلیپ در دورِ نخست، بیرون از پنجرهٔ کارت اگر بتوان. */
+      let tl0 = Math.max(0.3, Math.min(cp.cd - 0.5, x.d * 0.5));
+      const Wl = ovWin[k];
+      if (Wl && tl0 >= Wl.st - 0.4 && tl0 <= Wl.end + OVL.OV.fade + 0.4) {
+        if (Wl.st - 0.4 >= 0.3) tl0 = Wl.st - 0.4; else { qt[k] = tl0; ref[k] = cp.file; refT[k] = tl0; noQa[k] = true; return; }
+      }
+      qt[k] = tl0; ref[k] = cp.file; refT[k] = tl0;
+      return;
+    }
     if (cp) {
       if (x.d - cp.cd >= 3) t = Math.min(x.d - 0.9, cp.cd + (x.d - cp.cd) / 2);
       else {
@@ -856,5 +882,5 @@ function qa(ff, dest, tl, durSec) {
   return out;
 }
 
-module.exports = { SK, pinFrame, scenesOf, mediaOf, mvOf, fbOf, fbBox, xfadeOf, clipOf, silences, timeline, captionHtml, markHtml, coverHtml, plCoverHtml, bannerHtml,
+module.exports = { SK, fullPlan, pinFrame, scenesOf, mediaOf, mvOf, fbOf, fbBox, xfadeOf, clipOf, silences, timeline, captionHtml, markHtml, coverHtml, plCoverHtml, bannerHtml,
                    motion, vmaxFor, build, gray, mad, sd, qa, mediaSeconds, shoot };

@@ -12175,6 +12175,13 @@ function ytTick_(budgetMs) {
      `special:26`، `variety:23`) هفته‌ها Unlisted ماندند و خطِ روزانه هر روز می‌گفت
      «علتشان پس از بازسنجیِ شبانه این‌جا می‌آید» — وعده‌ای که هیچ راهی برایش
      پیموده نمی‌شد (۷٫۴۶). روزی یک بار این‌جا هم، فقط وقتی وقت هست. */
+  /* ۱۵.۵ — «۸۹ هنوز فهرست‌نشده؛ اگر ممکن است بی انتظار تا شب». صفِ عمومی‌کردن (۱۵.۳) فقط در بازسنجیِ روزی‌یک‌بار
+     خوانده می‌شد و آن نوبت ساعتِ ۰۲:۵۲ بود — آخرِ روزِ سهمیهٔ یوتیوب، وقتی چیزی نمانده. حالا هر ساعت، فقط اگر صف چیزی دارد
+     (بی صف، فقط یک خواندنِ Properties). */
+  if (left() > 25000) {
+    try { var fdT = ytFlipDueTick_(); if (fdT && fdT.flipped) out.flipped = fdT.flipped; }
+    catch (eFd) { out.why += (out.why ? ' · ' : '') + 'عمومیِ جامانده: ' + String(eFd.message).slice(0, 60); }
+  }
   if (left() > 50000 && ytStuckTickDue_()) {
     try { ytRedoStuckNightly_(Math.min(45000, left() - 20000)); ytStuckTickMark_(); }
     catch (eSt) { out.why += (out.why ? ' · ' : '') + 'گیرکرده‌ها: ' + String(eSt.message).slice(0, 60); }
@@ -13965,6 +13972,26 @@ function ytFlipDirect_(hub, show, ep, rec) {
   } catch (eL) {}
   logLine_('یوتیوب ' + key + ': عمومیِ جامانده انجام شد — ' + String(rec.url || vid));
   return { ok: true };
+}
+
+/** ۱۵.۵ — نوبتِ ساعتیِ صفِ عمومی‌کردن: فقط کلیدهای صف، هر کدام با ytFlipDirect_. */
+function ytFlipDueTick_() {
+  var out = { checked: 0, flipped: 0 };
+  if (!ytOn_()) return out;
+  var fd = ytFlipDueGet_(), keys = Object.keys(fd).filter(function (k) { return k.indexOf('~seed:') !== 0; });
+  if (!keys.length) return out;
+  var hub = getHub_(), pub = ytPublished_(hub), want = CFG.YT_PRIVACY_FINAL || 'public';
+  for (var i = 0; i < keys.length && i < 5; i++) {
+    var rec = pub[keys[i]];
+    if (!rec || !rec.videoId) continue;
+    if (String(rec.privacy || '') === want) { ytFlipDueDel_(keys[i]); continue; }
+    out.checked++;
+    var ix = keys[i].lastIndexOf(':');
+    var r = ytFlipDirect_(hub, keys[i].slice(0, ix), keys[i].slice(ix + 1), rec);
+    if (r.ok) { out.flipped++; try { ytApprDoneAdd_(keys[i]); } catch (eA) {} }
+    else if (/سهمیه/.test(String(r.why || ''))) break;   // سهمیه برای بقیه هم نیست
+  }
+  return out;
 }
 
 function ytRedoStuckNightly_(budgetMs) {

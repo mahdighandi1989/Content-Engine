@@ -1748,6 +1748,13 @@
    "done": "`_STATUS.youtube.waitingRender` صفر (یا فقط درخواست‌های واقعیِ کمتر از ۲ روز) و ردیفِ variety:72-3-نمونه «کنار رفت»",
    "how": "`vmSampleStaleSweep_` · `_YT-RENDER.json`",
    "ver": "15.3"
+  },
+  {
+   "id": "R-20261102-04",
+   "ask": "علتِ فریزِ ۸۸ (۲۴۷٫۷ تا ۲۶۸٫۳ ثانیه) روی فریم‌ها پیدا و رفع شود؛ ۸۹ اگر ممکن است بی انتظار تا شب عمومی شود",
+   "done": "رندرِ variety:88 با tag r2-15.5 در `docs/renders.json` با `qa.ok` و بی `freeze`؛ variety:89 در دفترِ یوتیوب «عمومی شد» پیش از اجرای شبانهٔ ۳ نوامبر",
+   "how": "`docs/renders.json` qa.freeze · `_STATUS.youtube.unlistedKeys` · `ytFlipDueTick_`",
+   "ver": "15.5"
   }
  ]
 }
