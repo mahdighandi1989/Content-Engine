@@ -1027,6 +1027,18 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   row.shared = true;
   try { var sg = vbrSegs_(folderId); if (sg.length) row.segs = sg; } catch (eSg) {}
   var o = opts || {};
+  /* ۱۵.۱۰ — مبنای گوینده (`VBR_SPK_BASE`): «نمونهٔ مقایسهٔ درسِ ۷۴ از «ب» بهتر بود — مبنای بهبودِ گلدوز همان باشد». هر چه بذرِ
+     نمونه صریح نگفته، از مبنا می‌آید؛ پس قسمت‌های واقعی (وقتی VBR_EP_HOLD برداشته شود) و نمونه‌های بعدی با همان تنظیمِ ۲۷ اکتبر
+     ساخته می‌شوند، نه با گامِ خودکار و بی «خ» نرم. باندِ بالای «ب» (`hb`) در مبنا نیست — او همان را کم‌تر پسندید. */
+  var base = (CFG.VBR_SPK_BASE || {})[String(speaker)] || null;
+  if (base) {
+    o = JSON.parse(JSON.stringify(o));
+    if ((o.pitchFix == null || String(o.pitchFix) === '') && base.pitchFix != null) o.pitchFix = String(base.pitchFix);
+    if (!o.cueFix && base.cueFix) o.cueFix = base.cueFix;
+    if (!o.hx && base.hx) o.hx = base.hx;
+    if (!o.qNoRetry && base.qNoRetry) o.qNoRetry = true;
+    row.base = String(base.from || 'مبنا');
+  }
   /* ۱۲.۹: گامِ ثابتِ نمونه — گامِ خودکار (و هدفِ هرتز) کنار می‌رود، پس سدِ «خروجی دور از هدف» هم نیست؛ فقط از بذرِ نمونه. */
   if (o.pitchFix != null && String(o.pitchFix) !== '') {
     row.params.pitch = String(o.pitchFix);
@@ -1652,6 +1664,36 @@ function vbrResendSet_() {
     if (log.items.some(function (x) { return x.name === it.name && x.ok; })) continue;
     if (new Date().getTime() - t0 > 150000) break;          // باقی در نوبتِ ساعتیِ بعد
     var r = { name: it.name, at: nowStr_(), ok: false, how: '', why: '' };
+    /* ۱۵.۱۰ — «فایل ۲۲٫۳ مگابایتیِ نمونهٔ ب در تلگرام دانلود/پخش نشد؛ سبک‌تر بفرست». Apps Script MP3 نمی‌سازد؛ رانر می‌سازد
+       (همان راهِ پیش‌نمایشِ کارت‌های موسیقی، ۹.۸۶). پس: اشتراکِ با‌پیوند ⇒ صفِ پیش‌نمایش ⇒ وقتی نشانیِ MP3 آمد، همان فرستاده
+       می‌شود و اشتراک بسته. تا آن وقت ردیف «منتظر» است، نه «فرستاده»؛ و پیوندِ جایگزین فقط پس از سه شکستِ رانر. */
+    if (it.mp3 && it.driveId) {
+      var mp = {}, pv = null;
+      try { mp = (ytRenderDocFetch_() || {}).musicPrev || {}; } catch (eM) { mp = {}; }
+      pv = mp[it.driveId] || null;
+      if (!(pv && pv.url) && !(pv && (Number(pv.tries) || 0) >= 3)) {
+        try { DriveApp.getFileById(it.driveId).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (eSh) {}
+        try { if (typeof mrPrevWant_ === 'function') mrPrevWant_([it.driveId]); } catch (eW) {}
+        r.why = 'منتظرِ MP3ِ رانر' + (pv && pv.err ? ' (' + String(pv.err).slice(0, 80) + ')' : '');
+        log.items = log.items.filter(function (x) { return x.name !== it.name; }).concat([r]);
+        P.setProperty(PK.VBR_RESEND_LOG, JSON.stringify(log));
+        continue;
+      }
+      if (pv && pv.url) {
+        try {
+          var rm = UrlFetchApp.fetch(pv.url, { muteHttpExceptions: true, followRedirects: true });
+          if (rm.getResponseCode() !== 200) throw new Error('MP3 از ریلیز: HTTP ' + rm.getResponseCode());
+          tgApi_('sendAudio', { chat_id: tgChat_(), audio: rm.getBlob().setName(it.name), caption: '🎙 ' + tgEsc_(it.caption || it.name),
+                                parse_mode: 'HTML', title: it.name, performer: 'موتور محتوا' });
+          r.ok = true; r.how = 'sendAudio (MP3، ' + Math.round((Number(pv.bytes) || rm.getBlob().getBytes().length) / 104857.6) / 10 + ' مگابایت)';
+          try { DriveApp.getFileById(it.driveId).setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE); } catch (eUn) {}
+        } catch (eP) { r.why = String(eP.message).slice(0, 160); }
+        log.items = log.items.filter(function (x) { return x.name !== it.name; }).concat([r]);
+        P.setProperty(PK.VBR_RESEND_LOG, JSON.stringify(log));
+        continue;
+      }
+      r.why = 'رانر سه بار MP3 نساخت: ' + String((pv && pv.err) || '').slice(0, 100) + ' — ';   // ⇒ همان راهِ قبلی (WAV، بعد پیوند)
+    }
     try {
       var blob;
       if (it.driveId) blob = DriveApp.getFileById(it.driveId).getBlob().setName(it.name);   // نشانیِ ریلیزِ برخی‌شان دیگر نیست (۴۰۴)

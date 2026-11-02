@@ -1776,6 +1776,20 @@
    "done": "ساختِ تازهٔ variety:86 (tag r4-15.9) در docs/renders.json با qa.ok=true، qa.blank=[] و qa.freeze=[]؛ و video-watch برای variety:86 «سالم»",
    "how": "docs/renders.json items['variety:86'].qa و _STATUS.monitorChecks video-watch",
    "ver": "15.9"
+  },
+  {
+   "id": "R-20261102-08",
+   "ask": "نمونهٔ مقایسهٔ درس ۷۴ از «ب» بهتر بود؛ بگو کدام بخش «تبدیلِ ملایم» و کدام «بهترینِ تازه» است و مبنای بهبودِ گلدوز را همان بگذار",
+   "done": "CFG.VBR_SPK_BASE['spk-1g0r95d'] = گامِ ۰، hx soft، GOLDUZ_STEADY_CUE2؛ هر ردیفِ تازهٔ پلِ گلدوز در _VOICE-BRIDGE.json فیلدِ base («نمونهٔ مقایسهٔ ۲۷ اکتبر») و params.pitch='0' دارد",
+   "how": "_VOICE-BRIDGE.json items[*].base · tests/run_v160_test.js ۲",
+   "ver": "16.0"
+  },
+  {
+   "id": "R-20261102-09",
+   "ask": "فایلِ ب را سبک‌تر (MP3 ۱۹۲k یا کوتاه‌شده) دوباره بفرست و رسید بده",
+   "done": "_STATUS.tgResend با tag «b-golduz-mp3-1102»: done=true و how «sendAudio (MP3، … مگابایت)» با ساعت",
+   "how": "_STATUS.tgResend",
+   "ver": "16.0"
   }
  ]
 }

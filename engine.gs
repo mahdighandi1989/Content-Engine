@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 15.9
+ *  موتور محتوا و پادکست — نسخهٔ 16.0
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1305,17 +1305,10 @@ var CFG = {
   VM_TEASER_SEC: 10,               // ۹.۱۴: از ۶ — هر کاشیِ کلاژ کم‌تر عوض شود («هی تکرار می‌شود»)؛                // باقیِ پیش از نخستین رسانه: پیش‌نمایشی از رسانه‌های خودِ قسمت، هر کدام ~این‌قدر
   /* نمونهٔ یک‌باره روی قسمتِ منتشرشده (۸.۹۷): همان راه، به یوتیوب نمی‌رود؛ نشانی به تلگرام. خالی ⇒ خاموش. */
   /* ۱۵.۸ — «دو نمونهٔ ب و نمونهٔ مقایسهٔ گلدوز را دوباره بفرست؛ دریافتشان نکرده» (۲ نوامبر). رسید در PK.VBR_RESEND_LOG. */
-  VBR_RESEND_SET: { tag: 'b-golduz-1102', items: [
-    { name: 'گلدوز — گزینهٔ ب — فقط سایشی‌ها.wav', caption: 'گلدوز · گزینهٔ «ب»: باندِ بالا از Charon فقط در سایشی‌ها (درسِ ۷۴)',
-      url: 'https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/spk-1g0r95d-Charon-Charon-2026-10-14-74-hb-c665f956.wav' },
-    { name: 'گلدوز — گزینهٔ ب — همه‌جا.wav', caption: 'گلدوز · گزینهٔ «ب»: باندِ بالا از Charon همه‌جا (درسِ ۷۴)',
-      url: 'https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/spk-1g0r95d-Charon-Charon-2026-10-14-74-hb-all-705f0829.wav' },
-    { name: 'گلدوز — نمونهٔ ب (فایلِ اصلی).wav', caption: 'گلدوز · نمونهٔ گزینهٔ «ب»، فایلِ اصلیِ ۲۹ اکتبر (درسِ ۷۴)',
-      driveId: '1U4Khva6hTQSTogTq7DLNoZffh3c6BoKg' },
-    { name: 'گلدوز — نمونهٔ مقایسه (۲۷ اکتبر).wav', caption: 'گلدوز · نمونهٔ مقایسه: Charon خام · مدلِ پیشین · تبدیلِ ملایم · بهترینِ تازه (درسِ ۷۴)',
-      driveId: '1lAyH3xGBMmmN-UHfjmvh5_AB74NsiB2O' },
-    { name: 'گلدوز — مقایسه — Charon خام.wav', caption: 'مرجع: Charon خام، بی هیچ تبدیل (درسِ ۷۴)',
-      url: 'https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/spk-1g0r95d-Charon-Charon-2026-10-14-74-raw-f75c6fcf.wav' }] },
+VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
+    /* ۱۵.۱۰ — فایلِ ۲۲٫۳ مگابایتیِ «ب» در تلگرامِ او پخش نشد: همان فایل، MP3 (۱۶۰ک، ~۶ مگابایت) از رانر. */
+    { name: 'گلدوز — نمونهٔ ب (فایلِ اصلی).mp3', caption: 'گلدوز · گزینهٔ «ب»، فایلِ اصلیِ ۲۹ اکتبر (درسِ ۷۴) — MP3 سبک',
+      driveId: '1U4Khva6hTQSTogTq7DLNoZffh3c6BoKg', mp3: true }] },
   VM_SAMPLE: null,                 // ۹.۳۷: نمونه‌سازی بس — سبک تأیید شد و قسمت‌های واقعی از همین راه می‌روند (نمونهٔ ۱۰ِ قسمتِ ۷۳ آخرین بود)
   // پیشین: rev ۴ (۹.۰۰): چیدمان و افکتِ ۸.۹۹ + لحظهٔ تا پایانِ جمله + نقشهٔ تازه (نوشتهٔ برداریِ بیشتر)
   YT_MEDIA_APPROVE: 0,             // ۹.۳۷: «به نظرم دیگه خوب بود .. از فردا با همین سبک» — سبک تأیید شد؛ سدِ خودکارِ رانر (qa) و وارسیِ نشتی سرِ جایشان (پیش‌تر ۲)
@@ -2392,7 +2385,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '15.9',
+  CODE_VERSION: '16.0',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2569,6 +2562,11 @@ var CFG = {
   /* ۹.۴۵: «حالم به هم خورد» — خروجیِ پل روی قسمت‌ها بد بود و روی نمونه‌ها خوب، چون صدای مبدأ فرق داشت. تا او نمونهٔ
      درسِ ۷۴ را (همان روشِ نمونه‌ها) نشنیده و نپسندیده، پل برای قسمت‌های تازه خودکار چیزی نمی‌سازد. تیکِ خودش کار می‌کند. */
   VBR_EP_HOLD: true,
+  /* ۱۵.۱۰ — مبنای هر گوینده برای پل و نمونه‌ها (جز آنچه بذر صریح بگوید). گلدوز: همان تنظیمِ «نمونهٔ مقایسهٔ ۲۷ اکتبر» که او از «ب»
+     بهتر شنید (تکِ فایلِ ۲۹۴٫۵ ثانیه‌ای = «بهترینِ تازه»؛ مدلِ 2026-10-14، index_rate/protect همان پیش‌فرض‌ها). */
+  VBR_SPK_BASE: {
+    'spk-1g0r95d': { from: 'نمونهٔ مقایسهٔ ۲۷ اکتبر (درسِ ۷۴، «بهترینِ تازه»)', pitchFix: '0', cueFix: GOLDUZ_STEADY_CUE2, hx: 'soft', qNoRetry: true }
+  },
   VBR_DAY_ASK_HOUR: 10,        // ۹.۴۲: از این ساعت (دبی) قسمتِ امروز همان روز به پل می‌رود، نه سحرِ فردا
   VBR_DAY_ASK_LAST: 20,        // و تا این ساعت، اگر ردیفِ رندرش هنوز نیامده، هر ساعت دوباره نگاه می‌کند
   VBR_TRY_MAX: 3,                    // بعدش «رهاشده»، جدا شمرده می‌شود
@@ -81296,6 +81294,18 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   row.shared = true;
   try { var sg = vbrSegs_(folderId); if (sg.length) row.segs = sg; } catch (eSg) {}
   var o = opts || {};
+  /* ۱۵.۱۰ — مبنای گوینده (`VBR_SPK_BASE`): «نمونهٔ مقایسهٔ درسِ ۷۴ از «ب» بهتر بود — مبنای بهبودِ گلدوز همان باشد». هر چه بذرِ
+     نمونه صریح نگفته، از مبنا می‌آید؛ پس قسمت‌های واقعی (وقتی VBR_EP_HOLD برداشته شود) و نمونه‌های بعدی با همان تنظیمِ ۲۷ اکتبر
+     ساخته می‌شوند، نه با گامِ خودکار و بی «خ» نرم. باندِ بالای «ب» (`hb`) در مبنا نیست — او همان را کم‌تر پسندید. */
+  var base = (CFG.VBR_SPK_BASE || {})[String(speaker)] || null;
+  if (base) {
+    o = JSON.parse(JSON.stringify(o));
+    if ((o.pitchFix == null || String(o.pitchFix) === '') && base.pitchFix != null) o.pitchFix = String(base.pitchFix);
+    if (!o.cueFix && base.cueFix) o.cueFix = base.cueFix;
+    if (!o.hx && base.hx) o.hx = base.hx;
+    if (!o.qNoRetry && base.qNoRetry) o.qNoRetry = true;
+    row.base = String(base.from || 'مبنا');
+  }
   /* ۱۲.۹: گامِ ثابتِ نمونه — گامِ خودکار (و هدفِ هرتز) کنار می‌رود، پس سدِ «خروجی دور از هدف» هم نیست؛ فقط از بذرِ نمونه. */
   if (o.pitchFix != null && String(o.pitchFix) !== '') {
     row.params.pitch = String(o.pitchFix);
@@ -81921,6 +81931,36 @@ function vbrResendSet_() {
     if (log.items.some(function (x) { return x.name === it.name && x.ok; })) continue;
     if (new Date().getTime() - t0 > 150000) break;          // باقی در نوبتِ ساعتیِ بعد
     var r = { name: it.name, at: nowStr_(), ok: false, how: '', why: '' };
+    /* ۱۵.۱۰ — «فایل ۲۲٫۳ مگابایتیِ نمونهٔ ب در تلگرام دانلود/پخش نشد؛ سبک‌تر بفرست». Apps Script MP3 نمی‌سازد؛ رانر می‌سازد
+       (همان راهِ پیش‌نمایشِ کارت‌های موسیقی، ۹.۸۶). پس: اشتراکِ با‌پیوند ⇒ صفِ پیش‌نمایش ⇒ وقتی نشانیِ MP3 آمد، همان فرستاده
+       می‌شود و اشتراک بسته. تا آن وقت ردیف «منتظر» است، نه «فرستاده»؛ و پیوندِ جایگزین فقط پس از سه شکستِ رانر. */
+    if (it.mp3 && it.driveId) {
+      var mp = {}, pv = null;
+      try { mp = (ytRenderDocFetch_() || {}).musicPrev || {}; } catch (eM) { mp = {}; }
+      pv = mp[it.driveId] || null;
+      if (!(pv && pv.url) && !(pv && (Number(pv.tries) || 0) >= 3)) {
+        try { DriveApp.getFileById(it.driveId).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (eSh) {}
+        try { if (typeof mrPrevWant_ === 'function') mrPrevWant_([it.driveId]); } catch (eW) {}
+        r.why = 'منتظرِ MP3ِ رانر' + (pv && pv.err ? ' (' + String(pv.err).slice(0, 80) + ')' : '');
+        log.items = log.items.filter(function (x) { return x.name !== it.name; }).concat([r]);
+        P.setProperty(PK.VBR_RESEND_LOG, JSON.stringify(log));
+        continue;
+      }
+      if (pv && pv.url) {
+        try {
+          var rm = UrlFetchApp.fetch(pv.url, { muteHttpExceptions: true, followRedirects: true });
+          if (rm.getResponseCode() !== 200) throw new Error('MP3 از ریلیز: HTTP ' + rm.getResponseCode());
+          tgApi_('sendAudio', { chat_id: tgChat_(), audio: rm.getBlob().setName(it.name), caption: '🎙 ' + tgEsc_(it.caption || it.name),
+                                parse_mode: 'HTML', title: it.name, performer: 'موتور محتوا' });
+          r.ok = true; r.how = 'sendAudio (MP3، ' + Math.round((Number(pv.bytes) || rm.getBlob().getBytes().length) / 104857.6) / 10 + ' مگابایت)';
+          try { DriveApp.getFileById(it.driveId).setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE); } catch (eUn) {}
+        } catch (eP) { r.why = String(eP.message).slice(0, 160); }
+        log.items = log.items.filter(function (x) { return x.name !== it.name; }).concat([r]);
+        P.setProperty(PK.VBR_RESEND_LOG, JSON.stringify(log));
+        continue;
+      }
+      r.why = 'رانر سه بار MP3 نساخت: ' + String((pv && pv.err) || '').slice(0, 100) + ' — ';   // ⇒ همان راهِ قبلی (WAV، بعد پیوند)
+    }
     try {
       var blob;
       if (it.driveId) blob = DriveApp.getFileById(it.driveId).getBlob().setName(it.name);   // نشانیِ ریلیزِ برخی‌شان دیگر نیست (۴۰۴)
