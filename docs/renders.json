@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-02 10:31",
+ "updatedAt": "2026-11-02 10:35",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -6194,7 +6194,8 @@
     "لحظهٔ 607s: موسیقی جدا شد (15.4ث)؛ فقط گفتارِ کلیپ پخش می‌شود",
     "لحظه‌ها: 109s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 36٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 17٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 362s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 44٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 22٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا",
     "اندازه: 124.2 ⇒ 43.2 مگابایت"
-   ]
+   ],
+   "pruned": "2026-11-02"
   },
   "special:86": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-86.mp4",
@@ -8734,6 +8735,22 @@
    "segs": 5,
    "subs": 36,
    "at": "2026-11-01 21:38"
+  },
+  "ig:special:53.2": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-53-2.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-53-2-cover.jpg",
+   "sig": "7d98448eb63e",
+   "seconds": 76.7,
+   "bytes": 14468858,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-53-2-short.mp4",
+   "shortSeconds": 72.8,
+   "align": "faster-whisper",
+   "phrases": 43,
+   "trans": 4,
+   "imgs": 5,
+   "segs": 5,
+   "subs": 39,
+   "at": "2026-11-02 10:35"
   }
  },
  "musicPrev": {
@@ -9544,8 +9561,8 @@
   }
  },
  "release": {
-  "assets": 515,
-  "gb": 3.96,
-  "at": "2026-11-02 10:31"
+  "assets": 517,
+  "gb": 3.94,
+  "at": "2026-11-02 10:35"
  }
 }
