@@ -11913,7 +11913,7 @@ function ytRunDue_(maxItems, budgetMs) {
   /* صف مرتب مصرف می‌شود — و مرتب‌سازی این‌جا دوباره انجام می‌شود، نه فقط
      هنگامِ افزودن: ردیف‌هایی که پیش از ۵٫۹۸ ثبت شده‌اند ترتیب ندارند، و یک
      مرتب‌سازیِ ارزان همه‌شان را سرِ جای درست می‌آورد. */
-  var list = ytDueOrder_(ytDueList_());
+  var list = ytReplFirst_(ytDueOrder_(ytDueList_()));
 
   /* ══ گرسنگی‌ای که سقف می‌ساخت (۶٫۷) ══
    * «منتظرِ ویدئو» هم یک تلاش شمرده می‌شد. با سقفِ دو تا در شب، اگر دو ردیفِ
@@ -11958,6 +11958,19 @@ function ytRunDue_(maxItems, budgetMs) {
      هیچ‌جا ننوشته بود چرا. */
   try { ytRunNote_(out); } catch (eRn) {}
   return out;
+}
+
+/** ۱۶.۳ — «پس از ریستِ سهمیه اولویت با جایگزینیِ ۸۸ و ۸۶»: ردیف‌هایی که جایگزینیِ در جریان دارند (فاز build/swap) اولِ صف،
+ *  بقیه به همان ترتیبِ قبلی. جایگزینی ویدئوی منتشرشدهٔ معیوبی را برمی‌دارد؛ قسمتِ تازه یک روز صبر می‌تواند. */
+function ytReplFirst_(list) {
+  var st = {};
+  try { st = ytReplState_() || {}; } catch (e) { return list; }
+  var a = [], b = [];
+  for (var i = 0; i < (list || []).length; i++) {
+    var c = st[String(list[i].key)] || {};
+    if (c.phase === 'build' || c.phase === 'swap') a.push(list[i]); else b.push(list[i]);
+  }
+  return a.concat(b);
 }
 
 /** مهرِ آخرین انتشارِ موفق — تنها راهِ فهمیدنِ «چند روز است هیچ‌چیز نرفته». */

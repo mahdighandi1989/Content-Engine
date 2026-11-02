@@ -1,16 +1,14 @@
 {
-  "version": "16.2",
+  "version": "16.3",
   "codeFile": "engine.gs",
-  "sha256": "2fd591c141436df126214ac4855a4478d93693c2f815b62e347b839a63389216",
-  "releasedAt": "2026-11-03T01:10:00+04:00",
-  "summary": "نوشتنِ _STATUS پس از سینک در اجرای جدا (statusLater، یک دقیقه بعد)؛ پیمایشِ کاملِ جزوه روزی یک بار.",
+  "sha256": "286c1b3b615c78888e059c9f76765ef84e1150c52a14ddbb00313dbf6bdc0fbe",
+  "releasedAt": "2026-11-03T01:45:00+04:00",
+  "summary": "جایگزینی‌های در جریان (۸۶، ۸۸) اولِ صفِ انتشار؛ پس از ریستِ سهمیه نخستین آپلودها.",
   "fixes": [
-    "src/02_Sync.gs: statusLaterArm_ به‌جای نوشتنِ همان‌جا",
-    "src/08_Health.gs: statusLaterArm_، statusLater",
-    "src/00_Config.gs: HANDOUT_STATUS_TTL_H ۶⇐۲۶"
+    "src/27_YouTube.gs: ytReplFirst_ در ytRunDue_"
   ],
   "sourceReportIds": [
-    "R-20261103-01"
+    "R-20261103-02"
   ],
   "answers": [],
   "promptImpact": []

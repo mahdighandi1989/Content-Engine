@@ -1804,6 +1804,13 @@
    "done": "modifiedTime ِ _STATUS.json پس از هر سینک (هر ۲ ساعت) نو می‌شود؛ _STATUS.statusCost.totalSec زیرِ ۹۰ در نوشتن‌های میانِ روز؛ _STATUS.statusFail خالی",
    "how": "_STATUS.statusCost · _STATUS.statusFail · modifiedTime",
    "ver": "16.2"
+  },
+  {
+   "id": "R-20261103-02",
+   "ask": "بعد از ریستِ سهمیه ۱۱:۰۰ دبی اولویت با جایگزینیِ ۸۸ و ۸۶ باشد",
+   "done": "_STATUS.youtube.replace: variety:86 و variety:88 فاز done با newUrl، پیش از هر آپلودِ تازهٔ ۳ نوامبر",
+   "how": "_STATUS.youtube.replace · تبِ انتشارِ یوتیوب (ساعتِ ردیف‌ها)",
+   "ver": "16.3"
   }
  ]
 }
