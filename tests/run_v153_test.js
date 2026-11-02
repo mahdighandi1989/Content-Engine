@@ -126,5 +126,21 @@ console.log('\n=== ۴) فریزِ صحنه: لحظه‌ای که کلیپ را �
   ok('۴.۳ بازپخش در یادداشتِ رندر گفته می‌شود', /if \(c\.replayed\) \{ st\.replayed = /.test(rj));
 }
 
+console.log('\n=== ۵) وضعِ دفترِ درخواست‌ها با اندازهٔ واقعی ذخیره می‌شود ===');
+{
+  const items = [];
+  for (let i = 0; i < 240; i++) items.push({ id: 'R-2026' + String(1000 + i) + '-0' + (i % 9), state: i % 7 === 0 ? 'انجام و سنجیده شد'
+    : 'ناظر نتوانست بسنجد (' + 'شاهد در _STATUS نبود؛ پوشه باز نشد و فایل خوانده نشد'.repeat(2) + ')' });
+  const today = items.slice(0, 8).map(x => x.id);
+  const full = JSON.stringify({ items });
+  const r = reqStatusSave_({ ok: false, n: 240, done: 35, bad: 3, stale: 100, line: '📒 '.concat('خطِ بلند '.repeat(300)), today, items });
+  const raw = store[PK.REQ_STATUS] || '';
+  const c = reqStatusCached_() || {};
+  ok('۵.۱ دفترِ ~' + Math.round(Buffer.byteLength(full) / 1024) + ' کیلوبایتی زیرِ سقف ذخیره شد', r === true && Buffer.byteLength(raw) <= 8000, Buffer.byteLength(raw));
+  ok('۵.۲ سهمِ امروز و شمارش‌ها دست‌نخورده', JSON.stringify(c.today) === JSON.stringify(today) && c.n === 240 && c.stale === 100);
+  ok('۵.۳ ردیف‌های تازه (نه «انجام») پیش از «انجام»ها می‌مانند', (c.items || []).every(x => x.state !== 'انجام و سنجیده شد') && c.itemsDoneHidden > 0,
+     JSON.stringify({ n: (c.items || []).length, h: c.itemsDoneHidden, cut: c.itemsCut }));
+}
+
 global.props_ = keepProps;
 summary('۱۵.۳');

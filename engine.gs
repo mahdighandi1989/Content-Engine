@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 15.3
+ *  موتور محتوا و پادکست — نسخهٔ 15.4
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2380,7 +2380,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '15.3',
+  CODE_VERSION: '15.4',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -24122,8 +24122,23 @@ function reqStatusSave_(st) {
   var c = { at: nowStr_(), ok: !!st.ok, n: st.n, done: st.done, half: st.half, bad: st.bad, stale: st.stale,
             waiting: st.waiting, owner: st.owner, line: String(st.line || '').slice(0, 1800), today: (st.today || []).slice(0, 12),
             items: (st.items || []).map(function (x) { return { id: x.id, state: String(x.state || '').slice(0, 90) }; }) };
-  try { props_().setProperty(PK.REQ_STATUS, propFit_({ c: c }, 'line').replace(/^\{"c":/, '').replace(/\}$/, '')); return true; }
-  catch (e) { logLine_('وضعِ دفترِ درخواست‌ها ذخیره نشد: ' + String(e.message).slice(0, 120)); return false; }
+  /* ۱۵.۳ — از ۳۱ اکتبر ذخیره نمی‌شد: `_STATUS.requests.at` روی «2026-10-31 10:07» ماند در حالی که reqStatus_ هر روز
+     می‌دوید. ۲۱۲ ردیف با متنِ وضعِ هر کدام ~۱۵٫۷ کیلوبایت بود و با هر درخواستِ تازه بزرگ‌تر شد؛ propFit_ فقط `line` را
+     کوتاه می‌کرد، پس نوشتن به سقفِ اندازهٔ Properties خورد و در catch گم شد. ناظر هر روز همان «سهمِ امروزِ» کهنه را
+     می‌دید و درخواست‌های تازه هرگز به سهم نمی‌رسیدند — همان «N روز است سنجیده نشده»ِ مزمن. حالا پله‌پله کوچک می‌شود:
+     متنِ وضع کوتاه، بعد ردیف‌های «انجام و سنجیده» فقط شمرده، بعد فهرست بریده — `today` و شمارش‌ها هرگز. */
+  var LIM = 8000, bytes = function (t) { return Utilities.newBlob(t).getBytes().length; };
+  var js = JSON.stringify(c);
+  if (bytes(js) > LIM) { c.line = c.line.slice(0, 600); c.items.forEach(function (x) { x.state = x.state.slice(0, 40); }); js = JSON.stringify(c); }
+  if (bytes(js) > LIM) {
+    var doneN = c.items.filter(function (x) { return x.state === 'انجام و سنجیده شد'; }).length;
+    c.items = c.items.filter(function (x) { return x.state !== 'انجام و سنجیده شد'; });
+    c.itemsDoneHidden = doneN; js = JSON.stringify(c);
+  }
+  if (bytes(js) > LIM) { c.line = c.line.slice(0, 200); c.items.forEach(function (x) { x.state = x.state.slice(0, 18); }); js = JSON.stringify(c); }
+  while (bytes(js) > LIM && c.items.length) { c.items = c.items.slice(0, Math.floor(c.items.length * 0.8)); c.itemsCut = true; js = JSON.stringify(c); }
+  try { props_().setProperty(PK.REQ_STATUS, js); return true; }
+  catch (e) { logLine_('وضعِ دفترِ درخواست‌ها ذخیره نشد (' + bytes(js) + ' بایت): ' + String(e.message).slice(0, 120)); return false; }
 }
 
 function reqStatusCached_() {
