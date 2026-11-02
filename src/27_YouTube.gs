@@ -12104,6 +12104,13 @@ function ytTick_(budgetMs) {
   } catch (e) { out.why += (out.why ? ' · ' : '') + 'برداشت: ' + String(e.message).slice(0, 60); }
   try { qaAutoChecks_(); } catch (eQa) {}           // ۸.۸۰: وارسی‌های ویدئو از خودِ رندر، نه از ناظر
 
+  /* ══ صفِ عمومی‌کردن — اول، نه آخر (۱۵.۶) ══ ۱۵.۵ آن را پیش از بازسنجیِ روزانه و پشتِ «۲۵ ثانیه مانده» گذاشته بود، یعنی
+     پس از آپلود، کاور، جایگزینی، کنارگذاشتن، ترتیبِ پلی‌لیست و شمارهٔ عنوان‌ها. اجرای ۱۵:۰۱ِ ۲ نوامبر (پس از نصبِ ۱۵.۵ در
+     ۱۴:۲۷) ۸۹ را عمومی نکرد و هیچ ردی هم نگذاشت — بودجهٔ دور پیش از رسیدن به آن تمام شده بود. هزینه‌اش وقتی صف خالی است
+     یک خواندنِ Properties است و وقتی پر است ۵۰ واحد و یک فراخوان؛ جایش پیش از هر کارِ سنگین است (همان درسِ ۵.۶۸/۹.۸۸). */
+  try { var fdT = ytFlipDueTick_(); if (fdT && fdT.flipped) out.flipped = fdT.flipped; }
+  catch (eFd) { out.why += (out.why ? ' · ' : '') + 'عمومیِ جامانده: ' + String(eFd.message).slice(0, 60); }
+
   /* ویدئوی تأییدشده‌ای که هنوز Unlisted است (۸.۴۶) — درِ دوم، کنارِ کارِ شبانه.
      **پیش از** انتشارِ تازه (۸.۵۰): `ytRunDue_` صحنه‌های درسِ تازه را تا مهلتش
      می‌سازد، و تا ۸.۴۹ این در پشتِ آن بود با شرطِ «۳۰ ثانیه مانده» — یعنی درست
@@ -12175,13 +12182,6 @@ function ytTick_(budgetMs) {
      `special:26`، `variety:23`) هفته‌ها Unlisted ماندند و خطِ روزانه هر روز می‌گفت
      «علتشان پس از بازسنجیِ شبانه این‌جا می‌آید» — وعده‌ای که هیچ راهی برایش
      پیموده نمی‌شد (۷٫۴۶). روزی یک بار این‌جا هم، فقط وقتی وقت هست. */
-  /* ۱۵.۵ — «۸۹ هنوز فهرست‌نشده؛ اگر ممکن است بی انتظار تا شب». صفِ عمومی‌کردن (۱۵.۳) فقط در بازسنجیِ روزی‌یک‌بار
-     خوانده می‌شد و آن نوبت ساعتِ ۰۲:۵۲ بود — آخرِ روزِ سهمیهٔ یوتیوب، وقتی چیزی نمانده. حالا هر ساعت، فقط اگر صف چیزی دارد
-     (بی صف، فقط یک خواندنِ Properties). */
-  if (left() > 25000) {
-    try { var fdT = ytFlipDueTick_(); if (fdT && fdT.flipped) out.flipped = fdT.flipped; }
-    catch (eFd) { out.why += (out.why ? ' · ' : '') + 'عمومیِ جامانده: ' + String(eFd.message).slice(0, 60); }
-  }
   if (left() > 50000 && ytStuckTickDue_()) {
     try { ytRedoStuckNightly_(Math.min(45000, left() - 20000)); ytStuckTickMark_(); }
     catch (eSt) { out.why += (out.why ? ' · ' : '') + 'گیرکرده‌ها: ' + String(eSt.message).slice(0, 60); }
@@ -12426,6 +12426,12 @@ function ytStatus_() {
       var sw = JSON.parse(props_().getProperty(PK.YT_STUCK_WHY) || '[]') || [];
       out.stuckWhy = sw.filter(function (x) { return (out.unlistedKeys || []).indexOf(x.key) !== -1; });
     } catch (eSw) { out.stuckWhy = []; }
+    /* ۱۵.۶: صفِ عمومی‌کردن با علتِ آخرین تلاش — جوابِ «چرا هنوز فهرست‌نشده؟» بی خواندنِ کد. */
+    try {
+      var fdS = ytFlipDueGet_();
+      out.flipDue = Object.keys(fdS).filter(function (k) { return k.indexOf('~seed:') !== 0; })
+        .map(function (k) { var x = fdS[k] || {}; return { key: k, tried: x.tried || '', tries: x.tries || 0, why: x.why || '' }; });
+    } catch (eFdS) { out.flipDue = []; }
     var sh = hub.getSheetByName(CFG.YT_TAB || 'انتشار در یوتیوب');
     if (sh && sh.getLastRow() > 1) {
       var v = sh.getRange(sh.getLastRow(), 1, 1, YT_HEADERS.length).getValues()[0];
@@ -13989,7 +13995,19 @@ function ytFlipDueTick_() {
     var ix = keys[i].lastIndexOf(':');
     var r = ytFlipDirect_(hub, keys[i].slice(0, ix), keys[i].slice(ix + 1), rec);
     if (r.ok) { out.flipped++; try { ytApprDoneAdd_(keys[i]); } catch (eA) {} }
-    else if (/سهمیه/.test(String(r.why || ''))) break;   // سهمیه برای بقیه هم نیست
+    else {
+      /* ۱۵.۶: علتِ هر بار نشدن در خودِ صف — `_STATUS.youtube.flipDue` همین را نشان می‌دهد. بی این، «چرا ۸۹ هنوز
+         فهرست‌نشده است؟» فقط با خواندنِ کد جواب داشت. */
+      try {
+        var fd2 = ytFlipDueGet_();
+        if (fd2[keys[i]] || r.retry) {
+          fd2[keys[i]] = Object.assign({}, fd2[keys[i]] || {}, { vid: rec.videoId, tried: nowStr_(), why: String(r.why || '').slice(0, 160),
+                                                                 tries: Number((fd2[keys[i]] || {}).tries || 0) + 1 });
+          ytFlipDueSave_(fd2);
+        }
+      } catch (eW) {}
+      if (/سهمیه/.test(String(r.why || ''))) break;   // سهمیه برای بقیه هم نیست
+    }
   }
   return out;
 }

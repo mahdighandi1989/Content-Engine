@@ -56,8 +56,8 @@ console.log('\n=== ۲) صفِ عمومی‌کردن هر ساعت، نه فقط 
   const r2 = ytFlipDueTick_();
   ok('۲.۲ نوبتِ بعد: صف خالی، هیچ خواندنِ دفتری', r2.checked === 0 && flips.length === 1);
   const src = fs.readFileSync('src/27_YouTube.gs', 'utf8');
-  ok('۲.۳ سیم: ytFlipDueTick_ در نوبتِ ساعتیِ یوتیوب، پیش از بازسنجیِ روزانه',
-     src.indexOf('var fdT = ytFlipDueTick_();') > 0 && src.indexOf('var fdT = ytFlipDueTick_();') < src.indexOf('ytRedoStuckNightly_(Math.min(45000, left() - 20000)); ytStuckTickMark_();'));
+  ok('۲.۳ سیم: ytFlipDueTick_ در نوبتِ ساعتیِ یوتیوب، پیش از انتشار و بازسنجیِ روزانه (۱۵.۶)',
+     src.indexOf('var fdT = ytFlipDueTick_();') > 0 && src.indexOf('var fdT = ytFlipDueTick_();') < src.indexOf('var r0 = ytRunDue_(Math.max(1, Number(CFG.YT_TICK_MAX)'));
   Object.keys(keep).forEach(k => { global[k] = keep[k]; });
   global.props_ = keepP;
 }
