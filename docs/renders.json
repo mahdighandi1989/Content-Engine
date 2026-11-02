@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-02 19:37",
+ "updatedAt": "2026-11-02 19:38",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -6190,7 +6190,8 @@
     "لحظهٔ 607s: موسیقی جدا شد (16.7ث)؛ فقط گفتارِ کلیپ پخش می‌شود",
     "لحظه‌ها: 109s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 36٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 17٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 362s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 44٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 21٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا",
     "اندازه: 147.5 ⇒ 39.7 مگابایت"
-   ]
+   ],
+   "pruned": "2026-11-02"
   },
   "special:86": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-86.mp4",
@@ -9657,11 +9658,16 @@
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1m8wIHU3-7l-Dw54blYRUITpqEOdGOSZO.mp3",
    "bytes": 277139,
    "at": "2026-11-01 22:50"
+  },
+  "1U4Khva6hTQSTogTq7DLNoZffh3c6BoKg": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1U4Khva6hTQSTogTq7DLNoZffh3c6BoKg.mp3",
+   "bytes": 5870280,
+   "at": "2026-11-02 19:38"
   }
  },
  "release": {
   "assets": 526,
-  "gb": 4.1,
-  "at": "2026-11-02 19:37"
+  "gb": 4.07,
+  "at": "2026-11-02 19:38"
  }
 }
