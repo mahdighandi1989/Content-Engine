@@ -1727,6 +1727,27 @@
    "done": "هیچ کلیدی در `prune`ِ صفِ رندر نیست مگر ردیفِ `docs/renders.json` آن qa داشته باشد (رسانه‌ای: `qa.clipSound`) و آخرین حریمِ ثبت‌شده‌اش public باشد؛ `PK.YT_PRUNE_AT.held` نگه‌داشته‌ها را می‌شمارد",
    "how": "`ytRenderPruneMark_`",
    "ver": "15.2"
+  },
+  {
+   "id": "R-20261102-01",
+   "ask": "رفع فریز صحنه (۸۶ و ۸۸ و ۹۰، کلیپ تمام می‌شود و فقط پس‌زمینهٔ تار ثابت می‌ماند)",
+   "done": "رندرهای تازهٔ variety:86/88/90 (tag r1-15.3) در `docs/renders.json` با `qa.ok` و بی «یخ زد»، و عمومی در دفترِ یوتیوب",
+   "how": "`docs/renders.json` qa · `docs/yt-replace.json` · `_STATUS.youtube.replace`",
+   "ver": "15.3"
+  },
+  {
+   "id": "R-20261102-02",
+   "ask": "دلیل بازماندن ۸۹ در حالت فهرست‌نشده روشن و رفع شود",
+   "done": "variety:89 در `_STATUS.youtube.unlistedKeys` نیست و ردیفِ دفترش «عمومی شد» با یادداشتِ «عمومی‌کردنِ جامانده»؛ هیچ ویدئویی که از سدها گذشته بی ردیف در `PK.YT_FLIP_DUE` Unlisted نمی‌ماند",
+   "how": "`ytFlipDirect_` · `ytRedoStuckNightly_` · `_STATUS.youtube.stuckWhy`",
+   "ver": "15.3"
+  },
+  {
+   "id": "R-20261102-03",
+   "ask": "دلیل درخواست ساخت ۱۶ روزه روشن شود",
+   "done": "`_STATUS.youtube.waitingRender` صفر (یا فقط درخواست‌های واقعیِ کمتر از ۲ روز) و ردیفِ variety:72-3-نمونه «کنار رفت»",
+   "how": "`vmSampleStaleSweep_` · `_YT-RENDER.json`",
+   "ver": "15.3"
   }
  ]
 }

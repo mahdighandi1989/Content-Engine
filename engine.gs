@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 15.2
+ *  موتور محتوا و پادکست — نسخهٔ 15.3
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1588,6 +1588,8 @@ var CFG = {
      از ۱۰٬۰۰۰ واحدِ مشترک خرج می‌کنند. `search.list` صد واحد است و اصلاً
      به کار نمی‌رود — فهرستِ ما در تب است، نه در جست‌وجوی یوتیوب. */
   YT_QUOTA_UNITS: 9000,                 // حاشیه زیرِ ۱۰٬۰۰۰
+  YT_FLIP_RESERVE: 300,                 // ۱۵.۳: واحدهایی که فقط عمومی‌کردن می‌تواند خرج کند — ۸۹ با ۸۹۸۸ از ۹۰۰۰ بالا رفت و بی‌صدا Unlisted ماند
+  YT_FLIP_SEED: ['variety:89'],         // ۱۵.۳: پیش از این نسخه بالا رفته و فقط سهمیه جلوی عمومی‌شدنش را گرفت (متنش سرِ آپلود از سدِ نشتی گذشت)
   YT_SCI_GATE: true,                    // ۱۵.۱: قسمتِ غیرعلمیِ «از همه جا» بالا نمی‌رود (منبع از کد + محتوا از مدل)
   YT_QUOTA_TZ: 'America/Los_Angeles', // ۱۴.۹: سهمیهٔ Data API سرِ نیمه‌شبِ اقیانوس آرام صفر می‌شود (۱۱:۰۰ دبی)
   YT_QUOTA_UPLOADS: 90,                 // حاشیه زیرِ ~۱۰۰
@@ -2378,7 +2380,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '15.2',
+  CODE_VERSION: '15.3',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3575,6 +3577,7 @@ var PK = {
   LV_SCENE_FB: 'LV_SCENE_FB',      // آخرین درسی که از صحنه به کارتِ ساده افتاد: کدام، کِی، چرا، چند بارِ پیاپی (۸.۶۰)
   VM_LAST: 'VM_LAST',              // آخرین قسمتِ «از همه جا» با رسانهٔ منبع: صحنه‌ها، کلیپ‌ها، لحظه‌ها، یا علتِ نشدن (۸.۹۶)
   VM_SAMPLE: 'VM_SAMPLE_STATE',
+  VM_SAMPLE_SWEEP: 'VM_SAMPLE_SWEEP',   // ۱۵.۳: روزی یک بار ردیف‌های نمونهٔ کهنه بسته می‌شوند
   GROUND_LAST: 'GROUND_LAST',      // آخرین دروازهٔ زمین‌گیریِ «از همه جا»: چند جملهٔ ساختگی پیش از صدا حذف شد (۹.۱۱)   // نمونهٔ یک‌باره: خواسته شد / خبر داده شد (۸.۹۷)
   YT_MEDIA_OK: 'YT_MEDIA_OK_N',     // چند ویدئوی حالتِ رسانه تا حالا عمومی شده (۸.۹۶)
   LV_CLIP_LAST: 'LV_CLIP_LAST',    // آخرین کلیپِ آغاز: چه شد و چرا (۸.۵۱) + شمارِ شکستِ پیاپی (۸.۵۲)
@@ -3585,6 +3588,7 @@ var PK = {
   LV_SCENE_MORE: 'LV_SCENE_MORE_DAY', // شمارِ اجرای یک‌بارهٔ ادامهٔ صحنه‌ها، امروز
   LV_SCENE_LEASE: 'LV_SCENE_LEASE',   // اجارهٔ ساختِ صحنه: {key, until} — دو اجرای هم‌زمان نه
   YT_SCENES_OK: 'YT_SCENES_OK_N',     // چند ویدئوی حالتِ صحنه تا حالا عمومی شده
+  YT_FLIP_DUE: 'YT_FLIP_DUE',         // ۱۵.۳: ویدئوهایی که متنشان سرِ آپلود سالم بود و فقط عمومی‌کردنشان نشد
   YT_STUCK_WHY: 'YT_STUCK_WHY',       // علتِ هر ویدئوی هنوز-Unlisted از آخرین بازسنجی (۸.۳۵)
   EP_GUARD: 'EP_GUARD_MAP',                 // نگهبانِ ادامهٔ هر برنامه: مسلح؟ کدام قسمت و مرحله؟ چند بار کشته شد؟ (۸.۵۴)
   EP_KICK_LAST: 'EP_KICK_LAST',
@@ -52029,9 +52033,13 @@ function ytQuotaSave_(q) {
  * ترتیب عمدی است — برداشتن پس از خرج یعنی یک اجرای کشته‌شده، سهمیه‌ای را
  * که واقعاً خرج شده نشمرده می‌گذارد و فردا دوباره خرجش می‌کنیم.
  */
-function ytQuotaTake_(units, isUpload) {
+function ytQuotaTake_(units, isUpload, flip) {
   var q = ytQuota_();
   var capU = Math.max(100, Number(CFG.YT_QUOTA_UNITS) || 9000);
+  /* ۱۵.۳ — ذخیرهٔ عمومی‌کردن. ۸۹ ساعتِ ۱۶:۵۹ با ۸۹۸۸ از ۹۰۰۰ بالا رفت؛ ۵۰ واحدِ عمومی‌کردن نماند و ویدئو بی هیچ
+     یادداشتی Unlisted ماند، و بازسنجیِ شبانه هم (۰۲:۵۲، آخرِ روزِ سهمیهٔ اقیانوسِ آرام) به همان دیوار خورد. ویدئویی که
+     بالا رفته و از همهٔ سدها گذشته ارزان‌ترین و مهم‌ترین خرجِ روز است؛ پس سهمی از سقف فقط برای همین می‌ماند. */
+  if (!flip) capU = Math.max(100, capU - Math.max(0, Number(CFG.YT_FLIP_RESERVE) || 0));
   var capUp = Math.max(1, Number(CFG.YT_QUOTA_UPLOADS) || 90);
   /* ۱۱.۵: «سقفِ روزانه»ِ ردیفِ یوتیوب در تبِ «مقصدها» — کوچک‌ترِ دو */
   try { capUp = Math.max(1, destCap_('yt', capUp)); } catch (eD) {}
@@ -62705,7 +62713,11 @@ function ytUploadOne_(item, hub, pub) {
     } catch (eF) {}
   } else if (gate.ok && ytHandsOff_(vid, 'عمومی‌کردن')) {
     privacy = 'private';                       // ۱۱.۰: میانِ آپلود و عمومی‌کردن خصوصی شد — همان می‌ماند
-  } else if (gate.ok && ytQuotaTake_(YT_COST.videosUpdate, false)) {
+  } else if (gate.ok && !ytQuotaTake_(YT_COST.videosUpdate, false, true)) {
+    /* ۱۵.۳: تا ۱۵.۲ همین شاخه وجود نداشت — سهمیه که نبود، هیچ سطری نمی‌گفت چرا Unlisted ماند (۸۹). */
+    ytFlipDueAdd_(String(item.key || (item.show + ':' + item.ep)), vid, 'سهمیهٔ امروز برای عمومی‌کردن نماند');
+    logLine_('یوتیوب ' + item.key + ': از همهٔ سدها گذشت ولی سهمیهٔ عمومی‌کردن نماند؛ Unlisted ماند و در صفِ عمومی‌کردن نشست — ' + url);
+  } else if (gate.ok) {
     try {
       yt.Videos.update({ id: vid, status: {
         privacyStatus: CFG.YT_PRIVACY_FINAL || 'public',
@@ -62713,6 +62725,7 @@ function ytUploadOne_(item, hub, pub) {
       privacy = CFG.YT_PRIVACY_FINAL || 'public';
       if (rme && /^(scenes|media)$/.test(String(rme.mode || ''))) ytScenesOkAdd_(rme.mode);
     } catch (eV) {
+      ytFlipDueAdd_(String(item.key || (item.show + ':' + item.ep)), vid, 'خطا: ' + String(eV.message).slice(0, 80));
       logLine_('عمومی‌کردنِ ویدئو نشد: ' + eV.message);
     }
   }
@@ -65783,7 +65796,7 @@ function ytRedoOne_(show, ep, opt) {
     out.why = (out.why ? out.why + ' · ' : '') + 'متنِ تازه ننشست؛ عمومی نشد تا متنِ قدیم عمومی نشود';
   }
   if (gateR.ok && textLanded && String(rec.privacy || '') !== (CFG.YT_PRIVACY_FINAL || 'public') &&
-      ytQuotaTake_(YT_COST.videosUpdate, false)) {
+      ytQuotaTake_(YT_COST.videosUpdate, false, true)) {
     try {
       yt.Videos.update({ id: rec.videoId,
                          status: { privacyStatus: CFG.YT_PRIVACY_FINAL || 'public',
@@ -65837,6 +65850,53 @@ function ytStuckTickMark_() {
   catch (e) {}
 }
 
+/** ۱۵.۳ — صفِ عمومی‌کردن: { key: {vid, at, why} }. بذرِ پیکربندی یک‌بار در آن می‌نشیند. */
+function ytFlipDueGet_() {
+  var m = {};
+  try { m = JSON.parse(props_().getProperty(PK.YT_FLIP_DUE) || '{}') || {}; } catch (e) { m = {}; }
+  (CFG.YT_FLIP_SEED || []).forEach(function (k) {
+    k = String(k); if (!m[k] && !m['~seed:' + k]) { m[k] = { vid: '', at: nowStr_(), why: 'بذر' }; m['~seed:' + k] = 1; }
+  });
+  return m;
+}
+function ytFlipDueSave_(m) { try { props_().setProperty(PK.YT_FLIP_DUE, JSON.stringify(m)); return true; } catch (e) { return false; } }
+function ytFlipDueAdd_(key, vid, why) {
+  var m = ytFlipDueGet_(); m[String(key)] = { vid: String(vid || ''), at: nowStr_(), why: String(why || '') };
+  return ytFlipDueSave_(m);
+}
+function ytFlipDueDel_(key) { var m = ytFlipDueGet_(); delete m[String(key)]; return ytFlipDueSave_(m); }
+
+/**
+ * ۱۵.۳ — عمومی‌کردنِ مستقیم، بی بازنویسیِ متن: همان سدِ ytPublicGate_، همان درِ «دست نزن»، و ۵۰ واحد از ذخیره.
+ * `retry` یعنی «این در بسته بود، راهِ کاملِ ytRedoOne_ را امتحان کن» (سدِ صحنه می‌تواند با بازسازی باز شود).
+ */
+function ytFlipDirect_(hub, show, ep, rec) {
+  var key = String(show) + ':' + String(ep), want = CFG.YT_PRIVACY_FINAL || 'public';
+  var vid = String((rec && rec.videoId) || '');
+  if (!vid) return { ok: false, retry: false, why: 'شناسهٔ ویدئو در دفتر نیست' };
+  if (String(rec.privacy || '') === want) { ytFlipDueDel_(key); return { ok: false, retry: false, why: 'از پیش عمومی بود' }; }
+  if (ytHandsOff_(vid, 'عمومی‌کردن')) { ytFlipDueDel_(key); return { ok: false, retry: false, why: 'به خواستِ شما خصوصی است؛ دست نخورد' }; }
+  var rme = null;
+  try { rme = (ytRenderMapCached_() || {})[key] || null; } catch (eR) {}
+  var gate = ytPublicGate_(key, rme);
+  if (!gate.ok) return { ok: false, retry: true, why: gate.why };
+  if (!ytQuotaTake_(YT_COST.videosUpdate, false, true)) return { ok: false, retry: false, why: 'سهمیهٔ عمومی‌کردن امروز هم نماند' };
+  var yt = ytSvc_();
+  if (!yt) return { ok: false, retry: false, why: 'سرویسِ یوتیوب در دسترس نیست' };
+  try {
+    yt.Videos.update({ id: vid, status: { privacyStatus: want, selfDeclaredMadeForKids: false } }, 'status');
+  } catch (eV) { return { ok: false, retry: false, why: 'عمومی‌کردن نشد: ' + String(eV.message).slice(0, 120) }; }
+  if (rme && /^(scenes|media)$/.test(String(rme.mode || ''))) { try { ytScenesOkAdd_(rme.mode); } catch (eS) {} }
+  ytFlipDueDel_(key);
+  try {
+    ytLog_(hub, { show: show === ENRICH_SHOW_SPECIAL ? 'درس‌نامه' : 'از همه جا از همه رنگ', ep: ep, title: String(rec.title || ''),
+                  videoId: vid, url: String(rec.url || ''), privacy: want, result: 'عمومی شد',
+                  note: 'عمومی‌کردنِ جامانده (سهمیه) — متن همان متنِ سرِ آپلود است' });
+  } catch (eL) {}
+  logLine_('یوتیوب ' + key + ': عمومیِ جامانده انجام شد — ' + String(rec.url || vid));
+  return { ok: true };
+}
+
 function ytRedoStuckNightly_(budgetMs) {
   var out = { checked: 0, cleared: 0, stillLeak: 0 };
   if (!ytOn_()) return out;
@@ -65880,11 +65940,25 @@ function ytRedoStuckNightly_(budgetMs) {
      نیست؛ یعنی همیشه صفر، و علتِ واقعی («منتشر نشده»، که خودش باگ بود)
      هیچ‌جا دیده نمی‌شد. */
   var why = [];
+  /* ۱۵.۳: آنچه فقط عمومی‌کردنش جا ماند، اولِ صف و بی بازنویسیِ متن. ytRedoOne_ عمومی را پشتِ «متنِ تازه نشست» نگه
+     می‌دارد — درست برای ویدئویی که به‌خاطرِ نشتی Unlisted مانده، و بی‌معنی برای ویدئویی که متنش سرِ آپلود از همان سد
+     گذشت: ۸۹ هر شب ۱۵۰ واحد برای متن می‌خواست تا ۵۰ واحدِ عمومی‌کردن را خرج کند، و هر شب هیچ‌کدام نماند. */
+  var fdue = ytFlipDueGet_();
+  stuck.sort(function (a, b) {
+    var fa = fdue[a.show + ':' + a.ep] ? 0 : 1, fb = fdue[b.show + ':' + b.ep] ? 0 : 1;
+    return fa - fb;
+  });
   for (var i = 0; i < stuck.length && i < max; i++) {
     if (new Date().getTime() - t0 > budget) break;
     out.checked++;
     var w = { key: stuck[i].show + ':' + stuck[i].ep, title: String((pub[stuck[i].show + ':' + stuck[i].ep] || {}).title || ''),
               at: nowStr_(), why: '' };
+    if (fdue[w.key]) {
+      var fr = ytFlipDirect_(hub, stuck[i].show, stuck[i].ep, pub[w.key] || {});
+      if (fr.ok) { out.cleared++; out.flipped = (out.flipped || 0) + 1; ytApprDoneAdd_(w.key); continue; }
+      if (!fr.retry) { w.why = fr.why; why.push(w); continue; }
+      w.why = fr.why;            // دری که ytRedoOne_ دارد هنوز امتحان می‌شود (مثلاً سدِ تازه‌ای که با بازسازی باز شد)
+    }
     try {
       var res = ytRedoOne_(stuck[i].show, stuck[i].ep, {});
       if (res.ok && res.changed.indexOf('عمومی شد') !== -1) {
@@ -85117,8 +85191,35 @@ function vmHealth_(problems, notes) {
  * تلگرام و ایمیل می‌رود و ردیفِ صف «رسید» می‌شود تا هشدارِ «رندرِ بی‌جواب» نسازد.
  * `CFG.VM_SAMPLE` = { ep, folderId } یا خالی. هر نمونه یک بار (`PK.VM_SAMPLE`).
  */
+/**
+ * ۱۵.۳ — «ساختِ ویدئو ۱۶ روز است انجام نشده»: آن یک درخواست `variety:72-3-نمونه` بود. نمونه را فقط vmSampleTick_ می‌بندد
+ * و فقط **نمونهٔ جاری** را؛ ۷۲-۳ ساعتِ ۱۷:۴۵ِ ۱۴ اکتبر ساخته شد، ساعتِ ۲۱:۲۴ ردیفش دوباره «در انتظار» شد، و پیش از آن‌که
+ * ساخته شود نمونهٔ بعدی جایش را گرفت و بعد (۹.۳۷) نمونه‌سازی خاموش شد — `VM_SAMPLE: null` یعنی این تابع همان خطِ اول
+ * برمی‌گشت و دیگر هیچ‌کس آن ردیف را نمی‌دید، جز شمارندهٔ «درخواستِ باز». پس هر ردیفِ نمونه‌ای که نمونهٔ جاری نیست
+ * بسته می‌شود — «کنار رفت»، نه «رسید»، چون چیزی نرسیده — روزی یک بار.
+ */
+function vmSampleStaleSweep_(spec) {
+  var day = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  try { if (props_().getProperty(PK.VM_SAMPLE_SWEEP) === day) return 0; } catch (e0) {}
+  var cur = '';
+  if (spec && spec.ep) cur = 'variety:' + String(spec.ep) + (Number(spec.rev) > 1 ? '-' + Number(spec.rev) : '') + '-نمونه';
+  var d = ytRenderRead_(), n = 0;
+  (d.items || []).forEach(function (x) {
+    var k = String(x.key || '');
+    if (!/-نمونه$/.test(k) || k === cur || String(x.status || '') !== 'در انتظار') return;
+    x.status = 'کنار رفت'; x.doneAt = nowStr_(); x.closedWhy = 'نمونهٔ کهنه — نمونهٔ دیگری جایش را گرفت یا نمونه‌سازی خاموش است';
+    n++;
+  });
+  var ok = !n || ytRenderSave_(d);
+  if (n && ok) logLine_('صفِ رندر: ' + n + ' ردیفِ نمونهٔ کهنه کنار رفت (نمونهٔ جاری نبودند و کسی دیگر نمی‌بستشان).');
+  if (n && ok && !d.items.some(function (x) { return String(x.status || '') === 'در انتظار'; })) { try { ghRenderDueClear_(); } catch (eG) {} }
+  if (ok) { try { props_().setProperty(PK.VM_SAMPLE_SWEEP, day); } catch (e1) {} }
+  return n;
+}
+
 function vmSampleTick_() {
   var spec = CFG.VM_SAMPLE || null;
+  try { vmSampleStaleSweep_(spec); } catch (eSw) {}
   if (!spec || !spec.ep || !spec.folderId) return null;
   /* `rev` (۸.۹۸): نمونهٔ دوم پس از اصلاح، کلیدِ تازه می‌گیرد — کلیدِ پیشین «خبر داده شد» است و نشانیِ
      ویدئوی قبلی در نقشه می‌ماند تا هر دو کنارِ هم دیده شوند. پایانِ «-نمونه» عمداً ثابت است: برداشتِ

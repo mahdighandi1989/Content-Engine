@@ -903,6 +903,7 @@ function prepMedia(it, scenes, dir, notes, placed) {
       st.clips++;
       if (c.filled) { st.filled = (st.filled || 0) + 1; st.filledSec = Math.round((st.filledSec || 0) + c.len - c.played); }
       if (c.cut > 0) { st.tailCut = (st.tailCut || 0) + 1; }
+      if (c.replayed) { st.replayed = (st.replayed || 0) + 1; st.why.push('صحنهٔ ' + s.n + ': لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر)'); }   // ۱۵.۳
       if (c.stillFix) { st.stillFix = (st.stillFix || 0) + 1; st.why.push('صحنهٔ ' + s.n + ': کلیپ ساکن بود (' + c.stillFix.join('، ') + 'ث) ⇒ همان قاب با حرکتِ دوربین'); }   // ۱۵.۰
       if (c.darkMoved) { st.darkMoved = (st.darkMoved || 0) + 1; st.why.push('صحنهٔ ' + s.n + ': تکهٔ برگزیده ' + Math.round(c.darkWas * 100) + '٪ تیره بود ⇒ از ثانیهٔ ' + c.from.toFixed(1)); }   // ۹.۴۳
     } catch (e) {

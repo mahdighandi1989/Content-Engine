@@ -1134,8 +1134,35 @@ function vmHealth_(problems, notes) {
  * تلگرام و ایمیل می‌رود و ردیفِ صف «رسید» می‌شود تا هشدارِ «رندرِ بی‌جواب» نسازد.
  * `CFG.VM_SAMPLE` = { ep, folderId } یا خالی. هر نمونه یک بار (`PK.VM_SAMPLE`).
  */
+/**
+ * ۱۵.۳ — «ساختِ ویدئو ۱۶ روز است انجام نشده»: آن یک درخواست `variety:72-3-نمونه` بود. نمونه را فقط vmSampleTick_ می‌بندد
+ * و فقط **نمونهٔ جاری** را؛ ۷۲-۳ ساعتِ ۱۷:۴۵ِ ۱۴ اکتبر ساخته شد، ساعتِ ۲۱:۲۴ ردیفش دوباره «در انتظار» شد، و پیش از آن‌که
+ * ساخته شود نمونهٔ بعدی جایش را گرفت و بعد (۹.۳۷) نمونه‌سازی خاموش شد — `VM_SAMPLE: null` یعنی این تابع همان خطِ اول
+ * برمی‌گشت و دیگر هیچ‌کس آن ردیف را نمی‌دید، جز شمارندهٔ «درخواستِ باز». پس هر ردیفِ نمونه‌ای که نمونهٔ جاری نیست
+ * بسته می‌شود — «کنار رفت»، نه «رسید»، چون چیزی نرسیده — روزی یک بار.
+ */
+function vmSampleStaleSweep_(spec) {
+  var day = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  try { if (props_().getProperty(PK.VM_SAMPLE_SWEEP) === day) return 0; } catch (e0) {}
+  var cur = '';
+  if (spec && spec.ep) cur = 'variety:' + String(spec.ep) + (Number(spec.rev) > 1 ? '-' + Number(spec.rev) : '') + '-نمونه';
+  var d = ytRenderRead_(), n = 0;
+  (d.items || []).forEach(function (x) {
+    var k = String(x.key || '');
+    if (!/-نمونه$/.test(k) || k === cur || String(x.status || '') !== 'در انتظار') return;
+    x.status = 'کنار رفت'; x.doneAt = nowStr_(); x.closedWhy = 'نمونهٔ کهنه — نمونهٔ دیگری جایش را گرفت یا نمونه‌سازی خاموش است';
+    n++;
+  });
+  var ok = !n || ytRenderSave_(d);
+  if (n && ok) logLine_('صفِ رندر: ' + n + ' ردیفِ نمونهٔ کهنه کنار رفت (نمونهٔ جاری نبودند و کسی دیگر نمی‌بستشان).');
+  if (n && ok && !d.items.some(function (x) { return String(x.status || '') === 'در انتظار'; })) { try { ghRenderDueClear_(); } catch (eG) {} }
+  if (ok) { try { props_().setProperty(PK.VM_SAMPLE_SWEEP, day); } catch (e1) {} }
+  return n;
+}
+
 function vmSampleTick_() {
   var spec = CFG.VM_SAMPLE || null;
+  try { vmSampleStaleSweep_(spec); } catch (eSw) {}
   if (!spec || !spec.ep || !spec.folderId) return null;
   /* `rev` (۸.۹۸): نمونهٔ دوم پس از اصلاح، کلیدِ تازه می‌گیرد — کلیدِ پیشین «خبر داده شد» است و نشانیِ
      ویدئوی قبلی در نقشه می‌ماند تا هر دو کنارِ هم دیده شوند. پایانِ «-نمونه» عمداً ثابت است: برداشتِ

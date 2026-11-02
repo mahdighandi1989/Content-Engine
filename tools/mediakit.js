@@ -441,7 +441,16 @@ function clip(ff, file, out, from, len, info, skip, opt) {
   } else if (skip && skip.at <= from + 0.3) {
     /* لحظه همان آغازِ این تکه است ⇒ تکهٔ بی‌صدا از پایانِ لحظه شروع می‌شود. */
     const f2 = Math.min(Math.max(0, E - 1), skip.at + skip.len);
-    inArgs = ['-ss', f2.toFixed(2), '-t', Math.max(1, Math.min(L, E - f2)).toFixed(2), '-i', file];
+    /* ۱۵.۳ — «فریزِ صحنه» در ۸۶ و ۹۰ (۵۴۷ تا ۵۵۸ ثانیه): لحظه تقریباً کلِ کلیپ را خورده بود (۹۰: ۵۶٫۶ از ~۶۰ ثانیه)، پس
+       تکهٔ بی‌صدای صحنه از **ثانیهٔ آخرِ** کلیپ ساخته می‌شد — تیره — و `fillTail` باقیِ صحنه را با قاب‌های همان یک ثانیه پر می‌کرد:
+       فقط پس‌زمینهٔ تار، ساکن، و سنجش «یخ زد». آنچه پس از لحظه می‌مانَد اگر کم‌تر از نیمِ صحنه (یا `fillFrom`) است، تکهٔ بی‌صدا
+       **همان کلیپ از آغازِ تکه** است، بی صدا — بیننده همان تصویر را یک بار دیگر می‌بیند، نه قابی ساکن. */
+    const restAfter = E - f2;
+    if (restAfter < Math.max(MK.fillFrom, Math.min(L, len) * 0.5)) {
+      opt = Object.assign({}, opt || {}, { replayed: true });
+    } else {
+      inArgs = ['-ss', f2.toFixed(2), '-t', Math.max(1, Math.min(L, E - f2)).toFixed(2), '-i', file];
+    }
   }
   run(ff, inArgs.concat(['-filter_complex', pre + frameFilter(p.w, p.h, 's', 'o', opt),
            '-map', '[o]', '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(MK.crf),
@@ -468,6 +477,7 @@ function clip(ff, file, out, from, len, info, skip, opt) {
   let filled = 0;
   if (opt && opt.fill && len - played >= MK.fillFrom) filled = fillTail(ff, out, played, len - played);
   return { file: out, still: still, len: filled ? len : L, played: L, filled: filled, cut: Math.round((p.dur - E) * 10) / 10,
+           replayed: !!(opt && opt.replayed),
            from: from, darkMoved: !!(darkInfo && darkInfo.was > MK.darkMax), darkWas: darkInfo ? darkInfo.was : -1,
            stillFix: stillFix };
 }

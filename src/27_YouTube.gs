@@ -103,9 +103,13 @@ function ytQuotaSave_(q) {
  * ترتیب عمدی است — برداشتن پس از خرج یعنی یک اجرای کشته‌شده، سهمیه‌ای را
  * که واقعاً خرج شده نشمرده می‌گذارد و فردا دوباره خرجش می‌کنیم.
  */
-function ytQuotaTake_(units, isUpload) {
+function ytQuotaTake_(units, isUpload, flip) {
   var q = ytQuota_();
   var capU = Math.max(100, Number(CFG.YT_QUOTA_UNITS) || 9000);
+  /* ۱۵.۳ — ذخیرهٔ عمومی‌کردن. ۸۹ ساعتِ ۱۶:۵۹ با ۸۹۸۸ از ۹۰۰۰ بالا رفت؛ ۵۰ واحدِ عمومی‌کردن نماند و ویدئو بی هیچ
+     یادداشتی Unlisted ماند، و بازسنجیِ شبانه هم (۰۲:۵۲، آخرِ روزِ سهمیهٔ اقیانوسِ آرام) به همان دیوار خورد. ویدئویی که
+     بالا رفته و از همهٔ سدها گذشته ارزان‌ترین و مهم‌ترین خرجِ روز است؛ پس سهمی از سقف فقط برای همین می‌ماند. */
+  if (!flip) capU = Math.max(100, capU - Math.max(0, Number(CFG.YT_FLIP_RESERVE) || 0));
   var capUp = Math.max(1, Number(CFG.YT_QUOTA_UPLOADS) || 90);
   /* ۱۱.۵: «سقفِ روزانه»ِ ردیفِ یوتیوب در تبِ «مقصدها» — کوچک‌ترِ دو */
   try { capUp = Math.max(1, destCap_('yt', capUp)); } catch (eD) {}
@@ -10779,7 +10783,11 @@ function ytUploadOne_(item, hub, pub) {
     } catch (eF) {}
   } else if (gate.ok && ytHandsOff_(vid, 'عمومی‌کردن')) {
     privacy = 'private';                       // ۱۱.۰: میانِ آپلود و عمومی‌کردن خصوصی شد — همان می‌ماند
-  } else if (gate.ok && ytQuotaTake_(YT_COST.videosUpdate, false)) {
+  } else if (gate.ok && !ytQuotaTake_(YT_COST.videosUpdate, false, true)) {
+    /* ۱۵.۳: تا ۱۵.۲ همین شاخه وجود نداشت — سهمیه که نبود، هیچ سطری نمی‌گفت چرا Unlisted ماند (۸۹). */
+    ytFlipDueAdd_(String(item.key || (item.show + ':' + item.ep)), vid, 'سهمیهٔ امروز برای عمومی‌کردن نماند');
+    logLine_('یوتیوب ' + item.key + ': از همهٔ سدها گذشت ولی سهمیهٔ عمومی‌کردن نماند؛ Unlisted ماند و در صفِ عمومی‌کردن نشست — ' + url);
+  } else if (gate.ok) {
     try {
       yt.Videos.update({ id: vid, status: {
         privacyStatus: CFG.YT_PRIVACY_FINAL || 'public',
@@ -10787,6 +10795,7 @@ function ytUploadOne_(item, hub, pub) {
       privacy = CFG.YT_PRIVACY_FINAL || 'public';
       if (rme && /^(scenes|media)$/.test(String(rme.mode || ''))) ytScenesOkAdd_(rme.mode);
     } catch (eV) {
+      ytFlipDueAdd_(String(item.key || (item.show + ':' + item.ep)), vid, 'خطا: ' + String(eV.message).slice(0, 80));
       logLine_('عمومی‌کردنِ ویدئو نشد: ' + eV.message);
     }
   }
@@ -13857,7 +13866,7 @@ function ytRedoOne_(show, ep, opt) {
     out.why = (out.why ? out.why + ' · ' : '') + 'متنِ تازه ننشست؛ عمومی نشد تا متنِ قدیم عمومی نشود';
   }
   if (gateR.ok && textLanded && String(rec.privacy || '') !== (CFG.YT_PRIVACY_FINAL || 'public') &&
-      ytQuotaTake_(YT_COST.videosUpdate, false)) {
+      ytQuotaTake_(YT_COST.videosUpdate, false, true)) {
     try {
       yt.Videos.update({ id: rec.videoId,
                          status: { privacyStatus: CFG.YT_PRIVACY_FINAL || 'public',
@@ -13911,6 +13920,53 @@ function ytStuckTickMark_() {
   catch (e) {}
 }
 
+/** ۱۵.۳ — صفِ عمومی‌کردن: { key: {vid, at, why} }. بذرِ پیکربندی یک‌بار در آن می‌نشیند. */
+function ytFlipDueGet_() {
+  var m = {};
+  try { m = JSON.parse(props_().getProperty(PK.YT_FLIP_DUE) || '{}') || {}; } catch (e) { m = {}; }
+  (CFG.YT_FLIP_SEED || []).forEach(function (k) {
+    k = String(k); if (!m[k] && !m['~seed:' + k]) { m[k] = { vid: '', at: nowStr_(), why: 'بذر' }; m['~seed:' + k] = 1; }
+  });
+  return m;
+}
+function ytFlipDueSave_(m) { try { props_().setProperty(PK.YT_FLIP_DUE, JSON.stringify(m)); return true; } catch (e) { return false; } }
+function ytFlipDueAdd_(key, vid, why) {
+  var m = ytFlipDueGet_(); m[String(key)] = { vid: String(vid || ''), at: nowStr_(), why: String(why || '') };
+  return ytFlipDueSave_(m);
+}
+function ytFlipDueDel_(key) { var m = ytFlipDueGet_(); delete m[String(key)]; return ytFlipDueSave_(m); }
+
+/**
+ * ۱۵.۳ — عمومی‌کردنِ مستقیم، بی بازنویسیِ متن: همان سدِ ytPublicGate_، همان درِ «دست نزن»، و ۵۰ واحد از ذخیره.
+ * `retry` یعنی «این در بسته بود، راهِ کاملِ ytRedoOne_ را امتحان کن» (سدِ صحنه می‌تواند با بازسازی باز شود).
+ */
+function ytFlipDirect_(hub, show, ep, rec) {
+  var key = String(show) + ':' + String(ep), want = CFG.YT_PRIVACY_FINAL || 'public';
+  var vid = String((rec && rec.videoId) || '');
+  if (!vid) return { ok: false, retry: false, why: 'شناسهٔ ویدئو در دفتر نیست' };
+  if (String(rec.privacy || '') === want) { ytFlipDueDel_(key); return { ok: false, retry: false, why: 'از پیش عمومی بود' }; }
+  if (ytHandsOff_(vid, 'عمومی‌کردن')) { ytFlipDueDel_(key); return { ok: false, retry: false, why: 'به خواستِ شما خصوصی است؛ دست نخورد' }; }
+  var rme = null;
+  try { rme = (ytRenderMapCached_() || {})[key] || null; } catch (eR) {}
+  var gate = ytPublicGate_(key, rme);
+  if (!gate.ok) return { ok: false, retry: true, why: gate.why };
+  if (!ytQuotaTake_(YT_COST.videosUpdate, false, true)) return { ok: false, retry: false, why: 'سهمیهٔ عمومی‌کردن امروز هم نماند' };
+  var yt = ytSvc_();
+  if (!yt) return { ok: false, retry: false, why: 'سرویسِ یوتیوب در دسترس نیست' };
+  try {
+    yt.Videos.update({ id: vid, status: { privacyStatus: want, selfDeclaredMadeForKids: false } }, 'status');
+  } catch (eV) { return { ok: false, retry: false, why: 'عمومی‌کردن نشد: ' + String(eV.message).slice(0, 120) }; }
+  if (rme && /^(scenes|media)$/.test(String(rme.mode || ''))) { try { ytScenesOkAdd_(rme.mode); } catch (eS) {} }
+  ytFlipDueDel_(key);
+  try {
+    ytLog_(hub, { show: show === ENRICH_SHOW_SPECIAL ? 'درس‌نامه' : 'از همه جا از همه رنگ', ep: ep, title: String(rec.title || ''),
+                  videoId: vid, url: String(rec.url || ''), privacy: want, result: 'عمومی شد',
+                  note: 'عمومی‌کردنِ جامانده (سهمیه) — متن همان متنِ سرِ آپلود است' });
+  } catch (eL) {}
+  logLine_('یوتیوب ' + key + ': عمومیِ جامانده انجام شد — ' + String(rec.url || vid));
+  return { ok: true };
+}
+
 function ytRedoStuckNightly_(budgetMs) {
   var out = { checked: 0, cleared: 0, stillLeak: 0 };
   if (!ytOn_()) return out;
@@ -13954,11 +14010,25 @@ function ytRedoStuckNightly_(budgetMs) {
      نیست؛ یعنی همیشه صفر، و علتِ واقعی («منتشر نشده»، که خودش باگ بود)
      هیچ‌جا دیده نمی‌شد. */
   var why = [];
+  /* ۱۵.۳: آنچه فقط عمومی‌کردنش جا ماند، اولِ صف و بی بازنویسیِ متن. ytRedoOne_ عمومی را پشتِ «متنِ تازه نشست» نگه
+     می‌دارد — درست برای ویدئویی که به‌خاطرِ نشتی Unlisted مانده، و بی‌معنی برای ویدئویی که متنش سرِ آپلود از همان سد
+     گذشت: ۸۹ هر شب ۱۵۰ واحد برای متن می‌خواست تا ۵۰ واحدِ عمومی‌کردن را خرج کند، و هر شب هیچ‌کدام نماند. */
+  var fdue = ytFlipDueGet_();
+  stuck.sort(function (a, b) {
+    var fa = fdue[a.show + ':' + a.ep] ? 0 : 1, fb = fdue[b.show + ':' + b.ep] ? 0 : 1;
+    return fa - fb;
+  });
   for (var i = 0; i < stuck.length && i < max; i++) {
     if (new Date().getTime() - t0 > budget) break;
     out.checked++;
     var w = { key: stuck[i].show + ':' + stuck[i].ep, title: String((pub[stuck[i].show + ':' + stuck[i].ep] || {}).title || ''),
               at: nowStr_(), why: '' };
+    if (fdue[w.key]) {
+      var fr = ytFlipDirect_(hub, stuck[i].show, stuck[i].ep, pub[w.key] || {});
+      if (fr.ok) { out.cleared++; out.flipped = (out.flipped || 0) + 1; ytApprDoneAdd_(w.key); continue; }
+      if (!fr.retry) { w.why = fr.why; why.push(w); continue; }
+      w.why = fr.why;            // دری که ytRedoOne_ دارد هنوز امتحان می‌شود (مثلاً سدِ تازه‌ای که با بازسازی باز شد)
+    }
     try {
       var res = ytRedoOne_(stuck[i].show, stuck[i].ep, {});
       if (res.ok && res.changed.indexOf('عمومی شد') !== -1) {
