@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-01 22:50",
+ "updatedAt": "2026-11-02 05:14",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -6534,7 +6534,8 @@
     "smoothright": 26,
     "fade": 21
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-88-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-88-cover.jpg",
+   "pruned": "2026-11-02"
   },
   "variety:88": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-88.mp4",
@@ -7116,6 +7117,149 @@
     "fade": 16
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-90-cover.jpg"
+  },
+  "variety:91": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-91.mp4",
+   "bytes": 40535462,
+   "parts": 1,
+   "at": "2026-11-02 05:14",
+   "mode": "media",
+   "media": {
+    "clips": 17,
+    "photos": 16,
+    "found": 1,
+    "notFound": 2,
+    "failed": 0,
+    "why": [
+     "صحنهٔ 11: کلیپ ساکن بود (13.6ث) ⇒ همان قاب با حرکتِ دوربین",
+     "صحنهٔ 12: گفتاری در کلیپ شنیده نشد",
+     "صحنهٔ 12: تکهٔ برگزیده 42٪ تیره بود ⇒ از ثانیهٔ 16.5",
+     "صحنهٔ 21: شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-B"
+    ],
+    "layouts": {
+     "fill": 16,
+     "center": 7,
+     "left": 4,
+     "right": 6
+    },
+    "teaserTiles": 4,
+    "teaserSec": 43.2,
+    "teaser": 3,
+    "cropped": 18,
+    "tailCut": 9,
+    "cardOwn": 10,
+    "cards": 10,
+    "cardFlat": 4,
+    "stillFix": 1,
+    "darkMoved": 1,
+    "filled": 7,
+    "filledSec": 68,
+    "moments": {
+     "asked": 3,
+     "placed": 3,
+     "made": 0,
+     "why": [
+      "119s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 15٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 14٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا",
+      "203s: عبارت در کلیپ پیدا نشد (گفتاری در کلیپ شنیده نشد)",
+      "366s: عبارت در کلیپ پیدا نشد (شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-B)"
+     ],
+     "music": 1
+    },
+    "fit": {
+     "mb": 38.7,
+     "how": "زیرِ سقف"
+    }
+   },
+   "scenes": 36,
+   "want": 36,
+   "snapped": 30,
+   "seconds": 702,
+   "qa": {
+    "n": 36,
+    "matched": 36,
+    "miss": [],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 5,
+       "t": 53.8,
+       "own": 0.71,
+       "nb": 0.43,
+       "ok": true,
+       "heard": "امروز را از ویدیو ای آموزشی در باری سانیی سفر و آگاز فضا زمان, ماده و اینرجی شروع می کنیم.  نقطی که باان"
+      },
+      {
+       "n": 12,
+       "t": 179,
+       "own": 0.44,
+       "nb": 0.31,
+       "ok": true,
+       "heard": "رفتار فضاو و زمان در سورعتهای بالارا در یک ویدیو پویانمائی آمونزشی میبینیم  که مفاهم فیزیک و کهیان چناسی"
+      },
+      {
+       "n": 21,
+       "t": 349.7,
+       "own": 0.65,
+       "nb": 0.2,
+       "ok": true,
+       "heard": "قیقا همان نکته است که در ویدیو کوتا هبادی  گوینده با اشاره به دیدگاه عالبرت عنیشتین به سرقش میرود  و تصور رایج در"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    },
+    "freeze": [],
+    "clipSound": {
+     "clips": 17,
+     "asked": 3,
+     "made": 0,
+     "heard": 0,
+     "quiet": [],
+     "why": "کلیپ هست ولی هیچ لحظه‌ای با صدای خودش نماند: 119s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 15٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 14٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 203s: عبارت در کلیپ پیدا نشد (گفتاری در کلیپ شنیده نشد) · 366s: عبارت در کلیپ پیدا نشد (شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-B)"
+    }
+   },
+   "ov": {
+    "asked": 15,
+    "placed": 15,
+    "busy": 0,
+    "failed": 0,
+    "kinds": {
+     "points": 14,
+     "quote": 1
+    },
+    "forced": 5
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 36,
+    "used": 36,
+    "why": []
+   },
+   "xf": {
+    "circleopen": 5,
+    "dissolve": 8,
+    "slideright": 4,
+    "radial": 3,
+    "smoothright": 4,
+    "zoomin": 2,
+    "fade": 3,
+    "wiperight": 3
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-91-cover.jpg",
+   "notes": [
+    "صحنهٔ 10: زمینهٔ کارت یکدست بود (sd 1.1) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 13: زمینهٔ کارت یکدست بود (sd 6.9) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 15: زمینهٔ کارت یکدست بود (sd 9.4) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 19: زمینهٔ کارت یکدست بود (sd 1.1) ⇒ خودِ عکس، کنارِ کارت",
+    "برشِ کلیپ از آغاز: صحنهٔ 11: کلیپ ساکن بود (13.6ث) ⇒ همان قاب با حرکتِ دوربین · صحنهٔ 12: گفتاری در کلیپ شنیده نشد · صحنهٔ 12: تکهٔ برگزیده 42٪ تیره بود ⇒ از ثانیهٔ 16.5 · صحنهٔ 21: شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-B",
+    "لحظه‌ها: 119s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 15٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 14٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 203s: عبارت در کلیپ پیدا نشد (گفتاری در کلیپ شنیده نشد) · 366s: عبارت در کلیپ پیدا نشد (شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-B)"
+   ]
   }
  },
  "art": {
@@ -9377,8 +9521,8 @@
   }
  },
  "release": {
-  "assets": 513,
-  "gb": 3.92,
-  "at": "2026-11-01 22:50"
+  "assets": 514,
+  "gb": 3.91,
+  "at": "2026-11-02 05:14"
  }
 }
