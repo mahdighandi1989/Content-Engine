@@ -535,6 +535,29 @@ function wsEnd_(save) {
  * کشته شدند — کارِ قسمت تمام بود و فقط نوشتنِ وضعیت (~۱۴۶ثانیه، `PK.STATUS_COST`) از سقفِ شش دقیقه گذشت؛ هر بار «اجرای
  * ناتمام» در سلامت. وقتی وقت نیست، اجرای بعدیِ همگام‌سازی یا وارسیِ سلامت همان را می‌نویسد.
  */
+/** ۱۶.۱ — شکستِ نوشتنِ `_STATUS` با علت و مرحله: در سیاههٔ هاب و `PK.STATUS_FAIL` (تا نوشتنِ موفقِ بعدی خوانده شود). */
+function statusFailNote_(who, e) {
+  var stage = '';
+  try { stage = String(RUN_STAGE_LAST_ || ''); } catch (eS) {}
+  var msg = String((e && e.message) || e).slice(0, 200);
+  try { props_().setProperty(PK.STATUS_FAIL, JSON.stringify({ at: nowStr_(), who: who, why: msg, stage: stage })); } catch (eP) {}
+  try { logLine_('⚠️ نوشتنِ _STATUS نشد (' + who + '): ' + msg + (stage ? ' — مرحله: ' + stage : '')); } catch (eL) {}
+}
+
+/** ۱۶.۱ — از ویرایشگر یا منو: همین حالا `_STATUS` را بنویس، و خطا را **نبلع** تا در Executions با متنِ کامل دیده شود. */
+function runWriteStatusNow() {
+  var t0 = new Date().getTime();
+  try {
+    writeStatus_(getHub_(), 'دستی');
+  } catch (e) {
+    statusFailNote_('دستی', e);
+    throw e;
+  }
+  var msg = '_STATUS نوشته شد در ' + Math.round((new Date().getTime() - t0) / 1000) + ' ثانیه.';
+  try { Logger.log(msg); } catch (eLg) {}
+  return msg;
+}
+
 function statusAfterRun_(hub, note) {
   var cost = 150;
   try { cost = Math.max(60, Number((JSON.parse(props_().getProperty(PK.STATUS_COST) || '{}') || {}).totalSec) || 150); } catch (e) {}
@@ -716,6 +739,7 @@ function writeStatus_(hub, note) {
     // سنجشِ ردیف‌های بسته را خودِ `healthCheck` می‌نشاند (نیازِ وضعیتِ زنده
     // به خودش، پیش از ساخته شدنش، حلقه می‌شود).
     nightDeath: (function () { try { return nightDeath_(); } catch (e) { return null; } })(),
+    statusFail: (function () { try { return JSON.parse(props_().getProperty(PK.STATUS_FAIL) || 'null'); } catch (e) { return null; } })(),
     /* ══ اجراهایی که شروع شدند و تمام نشدند (۸.۱۱) ══
        تنها شاهدی که یک تریگرِ ترکیده دارد. ورودی‌اش Script Properties است،
        نه شیت — چون چیزی که در این خرابی شکست، خودِ شیت بود. */

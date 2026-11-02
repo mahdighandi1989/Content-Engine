@@ -1,16 +1,15 @@
 {
-  "version": "16.0",
+  "version": "16.1",
   "codeFile": "engine.gs",
-  "sha256": "edf46c56f1ddfd9c23c709690c499fe36c2834de2f0d2f6ba3cf112be38a1fc1",
-  "releasedAt": "2026-11-02T22:50:00+04:00",
-  "summary": "مبنای گلدوز = نمونهٔ مقایسهٔ ۲۷ اکتبر (گامِ ۰، «خ» نرم، دستورِ آرام، بی باندِ بالای «ب»)؛ فایلِ اصلیِ «ب» به‌صورتِ MP3ِ رانر به تلگرام با رسید.",
+  "sha256": "956b94685a00344d1e297d655a9ebb58155b6040bd28e1be7a1c0a12a73ae505",
+  "releasedAt": "2026-11-03T00:30:00+04:00",
+  "summary": "شکستِ نوشتنِ _STATUS در سینک دیگر بلعیده نمی‌شود: علت و مرحله در سیاهه و _STATUS.statusFail؛ runWriteStatusNow برای اجرای دستی با خطای آشکار.",
   "fixes": [
-    "src/00_Config.gs: VBR_SPK_BASE (گلدوز) و VBR_RESEND_SET تازه (b-golduz-mp3-1102)",
-    "src/36_VoiceBridge.gs: vbrAsk_ مبنای گوینده را برای هر چه بذر نگفته می‌گذارد؛ vbrResendSet_ برای mp3:true از صفِ پیش‌نمایشِ رانر MP3 می‌گیرد و پس از ارسال اشتراک را می‌بندد"
+    "src/02_Sync.gs: catch خالیِ writeStatus_ ⇒ statusFailNote_",
+    "src/08_Health.gs: statusFailNote_، runWriteStatusNow، کلیدِ statusFail"
   ],
   "sourceReportIds": [
-    "R-20261102-08",
-    "R-20261102-09"
+    "R-20261102-10"
   ],
   "answers": [],
   "promptImpact": []

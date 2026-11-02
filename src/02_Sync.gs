@@ -718,7 +718,10 @@ function syncCatalog() {
                  Math.round((new Date().getTime() - t0) / 1000) + ' ثانیه شده بود.');
       } else {
         runStage_('سینک: نوشتنِ _STATUS');
-        try { writeStatus_(hub, 'همگام‌سازی کامل شد'); } catch (e) {}
+        /* ۱۶.۱ — «_STATUS از ۲۰:۱۸ ننوشته، همهٔ اجراها Completed»: این catch خطا را می‌بلعید و سینک «کامل» تمام می‌شد. شاهدی که
+           با حادثه می‌میرد شاهد نیست — حالا خطا و مرحلهٔ آخرِ نوشتن در سیاهه و Properties می‌ماند. */
+        try { writeStatus_(hub, 'همگام‌سازی کامل شد'); }
+        catch (e) { statusFailNote_('سینک', e); }
       }
     }
   } catch (err) {

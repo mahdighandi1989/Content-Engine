@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 16.0
+ *  موتور محتوا و پادکست — نسخهٔ 16.1
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2385,7 +2385,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '16.0',
+  CODE_VERSION: '16.1',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3588,6 +3588,7 @@ var PK = {
   VM_LAST: 'VM_LAST',              // آخرین قسمتِ «از همه جا» با رسانهٔ منبع: صحنه‌ها، کلیپ‌ها، لحظه‌ها، یا علتِ نشدن (۸.۹۶)
   VM_SAMPLE: 'VM_SAMPLE_STATE',
   VM_SAMPLE_SWEEP: 'VM_SAMPLE_SWEEP',
+  STATUS_FAIL: 'STATUS_FAIL',          // ۱۶.۱: آخرین شکستِ نوشتنِ _STATUS (چه کسی، علت، مرحله)
   VBR_RESEND_LOG: 'VBR_RESEND_LOG',   // ۱۵.۸: رسیدِ ارسالِ دوبارهٔ نمونه‌ها   // ۱۵.۳: روزی یک بار ردیف‌های نمونهٔ کهنه بسته می‌شوند
   GROUND_LAST: 'GROUND_LAST',      // آخرین دروازهٔ زمین‌گیریِ «از همه جا»: چند جملهٔ ساختگی پیش از صدا حذف شد (۹.۱۱)   // نمونهٔ یک‌باره: خواسته شد / خبر داده شد (۸.۹۷)
   YT_MEDIA_OK: 'YT_MEDIA_OK_N',     // چند ویدئوی حالتِ رسانه تا حالا عمومی شده (۸.۹۶)
@@ -4808,7 +4809,10 @@ function syncCatalog() {
                  Math.round((new Date().getTime() - t0) / 1000) + ' ثانیه شده بود.');
       } else {
         runStage_('سینک: نوشتنِ _STATUS');
-        try { writeStatus_(hub, 'همگام‌سازی کامل شد'); } catch (e) {}
+        /* ۱۶.۱ — «_STATUS از ۲۰:۱۸ ننوشته، همهٔ اجراها Completed»: این catch خطا را می‌بلعید و سینک «کامل» تمام می‌شد. شاهدی که
+           با حادثه می‌میرد شاهد نیست — حالا خطا و مرحلهٔ آخرِ نوشتن در سیاهه و Properties می‌ماند. */
+        try { writeStatus_(hub, 'همگام‌سازی کامل شد'); }
+        catch (e) { statusFailNote_('سینک', e); }
       }
     }
   } catch (err) {
@@ -18837,6 +18841,29 @@ function wsEnd_(save) {
  * کشته شدند — کارِ قسمت تمام بود و فقط نوشتنِ وضعیت (~۱۴۶ثانیه، `PK.STATUS_COST`) از سقفِ شش دقیقه گذشت؛ هر بار «اجرای
  * ناتمام» در سلامت. وقتی وقت نیست، اجرای بعدیِ همگام‌سازی یا وارسیِ سلامت همان را می‌نویسد.
  */
+/** ۱۶.۱ — شکستِ نوشتنِ `_STATUS` با علت و مرحله: در سیاههٔ هاب و `PK.STATUS_FAIL` (تا نوشتنِ موفقِ بعدی خوانده شود). */
+function statusFailNote_(who, e) {
+  var stage = '';
+  try { stage = String(RUN_STAGE_LAST_ || ''); } catch (eS) {}
+  var msg = String((e && e.message) || e).slice(0, 200);
+  try { props_().setProperty(PK.STATUS_FAIL, JSON.stringify({ at: nowStr_(), who: who, why: msg, stage: stage })); } catch (eP) {}
+  try { logLine_('⚠️ نوشتنِ _STATUS نشد (' + who + '): ' + msg + (stage ? ' — مرحله: ' + stage : '')); } catch (eL) {}
+}
+
+/** ۱۶.۱ — از ویرایشگر یا منو: همین حالا `_STATUS` را بنویس، و خطا را **نبلع** تا در Executions با متنِ کامل دیده شود. */
+function runWriteStatusNow() {
+  var t0 = new Date().getTime();
+  try {
+    writeStatus_(getHub_(), 'دستی');
+  } catch (e) {
+    statusFailNote_('دستی', e);
+    throw e;
+  }
+  var msg = '_STATUS نوشته شد در ' + Math.round((new Date().getTime() - t0) / 1000) + ' ثانیه.';
+  try { Logger.log(msg); } catch (eLg) {}
+  return msg;
+}
+
 function statusAfterRun_(hub, note) {
   var cost = 150;
   try { cost = Math.max(60, Number((JSON.parse(props_().getProperty(PK.STATUS_COST) || '{}') || {}).totalSec) || 150); } catch (e) {}
@@ -19018,6 +19045,7 @@ function writeStatus_(hub, note) {
     // سنجشِ ردیف‌های بسته را خودِ `healthCheck` می‌نشاند (نیازِ وضعیتِ زنده
     // به خودش، پیش از ساخته شدنش، حلقه می‌شود).
     nightDeath: (function () { try { return nightDeath_(); } catch (e) { return null; } })(),
+    statusFail: (function () { try { return JSON.parse(props_().getProperty(PK.STATUS_FAIL) || 'null'); } catch (e) { return null; } })(),
     /* ══ اجراهایی که شروع شدند و تمام نشدند (۸.۱۱) ══
        تنها شاهدی که یک تریگرِ ترکیده دارد. ورودی‌اش Script Properties است،
        نه شیت — چون چیزی که در این خرابی شکست، خودِ شیت بود. */

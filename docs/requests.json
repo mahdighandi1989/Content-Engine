@@ -1790,6 +1790,13 @@
    "done": "_STATUS.tgResend با tag «b-golduz-mp3-1102»: done=true و how «sendAudio (MP3، … مگابایت)» با ساعت",
    "how": "_STATUS.tgResend",
    "ver": "16.0"
+  },
+  {
+   "id": "R-20261102-10",
+   "ask": "چرا _STATUS از ۲۰:۱۸ ننوشته در حالی که همهٔ اجراها Completed است",
+   "done": "_STATUS.json پس از ۱۶.۱ دست‌کم هر ۲ ساعت نو می‌شود، یا _STATUS.statusFail / سیاههٔ هاب علتِ دقیقِ شکست را با مرحله دارد",
+   "how": "modifiedTime ِ _STATUS.json · _STATUS.statusFail · سطرِ «⚠️ نوشتنِ _STATUS نشد» در گزارش",
+   "ver": "16.1"
   }
  ]
 }
