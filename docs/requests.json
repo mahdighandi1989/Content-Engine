@@ -1752,9 +1752,9 @@
   {
    "id": "R-20261102-04",
    "ask": "علتِ فریزِ ۸۸ (۲۴۷٫۷ تا ۲۶۸٫۳ ثانیه) روی فریم‌ها پیدا و رفع شود؛ ۸۹ اگر ممکن است بی انتظار تا شب عمومی شود",
-   "done": "رندرِ variety:88 با tag r2-15.5 در `docs/renders.json` با `qa.ok` و بی `freeze`؛ variety:89 در دفترِ یوتیوب «عمومی شد» پیش از اجرای شبانهٔ ۳ نوامبر",
+   "done": "رندرِ variety:88 و variety:86 با tag r3-15.7 در `docs/renders.json` با `qa.ok` و بی `freeze`؛ variety:89 در دفترِ یوتیوب «عمومی شد»",
    "how": "`docs/renders.json` qa.freeze · `_STATUS.youtube.unlistedKeys` · `ytFlipDueTick_`",
-   "ver": "15.5"
+   "ver": "15.7"
   }
  ]
 }

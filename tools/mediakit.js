@@ -199,9 +199,14 @@ function photoClip(ff, file, out, len, opt) {
   if (opt && opt.card) {
     /* کارتِ نوشته (۹.۰۱): کاورِ قسمت، محو و تیره‌تر، با زومِ آرام — نوشتهٔ برداری قهرمانِ قاب است. */
     kind = 'card';
-    fc = '[0:v]' + crop + 'scale=' + MK.w + ':' + MK.h + ':force_original_aspect_ratio=increase,crop=' + MK.w + ':' + MK.h +
+    /* ۱۵.۷ — «یخِ ۸۶ (۵۴۵٫۹ و ۷۸۳٫۸–۸۰۸٫۶) و ۸۸ (۲۴۷٫۷–۲۶۸٫۳)»: هر دو صحنهٔ کارت بودند — کارت روی محوِ تیرهٔ **آخرین قابِ**
+       کلیپِ پیشین، با زومِ ۵٪ در بیست‌وچند ثانیه. پس از رفتنِ کارت فقط همان محوِ تقریباً سیاه می‌ماند و سنجه درست «یخ زد»
+       می‌گفت: تفاوتِ دو قابِ پشتِ‌هم زیرِ آستانه بود. حالا زمینه خودِ کلیپِ پیشین است، محو و در حلقه (`bgVideo`) — حرکتِ واقعی؛
+       و بی کلیپ، زوم و پیمایشِ آشکارتر (۱۴٪ و حرکتِ افقی). */
+    const zc = opt.bgVideo ? 0.06 : 0.14;
+    fc = '[0:v]' + (opt.bgVideo ? 'fps=' + MK.fps + ',' : crop) + 'scale=' + MK.w + ':' + MK.h + ':force_original_aspect_ratio=increase,crop=' + MK.w + ':' + MK.h +
          ',boxblur=40:3,eq=brightness=-0.16:saturation=0.8,scale=' + (MK.w * 2) + ':' + (MK.h * 2) +
-         ",zoompan=z='1+0.05*on/" + N + "':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=" + MK.w + 'x' + MK.h +
+         ",zoompan=z='1+" + zc + '*on/' + N + "':x='(iw-iw/zoom)*on/" + N + "':y='ih/2-(ih/zoom/2)':d=1:s=" + MK.w + 'x' + MK.h +
          ':fps=' + MK.fps + ',setsar=1,format=yuv420p[o]';
   } else if (!cw || !ch || wideAr(ar) || ar > MK.wideMax) {
     kind = 'kb';
@@ -226,9 +231,11 @@ function photoClip(ff, file, out, len, opt) {
            '[g][f]overlay=' + g.x + ':' + g.y + ',setsar=1,format=yuv420p[o]';
     }
   }
-  run(ff, ['-loop', '1', '-framerate', String(MK.fps), '-t', L.toFixed(2), '-i', file, '-filter_complex', fc,
+  const inp = (opt && opt.card && opt.bgVideo) ? ['-stream_loop', '-1', '-t', L.toFixed(2), '-i', opt.bgVideo]
+                                                : ['-loop', '1', '-framerate', String(MK.fps), '-t', L.toFixed(2), '-i', file];
+  run(ff, inp.concat(['-filter_complex', fc,
            '-map', '[o]', '-an', '-t', L.toFixed(2), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(MK.crf),
-           '-pix_fmt', 'yuv420p', '-r', String(MK.fps), out]);
+           '-pix_fmt', 'yuv420p', '-r', String(MK.fps), out]));
   const still = out.replace(/\.mp4$/, '') + '-first.jpg';
   run(ff, ['-i', out, '-frames:v', '1', '-q:v', '3', still]);
   return { file: out, still: still, len: L, kind: kind, box: box, layout: kind === 'card' || wideAr(ar) ? 'fill' : layout };

@@ -519,7 +519,7 @@ console.log('=== ۱۴) هر پرچمی که رانر می‌خوانَد از ص
      /const prevImg = isCard && i > 0 \? imgs\[String\(scenes\[i - 1\]\.n\)\] : '';/.test(rj) &&
      /(?:const|let) srcImg = prevImg && fs\.existsSync\(prevImg\) \? prevImg : g\.file;/.test(rj) &&   // ۱۰.۸: let — پس از عکس یا زمینهٔ یکدست، خودِ عکس
     
-     /MKIT\.photoClip\(FF, srcImg, out \+ '\.mp4', want, \{ layout: layOf\[s\.n\], card: isCard \}\)/.test(rj));
+     /MKIT\.photoClip\(FF, srcImg, out \+ '\.mp4', want, \{ layout: layOf\[s\.n\], card: isCard,/.test(rj));
   ok('۱۴.۳ رانر صحنهٔ cont را از جایی که صحنهٔ پیشینِ همان کلیپ ایستاد ادامه می‌دهد',
      /const cont = !!\(s\.media && s\.media\.cont\) && usedTo\[s\.url\] !== undefined;/.test(rj) &&
      /usedTo\[s\.url\] = Math\.max\(usedTo\[s\.url\] \|\| 0, from \+ \(c\.played \|\| c\.len\)/.test(rj));   // ۹.۱۰: «ادامه» از آنچه واقعاً پخش شد، نه از طولِ صحنهٔ پُرشده

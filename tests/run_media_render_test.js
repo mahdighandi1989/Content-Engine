@@ -400,7 +400,7 @@ console.log('=== ۶) چیدمان و حرکت (۸.۹۹) — «همه وسط، ر
   ok('۶.۶ چیدمان‌ها به نوبت‌اند، نه همه وسط', ['left', 'center', 'right'].every((L, i) => MKIT.layoutOf(i) === L) && MKIT.layoutOf(3) === 'left');
   const rj = fs.readFileSync('tools/render.js', 'utf8');
   ok('۶.۷ رانر عکس را کلیپِ زنده می‌کند و «لحظه» چیدمانِ صحنه‌اش را می‌گیرد',
-     /MKIT\.photoClip\(FF, srcImg, out \+ '\.mp4', want, \{ layout: layOf\[s\.n\], card: isCard \}\)/.test(rj) &&
+     /MKIT\.photoClip\(FF, srcImg, out \+ '\.mp4', want, \{ layout: layOf\[s\.n\], card: isCard,/.test(rj) &&
      /MKIT\.moment\(FF, g\.file, v, a, c\.from, c\.len, g\.info, enc, \{ layout: c\.layout/.test(rj));
 }
 
@@ -587,7 +587,7 @@ console.log('=== ۱۶) «از همه جا» ۸۳: کارت روی محوِ اس�
   ok('۱۶.۲ رانر: کارتِ روی زمینهٔ یکدست، یا پس از یک عکس ⇒ خودِ عکسِ صحنه در چیدمانِ کناری، نه محو',
      /const cf = afterPhoto \? \{ flat: false, sd: -1 \} : MKIT\.cardFlat\(FF, srcImg\);/.test(rj) &&
      /if \(cf\.flat \|\| afterPhoto\) \{\s*isCard = false; srcImg = g\.file;/.test(rj) &&
-     rj.indexOf('MKIT.cardFlat(FF, srcImg)') < rj.indexOf("MKIT.photoClip(FF, srcImg, out + '.mp4', want, { layout: layOf[s.n], card: isCard })"));
+     rj.indexOf('MKIT.cardFlat(FF, srcImg)') < rj.indexOf("MKIT.photoClip(FF, srcImg, out + '.mp4', want, { layout: layOf[s.n], card: isCard,"));   // ۱۵.۷: + bgVideo
   const pd = MKIT.photoClip(FF, dark, P('dark-plain.mp4'), 6, { layout: 'left' });
   const g = require('../tools/scenekit.js');
   const sdPlain = g.sd(g.gray(FF, pd.file, 3));

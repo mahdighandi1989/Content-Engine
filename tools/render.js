@@ -845,7 +845,12 @@ function prepMedia(it, scenes, dir, notes, placed) {
             notes.push('صحنهٔ ' + s.n + ': ' + (afterPhoto ? 'کارت پس از عکس' : 'زمینهٔ کارت یکدست بود (sd ' + cf.sd + ')') + ' ⇒ خودِ عکس، کنارِ کارت');
           }
         }
-        const pc = MKIT.photoClip(FF, srcImg, out + '.mp4', want, { layout: layOf[s.n], card: isCard });
+        /* ۱۵.۷: کارتِ پس از کلیپ ⇒ زمینه خودِ همان کلیپ (محو، در حلقه)، نه قابِ آخرش — قابِ ساکنِ تیره «یخ زد» می‌خورد. */
+        const prevClip = isCard && i > 0 && srcImg === prevImg && got[scenes[i - 1].url] && got[scenes[i - 1].url].kind === 'video'
+          ? clips[String(scenes[i - 1].n)] : '';
+        const pc = MKIT.photoClip(FF, srcImg, out + '.mp4', want, { layout: layOf[s.n], card: isCard,
+                                                                    bgVideo: prevClip && fs.existsSync(prevClip) ? prevClip : '' });
+        if (isCard && prevClip) st.cardMoving = (st.cardMoving || 0) + 1;
         if (isCard && srcImg !== g.file) st.cardOwn = (st.cardOwn || 0) + 1;
         if (pc.kind === 'card') st.cards = (st.cards || 0) + 1;
         clips[String(s.n)] = pc.file; imgs[String(s.n)] = pc.still; full[String(s.n)] = true;
