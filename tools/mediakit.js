@@ -38,6 +38,7 @@ const MK = {
   fadeV: 0.35, fadeA: 0.45,      // ۹.۰۰: پایانِ صدا ۰٫۱۲ ثانیه بود — «سریع قطع می‌شد»
   loud: 'loudnorm=I=-16:TP=-1.5:LRA=11',
   crf: 20,
+  cardLiveSd: 8, cardLiveMin: 2, qaBlankSd: 6,   // ۱۵.۹: زمینهٔ متحرکِ کارت فقط از تکهٔ زندهٔ کلیپ (محوشده بالای ۸)؛ کمتر از ۲ ثانیه ⇒ بی زمینهٔ کلیپ
   cardFlatSd: 12     // ۱۰.۸: زیرِ این، زمینهٔ محوِ کارت خاکستریِ یکدست است (QA در ۶ «خالی» می‌گوید؛ این دو برابرِ آن است تا لبه نباشد)
 };
 
@@ -140,6 +141,74 @@ function cardFlat(ff, file, thr) {
   for (let i = 0; i < buf.length; i++) v += (buf[i] - m) * (buf[i] - m);
   const s = Math.sqrt(v / buf.length);
   return { flat: s < (Number(thr) || MK.cardFlatSd), sd: Math.round(s * 10) / 10 };
+}
+
+/**
+ * تکهٔ زندهٔ زمینهٔ کارت (۱۵.۹). ۱۵.۷ کلیپِ پیشین را محو و در حلقه پشتِ کارت گذاشت — یخ رفت، ولی ساختِ تازهٔ ۸۶ «۱ قابِ خالی
+ * (صحنهٔ ۳۶)» خورد: هر بار که حلقه به آغاز/پایانِ تیرهٔ همان کلیپ می‌رسید، پس از محو و تیره‌کردن ~۱ ثانیه تقریباً سیاه می‌شد
+ * (۷۰۸٫۵، ۷۸۸، ۸۰۹، ۸۴۴٫۵ث؛ انحرافِ معیار ~۲) و سنجه درست همان‌جا را دید. پس هر قابِ کلیپ **با همان محو** سنجیده می‌شود و
+ * فقط بلندترین تکهٔ پیوسته‌ای که زنده می‌ماند حلقه می‌شود. ⇒ {a, b, dur, cut} یا null (تکهٔ زنده کوتاه‌تر از `cardLiveMin`).
+ */
+function cardLive(ff, file) {
+  const rate = 4, W = 48, H = 27, fsz = W * H;
+  let buf;
+  try {
+    buf = execFileSync(ff, ['-hide_banner', '-loglevel', 'error', '-i', file, '-an', '-vf',
+      'fps=' + rate + ',scale=192:108:force_original_aspect_ratio=increase,crop=192:108,boxblur=4:3,' +
+      'eq=brightness=-0.16:saturation=0.8,scale=' + W + ':' + H + ',format=gray', '-f', 'rawvideo', '-'],
+      { maxBuffer: 1 << 26 });
+  } catch (e) { return null; }
+  const n = buf ? Math.floor(buf.length / fsz) : 0;
+  if (n < 2) return null;
+  const sds = sdList(buf, fsz, n);
+  return liveRun(sds, rate);
+}
+
+/** انحرافِ معیارِ هر قاب. */
+function sdList(buf, fsz, n) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    let a = 0, b = 0;
+    for (let j = 0; j < fsz; j++) { const v = buf[i * fsz + j]; a += v; b += v * v; }
+    const m = a / fsz; out.push(Math.sqrt(Math.max(0, b / fsz - m * m)));
+  }
+  return out;
+}
+
+/** بلندترین دنبالهٔ قاب‌های زنده (sd ≥ `cardLiveSd`). جدا از ffmpeg تا آزمون بی فایل هم بسنجد. */
+function liveRun(sds, rate) {
+  let bi = -1, bl = 0, i = 0;
+  while (i < sds.length) {
+    if (sds[i] < MK.cardLiveSd) { i++; continue; }
+    let j = i; while (j < sds.length && sds[j] >= MK.cardLiveSd) j++;
+    if (j - i > bl) { bl = j - i; bi = i; }
+    i = j;
+  }
+  const dur = sds.length / rate;
+  if (bi < 0 || bl / rate < MK.cardLiveMin) return null;
+  const a = bi / rate, b = (bi + bl) / rate;
+  return { a: a, b: b, dur: dur, cut: a > 0.01 || b < dur - 0.01 };
+}
+
+/** همان تکهٔ زنده، بریده در فایلی جدا (حلقه با -ss هر دور از صفر شروع می‌کند، پس باید بریده شود). */
+function cutLive(ff, file, w, out) {
+  run(ff, ['-ss', w.a.toFixed(2), '-t', (w.b - w.a).toFixed(2), '-i', file, '-an', '-c:v', 'libx264', '-preset', 'veryfast',
+           '-crf', String(MK.crf), '-pix_fmt', 'yuv420p', out]);
+  return out;
+}
+
+/** سنجشِ خروجی (۱۵.۹): ثانیه‌هایی که با همان سنجهٔ QA (انحرافِ معیارِ زیرِ ۶) خالی‌اند. دیدنِ خودِ فایل، نه حسابِ ورودی. */
+function blankSecs(ff, file) {
+  const rate = 2, W = 48, H = 27, fsz = W * H * 3;
+  let buf;
+  try {
+    buf = execFileSync(ff, ['-hide_banner', '-loglevel', 'error', '-i', file, '-an', '-vf',
+      'fps=' + rate + ',scale=' + W + ':' + H + ',format=rgb24', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 26 });
+  } catch (e) { return null; }
+  const n = buf ? Math.floor(buf.length / fsz) : 0;
+  const sds = sdList(buf, fsz, n), out = [];
+  for (let i = 0; i < n; i++) if (sds[i] < MK.qaBlankSd) out.push(i / rate);
+  return out;
 }
 
 /** هندسهٔ رسانه در قاب: اندازه و جایِ نشستن در جعبهٔ چیدمان. */
@@ -670,4 +739,4 @@ function freezes(ff, file, minSec) {
   return out.map(x => ({ s: Math.round(x.s * 10) / 10, e: Math.round(x.e * 10) / 10, d: Math.round((x.e - x.s) * 10) / 10 }));
 }
 
-module.exports = { freezes, collage, teaserPlan, contentEnd, fillTail, MK, BOX, probe, contentBox, cardFlat, placeIn, layoutOf, frameFilter, photo, photoClip, clip, brightFrom, moment, find, placeMoments, splice };
+module.exports = { cardLive, liveRun, cutLive, blankSecs, freezes, collage, teaserPlan, contentEnd, fillTail, MK, BOX, probe, contentBox, cardFlat, placeIn, layoutOf, frameFilter, photo, photoClip, clip, brightFrom, moment, find, placeMoments, splice };

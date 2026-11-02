@@ -33,5 +33,5 @@ if (ff) {
 
 const rj = fs.readFileSync('tools/render.js', 'utf8');
 ok('۲.۱ کارتِ پس از کلیپ زمینه‌اش را از خودِ کلیپِ پیشین می‌گیرد',
-   /got\[scenes\[i - 1\]\.url\]\.kind === 'video'\s*\? clips\[String\(scenes\[i - 1\]\.n\)\]/.test(rj) && /bgVideo: prevClip && fs\.existsSync\(prevClip\) \? prevClip : ''/.test(rj));
+   /got\[scenes\[i - 1\]\.url\]\.kind === 'video'\s*\? clips\[String\(scenes\[i - 1\]\.n\)\]/.test(rj) && /let bgv = prevClip && fs\.existsSync\(prevClip\) \? prevClip : ''/.test(rj) && /bgVideo: bgv/.test(rj));
 summary('۱۵.۷');

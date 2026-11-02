@@ -1769,6 +1769,13 @@
    "done": "بخشِ «یخ زد و گیر کرد» در CLAUDE.md و یادداشتِ ۱۱۶ در `docs/prompts/_PROMPT-monitor-v116.md`؛ ناظر در گزارشِ روزانه `youtube.flipDue`، `tgResend` و تاریخِ `requests.at` را می‌آورد",
    "how": "CLAUDE.md · `_PROMPT-monitor-v116.md` · `_REPORT-YYYYMMDD.json`",
    "ver": "15.8"
+  },
+  {
+   "id": "R-20261102-07",
+   "ask": "ساخت تازهٔ variety:86 (۱۸:۵۸) باز video-watch=ایراد گرفت؛ علتش چیست (فریز؟ کدام ثانیه؟ فریم‌ها را ببین)",
+   "done": "ساختِ تازهٔ variety:86 (tag r4-15.9) در docs/renders.json با qa.ok=true، qa.blank=[] و qa.freeze=[]؛ و video-watch برای variety:86 «سالم»",
+   "how": "docs/renders.json items['variety:86'].qa و _STATUS.monitorChecks video-watch",
+   "ver": "15.9"
   }
  ]
 }

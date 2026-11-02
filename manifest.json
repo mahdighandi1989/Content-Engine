@@ -1,22 +1,17 @@
 {
-  "version": "15.8",
+  "version": "15.9",
   "codeFile": "engine.gs",
-  "sha256": "290c6775235a885970b059a0c221dff6018cbb5ecc7aa138e2d93e61504ac148",
-  "releasedAt": "2026-11-02T17:30:00+04:00",
-  "summary": "ارسالِ دوبارهٔ نمونه‌های «ب» و مقایسهٔ گلدوز با رسیدِ هر فایل؛ درس‌های ۱۵.۳–۱۵.۷ در CLAUDE.md و دستورِ ناظرِ v116",
+  "sha256": "b125cff08a5b0b2c1dbe9cdbc39bba1741f10cde32890f1a7c5d98c72aa99c81",
+  "releasedAt": "2026-11-02T20:50:00+04:00",
+  "summary": "«قابِ خالی» در ساختِ تازهٔ ۸۶ از درزِ حلقهٔ کلیپِ پشتِ کارت بود: فقط تکهٔ زندهٔ کلیپ حلقه می‌شود و خروجیِ کارت سنجیده می‌شود (رانر)؛ ۹۰ از فهرستِ جایگزینی بیرون.",
   "fixes": [
-    "vbrResendSet_ + CFG.VBR_RESEND_SET + _STATUS.tgResend",
-    "_PROMPT-monitor-v116: freeze با قاب، flipDue، tgResend، requests.at"
+    "tools/mediakit.js: cardLive/cutLive/blankSecs — تکهٔ زندهٔ کلیپ با همان محوِ کارت، و سنجشِ خودِ خروجی با آستانهٔ QA",
+    "tools/render.js: کارت بی تکهٔ زنده یا با قابِ خالی ⇒ خودِ عکسِ صحنه کنارِ کارت (راهِ ۱۰.۸)",
+    "docs/yt-replace.json: variety:86 ⇒ r4-15.9؛ variety:90 بیرون (نسخهٔ سالمِ ۱۵.۳ منتشر بود)"
   ],
   "sourceReportIds": [
-    "R-20261102-05",
-    "R-20261102-06"
+    "R-20261102-07"
   ],
   "answers": [],
-  "promptImpact": [
-    "monitor: v116 — بندهای flipDue، tgResend، requests.at و تشخیصِ یخ با قاب"
-  ],
-  "promptImpactKinds": [
-    "monitor"
-  ]
+  "promptImpact": []
 }

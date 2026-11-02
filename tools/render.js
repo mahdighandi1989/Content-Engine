@@ -848,9 +848,29 @@ function prepMedia(it, scenes, dir, notes, placed) {
         /* ۱۵.۷: کارتِ پس از کلیپ ⇒ زمینه خودِ همان کلیپ (محو، در حلقه)، نه قابِ آخرش — قابِ ساکنِ تیره «یخ زد» می‌خورد. */
         const prevClip = isCard && i > 0 && srcImg === prevImg && got[scenes[i - 1].url] && got[scenes[i - 1].url].kind === 'video'
           ? clips[String(scenes[i - 1].n)] : '';
-        const pc = MKIT.photoClip(FF, srcImg, out + '.mp4', want, { layout: layOf[s.n], card: isCard,
-                                                                    bgVideo: prevClip && fs.existsSync(prevClip) ? prevClip : '' });
-        if (isCard && prevClip) st.cardMoving = (st.cardMoving || 0) + 1;
+        /* ۱۵.۹: فقط تکهٔ زندهٔ کلیپ پشتِ کارت حلقه می‌شود — آغاز/پایانِ تیرهٔ کلیپ در هر دورِ حلقه ~۱ ثانیه «قابِ خالی» می‌ساخت
+           (ساختِ ۸۶، صحنهٔ ۳۶). تکهٔ زنده‌ای نماند ⇒ خودِ عکسِ صحنه، کنارِ کارت (همان راهِ ۱۰.۸). */
+        let bgv = prevClip && fs.existsSync(prevClip) ? prevClip : '';
+        if (bgv) {
+          const lw = MKIT.cardLive(FF, bgv);
+          if (!lw) {
+            bgv = ''; isCard = false; srcImg = g.file; st.cardDark = (st.cardDark || 0) + 1;
+            notes.push('صحنهٔ ' + s.n + ': کلیپِ پیشین پس از محو تیره بود ⇒ خودِ عکس، کنارِ کارت');
+          } else if (lw.cut) {
+            try { bgv = MKIT.cutLive(FF, bgv, lw, out + '-live.mp4'); st.cardTrim = (st.cardTrim || 0) + 1; } catch (eL) { /* کلِ کلیپ */ }
+          }
+        }
+        let pc = MKIT.photoClip(FF, srcImg, out + '.mp4', want, { layout: layOf[s.n], card: isCard, bgVideo: bgv });
+        /* و خودِ خروجی دیده می‌شود: کارتی که هنوز ثانیهٔ خالی دارد، با خودِ عکسِ صحنه از نو. */
+        if (isCard) {
+          const bl = MKIT.blankSecs(FF, pc.file);
+          if (bl && bl.length) {
+            isCard = false; bgv = ''; srcImg = g.file; st.cardBlank = (st.cardBlank || 0) + 1;
+            notes.push('صحنهٔ ' + s.n + ': کارت ' + bl.length + ' قابِ خالی داشت (از ' + bl[0] + 'ث) ⇒ خودِ عکس، کنارِ کارت');
+            pc = MKIT.photoClip(FF, srcImg, out + '.mp4', want, { layout: layOf[s.n], card: false });
+          }
+        }
+        if (isCard && bgv) st.cardMoving = (st.cardMoving || 0) + 1;
         if (isCard && srcImg !== g.file) st.cardOwn = (st.cardOwn || 0) + 1;
         if (pc.kind === 'card') st.cards = (st.cards || 0) + 1;
         clips[String(s.n)] = pc.file; imgs[String(s.n)] = pc.still; full[String(s.n)] = true;
