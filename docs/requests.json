@@ -1797,6 +1797,13 @@
    "done": "_STATUS.json پس از ۱۶.۱ دست‌کم هر ۲ ساعت نو می‌شود، یا _STATUS.statusFail / سیاههٔ هاب علتِ دقیقِ شکست را با مرحله دارد",
    "how": "modifiedTime ِ _STATUS.json · _STATUS.statusFail · سطرِ «⚠️ نوشتنِ _STATUS نشد» در گزارش",
    "ver": "16.1"
+  },
+  {
+   "id": "R-20261103-01",
+   "ask": "راهِ سبک‌کردنِ نوشتنِ _STATUS (۶۶ ثانیه زیاد است) یا نوشتنش در یک اجرای جداگانه/تریگرِ جدا",
+   "done": "modifiedTime ِ _STATUS.json پس از هر سینک (هر ۲ ساعت) نو می‌شود؛ _STATUS.statusCost.totalSec زیرِ ۹۰ در نوشتن‌های میانِ روز؛ _STATUS.statusFail خالی",
+   "how": "_STATUS.statusCost · _STATUS.statusFail · modifiedTime",
+   "ver": "16.2"
   }
  ]
 }

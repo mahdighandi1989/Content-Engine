@@ -1,0 +1,24 @@
+/* ══ آزمونِ ۱۶.۲ — نوشتنِ _STATUS در اجرای جدا ══ */
+require('./lib/root.js');
+const L = require('./lib/probe_r4_lib.js');
+const { ok, summary } = L;
+const made = [], cleared = [], store = {};
+const keep = { ScriptApp: global.ScriptApp, clearRetryTriggers_: global.clearRetryTriggers_, writeStatus_: global.writeStatus_, getHub_: global.getHub_, props_: global.props_, logLine_: global.logLine_ };
+global.clearRetryTriggers_ = fn => cleared.push(fn);
+global.ScriptApp = { newTrigger: fn => ({ timeBased: () => ({ after: ms => ({ create: () => made.push(fn + '@' + ms) }) }) }) };
+ok('۱.۱ یک تریگرِ یک‌باره، یک دقیقه بعد؛ قبلی پاک', statusLaterArm_() === true && made[0] === 'statusLater@60000' && cleared[0] === 'statusLater');
+global.ScriptApp = { newTrigger: () => { throw new Error('سهمیهٔ تریگر'); } };
+ok('۱.۲ تریگر ساخته نشد ⇒ false (سینک همان‌جا می‌نویسد)', statusLaterArm_() === false);
+let wrote = 0;
+global.getHub_ = () => ({});
+global.writeStatus_ = () => { wrote++; return {}; };
+statusLater();
+ok('۲.۱ statusLater می‌نویسد و تریگرِ خودش را پاک می‌کند', wrote === 1 && cleared.filter(x => x === 'statusLater').length >= 2);
+global.props_ = () => ({ getProperty: k => store[k] || null, setProperty: (k, v) => { store[k] = v; } });
+global.logLine_ = () => {};
+global.writeStatus_ = () => { throw new Error('خطای آزمونی'); };
+statusLater();
+ok('۲.۲ شکستش با علت در Properties', /خطای آزمونی/.test(store[PK.STATUS_FAIL] || ''));
+ok('۳.۱ پیمایشِ کاملِ جزوه روزی یک بار (TTL ≥ ۲۴ ساعت)', Number(CFG.HANDOUT_STATUS_TTL_H) >= 24);
+Object.keys(keep).forEach(k => { global[k] = keep[k]; });
+summary('۱۶.۲');

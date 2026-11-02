@@ -18,6 +18,7 @@ global.writeStatus_ = () => ({});
 ok('۱.۳ موفق ⇒ پیامِ ثانیه', /نوشته شد در \d+ ثانیه/.test(runWriteStatusNow()));
 const sy = fs.readFileSync('src/02_Sync.gs', 'utf8');
 ok('۲.۱ سینک دیگر خطای نوشتنِ وضعیت را نمی‌بلعد', /catch \(e\) \{ statusFailNote_\('سینک', e\); \}/.test(sy) && !/writeStatus_\(hub, 'همگام‌سازی کامل شد'\); \} catch \(e\) \{\}/.test(sy));
+ok('۲.۳ ۱۶.۲: سینک نوشتن را به اجرای جدا می‌سپارد', /if \(!statusLaterArm_\(\)\)/.test(sy));
 ok('۲.۲ _STATUS.statusFail از همان Properties', /statusFail: \(function \(\) \{ try \{ return JSON\.parse\(props_\(\)\.getProperty\(PK\.STATUS_FAIL\)/.test(fs.readFileSync('src/08_Health.gs', 'utf8')));
 Object.keys(keep).forEach(k => { global[k] = keep[k]; });
 summary('۱۶.۱');

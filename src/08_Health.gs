@@ -544,6 +544,22 @@ function statusFailNote_(who, e) {
   try { logLine_('⚠️ نوشتنِ _STATUS نشد (' + who + '): ' + msg + (stage ? ' — مرحله: ' + stage : '')); } catch (eL) {}
 }
 
+/** ۱۶.۲ — نوشتنِ `_STATUS` در اجرای جدا، یک دقیقه بعد (یک تریگر، نه بیشتر). ⇒ true اگر تریگر ساخته شد. */
+function statusLaterArm_() {
+  try {
+    clearRetryTriggers_('statusLater');
+    ScriptApp.newTrigger('statusLater').timeBased().after(60000).create();
+    return true;
+  } catch (e) { return false; }
+}
+
+/** تریگرِ یک‌بارهٔ `statusLater_Arm_`: شش دقیقهٔ کامل فقط برای نوشتنِ وضعیت؛ شکست با علت ثبت می‌شود. */
+function statusLater() {
+  try { clearRetryTriggers_('statusLater'); } catch (eC) {}
+  try { writeStatus_(getHub_(), 'همگام‌سازی کامل شد'); }
+  catch (e) { statusFailNote_('اجرای جدا', e); }
+}
+
 /** ۱۶.۱ — از ویرایشگر یا منو: همین حالا `_STATUS` را بنویس، و خطا را **نبلع** تا در Executions با متنِ کامل دیده شود. */
 function runWriteStatusNow() {
   var t0 = new Date().getTime();

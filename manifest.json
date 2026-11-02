@@ -1,15 +1,16 @@
 {
-  "version": "16.1",
+  "version": "16.2",
   "codeFile": "engine.gs",
-  "sha256": "956b94685a00344d1e297d655a9ebb58155b6040bd28e1be7a1c0a12a73ae505",
-  "releasedAt": "2026-11-03T00:30:00+04:00",
-  "summary": "شکستِ نوشتنِ _STATUS در سینک دیگر بلعیده نمی‌شود: علت و مرحله در سیاهه و _STATUS.statusFail؛ runWriteStatusNow برای اجرای دستی با خطای آشکار.",
+  "sha256": "2fd591c141436df126214ac4855a4478d93693c2f815b62e347b839a63389216",
+  "releasedAt": "2026-11-03T01:10:00+04:00",
+  "summary": "نوشتنِ _STATUS پس از سینک در اجرای جدا (statusLater، یک دقیقه بعد)؛ پیمایشِ کاملِ جزوه روزی یک بار.",
   "fixes": [
-    "src/02_Sync.gs: catch خالیِ writeStatus_ ⇒ statusFailNote_",
-    "src/08_Health.gs: statusFailNote_، runWriteStatusNow، کلیدِ statusFail"
+    "src/02_Sync.gs: statusLaterArm_ به‌جای نوشتنِ همان‌جا",
+    "src/08_Health.gs: statusLaterArm_، statusLater",
+    "src/00_Config.gs: HANDOUT_STATUS_TTL_H ۶⇐۲۶"
   ],
   "sourceReportIds": [
-    "R-20261102-10"
+    "R-20261103-01"
   ],
   "answers": [],
   "promptImpact": []

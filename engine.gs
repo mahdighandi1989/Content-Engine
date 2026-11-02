@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 16.1
+ *  موتور محتوا و پادکست — نسخهٔ 16.2
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -933,7 +933,7 @@ var CFG = {
   ],
   HANDOUT_SCAN_MAX: 25,        // چند **پوشه** پیمایش شود؛ ردِ ارزان مجانی است
   HANDOUT_SCAN_MS: 90000,      // نگهبانِ زمانِ کاوش
-  HANDOUT_STATUS_TTL_H: 6,     // نوشتن‌های میانِ روزِ _STATUS پیمایشِ جزوه را از این حافظه برمی‌دارند (۹.۷۱)؛ ۰ = همیشه تازه
+  HANDOUT_STATUS_TTL_H: 26,    // ۱۶.۲: از ۶ — پیمایشِ کامل (۱۰۴ث) روزی یک بار در وارسیِ سلامت بس است؛ نوشتن‌های میانِ روزِ _STATUS پیمایشِ جزوه را از این حافظه برمی‌دارند (۹.۷۱)؛ ۰ = همیشه تازه
   HANDOUT_STUCK_DAYS: 3,       // چند روز عقب‌ماندگی تا «ایرادِ کد» شمرده شود
   HANDOUT_LAG_GRACE: 1,        // درسِ امروز: جزوه‌اش همان شب ساخته می‌شود، پس یک درس «در راه» عقب نیست (۸.۷۲)
   HANDOUT_NIGHT_NEED_MS: 180000, // کارِ شبانه بی این وقت واردِ بلوکِ جزوه نمی‌شود — ۶۰ ثانیه اجرا را کشت (۸.۷۲)
@@ -2385,7 +2385,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '16.1',
+  CODE_VERSION: '16.2',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -4801,18 +4801,18 @@ function syncCatalog() {
       catch (e) { logLine_('برداشت گزارش‌ها ناموفق: ' + e.message); }
       runStage_('سینک: وارسیِ نسخهٔ کد');
       try { checkCodeUpdate_(hub); } catch (e) {}
-      /* ۸.۸۵: نوشتنِ `_STATUS.json` خودش ده‌ها ثانیه است (۲۴۰ کیلوبایت، ده‌ها سنجه). اگر تا این‌جا از
-         مهلت گذشته‌ایم، این نوبت کنار می‌رود — سینکِ بعدی (دو ساعت دیگر) و وارسیِ سلامت همان را
-         می‌نویسند. مردن سرِ آن، قفل و شاهد را هم با خودش می‌بُرد. */
-      if (new Date().getTime() - t0 > CFG.MAX_RUNTIME_MS + 30000) {
-        logLine_('سینک: نوشتنِ وضعیت به نوبتِ بعد ماند — اجرا ' +
-                 Math.round((new Date().getTime() - t0) / 1000) + ' ثانیه شده بود.');
-      } else {
-        runStage_('سینک: نوشتنِ _STATUS');
-        /* ۱۶.۱ — «_STATUS از ۲۰:۱۸ ننوشته، همهٔ اجراها Completed»: این catch خطا را می‌بلعید و سینک «کامل» تمام می‌شد. شاهدی که
-           با حادثه می‌میرد شاهد نیست — حالا خطا و مرحلهٔ آخرِ نوشتن در سیاهه و Properties می‌ماند. */
-        try { writeStatus_(hub, 'همگام‌سازی کامل شد'); }
-        catch (e) { statusFailNote_('سینک', e); }
+      /* ۱۶.۲ — نوشتنِ `_STATUS` اجرای خودش را دارد (`statusLater`، یک دقیقه بعد): ۶۱ تا ۱۶۹ ثانیه (`statusCost`) در تهِ سینکی
+         که خودش دقیقه‌ها دویده، یا از مهلت می‌گذشت یا با شکستی بی‌صدا تمام می‌شد — `_STATUS` از ۲۰:۱۸ تا ۰۰:۱۶ ننوشت. فقط اگر
+         تریگر ساخته نشد، همان راهِ قبلی (در همین اجرا، با مهلت). */
+      runStage_('سینک: نوشتنِ _STATUS');
+      if (!statusLaterArm_()) {
+        if (new Date().getTime() - t0 > CFG.MAX_RUNTIME_MS + 30000) {
+          logLine_('سینک: نوشتنِ وضعیت به نوبتِ بعد ماند — اجرا ' +
+                   Math.round((new Date().getTime() - t0) / 1000) + ' ثانیه شده بود.');
+        } else {
+          try { writeStatus_(hub, 'همگام‌سازی کامل شد'); }
+          catch (e) { statusFailNote_('سینک', e); }
+        }
       }
     }
   } catch (err) {
@@ -18848,6 +18848,22 @@ function statusFailNote_(who, e) {
   var msg = String((e && e.message) || e).slice(0, 200);
   try { props_().setProperty(PK.STATUS_FAIL, JSON.stringify({ at: nowStr_(), who: who, why: msg, stage: stage })); } catch (eP) {}
   try { logLine_('⚠️ نوشتنِ _STATUS نشد (' + who + '): ' + msg + (stage ? ' — مرحله: ' + stage : '')); } catch (eL) {}
+}
+
+/** ۱۶.۲ — نوشتنِ `_STATUS` در اجرای جدا، یک دقیقه بعد (یک تریگر، نه بیشتر). ⇒ true اگر تریگر ساخته شد. */
+function statusLaterArm_() {
+  try {
+    clearRetryTriggers_('statusLater');
+    ScriptApp.newTrigger('statusLater').timeBased().after(60000).create();
+    return true;
+  } catch (e) { return false; }
+}
+
+/** تریگرِ یک‌بارهٔ `statusLater_Arm_`: شش دقیقهٔ کامل فقط برای نوشتنِ وضعیت؛ شکست با علت ثبت می‌شود. */
+function statusLater() {
+  try { clearRetryTriggers_('statusLater'); } catch (eC) {}
+  try { writeStatus_(getHub_(), 'همگام‌سازی کامل شد'); }
+  catch (e) { statusFailNote_('اجرای جدا', e); }
 }
 
 /** ۱۶.۱ — از ویرایشگر یا منو: همین حالا `_STATUS` را بنویس، و خطا را **نبلع** تا در Executions با متنِ کامل دیده شود. */
