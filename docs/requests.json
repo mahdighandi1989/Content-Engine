@@ -1811,6 +1811,13 @@
    "done": "_STATUS.youtube.replace: variety:86 و variety:88 فاز done با newUrl، پیش از هر آپلودِ تازهٔ ۳ نوامبر",
    "how": "_STATUS.youtube.replace · تبِ انتشارِ یوتیوب (ساعتِ ردیف‌ها)",
    "ver": "16.3"
+  },
+  {
+   "id": "R-20261103-03",
+   "ask": "بعد از سینک ۴:۱۴ (۰ ردیف) _STATUS ننوشت و statusFail هم نبود — اگر باگ است درستش کن",
+   "done": "پس از هر سینک یا _STATUS.json تا ۲۰ دقیقه نو می‌شود، یا سطرِ «⚠️ statusLater … ننوشت» در گزارش با علت می‌آید و تا ۳ بار دوباره مسلح می‌شود",
+   "how": "modifiedTime ِ _STATUS.json · _STATUS.statusLaterRan · سیاههٔ هاب",
+   "ver": "16.4"
   }
  ]
 }

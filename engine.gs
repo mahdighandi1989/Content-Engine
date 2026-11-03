@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 16.3
+ *  موتور محتوا و پادکست — نسخهٔ 16.4
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2385,7 +2385,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '16.3',
+  CODE_VERSION: '16.4',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3588,7 +3588,9 @@ var PK = {
   VM_LAST: 'VM_LAST',              // آخرین قسمتِ «از همه جا» با رسانهٔ منبع: صحنه‌ها، کلیپ‌ها، لحظه‌ها، یا علتِ نشدن (۸.۹۶)
   VM_SAMPLE: 'VM_SAMPLE_STATE',
   VM_SAMPLE_SWEEP: 'VM_SAMPLE_SWEEP',
-  STATUS_FAIL: 'STATUS_FAIL',          // ۱۶.۱: آخرین شکستِ نوشتنِ _STATUS (چه کسی، علت، مرحله)
+  STATUS_FAIL: 'STATUS_FAIL',
+  STATUS_DUE: 'STATUS_DUE',            // ۱۶.۴: بدهیِ نوشتنِ وضعیت پس از مسلح‌شدنِ statusLater
+  STATUS_LATER_RAN: 'STATUS_LATER_RAN', // ۱۶.۴: آخرین شروعِ statusLater          // ۱۶.۱: آخرین شکستِ نوشتنِ _STATUS (چه کسی، علت، مرحله)
   VBR_RESEND_LOG: 'VBR_RESEND_LOG',   // ۱۵.۸: رسیدِ ارسالِ دوبارهٔ نمونه‌ها   // ۱۵.۳: روزی یک بار ردیف‌های نمونهٔ کهنه بسته می‌شوند
   GROUND_LAST: 'GROUND_LAST',      // آخرین دروازهٔ زمین‌گیریِ «از همه جا»: چند جملهٔ ساختگی پیش از صدا حذف شد (۹.۱۱)   // نمونهٔ یک‌باره: خواسته شد / خبر داده شد (۸.۹۷)
   YT_MEDIA_OK: 'YT_MEDIA_OK_N',     // چند ویدئوی حالتِ رسانه تا حالا عمومی شده (۸.۹۶)
@@ -18855,15 +18857,44 @@ function statusLaterArm_() {
   try {
     clearRetryTriggers_('statusLater');
     ScriptApp.newTrigger('statusLater').timeBased().after(60000).create();
+    /* ۱۶.۴ — بدهی: تا نوشتنِ موفق پاک نمی‌شود. سینکِ ۰۴:۱۴ِ ۳ نوامبر تریگر ساخت و `_STATUS` تا ۰۴:۵۷ ننوشت، بی هیچ سطری؛
+       اگر تریگر نرسد یا اجرا کشته شود، این بدهی است که در دورِ ساعتیِ بعد دیده و دوباره مسلح می‌شود. */
+    var d = {}; try { d = JSON.parse(props_().getProperty(PK.STATUS_DUE) || '{}') || {}; } catch (eJ) { d = {}; }
+    props_().setProperty(PK.STATUS_DUE, JSON.stringify({ at: d.at || new Date().getTime(), armed: new Date().getTime(), tries: Number(d.tries) || 0 }));
     return true;
   } catch (e) { return false; }
 }
 
+/** ۱۶.۴ — بدهیِ نوشتنِ وضعیت که بیش از ۲۰ دقیقه مانده: یک سطر در سیاهه و مسلح‌کردنِ دوباره (حداکثر ۳ بار). فقط Properties. */
+function statusDueCheck_() {
+  var d = null;
+  try { d = JSON.parse(props_().getProperty(PK.STATUS_DUE) || 'null'); } catch (e) { d = null; }
+  if (!d || !d.armed) return null;
+  var age = Math.round((new Date().getTime() - Number(d.armed)) / 60000);
+  if (age < 20) return null;
+  var tries = (Number(d.tries) || 0) + 1;
+  var ran = '';
+  try { ran = String(props_().getProperty(PK.STATUS_LATER_RAN) || ''); } catch (eR) {}
+  try { logLine_('⚠️ statusLater ' + age + ' دقیقه پس از مسلح‌شدن ننوشت' + (ran ? ' (آخرین شروع: ' + ran + ')' : ' (هرگز شروع نشد)') +
+                 (tries <= 3 ? ' — دوباره مسلح شد (' + tries + ' از ۳).' : ' — سه بار نشد؛ دیگر مسلح نمی‌شود.')); } catch (eL) {}
+  if (tries > 3) { try { props_().deleteProperty(PK.STATUS_DUE); } catch (eD) {} return { gaveUp: true, age: age }; }
+  d.tries = tries;
+  try { props_().setProperty(PK.STATUS_DUE, JSON.stringify(d)); } catch (eS) {}
+  statusLaterArm_();
+  return { rearmed: true, age: age, tries: tries };
+}
+
 /** تریگرِ یک‌بارهٔ `statusLater_Arm_`: شش دقیقهٔ کامل فقط برای نوشتنِ وضعیت؛ شکست با علت ثبت می‌شود. */
 function statusLater() {
-  try { clearRetryTriggers_('statusLater'); } catch (eC) {}
-  try { writeStatus_(getHub_(), 'همگام‌سازی کامل شد'); }
-  catch (e) { statusFailNote_('اجرای جدا', e); }
+  runEnter_('statusLater');
+  try {
+    try { clearRetryTriggers_('statusLater'); } catch (eC) {}
+    try { props_().setProperty(PK.STATUS_LATER_RAN, nowStr_()); } catch (eP) {}
+    try {
+      writeStatus_(getHub_(), 'همگام‌سازی کامل شد');
+      try { props_().deleteProperty(PK.STATUS_DUE); } catch (eD) {}
+    } catch (e) { statusFailNote_('اجرای جدا', e); }
+  } finally { runExit_('statusLater'); }
 }
 
 /** ۱۶.۱ — از ویرایشگر یا منو: همین حالا `_STATUS` را بنویس، و خطا را **نبلع** تا در Executions با متنِ کامل دیده شود. */
@@ -19062,6 +19093,7 @@ function writeStatus_(hub, note) {
     // به خودش، پیش از ساخته شدنش، حلقه می‌شود).
     nightDeath: (function () { try { return nightDeath_(); } catch (e) { return null; } })(),
     statusFail: (function () { try { return JSON.parse(props_().getProperty(PK.STATUS_FAIL) || 'null'); } catch (e) { return null; } })(),
+    statusLaterRan: (function () { try { return props_().getProperty(PK.STATUS_LATER_RAN) || null; } catch (e) { return null; } })(),
     /* ══ اجراهایی که شروع شدند و تمام نشدند (۸.۱۱) ══
        تنها شاهدی که یک تریگرِ ترکیده دارد. ورودی‌اش Script Properties است،
        نه شیت — چون چیزی که در این خرابی شکست، خودِ شیت بود. */
@@ -64073,6 +64105,7 @@ function ytPublishTick() {
   var out = { ok: true, collected: 0, published: 0, queued: 0, waiting: 0, why: '' };
   /* درِ دومِ «کارِ رندر منتظر است» (۸.۵۸) — فقط Properties، پیش از هر کارِ سنگین. */
   try { ghRenderKickDue_(); } catch (eGkd) {}
+  try { if (typeof statusDueCheck_ === 'function') statusDueCheck_(); } catch (eSd) {}   // ۱۶.۴: _STATUSی که مسلح شد و ننوشت
   try {
     if (!ytOn_()) { out.ok = false; out.why = ytOffWhy_(); return out; }
     var r = ytTick_(Math.max(60000, Number(CFG.YT_TICK_MS) || 240000));

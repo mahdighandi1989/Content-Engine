@@ -1,14 +1,15 @@
 {
-  "version": "16.3",
+  "version": "16.4",
   "codeFile": "engine.gs",
-  "sha256": "286c1b3b615c78888e059c9f76765ef84e1150c52a14ddbb00313dbf6bdc0fbe",
-  "releasedAt": "2026-11-03T01:45:00+04:00",
-  "summary": "جایگزینی‌های در جریان (۸۶، ۸۸) اولِ صفِ انتشار؛ پس از ریستِ سهمیه نخستین آپلودها.",
+  "sha256": "5b90b28849210033dd659b79c1790825fc82b6c11633d4e03fadbc486fafcc52",
+  "releasedAt": "2026-11-03T05:30:00+04:00",
+  "summary": "statusLater که مسلح شد و ننوشت: بدهیِ STATUS_DUE، وارسیِ ساعتی و مسلح‌کردنِ دوباره (حداکثر ۳)، شاهدِ شروع و نگهبانِ اجرای ناتمام.",
   "fixes": [
-    "src/27_YouTube.gs: ytReplFirst_ در ytRunDue_"
+    "src/08_Health.gs: statusDueCheck_، مهرِ STATUS_LATER_RAN، runEnter_ برای statusLater، _STATUS.statusLaterRan",
+    "src/27_YouTube.gs: statusDueCheck_ در ytPublishTick"
   ],
   "sourceReportIds": [
-    "R-20261103-02"
+    "R-20261103-03"
   ],
   "answers": [],
   "promptImpact": []

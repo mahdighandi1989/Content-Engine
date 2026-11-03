@@ -12072,6 +12072,7 @@ function ytPublishTick() {
   var out = { ok: true, collected: 0, published: 0, queued: 0, waiting: 0, why: '' };
   /* درِ دومِ «کارِ رندر منتظر است» (۸.۵۸) — فقط Properties، پیش از هر کارِ سنگین. */
   try { ghRenderKickDue_(); } catch (eGkd) {}
+  try { if (typeof statusDueCheck_ === 'function') statusDueCheck_(); } catch (eSd) {}   // ۱۶.۴: _STATUSی که مسلح شد و ننوشت
   try {
     if (!ytOn_()) { out.ok = false; out.why = ytOffWhy_(); return out; }
     var r = ytTick_(Math.max(60000, Number(CFG.YT_TICK_MS) || 240000));
