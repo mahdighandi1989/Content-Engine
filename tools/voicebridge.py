@@ -2434,6 +2434,23 @@ def runOne(it, mp):
     # در حالتِ چندتکه `url` **نوشته نمی‌شود** — عمدی: آن موتور منتظر
     # می‌مانَد به‌جای اینکه تکهٔ اول را به‌عنوانِ کلِ قسمت کنارِ اصل بگذارد.
     # همان امتناعِ بخشِ ۲۷ از انتشارِ مجموعهٔ ناقص.
+    # ══ ۱۶.۸ — یک MP3ِ سبک برای تلگرام، کنارِ تکه‌های WAV ══
+    # WAVِ چندتکه در خودِ تلگرام پخش نمی‌شد. MP3ِ تک‌کاناله‌ی ۱۲۸k: ۱۸ دقیقه ~۱۷ مگابایت، زیرِ سقفِ ۵۰ مگابایت.
+    # شکستش ردیف را نمی‌بندد؛ موتور به همان WAV برمی‌گردد.
+    mp3 = None
+    try:
+        mp = os.path.join(os.path.dirname(os.path.abspath(best)) or ".", "tg.mp3")
+        subprocess.check_call(["ffmpeg", "-y", "-nostdin", "-loglevel", "error", "-i", best,
+                               "-ac", "1", "-ar", "44100", "-c:a", "libmp3lame", "-b:a", "128k", mp])
+        if os.path.getsize(mp) < 48000000:
+            mu = uploadAsset(rel, mp, assetName(key, 0, 1)[:-4] + ".mp3")
+            if mu:
+                mp3 = {"url": mu, "bytes": os.path.getsize(mp)}
+                say("  MP3 برای تلگرام: %.1f مگابایت" % (os.path.getsize(mp) / 1048576.0))
+        else:
+            say("::warning title=MP3 بزرگ::%.1f مگابایت — فقط WAV" % (os.path.getsize(mp) / 1048576.0))
+    except Exception as e:
+        say("::warning title=MP3 ساخته نشد::%s" % str(e)[:200])
     rec = {"urls": urls, "pieceBytes": pbytes, "bytes": sum(pbytes),
            "seconds": round(outSec, 1), "minutes": round(mins, 1),
            "parts": len(parts), "pieces": len(pieces),
@@ -2442,6 +2459,8 @@ def runOne(it, mp):
            .strftime("%Y-%m-%dT%H:%M:%SZ")}
     if len(urls) == 1:
         rec["url"] = urls[0]
+    if mp3:
+        rec["mp3"] = mp3
     rec["pitch"] = pitch
     if loud:
         rec["loud"] = loud

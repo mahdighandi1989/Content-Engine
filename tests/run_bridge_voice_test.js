@@ -32,6 +32,7 @@ CFG.VOICE_SOUL_SEED = [];
 const hub = getHub_();
 /* ۹.۴۵: پیش‌فرضِ تولید «نگه‌داشته» است؛ سنجه‌های جاروبِ خودکار با پلِ باز. بخشِ ۱۱-ث خودِ نگه‌داشتن را می‌سنجد. */
 const HOLD0 = CFG.VBR_EP_HOLD; CFG.VBR_EP_HOLD = false;
+CFG.VBR_EP_FLOOR = {};   // ۱۶.۸: این مجموعه شماره‌های کوچک (۱، ۹، ۷۴) می‌سازد؛ کف در run_v168_test سنجیده می‌شود
 
 // صوتِ قسمت، در یک پوشهٔ ساختگی
 const epFold = OUT.createFolder('قسمت آزمایشی');

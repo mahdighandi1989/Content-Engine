@@ -1486,7 +1486,7 @@ function vbrIngest_(hub) {
       /* خبر در تلگرام، **پس از** بسته‌شدنِ ردیف و داخلِ try: یک قطعیِ
          تلگرام نباید ردیفی را که واقعاً رسیده ناموفق کند. */
       var tell = { sent: false, how: '', why: 'صدا زده نشد' };
-      try { tell = vbrTgTell_(it, names[String(it.speaker)] || it.speaker, r); }
+      try { if (hit.mp3 && r) r.mp3 = hit.mp3; tell = vbrTgTell_(it, names[String(it.speaker)] || it.speaker, r); }
       catch (eT) { tell = { sent: false, how: '', why: eT.message }; }
       if (tell.sent) out.told = (Number(out.told) || 0) + 1;
       out.got.push({ key: it.key, name: r.name, bytes: r.bytes,
@@ -1813,6 +1813,26 @@ function vbrTgTell_(item, speakerName, got) {
      قسمت زیرِ عنوانِ «قسمت ۴۹ با صدای رضوی» — همان ادعای نیمه‌ای که
      همین نسخه در پوشهٔ درایو جلوش را گرفت. مرز در دو جا لازم است، چون
      او از تلگرام می‌شنود، نه از درایو. */
+  /* ══ ۱۶.۸ — یک MP3ِ سبک، مثلِ نمونهٔ «ب» ══
+     WAVِ چندتکه در خودِ تلگرام پخش نمی‌شد (۹.۹۲، «باید دانلود کنم»). رانر از ۱۶.۸ کنارِ تکه‌های WAV یک MP3ِ تک
+     (تک‌کاناله، ۱۲۸k) هم می‌گذارد — قسمتِ ۱۸ دقیقه‌ای ~۱۷ مگابایت، زیرِ سقفِ ۵۰ مگابایتیِ هم UrlFetch و هم ربات.
+     نشد ⇒ همان پله‌های قبلی (WAV، فایل، لینک)؛ سقوط به سمتِ کم‌راحت‌تر، نه سکوت. */
+  var mp3 = (got && got.mp3 && got.mp3.url) ? got.mp3 : null;
+  if (mp3 && (Number(mp3.bytes) || 0) < Number(CFG.VBR_MP3_MAX_BYTES || 48000000)) {
+    try {
+      var mr0 = UrlFetchApp.fetch(String(mp3.url), { muteHttpExceptions: true, followRedirects: true });
+      if (mr0.getResponseCode() === 200) {
+        var mb = mr0.getBlob().setName(head + ' — ' + who + '.mp3').setContentType('audio/mpeg');
+        var mbN = mb.getBytes().length;
+        tgApi_('sendAudio', { chat_id: tgChat_(), audio: mb, caption: cap, parse_mode: 'HTML',
+                              title: head + ' — ' + who, performer: who });
+        out.sent = true; out.how = 'MP3 (' + (Math.round(mbN / 104857.6) / 10) + ' مگابایت)';
+        try { vbrTgMeasure_(item, who); } catch (eMs0) {}
+        return out;
+      }
+      out.why = 'MP3: HTTP ' + mr0.getResponseCode();
+    } catch (eMp) { out.why = 'MP3: ' + String(eMp && eMp.message || eMp).slice(0, 80); }
+  }
   var ids = (got && got.ids && got.ids.length) ? got.ids
             : [String((got && got.id) || item.outId || '')];
   var faP = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
@@ -2758,6 +2778,8 @@ function vbrAskDue_(hub, opt) {
       /* ۹.۳۶: فقط قسمتِ واقعی. ردیف‌های «۷۳-۹-نمونه» هم در همین صف‌اند و از همه تازه‌ترند، پس ۱۷ اکتبر هر دو نوبتِ شب
          به نمونه‌های ویدئوی «از همه جا» رسید — «من کی قسمت ۷۳ را خواسته بودم؟». */
       if (!vbrRealEp_(it.ep)) continue;
+      /* ۱۶.۸ — کفِ شماره: دورِ خودکار فقط قسمتِ تازه می‌سازد، نه ۱۷۸ ردیفِ قدیمیِ صف (تیکِ ستونِ K از این کف رد می‌شود). */
+      if (!vbrEpFloorOk_(it.show, it.ep)) continue;
       if (opt.newestOnly) { if (seenShow[it.show]) continue; seenShow[it.show] = 1; }
       /* گوینده **به ازای هر قسمت** انتخاب می‌شود، نه یک بار برای همه:
          «موردی» دربارهٔ همین یک قسمت است (۷٫۴۵). */
@@ -2769,6 +2791,15 @@ function vbrAskDue_(hub, opt) {
     }
   } catch (e) {}
   return n;
+}
+
+/** ۱۶.۸ — آیا این قسمت از کفِ `VBR_EP_FLOOR` (به ازای برنامه) تازه‌تر است؟ کفِ نانوشته یعنی بی‌کف. */
+function vbrEpFloorOk_(show, ep) {
+  var F = CFG.VBR_EP_FLOOR || {};
+  var f = Number(F[String(show)]);
+  if (!(f > 0)) return true;
+  var n = parseInt(String(typeof faDigits_ === 'function' ? faDigits_(String(ep)) : ep).replace(/[^0-9]/g, ''), 10);
+  return n >= f;
 }
 
 /**

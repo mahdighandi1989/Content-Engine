@@ -1,15 +1,16 @@
 {
- "version": "16.7",
+ "version": "16.8",
  "codeFile": "engine.gs",
- "sha256": "fe0164d9c6b1d98b38c84a3f5ca397a63ff649998a836783e7c54ff3d11305df",
- "releasedAt": "2026-11-03T09:15:33Z",
- "summary": "دورِ یوتیوب ده دقیقه پس از ریستِ سهمیه (اجرای یک‌بارهٔ ytQuotaResetTick)، نه تا دو ساعت بعد",
+ "sha256": "d4e0963977366ef105bf6ae8257207845a77d513665ba436601d483944484828",
+ "releasedAt": "2026-11-03T19:51:20Z",
+ "summary": "فایلِ جانبیِ رضوی/گلدوز در تلگرام یک MP3ِ سبک (نه WAVِ چندتکه)، و کفِ ۹۲ برای دورِ خودکارِ پل",
  "fixes": [
-  "ytQuotaTake_: نخستین بستنِ سهمیه ⇒ ytQuotaResetTick ده دقیقه پس از نیمه‌شبِ اقیانوس آرام",
-  "_STATUS.youtube.quota.resetArm/resetRan"
+  "voicebridge.py: MP3ِ تک‌کاناله ۱۲۸k کنارِ تکه‌های WAV، با mp3:{url,bytes} در نقشه",
+  "vbrTgTell_: اول MP3 با sendAudio، بعد پله‌های قبلی",
+  "CFG.VBR_EP_FLOOR {special:92, variety:92}: دورِ خودکار قسمتِ قدیمی نمی‌سازد؛ تیکِ K از کف رد می‌شود"
  ],
  "sourceReportIds": [
-  "R-20261103-05"
+  "R-20261103-06"
  ],
  "answers": [],
  "promptImpact": []
