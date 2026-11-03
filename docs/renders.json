@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-02 22:53",
+ "updatedAt": "2026-11-03 06:38",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -6891,7 +6891,8 @@
     "smoothright": 42,
     "fade": 33
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-89-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-89-cover.jpg",
+   "pruned": "2026-11-03"
   },
   "variety:90": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-90.mp4",
@@ -8849,6 +8850,22 @@
    "segs": 5,
    "subs": 37,
    "at": "2026-11-02 18:28"
+  },
+  "ig:special:55": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-55.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-55-cover.jpg",
+   "sig": "2cf7edeecf6e",
+   "seconds": 78.2,
+   "bytes": 15846876,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-55-short.mp4",
+   "shortSeconds": 74.6,
+   "align": "faster-whisper",
+   "phrases": 43,
+   "trans": 3,
+   "imgs": 4,
+   "segs": 4,
+   "subs": 40,
+   "at": "2026-11-03 06:38"
   }
  },
  "musicPrev": {
@@ -9679,8 +9696,8 @@
   }
  },
  "release": {
-  "assets": 529,
-  "gb": 4.07,
-  "at": "2026-11-02 22:53"
+  "assets": 531,
+  "gb": 4.05,
+  "at": "2026-11-03 06:38"
  }
 }
