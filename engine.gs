@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 16.6
+ *  موتور محتوا و پادکست — نسخهٔ 16.7
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2385,7 +2385,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '16.6',
+  CODE_VERSION: '16.7',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3590,6 +3590,8 @@ var PK = {
   VM_SAMPLE_SWEEP: 'VM_SAMPLE_SWEEP',
   STATUS_FAIL: 'STATUS_FAIL',
   STATUS_DUE: 'STATUS_DUE',            // ۱۶.۴: بدهیِ نوشتنِ وضعیت پس از مسلح‌شدنِ statusLater
+  YT_RESET_ARM: 'YT_RESET_ARM',        // ۱۶.۷: اجرای پس از ریستِ سهمیه گذاشته شد
+  YT_RESET_RAN: 'YT_RESET_RAN',        // ۱۶.۷: اجرای پس از ریستِ سهمیه دوید
   STATUS_LATER_RAN: 'STATUS_LATER_RAN', // ۱۶.۴: آخرین شروعِ statusLater          // ۱۶.۱: آخرین شکستِ نوشتنِ _STATUS (چه کسی، علت، مرحله)
   VBR_RESEND_LOG: 'VBR_RESEND_LOG',   // ۱۵.۸: رسیدِ ارسالِ دوبارهٔ نمونه‌ها   // ۱۵.۳: روزی یک بار ردیف‌های نمونهٔ کهنه بسته می‌شوند
   GROUND_LAST: 'GROUND_LAST',      // آخرین دروازهٔ زمین‌گیریِ «از همه جا»: چند جملهٔ ساختگی پیش از صدا حذف شد (۹.۱۱)   // نمونهٔ یک‌باره: خواسته شد / خبر داده شد (۸.۹۷)
@@ -52154,6 +52156,29 @@ function ytQuota_() {
   return q;
 }
 
+/* ══ ۱۶.۷ — دورِ یوتیوب درست پس از ریستِ سهمیه ══
+   `ytPublishTick` هر دو ساعت می‌دود و ساعتش از نصبِ تریگر می‌آید، نه از ریستِ سهمیه. ۳ نوامبر سهمیه ۱۲:۰۰ دبی باز شد و
+   ۸۲/۸۶/۸۸ تا دورِ بعدی (تا دو ساعت) بی هیچ سطری منتظر ماندند. حالا نخستین باری که سهمیه می‌بندد، یک اجرای یک‌باره
+   ده دقیقه پس از نیمه‌شبِ اقیانوسِ آرام گذاشته می‌شود. */
+function ytQuotaResetMs_() {
+  var hms = Utilities.formatDate(new Date(), String(CFG.YT_QUOTA_TZ || 'America/Los_Angeles'), 'HH:mm:ss').split(':');
+  var sec = Number(hms[0]) * 3600 + Number(hms[1]) * 60 + Number(hms[2]);
+  return (86400 - sec + 600) * 1000;
+}
+function ytQuotaResetArm_() {
+  try {
+    clearRetryTriggers_('ytQuotaResetTick');
+    ScriptApp.newTrigger('ytQuotaResetTick').timeBased().after(ytQuotaResetMs_()).create();
+    props_().setProperty(PK.YT_RESET_ARM, nowStr_());
+    return true;
+  } catch (e) { try { logLine_('یوتیوب: اجرای پس از ریستِ سهمیه گذاشته نشد — ' + e.message); } catch (e2) {} return false; }
+}
+function ytQuotaResetTick() {
+  try { clearRetryTriggers_('ytQuotaResetTick'); } catch (e) {}
+  try { props_().setProperty(PK.YT_RESET_RAN, nowStr_()); } catch (e) {}
+  return ytPublishTick();
+}
+
 function ytQuotaSave_(q) {
   try { props_().setProperty(PK.YT_QUOTA, JSON.stringify(q)); } catch (e) {}
 }
@@ -52173,8 +52198,8 @@ function ytQuotaTake_(units, isUpload, flip) {
   var capUp = Math.max(1, Number(CFG.YT_QUOTA_UPLOADS) || 90);
   /* ۱۱.۵: «سقفِ روزانه»ِ ردیفِ یوتیوب در تبِ «مقصدها» — کوچک‌ترِ دو */
   try { capUp = Math.max(1, destCap_('yt', capUp)); } catch (eD) {}
-  if (isUpload && q.uploads + 1 > capUp) { q.blocked = 'آپلود'; ytQuotaSave_(q); return false; }
-  if (q.units + (Number(units) || 0) > capU) { q.blocked = 'واحد'; ytQuotaSave_(q); return false; }
+  if (isUpload && q.uploads + 1 > capUp) { if (!q.blocked) ytQuotaResetArm_(); q.blocked = 'آپلود'; ytQuotaSave_(q); return false; }
+  if (q.units + (Number(units) || 0) > capU) { if (!q.blocked) ytQuotaResetArm_(); q.blocked = 'واحد'; ytQuotaSave_(q); return false; }
   q.units += (Number(units) || 0);
   if (isUpload) q.uploads++;
   q.blocked = '';
@@ -64526,7 +64551,7 @@ function ytStatus_() {
     for (var p in m) if (Object.prototype.hasOwnProperty.call(m, p)) n++;
     out.playlists = n;
   } catch (e4) {}
-  try { out.quota = ytQuota_(); } catch (e5) {}
+  try { out.quota = ytQuota_(); out.quota.resetArm = props_().getProperty(PK.YT_RESET_ARM) || ''; out.quota.resetRan = props_().getProperty(PK.YT_RESET_RAN) || ''; } catch (e5) {}
   try { out.channel = ytChannelState_(); } catch (e6) { out.channel = null; }
   /* ترتیبِ پلی‌لیست‌ها و جایگزینی‌ها (۸.۵۷) — از Properties، بی خواندنِ یوتیوب. */
   try { out.plOrder = ytPlOrderState_(); out.plOrderLine = ytPlOrderLine_(); } catch (e7) {}

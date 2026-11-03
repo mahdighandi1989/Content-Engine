@@ -1,0 +1,20 @@
+/* ══ آزمونِ ۱۶.۷ — دورِ یوتیوب پس از ریستِ سهمیه ══ */
+require('./lib/root.js');
+const L = require('./lib/probe_r4_lib.js');
+const { ok, summary } = L;
+const store = {}, made = [], cleared = [];
+const keep = { props_: global.props_, ScriptApp: global.ScriptApp, clearRetryTriggers_: global.clearRetryTriggers_, ytPublishTick: global.ytPublishTick, destCap_: global.destCap_ };
+global.props_ = () => ({ getProperty: k => (k in store ? store[k] : null), setProperty: (k, v) => { store[k] = String(v); }, deleteProperty: k => { delete store[k]; } });
+global.clearRetryTriggers_ = fn => { cleared.push(fn); };
+global.destCap_ = (k, c) => c;
+global.ScriptApp = { newTrigger: fn => ({ timeBased: () => ({ after: ms => ({ create: () => { made.push({ fn, ms }); } }) }) }) };
+const big = (Number(CFG.YT_QUOTA_UNITS) || 9000) + 1;
+ok('۱.۱ نخستین بستنِ سهمیه یک اجرای پس از ریست می‌گذارد', ytQuotaTake_(big, false, false) === false && made.length === 1 && made[0].fn === 'ytQuotaResetTick' && !!store[PK.YT_RESET_ARM]);
+ok('۱.۲ زمانش بین ۱۰ دقیقه و ۲۴ ساعت و ۱۰ دقیقه', made[0].ms >= 600000 && made[0].ms <= 87000000);
+ytQuotaTake_(big, false, false);
+ok('۱.۳ بستنِ دوباره در همان روز تریگرِ دوم نمی‌سازد', made.length === 1);
+let ran = 0; global.ytPublishTick = () => { ran++; return { ok: true }; };
+ytQuotaResetTick();
+ok('۱.۴ اجرای پس از ریست خودش را پاک می‌کند و دورِ یوتیوب را می‌دواند', ran === 1 && cleared.includes('ytQuotaResetTick') && !!store[PK.YT_RESET_RAN]);
+Object.keys(keep).forEach(k => { global[k] = keep[k]; });
+summary('۱۶.۷');

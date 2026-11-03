@@ -94,6 +94,29 @@ function ytQuota_() {
   return q;
 }
 
+/* ══ ۱۶.۷ — دورِ یوتیوب درست پس از ریستِ سهمیه ══
+   `ytPublishTick` هر دو ساعت می‌دود و ساعتش از نصبِ تریگر می‌آید، نه از ریستِ سهمیه. ۳ نوامبر سهمیه ۱۲:۰۰ دبی باز شد و
+   ۸۲/۸۶/۸۸ تا دورِ بعدی (تا دو ساعت) بی هیچ سطری منتظر ماندند. حالا نخستین باری که سهمیه می‌بندد، یک اجرای یک‌باره
+   ده دقیقه پس از نیمه‌شبِ اقیانوسِ آرام گذاشته می‌شود. */
+function ytQuotaResetMs_() {
+  var hms = Utilities.formatDate(new Date(), String(CFG.YT_QUOTA_TZ || 'America/Los_Angeles'), 'HH:mm:ss').split(':');
+  var sec = Number(hms[0]) * 3600 + Number(hms[1]) * 60 + Number(hms[2]);
+  return (86400 - sec + 600) * 1000;
+}
+function ytQuotaResetArm_() {
+  try {
+    clearRetryTriggers_('ytQuotaResetTick');
+    ScriptApp.newTrigger('ytQuotaResetTick').timeBased().after(ytQuotaResetMs_()).create();
+    props_().setProperty(PK.YT_RESET_ARM, nowStr_());
+    return true;
+  } catch (e) { try { logLine_('یوتیوب: اجرای پس از ریستِ سهمیه گذاشته نشد — ' + e.message); } catch (e2) {} return false; }
+}
+function ytQuotaResetTick() {
+  try { clearRetryTriggers_('ytQuotaResetTick'); } catch (e) {}
+  try { props_().setProperty(PK.YT_RESET_RAN, nowStr_()); } catch (e) {}
+  return ytPublishTick();
+}
+
 function ytQuotaSave_(q) {
   try { props_().setProperty(PK.YT_QUOTA, JSON.stringify(q)); } catch (e) {}
 }
@@ -113,8 +136,8 @@ function ytQuotaTake_(units, isUpload, flip) {
   var capUp = Math.max(1, Number(CFG.YT_QUOTA_UPLOADS) || 90);
   /* ۱۱.۵: «سقفِ روزانه»ِ ردیفِ یوتیوب در تبِ «مقصدها» — کوچک‌ترِ دو */
   try { capUp = Math.max(1, destCap_('yt', capUp)); } catch (eD) {}
-  if (isUpload && q.uploads + 1 > capUp) { q.blocked = 'آپلود'; ytQuotaSave_(q); return false; }
-  if (q.units + (Number(units) || 0) > capU) { q.blocked = 'واحد'; ytQuotaSave_(q); return false; }
+  if (isUpload && q.uploads + 1 > capUp) { if (!q.blocked) ytQuotaResetArm_(); q.blocked = 'آپلود'; ytQuotaSave_(q); return false; }
+  if (q.units + (Number(units) || 0) > capU) { if (!q.blocked) ytQuotaResetArm_(); q.blocked = 'واحد'; ytQuotaSave_(q); return false; }
   q.units += (Number(units) || 0);
   if (isUpload) q.uploads++;
   q.blocked = '';
@@ -12466,7 +12489,7 @@ function ytStatus_() {
     for (var p in m) if (Object.prototype.hasOwnProperty.call(m, p)) n++;
     out.playlists = n;
   } catch (e4) {}
-  try { out.quota = ytQuota_(); } catch (e5) {}
+  try { out.quota = ytQuota_(); out.quota.resetArm = props_().getProperty(PK.YT_RESET_ARM) || ''; out.quota.resetRan = props_().getProperty(PK.YT_RESET_RAN) || ''; } catch (e5) {}
   try { out.channel = ytChannelState_(); } catch (e6) { out.channel = null; }
   /* ترتیبِ پلی‌لیست‌ها و جایگزینی‌ها (۸.۵۷) — از Properties، بی خواندنِ یوتیوب. */
   try { out.plOrder = ytPlOrderState_(); out.plOrderLine = ytPlOrderLine_(); } catch (e7) {}

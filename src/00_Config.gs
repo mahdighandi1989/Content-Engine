@@ -2366,7 +2366,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '16.6',
+  CODE_VERSION: '16.7',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3571,6 +3571,8 @@ var PK = {
   VM_SAMPLE_SWEEP: 'VM_SAMPLE_SWEEP',
   STATUS_FAIL: 'STATUS_FAIL',
   STATUS_DUE: 'STATUS_DUE',            // ۱۶.۴: بدهیِ نوشتنِ وضعیت پس از مسلح‌شدنِ statusLater
+  YT_RESET_ARM: 'YT_RESET_ARM',        // ۱۶.۷: اجرای پس از ریستِ سهمیه گذاشته شد
+  YT_RESET_RAN: 'YT_RESET_RAN',        // ۱۶.۷: اجرای پس از ریستِ سهمیه دوید
   STATUS_LATER_RAN: 'STATUS_LATER_RAN', // ۱۶.۴: آخرین شروعِ statusLater          // ۱۶.۱: آخرین شکستِ نوشتنِ _STATUS (چه کسی، علت، مرحله)
   VBR_RESEND_LOG: 'VBR_RESEND_LOG',   // ۱۵.۸: رسیدِ ارسالِ دوبارهٔ نمونه‌ها   // ۱۵.۳: روزی یک بار ردیف‌های نمونهٔ کهنه بسته می‌شوند
   GROUND_LAST: 'GROUND_LAST',      // آخرین دروازهٔ زمین‌گیریِ «از همه جا»: چند جملهٔ ساختگی پیش از صدا حذف شد (۹.۱۱)   // نمونهٔ یک‌باره: خواسته شد / خبر داده شد (۸.۹۷)
