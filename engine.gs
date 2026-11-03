@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 16.5
+ *  موتور محتوا و پادکست — نسخهٔ 16.6
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2385,7 +2385,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '16.5',
+  CODE_VERSION: '16.6',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3843,9 +3843,15 @@ function driveShareOpen_(x) {
 var RUN_CUR_ = '';
 
 var RUN_T0_ = 0;
+/* ══ تو-در-تو (۱۶.۶) ══ `prepareEpisode` خودش `produceEpisode` را صدا می‌زند و هر دو مهر می‌زنند. مرحله فقط روی
+   مهرِ درونی می‌نشست؛ اجرای ساعتِ ۷ همان نامِ درونی را دوباره باز و بسته کرد و مهرش (با مرحله) پاک شد، و تنها شاهدِ
+   ماندهٔ اجرای کشته‌شدهٔ ۴:۰۷ — مهرِ بیرونی — هرگز مرحله نداشت: «مرحله‌اش ثبت نشده» (۳ نوامبر). حالا مرحله روی
+   **همهٔ** مهرهای بازِ همین اجرا نوشته می‌شود. */
+var RUN_STACK_ = [];
 function runEnter_(fn) {
   RUN_CUR_ = String(fn);
   RUN_T0_ = new Date().getTime();
+  if (RUN_STACK_.indexOf(RUN_CUR_) === -1) RUN_STACK_.push(RUN_CUR_);
   try {
     var m = JSON.parse(props_().getProperty(PK.RUN_AT) || '{}');
     m[String(fn)] = { at: nowStr_(), ts: new Date().getTime() };
@@ -3868,14 +3874,24 @@ function runStage_(stage) {
   RUN_STAGE_LAST_ = s;
   try {
     var m = JSON.parse(props_().getProperty(PK.RUN_AT) || '{}');
-    if (!m[fn]) return;
-    m[fn].st = s;
-    m[fn].stTs = new Date().getTime();
+    var fns = RUN_STACK_.length ? RUN_STACK_.slice() : [fn], any = false, nowMs = new Date().getTime();
+    for (var i = 0; i < fns.length; i++) {
+      if (!m[fns[i]]) continue;
+      m[fns[i]].st = s;
+      m[fns[i]].stTs = nowMs;
+      any = true;
+    }
+    if (!any) return;
     props_().setProperty(PK.RUN_AT, JSON.stringify(m));
   } catch (e) { /* شاهد هرگز نباید خودش اجرا را بیندازد */ }
 }
 
 function runExit_(fn, note) {
+  try {
+    var ix = RUN_STACK_.lastIndexOf(String(fn));
+    if (ix !== -1) RUN_STACK_.splice(ix, 1);
+    if (RUN_CUR_ === String(fn)) RUN_CUR_ = RUN_STACK_.length ? RUN_STACK_[RUN_STACK_.length - 1] : '';
+  } catch (eSt) {}
   try {
     var m = JSON.parse(props_().getProperty(PK.RUN_AT) || '{}');
     delete m[String(fn)];
@@ -14069,6 +14085,7 @@ function produceEpisode(opt) {
 
     // پیش از هر چیز: گزارش‌های تازهٔ ناظر را بردار و دستورهای بازش را بخوان.
     // این دستورها قاعدهٔ سختِ همین قسمت‌اند و بر همهٔ قاعده‌های عمومی مقدم‌اند.
+    runStage_('متن: برداشتِ گزارش‌ها');                          // ۱۶.۶: کجا مُرد — مسیرِ نوشتن هم
     try { ingestReports_(hub); } catch (eIn) { logLine_('برداشت گزارش‌ها ناموفق: ' + eIn.message); }
     var orders = [];
     try { orders = openInstructions_(hub); } catch (eOr) { orders = []; }
@@ -14098,6 +14115,7 @@ function produceEpisode(opt) {
        کردن فقط از اعضای همان سیر است، کم بودن یعنی تلاشِ دوم با نامزدهای دسته‌های بعدی، و داورِ جدا
        هر عضو را می‌سنجد. گزینشِ بی‌نخ فقط وقتی که هیچ‌کدام نشد — و آن‌وقت بلند گفته می‌شود. */
     var route = '', curNote = '', reusedIn = [], vgJudged = [];
+    runStage_('متن: سردبیری و داوریِ آیتم‌ها');
     if (CFG.CURATE && pool.length > 4) {
       var minN = Math.max(3, Number(CFG.CURATE_MIN) || 5);
       var wide = pool;
@@ -14182,6 +14200,7 @@ function produceEpisode(opt) {
     var vMode = varietyMode_(items, picked.title);           // ۹.۱۴: ژانرِ غالب ⇒ قالبِ متن، صدا، پایان و موسیقی
     logLine_('قالبِ قسمت از ژانرِ آیتم‌ها: ' + vMode + ' (' + items.map(function (x) { return x.genre || '—'; }).join('، ') + ').');
     var epPrompt = buildPrompt_(picked.title, items, theme, connection, refs, when, orders, route, vMode);
+    runStage_('متن: نوشتنِ قسمتِ ' + epNum);
     var ep = geminiText_(epPrompt, EPISODE_SCHEMA);
     if (!ep.sections || !ep.sections.length) throw new Error('متن قسمت بدون بخش برگشت.');
     ep.mode = vMode;
@@ -14255,6 +14274,7 @@ function produceEpisode(opt) {
     // نویسه‌های عربیِ ناخوانا و جمله‌های بیش از حد بلند علامت می‌خورند و
     // به‌عنوان یافتهٔ خودِ موتور در تب گزارش‌ها ثبت می‌شوند، تا قسمت بعد
     // همان‌ها به‌شکل دستور به پرامپت برگردند.
+    runStage_('متن: پاسِ وفاداری و زمین‌گیری');
     var fid = [];
     try {
       fid = fidelityCheck_({ hook: ep.hook, outro: ep.outro, sections: ep.sections,
@@ -88397,7 +88417,14 @@ function igQuoteCheck_(quote, who, direct, sections) {
   }
   if (sec < 0) return { ok: false, why: 'جمله عیناً در متنِ درس نیست' };
   var raw = String(sections[sec].narration || '');
-  if (w && (' ' + igQuoteNorm_(raw) + ' ').indexOf(' ' + w + ' ') === -1) return { ok: false, why: 'نامِ «' + String(who).slice(0, 30) + '» در همان بخشِ درس نیست' };
+  /* ۱۶.۶: نامِ کامل («رابرت آئودی») یا دستِ‌کم نامِ خانوادگی‌اش (واژهٔ آخر، ≥۳ حرف). روایتِ درس معمولاً فقط «آئودی» می‌گوید؛
+     سدِ عبارتِ کامل 37.9 را پس از ۳ تلاش/۱۶۸ ساعت کنار گذاشت و ۳ نوامبر 52.9 را هم نگه داشت. نامی که هیچ تکه‌اش در بخش نیست
+     همچنان رد است (۱۵.۹: نسبتِ نادرست جبران‌پذیر نیست). */
+  var rawN = ' ' + igQuoteNorm_(raw) + ' ';
+  var wLast = w ? w.split(' ').pop() : '';
+  if (w && rawN.indexOf(' ' + w + ' ') === -1 && !(wLast.length >= 3 && wLast !== w && rawN.indexOf(' ' + wLast + ' ') !== -1)) {
+    return { ok: false, why: 'نامِ «' + String(who).slice(0, 30) + '» در همان بخشِ درس نیست' };
+  }
   var kind = 'lesson';
   if (w && /^(بله|آری|yes)/i.test(String(direct || '').trim())) {
     var segs = raw.match(/«[^»]{4,600}»/g) || [];

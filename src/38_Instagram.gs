@@ -2586,7 +2586,14 @@ function igQuoteCheck_(quote, who, direct, sections) {
   }
   if (sec < 0) return { ok: false, why: 'جمله عیناً در متنِ درس نیست' };
   var raw = String(sections[sec].narration || '');
-  if (w && (' ' + igQuoteNorm_(raw) + ' ').indexOf(' ' + w + ' ') === -1) return { ok: false, why: 'نامِ «' + String(who).slice(0, 30) + '» در همان بخشِ درس نیست' };
+  /* ۱۶.۶: نامِ کامل («رابرت آئودی») یا دستِ‌کم نامِ خانوادگی‌اش (واژهٔ آخر، ≥۳ حرف). روایتِ درس معمولاً فقط «آئودی» می‌گوید؛
+     سدِ عبارتِ کامل 37.9 را پس از ۳ تلاش/۱۶۸ ساعت کنار گذاشت و ۳ نوامبر 52.9 را هم نگه داشت. نامی که هیچ تکه‌اش در بخش نیست
+     همچنان رد است (۱۵.۹: نسبتِ نادرست جبران‌پذیر نیست). */
+  var rawN = ' ' + igQuoteNorm_(raw) + ' ';
+  var wLast = w ? w.split(' ').pop() : '';
+  if (w && rawN.indexOf(' ' + w + ' ') === -1 && !(wLast.length >= 3 && wLast !== w && rawN.indexOf(' ' + wLast + ' ') !== -1)) {
+    return { ok: false, why: 'نامِ «' + String(who).slice(0, 30) + '» در همان بخشِ درس نیست' };
+  }
   var kind = 'lesson';
   if (w && /^(بله|آری|yes)/i.test(String(direct || '').trim())) {
     var segs = raw.match(/«[^»]{4,600}»/g) || [];

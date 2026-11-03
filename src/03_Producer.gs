@@ -9091,6 +9091,7 @@ function produceEpisode(opt) {
 
     // پیش از هر چیز: گزارش‌های تازهٔ ناظر را بردار و دستورهای بازش را بخوان.
     // این دستورها قاعدهٔ سختِ همین قسمت‌اند و بر همهٔ قاعده‌های عمومی مقدم‌اند.
+    runStage_('متن: برداشتِ گزارش‌ها');                          // ۱۶.۶: کجا مُرد — مسیرِ نوشتن هم
     try { ingestReports_(hub); } catch (eIn) { logLine_('برداشت گزارش‌ها ناموفق: ' + eIn.message); }
     var orders = [];
     try { orders = openInstructions_(hub); } catch (eOr) { orders = []; }
@@ -9120,6 +9121,7 @@ function produceEpisode(opt) {
        کردن فقط از اعضای همان سیر است، کم بودن یعنی تلاشِ دوم با نامزدهای دسته‌های بعدی، و داورِ جدا
        هر عضو را می‌سنجد. گزینشِ بی‌نخ فقط وقتی که هیچ‌کدام نشد — و آن‌وقت بلند گفته می‌شود. */
     var route = '', curNote = '', reusedIn = [], vgJudged = [];
+    runStage_('متن: سردبیری و داوریِ آیتم‌ها');
     if (CFG.CURATE && pool.length > 4) {
       var minN = Math.max(3, Number(CFG.CURATE_MIN) || 5);
       var wide = pool;
@@ -9204,6 +9206,7 @@ function produceEpisode(opt) {
     var vMode = varietyMode_(items, picked.title);           // ۹.۱۴: ژانرِ غالب ⇒ قالبِ متن، صدا، پایان و موسیقی
     logLine_('قالبِ قسمت از ژانرِ آیتم‌ها: ' + vMode + ' (' + items.map(function (x) { return x.genre || '—'; }).join('، ') + ').');
     var epPrompt = buildPrompt_(picked.title, items, theme, connection, refs, when, orders, route, vMode);
+    runStage_('متن: نوشتنِ قسمتِ ' + epNum);
     var ep = geminiText_(epPrompt, EPISODE_SCHEMA);
     if (!ep.sections || !ep.sections.length) throw new Error('متن قسمت بدون بخش برگشت.');
     ep.mode = vMode;
@@ -9277,6 +9280,7 @@ function produceEpisode(opt) {
     // نویسه‌های عربیِ ناخوانا و جمله‌های بیش از حد بلند علامت می‌خورند و
     // به‌عنوان یافتهٔ خودِ موتور در تب گزارش‌ها ثبت می‌شوند، تا قسمت بعد
     // همان‌ها به‌شکل دستور به پرامپت برگردند.
+    runStage_('متن: پاسِ وفاداری و زمین‌گیری');
     var fid = [];
     try {
       fid = fidelityCheck_({ hook: ep.hook, outro: ep.outro, sections: ep.sections,

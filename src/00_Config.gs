@@ -2366,7 +2366,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '16.5',
+  CODE_VERSION: '16.6',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3824,9 +3824,15 @@ function driveShareOpen_(x) {
 var RUN_CUR_ = '';
 
 var RUN_T0_ = 0;
+/* ══ تو-در-تو (۱۶.۶) ══ `prepareEpisode` خودش `produceEpisode` را صدا می‌زند و هر دو مهر می‌زنند. مرحله فقط روی
+   مهرِ درونی می‌نشست؛ اجرای ساعتِ ۷ همان نامِ درونی را دوباره باز و بسته کرد و مهرش (با مرحله) پاک شد، و تنها شاهدِ
+   ماندهٔ اجرای کشته‌شدهٔ ۴:۰۷ — مهرِ بیرونی — هرگز مرحله نداشت: «مرحله‌اش ثبت نشده» (۳ نوامبر). حالا مرحله روی
+   **همهٔ** مهرهای بازِ همین اجرا نوشته می‌شود. */
+var RUN_STACK_ = [];
 function runEnter_(fn) {
   RUN_CUR_ = String(fn);
   RUN_T0_ = new Date().getTime();
+  if (RUN_STACK_.indexOf(RUN_CUR_) === -1) RUN_STACK_.push(RUN_CUR_);
   try {
     var m = JSON.parse(props_().getProperty(PK.RUN_AT) || '{}');
     m[String(fn)] = { at: nowStr_(), ts: new Date().getTime() };
@@ -3849,14 +3855,24 @@ function runStage_(stage) {
   RUN_STAGE_LAST_ = s;
   try {
     var m = JSON.parse(props_().getProperty(PK.RUN_AT) || '{}');
-    if (!m[fn]) return;
-    m[fn].st = s;
-    m[fn].stTs = new Date().getTime();
+    var fns = RUN_STACK_.length ? RUN_STACK_.slice() : [fn], any = false, nowMs = new Date().getTime();
+    for (var i = 0; i < fns.length; i++) {
+      if (!m[fns[i]]) continue;
+      m[fns[i]].st = s;
+      m[fns[i]].stTs = nowMs;
+      any = true;
+    }
+    if (!any) return;
     props_().setProperty(PK.RUN_AT, JSON.stringify(m));
   } catch (e) { /* شاهد هرگز نباید خودش اجرا را بیندازد */ }
 }
 
 function runExit_(fn, note) {
+  try {
+    var ix = RUN_STACK_.lastIndexOf(String(fn));
+    if (ix !== -1) RUN_STACK_.splice(ix, 1);
+    if (RUN_CUR_ === String(fn)) RUN_CUR_ = RUN_STACK_.length ? RUN_STACK_[RUN_STACK_.length - 1] : '';
+  } catch (eSt) {}
   try {
     var m = JSON.parse(props_().getProperty(PK.RUN_AT) || '{}');
     delete m[String(fn)];

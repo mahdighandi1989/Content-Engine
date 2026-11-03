@@ -897,6 +897,28 @@ console.log('\n=== ۱۸. مرحلهٔ اجرای کشته‌شده ===');
      /runStage_\('سینک: '/.test(sync) && /runStage_\('سینک: نوشتنِ _STATUS'\)/.test(sync) &&
      /MAX_RUNTIME_MS \+ 30000/.test(sync));
 }
+{
+  /* ۱۶.۶: اجرای کشته‌شدهٔ ۳ نوامبر — prepareEpisode ⇒ produceEpisode. مهرِ درونی را اجرای ساعتِ ۷ پاک کرد و مهرِ
+     بیرونی، تنها شاهدِ مانده، هرگز مرحله نداشت. */
+  delete global.__PROPS[PK.RUN_AT];
+  runEnter_('prepareEpisode');
+  runEnter_('produceEpisode');
+  runStage_('متن: نوشتنِ قسمتِ ۹۲');
+  let m = JSON.parse(global.__PROPS[PK.RUN_AT]);
+  ok('۱۸.۵ مرحله روی مهرِ بیرونی هم می‌نشیند (تو-در-تو)', m.prepareEpisode.st === 'متن: نوشتنِ قسمتِ ۹۲' && m.produceEpisode.st === 'متن: نوشتنِ قسمتِ ۹۲', JSON.stringify(m));
+  /* اجرای بعدی همان نامِ درونی را باز و بسته می‌کند — همان که شاهد را پاک می‌کرد. */
+  m = JSON.parse(global.__PROPS[PK.RUN_AT]); delete m.produceEpisode; global.__PROPS[PK.RUN_AT] = JSON.stringify(m);
+  const st = runStuck_(Date.now() + 20 * 60000);
+  ok('۱۸.۶ تنها مهرِ مانده می‌گوید کجا مُرد', st.items.length === 1 && st.items[0].fn === 'prepareEpisode' && /آخرین مرحله: «متن: نوشتنِ قسمتِ ۹۲»/.test(st.line), st.line);
+  runExit_('produceEpisode');
+  ok('۱۸.۷ پایانِ درونی، مرحلهٔ بعد را به بیرونی می‌دهد', RUN_CUR_ === 'prepareEpisode');
+  runStage_('پس از نوشتن');
+  ok('۱۸.۸ …و همان روی مهرِ بیرونی می‌نشیند', JSON.parse(global.__PROPS[PK.RUN_AT]).prepareEpisode.st === 'پس از نوشتن');
+  runExit_('prepareEpisode');
+  ok('۱۸.۹ پایانِ بیرونی پشته را خالی می‌کند', RUN_CUR_ === '' && !JSON.parse(global.__PROPS[PK.RUN_AT]).prepareEpisode);
+  const pe = String(global.produceEpisode);
+  ok('۱۸.۱۰ سیم‌کشی: مسیرِ نوشتنِ «از همه جا» مرحله می‌زند', /runStage_\('متن: نوشتنِ قسمتِ '/.test(pe) && /runStage_\('متن: سردبیری/.test(pe) && /runStage_\('متن: پاسِ وفاداری/.test(pe));
+}
 
 // ═════ ۱۹. اعراب فقط جایی که لازم است، و شنونده‌ای که واکه را می‌بیند (۹.۱۶) ═════
 console.log('\n=== ۱۹. اعرابِ کم و آوانگاری ===');
