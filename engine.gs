@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 16.4
+ *  موتور محتوا و پادکست — نسخهٔ 16.5
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2385,7 +2385,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '16.4',
+  CODE_VERSION: '16.5',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -40039,6 +40039,11 @@ function ghKick_(wf, why, opt) {
 /** کاری برای رانر نوشته شد: نشانهٔ «منتظر» و همان لحظه یک راه‌اندازی. */
 function ghRenderDue_(why) {
   if (CFG.GH_KICK_ON === false) return null;
+  /* ۱۶.۵ — «رندر ۶ ساعت کارِ منتظر دارد (از ۰۲:۴۱)» در حالی که صفِ ویدئو ۰ ردیفِ «در انتظار» داشت و اجراهای #۹۴۷/#۹۴۸ هر کدام
+     ۱۶ ثانیه بی‌کار برگشتند. نشانهٔ «منتظر» را فقط برداشتنِ **ویدئو** پاک می‌کند (`ytRenderDone_`)، ولی کاورِ پلی‌لیست، بنر،
+     پیش‌نمایشِ موسیقی و ریلز هم آن را می‌گذاشتند — کاری که هیچ‌وقت «ویدئوی رسیده» نمی‌شود. پس فقط درخواستِ ویدئو نشانه
+     می‌گذارد؛ بقیه یک راه‌اندازی می‌گیرند و cronِ ساعتیِ رانر پشتیبانشان است. */
+  if (!/^درخواستِ رندرِ/.test(String(why || ''))) return ghKick_(CFG.GH_RENDER_WF || 'render.yml', why);
   try { props_().setProperty(PK.GH_RENDER_DUE, nowStr_() + '|' + String(why || '').slice(0, 80)); } catch (e) {}
   /* ۱۳.۹: DUE با هر درخواستِ تازه بازنویسی می‌شود، پس «از کِی منتظر» را نمی‌گوید — SINCE فقط بارِ اول. */
   try { if (!props_().getProperty(PK.GH_RENDER_SINCE)) props_().setProperty(PK.GH_RENDER_SINCE, nowStr_()); } catch (e2) {}
@@ -40088,6 +40093,8 @@ function ghRenderKickDue_() {
   var t = parseWhen_(v.split('|')[0]);
   var maxMs = Math.max(1, Number(CFG.GH_RENDER_DUE_H) || 24) * 3600000;
   if (isNaN(t) || new Date().getTime() - t > maxMs) { ghRenderDueClear_(); return null; }
+  /* ۱۶.۵: نشانه‌ای که پیش از این نسخه از کارِ غیرِویدئویی گذاشته شد، این‌جا پاک می‌شود — نه ۲۴ ساعت بعد. */
+  if (!/^درخواستِ رندرِ/.test(v.split('|').slice(1).join('|'))) { ghRenderDueClear_(); return null; }
   try { ghRenderStallTell_(); } catch (eSt) {}
   if (!ghToken_()) return null;
   var w = ghKickState_()[CFG.GH_RENDER_WF || 'render.yml'] || {};

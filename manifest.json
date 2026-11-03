@@ -1,16 +1,16 @@
 {
-  "version": "16.4",
-  "codeFile": "engine.gs",
-  "sha256": "5b90b28849210033dd659b79c1790825fc82b6c11633d4e03fadbc486fafcc52",
-  "releasedAt": "2026-11-03T05:30:00+04:00",
-  "summary": "statusLater که مسلح شد و ننوشت: بدهیِ STATUS_DUE، وارسیِ ساعتی و مسلح‌کردنِ دوباره (حداکثر ۳)، شاهدِ شروع و نگهبانِ اجرای ناتمام.",
-  "fixes": [
-    "src/08_Health.gs: statusDueCheck_، مهرِ STATUS_LATER_RAN، runEnter_ برای statusLater، _STATUS.statusLaterRan",
-    "src/27_YouTube.gs: statusDueCheck_ در ytPublishTick"
-  ],
-  "sourceReportIds": [
-    "R-20261103-03"
-  ],
-  "answers": [],
-  "promptImpact": []
+ "version": "16.5",
+ "codeFile": "engine.gs",
+ "sha256": "1e9a81a643a584000e54f762a0a503deb5b794f45b150d95915cd90116b1e972",
+ "releasedAt": "2026-11-03T05:17:38Z",
+ "summary": "هشدارِ دروغِ «رندر ۶ ساعت منتظر»: فقط درخواستِ ویدئو نشانهٔ انتظار می‌گذارد؛ نشانهٔ کهنهٔ غیرِویدئویی پاک می‌شود",
+ "fixes": [
+  "ghRenderDue_: کارِ غیرِویدئویی فقط راه‌اندازی، بی GH_RENDER_DUE/SINCE",
+  "ghRenderKickDue_: نشانهٔ غیرِویدئوییِ موجود پاک می‌شود"
+ ],
+ "sourceReportIds": [
+  "R-20261103-04"
+ ],
+ "answers": [],
+ "promptImpact": []
 }
