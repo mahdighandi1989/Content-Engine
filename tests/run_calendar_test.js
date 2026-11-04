@@ -396,6 +396,27 @@ console.log('\n══ ۸-ب) قسمتی که امروز ساخته نشد، خو
   ok('۸-ب.۷ ساعتی است، پس هاب را باز نمی‌کند — شاهد از Properties', !/getHub_/.test(String(epCatchUp_)));
   delete P[PK.SP_LAST]; delete P[PK.EP_LAST]; delete P[PK.EP_MADE_DAY + '_cu_' + ENRICH_SHOW_SPECIAL]; global.__TRIGGERS.length = 0;
   ok('۸-ب.۸ بی هیچ قسمتِ تحویل‌شدهٔ ثبت‌شده، داوری نمی‌کند', epCatchUp_({ hour: 11, today: td }).length === 0 && global.__TRIGGERS.length === 0);
+  /* ۸-ب.۹ (۱۷.۰): ۴ نوامبر — سه دستهٔ علمی پس از دروازه «کم» خوردند، سقفِ ۲ تمام شد و دستهٔ چهارم هرگز امتحان نشد.
+     هر دستهٔ کنارگذاشتهٔ امروز یک نوبتِ اضافه می‌دهد؛ بی دستهٔ کنارگذاشته همان سقفِ ۲. */
+  {
+    P[PK.SP_LAST] = JSON.stringify({ episode: 93, at: td + ' 08:51' });            // درس‌نامهٔ امروز ساخته شد
+    P[PK.EP_LAST] = JSON.stringify({ episode: 92, at: '2026-10-18 07:54' });       // «از همه جا»ی امروز نه
+    for (const k of Object.keys(P)) if (k.indexOf(PK.EP_MADE_DAY) === 0) delete P[k];
+    delete P[PK.PENDING]; delete P[PK.SP_PENDING]; delete P[PK.VG_SKIP];
+    const runs = () => { const r = []; for (const h of [9, 10, 11, 12, 13, 14, 15]) r.push(epCatchUp_({ hour: h, today: td }).length); return r.reduce((a, b) => a + b, 0); };
+    global.__TRIGGERS.length = 0;
+    const plain = runs();
+    ok('۸-ب.۹-الف بی دستهٔ کنارگذاشته ⇒ همان سقفِ ۲', plain === 2, String(plain));
+    for (const k of Object.keys(P)) if (k.indexOf(PK.EP_MADE_DAY) === 0) delete P[k];
+    P[PK.VG_SKIP] = JSON.stringify({ day: td, cats: ['علمی و آموزشی', 'روانشناسی و رشد فردی', 'فرهنگی، تاریخی و ادبی'] });
+    const more = runs();
+    ok('۸-ب.۹-ب سه دستهٔ کنارگذاشته ⇒ ۵ نوبت، تا دستهٔ چهارم هم امتحان شود', more === 5, String(more));
+    P[PK.VG_SKIP] = JSON.stringify({ day: td, cats: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'] });
+    for (const k of Object.keys(P)) if (k.indexOf(PK.EP_MADE_DAY) === 0) delete P[k];
+    const capped = runs();
+    ok('۸-ب.۹-ج سقفِ اضافه طولِ قفلِ دسته است، نه بی‌نهایت', capped === 2 + (CFG.CAT_LOCK || []).length, String(capped));
+    delete P[PK.VG_SKIP];
+  }
   if (kSpL === undefined) delete P[PK.SP_LAST]; else P[PK.SP_LAST] = kSpL;
   if (kEpL === undefined) delete P[PK.EP_LAST]; else P[PK.EP_LAST] = kEpL;
   global.nowStr_ = kNow; global.__TRIGGERS.length = 0;

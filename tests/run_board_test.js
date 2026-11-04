@@ -808,6 +808,21 @@ console.log('\n=== وارسیِ ترتیبِ قسمت‌ها ===');
      hOrd.indexOf('⚠ ترتیب:') !== -1);
   ok('و رتبهٔ اولویت را خراب نکرده (کلیدِ order دست‌نخورده)',
      seriesBoardData_(hub).groups.every(g => g.series.every(y => y.order >= 1)));
+
+  /* ۸) ۱۷.۰ (chronic-db45a020): مشکوکِ زنده کارِ صاحبِ برنامه است ⇒ «⟨شما⟩»؛ مشکوکی که دیگر تولید نمی‌شود ⇒ ایراد نیست.
+     این سطر سه هفته هر روز ایراد بود برای «1»، یک شناسهٔ هگز و یک مجموعهٔ تمام‌شده، و مزمن شد. */
+  ok('۸.۱ مجموعهٔ زندهٔ مشکوک ⇒ سطر با «⟨شما⟩» شروع می‌شود و شمارِ زنده‌ها را می‌گوید',
+     st.line.indexOf('⟨شما⟩ ') === 0 && st.liveBad >= 1 && /هنوز در نوبتِ تولید/.test(st.line), st.line.slice(0, 160));
+  const regV = reg0.getRange(2, 1, reg0.getLastRow() - 1, SERIES_HEADERS.length).getValues();
+  const keepSt = regV.map(r => r[SC.STATUS - 1]);
+  regV.forEach((r, i) => { if (/^ord/.test(String(r[SC.KEY - 1]))) r[SC.STATUS - 1] = i % 2 ? SST.DONE : SST.SKIPPED; });
+  reg0.getRange(2, 1, regV.length, SERIES_HEADERS.length).setValues(regV);
+  const st2 = seriesOrderStatus_(hub);
+  ok('۸.۲ همان مشکوک‌ها وقتی تمام‌شده/بیرون‌رفته‌اند ⇒ ایراد نیست (ok) و «⟨شما⟩» ندارد — ولی هنوز در سطر دیده می‌شوند',
+     st2.ok === true && st2.line.indexOf('⟨شما⟩') === -1 && st2.bad >= 1 && /هیچ‌کدام در نوبتِ تولید نیست/.test(st2.line),
+     st2.line.slice(0, 160));
+  regV.forEach((r, i) => { r[SC.STATUS - 1] = keepSt[i]; });
+  reg0.getRange(2, 1, regV.length, SERIES_HEADERS.length).setValues(regV);
 }
 
 /* ══ نامِ اصلی در برابرِ نامِ تغییرکرده (۶٫۳۴) ══

@@ -9630,7 +9630,19 @@ function epCatchUp_(opt) {
     if (String(P.getProperty(okKey) || '') === today) continue;           // امروز یک بار دیده شد ⇒ بی خواندنِ هاب
     var tryKey = PK.EP_MADE_DAY + '_cu_' + s.show, tp = String(P.getProperty(tryKey) || '').split('|');
     var n = tp[0] === today ? (Number(tp[1]) || 0) : 0;
-    if (n >= Math.max(1, Number(CFG.EP_CATCHUP_MAX) || 2)) continue;
+    /* ══ ۱۷.۰: هر دستهٔ علمی یک نوبت، نه دو تلاش برای چهار دسته ══
+       ۴ نوامبر: «از همه جا» ساخته نشد. هر تلاش فقط **یک** دسته را امتحان می‌کند و اگر پس از دروازهٔ منبع کم آمد، همان دسته
+       را به `vgSkipAdd_` می‌دهد تا تلاشِ بعد سراغِ دستهٔ بعدی برود — ولی سقفِ روزانه ۲ بود و قفلِ دسته چهار دسته دارد. سه دسته
+       «کم» خوردند، تلاش‌ها تمام شد، و «مستند و مصاحبه» هرگز امتحان نشد: «پادکست متوقف نشود» (۱۱.۱) با یک عدد شکست.
+       پس هر دسته‌ای که امروز کنار رفت یک تلاشِ اضافه می‌دهد — این پیشرفت است، نه حلقه: هر نوبت یک دسته را برای همیشهٔ امروز
+       می‌بندد — و سقفش طولِ قفل است، پس شمار محدود می‌ماند. اجرایی که می‌میرد هیچ دسته‌ای نمی‌بندد و همان سقفِ ۲ را دارد. */
+    var cuMax = Math.max(1, Number(CFG.EP_CATCHUP_MAX) || 2);
+    if (s.show === ENRICH_SHOW_VARIETY) {
+      var skN = 0;
+      try { skN = vgSkipNow_().length; } catch (eSk) { skN = 0; }
+      cuMax += Math.min(skN, Math.max(1, (CFG.CAT_LOCK || []).length || 4));
+    }
+    if (n >= cuMax) continue;
     /* شاهد از Properties، نه هاب: این ساعتی است و هابِ ۲۹ مگابایتی را باز نمی‌کند (۷٫۶۳؛ `run_bridge_voice_test` ۲۶.۳ همین
        را گرفت). `EP_LAST`/`SP_LAST` را پایانِ هر قسمتِ تحویل‌شده می‌نویسد — از کدهای قدیم هم، پس روزِ نصب هم درست است. */
     var lastRaw = P.getProperty(s.last);
