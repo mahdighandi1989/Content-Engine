@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-04 12:19",
+ "updatedAt": "2026-11-04 17:36",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -6694,7 +6694,8 @@
     "صحنهٔ 27: زمینهٔ کارت یکدست بود (sd 3.7) ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 30: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 32: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت"
-   ]
+   ],
+   "pruned": "2026-11-04"
   },
   "variety:89": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-89.mp4",
@@ -7276,7 +7277,8 @@
     "صحنهٔ 19: زمینهٔ کارت یکدست بود (sd 1.1) ⇒ خودِ عکس، کنارِ کارت",
     "برشِ کلیپ از آغاز: صحنهٔ 11: کلیپ ساکن بود (13.6ث) ⇒ همان قاب با حرکتِ دوربین · صحنهٔ 12: گفتاری در کلیپ شنیده نشد · صحنهٔ 12: تکهٔ برگزیده 42٪ تیره بود ⇒ از ثانیهٔ 16.5 · صحنهٔ 21: شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-B",
     "لحظه‌ها: 119s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 15٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 14٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 203s: عبارت در کلیپ پیدا نشد (گفتاری در کلیپ شنیده نشد) · 366s: عبارت در کلیپ پیدا نشد (شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-B)"
-   ]
+   ],
+   "pruned": "2026-11-04"
   },
   "special:91": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-91.mp4",
@@ -7353,7 +7355,8 @@
     "smoothright": 33,
     "fade": 26
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-91-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-91-cover.jpg",
+   "pruned": "2026-11-04"
   },
   "variety:92": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-92.mp4",
@@ -9325,6 +9328,22 @@
    "segs": 5,
    "subs": 36,
    "at": "2026-11-04 09:49"
+  },
+  "ig:special:59.2": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-59-2.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-59-2-cover.jpg",
+   "sig": "e217467f581b",
+   "seconds": 69.9,
+   "bytes": 14261051,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-59-2-short.mp4",
+   "shortSeconds": 66.2,
+   "align": "faster-whisper",
+   "phrases": 38,
+   "trans": 4,
+   "imgs": 5,
+   "segs": 5,
+   "subs": 34,
+   "at": "2026-11-04 17:36"
   }
  },
  "musicPrev": {
@@ -10166,7 +10185,7 @@
  },
  "release": {
   "assets": 568,
-  "gb": 4.42,
-  "at": "2026-11-04 12:19"
+  "gb": 4.33,
+  "at": "2026-11-04 17:36"
  }
 }
