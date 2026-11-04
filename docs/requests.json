@@ -1839,6 +1839,13 @@
    "done": "هر فایلِ جانبیِ تازه در تلگرام یک پیامِ sendAudio با MP3 زیرِ ۵۰ مگابایت است (سیاههٔ هاب: «تلگرام: MP3 (… مگابایت)»؛ docs/voice-renders.json ردیف با mp3)، و هیچ درخواستِ خودکاری برای قسمتِ زیرِ ۹۲ در _VOICE-RENDER.json نوشته نمی‌شود",
    "how": "سیاههٔ هاب (پل: رسید … تلگرام: MP3) · docs/voice-renders.json · _VOICE-RENDER.json",
    "ver": "16.8"
+  },
+  {
+   "id": "R-20261104-01",
+   "ask": "وارسیِ دوره‌ای: هر روزی که وارسیِ سلامت نرفته خبر است — ۴ نوامبر وارسیِ ۱۰ سرِ «وضعیت: نوشتنِ فایل @ ۳۲۰ث» مُرد",
+   "done": "هر روز _STATUS.health.checkedAt تاریخِ همان روز (حدودِ ۱۰:۰۰ تا ۱۰:۱۰) دارد و health.lastStep با «تمام @» تمام می‌شود؛ statusBeforeHealth در Executions هر روز ۰۹:۳۰ Completed",
+   "how": "_STATUS.health.checkedAt / lastStep · Executions: statusBeforeHealth و healthCheck",
+   "ver": "16.9"
   }
  ]
 }

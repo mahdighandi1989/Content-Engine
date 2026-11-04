@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 16.8
+ *  موتور محتوا و پادکست — نسخهٔ 16.9
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2385,7 +2385,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '16.8',
+  CODE_VERSION: '16.9',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2565,6 +2565,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   /* ۱۶.۸ — کفِ دورِ خودکار (به ازای برنامه): قسمت‌های پیش از این شماره هرگز خودکار به پل نمی‌روند. خواستهٔ صاحبِ کانال: «فقط
      قسمت‌های تازه … مثلاً ۹۲ به بعد». تیکِ ستونِ K («قسمت‌های تولیدشده») از این کف رد می‌شود — انتخابِ صریحِ اوست. */
   VBR_EP_FLOOR: { special: 92, variety: 92 },
+  HEALTH_STATUS_FRESH_MIN: 45,      // ۱۶.۹: وارسیِ ۱۰ از _STATUSِ ۰۹:۳۰ می‌خوانَد اگر تازه‌تر از این باشد
   VBR_MP3_MAX_BYTES: 48000000,       // ۱۶.۸: بالاتر از این، MP3 فرستاده نمی‌شود (سقفِ ۵۰ مگابایتیِ UrlFetch و ربات)
   /* ۱۵.۱۰ — مبنای هر گوینده برای پل و نمونه‌ها (جز آنچه بذر صریح بگوید). گلدوز: همان تنظیمِ «نمونهٔ مقایسهٔ ۲۷ اکتبر» که او از «ب»
      بهتر شنید (تکِ فایلِ ۲۹۴٫۵ ثانیه‌ای = «بهترینِ تازه»؛ مدلِ 2026-10-14، index_rate/protect همان پیش‌فرض‌ها). */
@@ -15950,6 +15951,7 @@ function trigLabel_(fn) {
     produceEpisode: '«از همه جا از همه رنگ»',
     produceSpecialEpisode: '«درس‌نامه» (تخصصی)',
     healthCheck: 'وارسی سلامت',
+    statusBeforeHealth: 'نوشتنِ وضعیت پیش از وارسی',
     backupDaily: 'پشتیبانِ شیت‌ها',
     selfUpdateDaily: 'نصبِ خودکارِ کدِ تازه',
     ytPublishTick: 'انتشار در یوتیوب'
@@ -15986,6 +15988,7 @@ function wantedTriggers_() {
   var want = [
     { fn: 'syncCatalog',           kind: 'hours', every: 2 },
     { fn: 'produceEpisode',        kind: 'daily', hour: CFG.EPISODE_HOUR || 7 },
+    { fn: 'statusBeforeHealth',    kind: 'daily', hour: 9, minute: 30 },   // ۱۶.۹: _STATUS پیش از وارسی
     { fn: 'healthCheck',           kind: 'daily', hour: 10 }
   ];
   // آماده‌سازیِ زودِ متن، تا پنجرهٔ غنی‌سازیِ اینترنتی جا داشته باشد و ساعتِ
@@ -16119,7 +16122,7 @@ function ensureScheduledTriggers_() {
       } else if (want[w].kind === 'hours') {
         ScriptApp.newTrigger(want[w].fn).timeBased().everyHours(want[w].every).create();
       } else {
-        ScriptApp.newTrigger(want[w].fn).timeBased().atHour(want[w].hour).nearMinute(0)
+        ScriptApp.newTrigger(want[w].fn).timeBased().atHour(want[w].hour).nearMinute(Number(want[w].minute) || 0)
           .everyDays(1).inTimezone(CFG.TIMEZONE).create();
       }
       added.push(want[w].fn);
@@ -20261,6 +20264,33 @@ function capFindings_(hub, cap) {
   return n;
 }
 
+/** ۱۶.۹ — `_STATUS`ِ تازه (حداکثر `HEALTH_STATUS_FRESH_MIN` دقیقه) را بخوان، نه بساز. نبود یا کهنه ⇒ null (همان راهِ قبلی). */
+function healthStatusFresh_(hub) {
+  var maxMin = Number(CFG.HEALTH_STATUS_FRESH_MIN); if (!(maxMin > 0)) return null;
+  var c = null;
+  try { c = JSON.parse(props_().getProperty(PK.STATUS_COST) || 'null'); } catch (e) { c = null; }
+  var t = c && c.at ? Date.parse(String(c.at).replace(' ', 'T') + ':00+04:00') : NaN;
+  if (isNaN(t) || new Date().getTime() - t > maxMin * 60000) return null;
+  var it = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID).getFilesByName(STATUS_FILE);
+  if (!it.hasNext()) return null;
+  var st = JSON.parse(it.next().getBlob().getDataAsString());
+  if (!st || !st.bank || !st.sync) return null;
+  try { st.lastEpisode = lastEpisode_(hub); } catch (e2) {}
+  try { st.recentLog = recentLog_(hub, 25); } catch (e3) {}
+  st.fromFile = String(c.at);
+  return st;
+}
+
+/** ۱۶.۹ — تریگرِ روزانهٔ ۰۹:۳۰: `_STATUS` در اجرای خودش، پیش از وارسیِ ۱۰. نامِ جدا تا `clearRetryTriggers_('statusLater')` به آن نخورد. */
+function statusBeforeHealth() {
+  runEnter_('statusBeforeHealth');
+  try {
+    try { props_().setProperty(PK.STATUS_LATER_RAN, nowStr_()); } catch (eP) {}
+    try { writeStatus_(getHub_(), 'پیش از وارسیِ سلامت'); }
+    catch (e) { statusFailNote_('پیش از وارسی', e); }
+  } finally { runExit_('statusBeforeHealth'); }
+}
+
 /** وارسیِ سلامتِ روزانه (۱۰ صبح): همهٔ زیرسامانه‌ها را می‌سنجد، ایرادها و یادداشت‌ها را در _STATUS.json می‌نویسد و یک ایمیلِ عملیاتی می‌فرستد. */
 function healthCheck() {
   /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
@@ -20276,8 +20306,12 @@ function healthCheck() {
 
   // نوشتنِ فایل وضعیت نباید بتواند خودِ وارسی را بکشد. اگر درایو یک لحظه
   // در دسترس نباشد، مهم‌ترین کارِ این تابع — فرستادنِ هشدار — باید انجام شود.
-  var st;
-  try {
+  var st = null;
+  /* ۱۶.۹ — ۴ نوامبر وارسیِ ۱۰:۰۰ در گامِ «وضعیت: نوشتنِ فایل» سرِ ثانیهٔ ۳۲۰ مُرد و ایمیلِ روز نرفت؛ ۳ نوامبر ۳۰۸ ثانیه و
+     دو بخشِ جامانده. ساختنِ `_STATUS` درونِ همین شش دقیقه، بیشترِ بودجهٔ وارسی را می‌خورد. حالا `statusBeforeHealth` (۰۹:۳۰)
+     آن را در اجرای خودش می‌نویسد و این‌جا فقط خوانده می‌شود — و سه فیلدِ تازه‌ای که ممکن است پس از آن عوض شده باشند تازه می‌شوند. */
+  try { st = healthStatusFresh_(hub); } catch (eFr) { st = null; }
+  if (!st) try {
     st = writeStatus_(hub, 'وارسی سلامت');
   } catch (eSt) {
     problems.push('فایل وضعیت نوشته نشد: ' + eSt.message +

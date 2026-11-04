@@ -192,6 +192,7 @@ function trigLabel_(fn) {
     produceEpisode: '«از همه جا از همه رنگ»',
     produceSpecialEpisode: '«درس‌نامه» (تخصصی)',
     healthCheck: 'وارسی سلامت',
+    statusBeforeHealth: 'نوشتنِ وضعیت پیش از وارسی',
     backupDaily: 'پشتیبانِ شیت‌ها',
     selfUpdateDaily: 'نصبِ خودکارِ کدِ تازه',
     ytPublishTick: 'انتشار در یوتیوب'
@@ -228,6 +229,7 @@ function wantedTriggers_() {
   var want = [
     { fn: 'syncCatalog',           kind: 'hours', every: 2 },
     { fn: 'produceEpisode',        kind: 'daily', hour: CFG.EPISODE_HOUR || 7 },
+    { fn: 'statusBeforeHealth',    kind: 'daily', hour: 9, minute: 30 },   // ۱۶.۹: _STATUS پیش از وارسی
     { fn: 'healthCheck',           kind: 'daily', hour: 10 }
   ];
   // آماده‌سازیِ زودِ متن، تا پنجرهٔ غنی‌سازیِ اینترنتی جا داشته باشد و ساعتِ
@@ -361,7 +363,7 @@ function ensureScheduledTriggers_() {
       } else if (want[w].kind === 'hours') {
         ScriptApp.newTrigger(want[w].fn).timeBased().everyHours(want[w].every).create();
       } else {
-        ScriptApp.newTrigger(want[w].fn).timeBased().atHour(want[w].hour).nearMinute(0)
+        ScriptApp.newTrigger(want[w].fn).timeBased().atHour(want[w].hour).nearMinute(Number(want[w].minute) || 0)
           .everyDays(1).inTimezone(CFG.TIMEZONE).create();
       }
       added.push(want[w].fn);
