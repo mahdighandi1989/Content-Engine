@@ -7038,11 +7038,56 @@ function pickCategory_(hub) {
                    '«' + lock[0].name + '» دیگر محتوای کافی نداشت؛ دستهٔ علمیِ بعدی');
       return lockRes;
     }
+    /* ۱۷.۱ — تصمیمِ صاحبِ کانال: وقتی هیچ دستهٔ علمیِ تنها چهار نامزد ندارد، دسته‌های علمی با هم یک قسمت می‌سازند — فقط
+       دسته‌های قفل، و هر نامزد از همان دروازهٔ منبع (نویسندگی/زبان‌آموزی بیرون). پیش از افتادن به رتبه‌بندیِ همهٔ دسته‌ها. */
+    if (CFG.VG_SCI_COMBINE !== false) {
+      var comb = null;
+      try { comb = sciCombine_(hub, lock); } catch (eCb) { logLine_('ترکیبِ دسته‌های علمی نشد: ' + eCb.message); }
+      if (comb) {
+        catLockNote_(comb.title, 'هیچ دستهٔ علمیِ تنها چهار نامزد نداشت؛ ترکیبِ ' + comb.members.join('، '));
+        return comb;
+      }
+    }
     catLockNote_('', 'هیچ دستهٔ علمی محتوای کافی نداشت — این قسمت از رتبه‌بندیِ همهٔ دسته‌ها');
     logLine_('قفلِ دسته: دسته‌های علمی (' + lock.map(function (x) { return x.name; }).join('، ') +
              ') هیچ‌کدام قسمت نمی‌سازند؛ رتبه‌بندیِ عادی.');
   }
   return pickCategoryFrom_(hub, ranked, false);
+}
+
+/** کلیدِ «امروز کنار» برای ترکیب — جدا از نامِ هر دسته، تا ترکیبی که امروز نساخت دوباره امتحان نشود. */
+var SCI_COMBINE_KEY = 'ترکیبِ دسته‌های علمی';
+
+/**
+ * ۱۷.۱ — نامزدهای همهٔ دسته‌های علمیِ قفل، هر کدام از همان دروازهٔ منبع، با هم. ⇒ همان شکلِ `pickCategoryFrom_` یا null.
+ * `title` نامِ واقعیِ دسته‌ای است که بیشترین نامزد را داد (هر جای پایین‌دست که با نامِ دسته کار می‌کند، نامِ واقعی ببیند)؛
+ * `combined`/`members` می‌گویند که ترکیب است. هر آیتم `cat`ِ خودش را دارد، پس «استفاده‌شده» در تبِ خودش می‌نشیند.
+ */
+function sciCombine_(hub, lock) {
+  if (vgSkipNow_().indexOf(SCI_COMBINE_KEY) !== -1) return null;
+  var items = [], members = [], counts = {}, fresh = 0, firstSt = null;
+  for (var i = 0; i < (lock || []).length; i++) {
+    var name = lock[i].name;
+    try {
+      var st = tabStats_(hub, name, CFG.MIN_PRIORITY);
+      if (!st.rows.length) continue;
+      for (var z = 0; z < st.rows.length; z++) if (st.rows[z].fresh) fresh++;
+      var got = vgApply_(hub, fetchRows_(st.sheet, name, buildCandidates_(st.rows).map(function (x) { return x.row; })), '«' + name + '»');
+      if (!got.length) continue;
+      if (!firstSt) firstSt = st;
+      items = items.concat(got); counts[name] = got.length; members.push(name + ' (' + got.length + ')');
+    } catch (e) { logLine_('ترکیبِ علمی: «' + name + '» خوانده نشد — ' + e.message); }
+  }
+  items = dedupeById_(items);
+  var min = Math.max(1, Number(CFG.VG_SCI_COMBINE_MIN) || 4);
+  if (items.length < min || members.length < 2) {
+    logLine_('ترکیبِ دسته‌های علمی: ' + items.length + ' نامزد از ' + members.length + ' دسته — کافی نبود.');
+    return null;
+  }
+  var top = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; })[0];
+  logLine_('ترکیبِ دسته‌های علمی: ' + items.length + ' نامزد از ' + members.join('، ') + '.');
+  return { title: top, stats: firstSt, items: items, refs: [], freshCount: fresh, others: [],
+           combined: true, members: members };
 }
 
 /** ترتیبِ قفل (۱۱.۰): فقط دسته‌هایی از `CAT_LOCK` که در داشبورد هستند و دست‌کم ۵ ردیفِ واجد دارند. خاموش ⇒ []. */
@@ -9178,12 +9223,12 @@ function produceEpisode(opt) {
     }
 
     if (items.length < 4) {
-      logLine_('تولید: آیتم کافی در «' + picked.title + '» نبود (' + items.length + ').');
+      logLine_('تولید: آیتم کافی در «' + (picked.combined ? SCI_COMBINE_KEY + ': ' + picked.members.join('، ') : picked.title) + '» نبود (' + items.length + ').');
       /* ۱۳.۴: پس از دروازهٔ منبع کم آمد ⇒ امروز این دسته کنار، و جبرانِ خودکار (`epCatchUp_`) با دستهٔ علمیِ بعدی می‌سازد
          — «پادکست متوقف نشود» (۱۱.۱) و «فقط علمی» (۱۳.۴) با هم. */
       if (CFG.VG_ON !== false) {
         try {
-          var skA = typeof vgSkipAdd_ === 'function' ? vgSkipAdd_(picked.title) : [];
+          var skA = typeof vgSkipAdd_ === 'function' ? vgSkipAdd_(picked.combined ? SCI_COMBINE_KEY : picked.title) : [];
           mailQueue_('variety-few', '«' + CFG.SHOW_NAME + '»: دستهٔ «' + picked.title + '» امروز قسمت نساخت',
                      'پس از دروازهٔ منبع (فقط مجموعه‌های علمیِ مطمئن، بی‌مجموعه با «بله»ی داور) ' + items.length +
                      ' عضو ماند. جبرانِ خودکار با دستهٔ بعدی امتحان می‌کند. دسته‌های کنارِ امروز: ' + skA.join('، '));

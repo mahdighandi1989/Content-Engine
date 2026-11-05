@@ -145,7 +145,7 @@ ok('۷.۵ سیم: `_STATUS.varietyGate` و خطِ روزانه', /varietyGate: \
 ok('۸.۱ دروازه روی نامزدهای دسته، ارجاع‌ها و دسته‌های دیگر', /items = vgApply_\(hub, items, '«' \+ ranked\[t\]\.name \+ '»'\)/.test(s03) &&
    /refs = vgApply_\(hub, refs, 'ارجاع'\);/.test(s03) && /refs = \(cur\.references \|\| \[\]\)\.filter\(function \(x\) \{ return CFG\.VG_ON === false \|\| !x\.vgLoose \|\| x\.vgSci; \}\)/.test(s03) && /curateJudge_\(cur\.theme, cur\.connection, cur\.route, mixed, cur\.references \|\| \[\]\)/.test(s03) && /concat\(vgApply_\(hub, fetchRows_\(st\.sheet, names\[i\]/.test(s03));
 ok('۸.۲ گزینشِ بی‌نخ هم از داورِ «علمی و محتوایی» می‌گذرد (بی‌مجموعهٔ تأییدنشده بیرون)', /var jf = curateJudge_\('بی‌نخ/.test(s03) && /return !x\.vgLoose \|\| x\.vgSci;/.test(s03));
-ok('۸.۳ دستهٔ کم‌آمده امروز کنار و جبران با دستهٔ بعدی', /vgSkipAdd_\(picked\.title\)/.test(s03) && /if \(vgSkipNow_\(\)\.indexOf\(ranked\[t\]\.name\) !== -1\) continue;/.test(s03));
+ok('۸.۳ دستهٔ کم‌آمده امروز کنار و جبران با دستهٔ بعدی', /vgSkipAdd_\((?:picked\.combined \? SCI_COMBINE_KEY : )?picked\.title\)/.test(s03) && /if \(vgSkipNow_\(\)\.indexOf\(ranked\[t\]\.name\) !== -1\) continue;/.test(s03));
 vgSkipAdd_('علمی و آموزشی');
 ok('۸.۴ فهرستِ کنارِ امروز خوانده می‌شود', vgSkipToday_().indexOf('علمی و آموزشی') !== -1 && vgSkipNow_().indexOf('علمی و آموزشی') !== -1);
 ok('۸.۵ تولید دست نخورد: VBR_EP_HOLD روشن، VBR_SEG_PITCH خاموش', CFG.VBR_EP_HOLD === true && CFG.VBR_SEG_PITCH === false);

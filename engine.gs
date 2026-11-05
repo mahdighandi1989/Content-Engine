@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 17.0
+ *  موتور محتوا و پادکست — نسخهٔ 17.1
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2385,7 +2385,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '17.0',
+  CODE_VERSION: '17.1',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2565,6 +2565,8 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   /* ۱۶.۸ — کفِ دورِ خودکار (به ازای برنامه): قسمت‌های پیش از این شماره هرگز خودکار به پل نمی‌روند. خواستهٔ صاحبِ کانال: «فقط
      قسمت‌های تازه … مثلاً ۹۲ به بعد». تیکِ ستونِ K («قسمت‌های تولیدشده») از این کف رد می‌شود — انتخابِ صریحِ اوست. */
   VBR_EP_FLOOR: { special: 92, variety: 92 },
+  VG_SCI_COMBINE: true,             // ۱۷.۱: هیچ دستهٔ علمیِ تنها ۴ نامزد نداشت ⇒ دسته‌های علمیِ قفل با هم (تصمیمِ صاحبِ کانال، ۵ نوامبر)
+  VG_SCI_COMBINE_MIN: 4,
   HEALTH_STATUS_FRESH_MIN: 45,      // ۱۶.۹: وارسیِ ۱۰ از _STATUSِ ۰۹:۳۰ می‌خوانَد اگر تازه‌تر از این باشد
   VBR_MP3_MAX_BYTES: 48000000,       // ۱۶.۸: بالاتر از این، MP3 فرستاده نمی‌شود (سقفِ ۵۰ مگابایتیِ UrlFetch و ربات)
   /* ۱۵.۱۰ — مبنای هر گوینده برای پل و نمونه‌ها (جز آنچه بذر صریح بگوید). گلدوز: همان تنظیمِ «نمونهٔ مقایسهٔ ۲۷ اکتبر» که او از «ب»
@@ -12039,11 +12041,56 @@ function pickCategory_(hub) {
                    '«' + lock[0].name + '» دیگر محتوای کافی نداشت؛ دستهٔ علمیِ بعدی');
       return lockRes;
     }
+    /* ۱۷.۱ — تصمیمِ صاحبِ کانال: وقتی هیچ دستهٔ علمیِ تنها چهار نامزد ندارد، دسته‌های علمی با هم یک قسمت می‌سازند — فقط
+       دسته‌های قفل، و هر نامزد از همان دروازهٔ منبع (نویسندگی/زبان‌آموزی بیرون). پیش از افتادن به رتبه‌بندیِ همهٔ دسته‌ها. */
+    if (CFG.VG_SCI_COMBINE !== false) {
+      var comb = null;
+      try { comb = sciCombine_(hub, lock); } catch (eCb) { logLine_('ترکیبِ دسته‌های علمی نشد: ' + eCb.message); }
+      if (comb) {
+        catLockNote_(comb.title, 'هیچ دستهٔ علمیِ تنها چهار نامزد نداشت؛ ترکیبِ ' + comb.members.join('، '));
+        return comb;
+      }
+    }
     catLockNote_('', 'هیچ دستهٔ علمی محتوای کافی نداشت — این قسمت از رتبه‌بندیِ همهٔ دسته‌ها');
     logLine_('قفلِ دسته: دسته‌های علمی (' + lock.map(function (x) { return x.name; }).join('، ') +
              ') هیچ‌کدام قسمت نمی‌سازند؛ رتبه‌بندیِ عادی.');
   }
   return pickCategoryFrom_(hub, ranked, false);
+}
+
+/** کلیدِ «امروز کنار» برای ترکیب — جدا از نامِ هر دسته، تا ترکیبی که امروز نساخت دوباره امتحان نشود. */
+var SCI_COMBINE_KEY = 'ترکیبِ دسته‌های علمی';
+
+/**
+ * ۱۷.۱ — نامزدهای همهٔ دسته‌های علمیِ قفل، هر کدام از همان دروازهٔ منبع، با هم. ⇒ همان شکلِ `pickCategoryFrom_` یا null.
+ * `title` نامِ واقعیِ دسته‌ای است که بیشترین نامزد را داد (هر جای پایین‌دست که با نامِ دسته کار می‌کند، نامِ واقعی ببیند)؛
+ * `combined`/`members` می‌گویند که ترکیب است. هر آیتم `cat`ِ خودش را دارد، پس «استفاده‌شده» در تبِ خودش می‌نشیند.
+ */
+function sciCombine_(hub, lock) {
+  if (vgSkipNow_().indexOf(SCI_COMBINE_KEY) !== -1) return null;
+  var items = [], members = [], counts = {}, fresh = 0, firstSt = null;
+  for (var i = 0; i < (lock || []).length; i++) {
+    var name = lock[i].name;
+    try {
+      var st = tabStats_(hub, name, CFG.MIN_PRIORITY);
+      if (!st.rows.length) continue;
+      for (var z = 0; z < st.rows.length; z++) if (st.rows[z].fresh) fresh++;
+      var got = vgApply_(hub, fetchRows_(st.sheet, name, buildCandidates_(st.rows).map(function (x) { return x.row; })), '«' + name + '»');
+      if (!got.length) continue;
+      if (!firstSt) firstSt = st;
+      items = items.concat(got); counts[name] = got.length; members.push(name + ' (' + got.length + ')');
+    } catch (e) { logLine_('ترکیبِ علمی: «' + name + '» خوانده نشد — ' + e.message); }
+  }
+  items = dedupeById_(items);
+  var min = Math.max(1, Number(CFG.VG_SCI_COMBINE_MIN) || 4);
+  if (items.length < min || members.length < 2) {
+    logLine_('ترکیبِ دسته‌های علمی: ' + items.length + ' نامزد از ' + members.length + ' دسته — کافی نبود.');
+    return null;
+  }
+  var top = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; })[0];
+  logLine_('ترکیبِ دسته‌های علمی: ' + items.length + ' نامزد از ' + members.join('، ') + '.');
+  return { title: top, stats: firstSt, items: items, refs: [], freshCount: fresh, others: [],
+           combined: true, members: members };
 }
 
 /** ترتیبِ قفل (۱۱.۰): فقط دسته‌هایی از `CAT_LOCK` که در داشبورد هستند و دست‌کم ۵ ردیفِ واجد دارند. خاموش ⇒ []. */
@@ -14179,12 +14226,12 @@ function produceEpisode(opt) {
     }
 
     if (items.length < 4) {
-      logLine_('تولید: آیتم کافی در «' + picked.title + '» نبود (' + items.length + ').');
+      logLine_('تولید: آیتم کافی در «' + (picked.combined ? SCI_COMBINE_KEY + ': ' + picked.members.join('، ') : picked.title) + '» نبود (' + items.length + ').');
       /* ۱۳.۴: پس از دروازهٔ منبع کم آمد ⇒ امروز این دسته کنار، و جبرانِ خودکار (`epCatchUp_`) با دستهٔ علمیِ بعدی می‌سازد
          — «پادکست متوقف نشود» (۱۱.۱) و «فقط علمی» (۱۳.۴) با هم. */
       if (CFG.VG_ON !== false) {
         try {
-          var skA = typeof vgSkipAdd_ === 'function' ? vgSkipAdd_(picked.title) : [];
+          var skA = typeof vgSkipAdd_ === 'function' ? vgSkipAdd_(picked.combined ? SCI_COMBINE_KEY : picked.title) : [];
           mailQueue_('variety-few', '«' + CFG.SHOW_NAME + '»: دستهٔ «' + picked.title + '» امروز قسمت نساخت',
                      'پس از دروازهٔ منبع (فقط مجموعه‌های علمیِ مطمئن، بی‌مجموعه با «بله»ی داور) ' + items.length +
                      ' عضو ماند. جبرانِ خودکار با دستهٔ بعدی امتحان می‌کند. دسته‌های کنارِ امروز: ' + skA.join('، '));
