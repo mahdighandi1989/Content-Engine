@@ -2439,16 +2439,18 @@ def runOne(it, mp):
     # شکستش ردیف را نمی‌بندد؛ موتور به همان WAV برمی‌گردد.
     mp3 = None
     try:
-        mp = os.path.join(os.path.dirname(os.path.abspath(best)) or ".", "tg.mp3")
+        # ۱۷.۳: نامِ این متغیر `mp` بود و پارامترِ `mp` (نقشهٔ خروجی) را می‌پوشاند ⇒ `mp["items"][key]` TypeError،
+        # تبدیلِ ۳۵ دقیقه‌ای بی ثبت (اجرای ۲۳۳، ۵ نوامبر). `run_v173_test` هر پوشاندنِ پارامتر در runOne را می‌گیرد.
+        tgMp3 = os.path.join(os.path.dirname(os.path.abspath(best)) or ".", "tg.mp3")
         subprocess.check_call(["ffmpeg", "-y", "-nostdin", "-loglevel", "error", "-i", best,
-                               "-ac", "1", "-ar", "44100", "-c:a", "libmp3lame", "-b:a", "128k", mp])
-        if os.path.getsize(mp) < 48000000:
-            mu = uploadAsset(rel, mp, assetName(key, 0, 1)[:-4] + ".mp3")
+                               "-ac", "1", "-ar", "44100", "-c:a", "libmp3lame", "-b:a", "128k", tgMp3])
+        if os.path.getsize(tgMp3) < 48000000:
+            mu = uploadAsset(rel, tgMp3, assetName(key, 0, 1)[:-4] + ".mp3")
             if mu:
-                mp3 = {"url": mu, "bytes": os.path.getsize(mp)}
-                say("  MP3 برای تلگرام: %.1f مگابایت" % (os.path.getsize(mp) / 1048576.0))
+                mp3 = {"url": mu, "bytes": os.path.getsize(tgMp3)}
+                say("  MP3 برای تلگرام: %.1f مگابایت" % (os.path.getsize(tgMp3) / 1048576.0))
         else:
-            say("::warning title=MP3 بزرگ::%.1f مگابایت — فقط WAV" % (os.path.getsize(mp) / 1048576.0))
+            say("::warning title=MP3 بزرگ::%.1f مگابایت — فقط WAV" % (os.path.getsize(tgMp3) / 1048576.0))
     except Exception as e:
         say("::warning title=MP3 ساخته نشد::%s" % str(e)[:200])
     rec = {"urls": urls, "pieceBytes": pbytes, "bytes": sum(pbytes),
