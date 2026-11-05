@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 17.1
+ *  موتور محتوا و پادکست — نسخهٔ 17.2
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2385,7 +2385,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '17.1',
+  CODE_VERSION: '17.2',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2561,7 +2561,9 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   VBR_MAX: 4,                        // درخواستِ بی‌جوابِ هم‌زمان
   /* ۹.۴۵: «حالم به هم خورد» — خروجیِ پل روی قسمت‌ها بد بود و روی نمونه‌ها خوب، چون صدای مبدأ فرق داشت. تا او نمونهٔ
      درسِ ۷۴ را (همان روشِ نمونه‌ها) نشنیده و نپسندیده، پل برای قسمت‌های تازه خودکار چیزی نمی‌سازد. تیکِ خودش کار می‌کند. */
-  VBR_EP_HOLD: true,
+  /* ۱۷.۲ — برداشته شد به تصمیمِ صریحِ صاحبِ کانال (۵ نوامبر، «گزینهٔ ۲»): برای هر قسمتِ تازه (≥ `VBR_EP_FLOOR`) یک MP3ِ جدا
+     فقط در تلگرام. `VBR_REPLACE` و `VBR_SEG_PITCH` خاموش می‌مانند. خاموش‌کردن از شیت: ستونِ «فایلِ جانبیِ تلگرام» = خیر. */
+  VBR_EP_HOLD: false,
   /* ۱۶.۸ — کفِ دورِ خودکار (به ازای برنامه): قسمت‌های پیش از این شماره هرگز خودکار به پل نمی‌روند. خواستهٔ صاحبِ کانال: «فقط
      قسمت‌های تازه … مثلاً ۹۲ به بعد». تیکِ ستونِ K («قسمت‌های تولیدشده») از این کف رد می‌شود — انتخابِ صریحِ اوست. */
   VBR_EP_FLOOR: { special: 92, variety: 92 },
@@ -3597,6 +3599,7 @@ var PK = {
   VM_SAMPLE_SWEEP: 'VM_SAMPLE_SWEEP',
   STATUS_FAIL: 'STATUS_FAIL',
   STATUS_DUE: 'STATUS_DUE',            // ۱۶.۴: بدهیِ نوشتنِ وضعیت پس از مسلح‌شدنِ statusLater
+  VBR_SIDE_NOTES: 'VBR_SIDE_NOTES',    // ۱۷.۲: اثرِ انگشتِ ایرادهای خوانده‌شدهٔ فایلِ جانبی
   YT_RESET_ARM: 'YT_RESET_ARM',        // ۱۶.۷: اجرای پس از ریستِ سهمیه گذاشته شد
   YT_RESET_RAN: 'YT_RESET_RAN',        // ۱۶.۷: اجرای پس از ریستِ سهمیه دوید
   STATUS_LATER_RAN: 'STATUS_LATER_RAN', // ۱۶.۴: آخرین شروعِ statusLater          // ۱۶.۱: آخرین شکستِ نوشتنِ _STATUS (چه کسی، علت، مرحله)
@@ -72838,11 +72841,13 @@ function bridgeAuditStatus_(hub) {
 var PERSONA_HEADERS = ['کلید', 'نام', 'فعال', 'برنامه‌ها', 'هر چند قسمت',
                        'دستورِ سبک', 'حالت‌ها', 'آخرین تصمیم', 'آخرین استفاده',
                        'قسمت‌های موردی', 'قسمت‌های تولیدشده (تیک‌خورده)',
-                       'گامِ تبدیل'];
+                       'گامِ تبدیل',
+                       'فایلِ جانبیِ تلگرام (بله/خیر)',
+                       'ایرادِ فایلِ جانبی (قسمت، دقیقه، چه شنیدید)'];
 
 /** شمارهٔ ستون‌ها (۱-بنیان) — همان الگوی `CC` در بخشِ ۲۵. */
 var PC = { KEY: 1, NAME: 2, ON: 3, SHOWS: 4, EVERY: 5, STYLE: 6, MODES: 7,
-           LAST: 8, USED: 9, ONCE: 10, PICK: 11, PITCH: 12 };
+           LAST: 8, USED: 9, ONCE: 10, PICK: 11, PITCH: 12, SIDE: 13, SIDE_NOTE: 14 };
 
 /**
  * گامِ تبدیلِ این گوینده، و **از کجا آمد**.
@@ -83241,6 +83246,7 @@ function vbrNightly_(hub) {
      قسمت‌هایی می‌مانَد که کسی انتخابشان نکرده. */
   try { out.seeded = vbrSeedAsk_(); }
   catch (eS) { try { logLine_('درخواستِ بذرِ پل ناموفق: ' + eS.message); } catch (eSb) {} }
+  try { out.sideNotes = vbrSideNotes_(); } catch (eSn) { try { logLine_('ایرادهای فایلِ جانبی خوانده نشد: ' + eSn.message); } catch (eSn2) {} }
   try { out.asked = vbrAskDue_(h); }
   catch (e2) { try { logLine_('درخواستِ پل نوشته نشد: ' + e2.message); } catch (e2b) {} }
   /* مدلِ تحویلی، و گویندهٔ آماده‌ای که مدلش دستی آمد (۸.۴۱). */
@@ -83464,6 +83470,7 @@ function vbrSpeakerPick_(rows, show, epRaw, seriesOpt) {
   for (var i = 0; i < rs.length; i++) {
     var k = String(rs[i][PC.KEY - 1] || '').trim();
     if (!k) continue;
+    if (vbrSideOff_(rs[i])) continue;                   // ۱۷.۲: «فایلِ جانبیِ تلگرام = خیر»
     try {
       if (personaOnceHit_(rs[i][PC.ONCE - 1], rs[i][PC.SHOWS - 1], show, k, e)) {
         return { key: k, why: 'موردی' };
@@ -83479,7 +83486,7 @@ function vbrSpeakerPick_(rows, show, epRaw, seriesOpt) {
   /* ۱۲.۵: ردیفِ همین مجموعه پیش از ردیفِ برنامه — همان ترتیبِ `personaFor_`، وگرنه رنگ و شیوهٔ خواندن از دو ردیف می‌آمد (۹.۲۸). */
   for (var j0 = 0; j0 < rs.length; j0++) {
     var k0 = String(rs[j0][PC.KEY - 1] || '').trim();
-    if (!k0 || !personaOn_(rs[j0][PC.ON - 1])) continue;
+    if (!k0 || !personaOn_(rs[j0][PC.ON - 1]) || vbrSideOff_(rs[j0])) continue;
     if (personaShowOk_(rs[j0][PC.SHOWS - 1], show, show, seriesOpt) !== 2) continue;
     if (!personaTurn_(rs[j0][PC.EVERY - 1], e)) continue;
     if (!String(rs[j0][PC.STYLE - 1] || '').trim()) continue;
@@ -83487,13 +83494,70 @@ function vbrSpeakerPick_(rows, show, epRaw, seriesOpt) {
   }
   for (var j = 0; j < rs.length; j++) {
     var kj = String(rs[j][PC.KEY - 1] || '').trim();
-    if (!kj || !personaOn_(rs[j][PC.ON - 1])) continue;
+    if (!kj || !personaOn_(rs[j][PC.ON - 1]) || vbrSideOff_(rs[j])) continue;
     if (!personaShowOk_(rs[j][PC.SHOWS - 1], show, show, seriesOpt)) continue;
     if (!personaTurn_(rs[j][PC.EVERY - 1], e)) continue;
     if (!String(rs[j][PC.STYLE - 1] || '').trim()) continue;
     return { key: kj, why: 'دائم' };
   }
   return { key: '', why: '' };
+}
+
+/**
+ * ۱۷.۲ — کلیدِ تلگرامیِ هر گوینده در تبِ «صداها». «خیر» ⇒ هیچ فایلِ جانبیِ **خودکار** برای او ساخته نمی‌شود؛ شیوهٔ
+ * خواندنِ قسمتِ اصلی (ستونِ «فعال») دست نمی‌خورد. خالی یا «بله» ⇒ روشن. تیکِ ستونِ «قسمت‌های تولیدشده» انتخابِ صریح است و
+ * از این کلید هم رد می‌شود — همان قاعدهٔ ۷٫۴۱ که «موردی» از «فعال» عبور می‌کند.
+ */
+function vbrSideOff_(row) {
+  var v = String((row && row[PC.SIDE - 1]) == null ? '' : row[PC.SIDE - 1]).trim();
+  if (!v) return false;
+  return personaOn_(v) === false;
+}
+
+/**
+ * ۱۷.۲ — ستونِ «ایرادِ فایلِ جانبی»: هر متنِ تازه یک یافتهٔ «کد» می‌شود (صفِ NEEDS_CODE، همان دری که ناظر از آن نسخه می‌سازد)،
+ * یک خط در سیاهه، و یک پیامِ «دریافت شد» در تلگرام. هر متن فقط یک بار (اثرِ انگشتِ گوینده+متن). خانهٔ او **هرگز** بازنویسی نمی‌شود.
+ * و سرستون‌ها یادداشتِ راهنما می‌گیرند — چون «توضیح در تب» خواستهٔ صاحبِ کانال بود.
+ */
+function vbrSideNotes_(rowsOpt, shOpt) {
+  var out = { seen: 0, fresh: 0 };
+  var rows = rowsOpt || vbrSpeakerRows_();
+  var P = props_(), seen = {};
+  try { seen = JSON.parse(P.getProperty(PK.VBR_SIDE_NOTES) || '{}') || {}; } catch (e) { seen = {}; }
+  for (var i = 0; i < rows.length; i++) {
+    var key = String(rows[i][PC.KEY - 1] || '').trim();
+    var txt = String(rows[i][PC.SIDE_NOTE - 1] == null ? '' : rows[i][PC.SIDE_NOTE - 1]).trim();
+    if (!key || !txt) continue;
+    out.seen++;
+    var hh = 5381; for (var c = 0; c < txt.length; c++) hh = ((hh * 33) ^ txt.charCodeAt(c)) >>> 0;
+    var fp = key + ':' + hh.toString(36) + ':' + txt.length;
+    if (seen[fp]) continue;
+    seen[fp] = nowStr_();
+    out.fresh++;
+    var who = String(rows[i][PC.NAME - 1] || key);
+    try {
+      logSelfFinding_(null, {
+        priority: 'متوسط', category: 'کد', key: 'vbr-side-note-' + fp.replace(/[^A-Za-z0-9_-]/g, ''),
+        title: 'ایرادِ فایلِ جانبیِ تلگرام — ' + who + ' (از تبِ «صداها»)',
+        detail: txt.slice(0, 600),
+        instruction: 'صاحبِ کانال این را دربارهٔ فایلِ جانبیِ ' + who + ' شنیده. تلفظ ⇒ تبِ «تلفظ» یا SPEAK_TRAPS؛ کیفیتِ تبدیل ⇒ ' +
+                     'VBR_SPK_BASE/گامِ همان گوینده؛ با همان قسمت بازتولید کن و نتیجه را بگو. صوتِ اصلی و یوتیوب دست نخورند.',
+        owner: 'کد'
+      });
+    } catch (eF) {}
+    try { logLine_('ایرادِ فایلِ جانبی (' + who + '): ' + txt.slice(0, 160)); } catch (eL) {}
+    try { if (tgEnabled_()) tgSend_('📝 ایرادِ فایلِ جانبیِ ' + who + ' دریافت و در صفِ اصلاح ثبت شد:\n' + txt.slice(0, 500)); } catch (eT) {}
+  }
+  try { P.setProperty(PK.VBR_SIDE_NOTES, JSON.stringify(seen)); } catch (eP) {}
+  try {
+    var sh = shOpt || personaTab_();
+    sh.getRange(1, PC.SIDE).setNote('بله یا خالی = برای قسمت‌های تازهٔ این گوینده یک MP3ِ جدا فقط در تلگرام می‌آید.\n' +
+      'خیر = دیگر ساخته نمی‌شود (درخواست‌های در راه هنوز می‌رسند). شیوهٔ خواندنِ قسمتِ اصلی با ستونِ «فعال» است، نه این.\n' +
+      'برای خاموش‌کردنِ همه: در هر دو ردیف «خیر». تیکِ «قسمت‌های تولیدشده» یک درخواستِ صریح است و از این کلید رد می‌شود.');
+    sh.getRange(1, PC.SIDE_NOTE).setNote('هر ایرادِ کیفیت/تلفظ/خطای گفتاریِ فایلِ جانبی را این‌جا بنویسید: شمارهٔ قسمت، دقیقه، و چه شنیدید.\n' +
+      'شبانه خوانده می‌شود، در صفِ اصلاح («گزارش‌های نظارت») ثبت می‌شود و در تلگرام «دریافت شد» می‌آید. هر متنِ تازه یک بار.');
+  } catch (eN) {}
+  return out;
 }
 
 /** منو: «🌉 پلِ رنگِ صدا — تبدیلِ آخرین قسمت». */

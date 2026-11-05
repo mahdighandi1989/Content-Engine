@@ -711,7 +711,7 @@ const tabRows = () => { const sh = destTab_(getHub_()); return sh.getRange(2, 1,
      seeds.some((x) => x.voice === 'Puck') && seeds.some((x) => !x.voice));
   const s36 = fs.readFileSync('src/36_VoiceBridge.gs', 'utf8');
   ok('۱۸.۱۲ f0cap فقط از بذر به ردیف می‌رسد (نه از تنظیمِ سراسری) و VBR_EP_HOLD دست نخورده', /if \(Number\(o\.f0cap\) > 0\) row\.f0cap = Number\(o\.f0cap\);/.test(s36) &&
-     /if \(pick\.f0cap\) tagO\.f0cap = pick\.f0cap;/.test(s36) && CFG.VBR_EP_HOLD === true && CFG.VBR_SEG_PITCH === false);
+     /if \(pick\.f0cap\) tagO\.f0cap = pick\.f0cap;/.test(s36) && CFG.VBR_EP_HOLD === false && CFG.VBR_SEG_PITCH === false && CFG.VBR_REPLACE === false);   // ۱۷.۲: قفل به تصمیمِ صاحبِ کانال برداشته شد؛ جایگزینی و زیروبم خاموش
   const py = require('child_process').execFileSync('python3', ['-c',
     'import sys,json;sys.path.insert(0,"tools");import voicebridge as v\n' +
     'tr=[(i*0.02, 260.0 if 75<=i<100 else 150.0) for i in range(200)]\n' +
