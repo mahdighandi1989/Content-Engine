@@ -21,7 +21,7 @@ const s36 = fs.readFileSync('src/36_VoiceBridge.gs', 'utf8');
 ok('۶ دستورِ آماده جای کارتِ سبک، و کششِ مکث با آن نیست', /var cueUse = pick\.cueFix \? pick\.cueFix :/.test(s36) && /if \(!pick\.plain && !pick\.cueFix\) \{/.test(s36));
 ok('۷ گامِ ثابت فقط از بذر به ردیف: گام = همان، هدفِ هرتز برداشته', /if \(o\.pitchFix != null && String\(o\.pitchFix\) !== ''\) \{\s*row\.params\.pitch = String\(o\.pitchFix\);\s*delete row\.params\.targetHz;/.test(s36) &&
    /if \(pick\.pitchFix !== '' && pick\.pitchFix != null\) tagO\.pitchFix = pick\.pitchFix;/.test(s36));
-ok('۸ تولید دست نخورد: VBR_EP_HOLD روشن، VBR_SEG_PITCH خاموش', CFG.VBR_EP_HOLD === true && CFG.VBR_SEG_PITCH === false);
+ok('۸ تولید دست نخورد: VBR_EP_HOLD برداشته (۱۷.۲)، VBR_SEG_PITCH خاموش', CFG.VBR_EP_HOLD === false /* ۱۷.۲: گزینهٔ ۲ِ صاحبِ برنامه — سدِ قسمت‌ها برداشته شد */ && CFG.VBR_SEG_PITCH === false);
 
 /* رانر: بی هدفِ هرتز، سدِ «خروجی دور از هدف» چیزی رد نمی‌کند — وگرنه نمونهٔ گامِ ۰ (۱۲۸ هرتز در برابرِ ۱۵۸) هرگز نمی‌رسید. */
 const py = require('child_process').execFileSync('python3', ['-c',

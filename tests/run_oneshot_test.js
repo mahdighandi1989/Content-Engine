@@ -3128,6 +3128,43 @@ console.log('\n=== ۴۱) قسمتی که اجرایش کشته شد، خودش �
      threw && tf.fn === 'produceSpecialContinue' && /too many triggers/.test(tf.msg) &&
      es.ok === false && /too many triggers/.test(es.line), es.line);
   delete P[PK.EP_TRIG_FAIL]; delete P[PK.SP_CONT_DUE];
+
+  /* ۴۱.۲۰ — ۵ نوامبر (۱۷.۳): ۲۱ تریگر، دو afterCodeSwapِ شلیک‌شده و دو sfxBulkRun. سقف پر است؛
+     ساختنِ ادامه باید یک بار جا باز کند و بسازد، نه زنجیره را تا درِ ساعتی پاره بگذارد. */
+  {
+    const saved = global.__TRIGGERS.slice();
+    global.__TRIGGERS.length = 0;
+    const mk = (fn) => ({ getHandlerFunction: () => fn });
+    ['afterCodeSwap', 'afterCodeSwap', 'sfxBulkRun', 'sfxBulkRun'].forEach(f => global.__TRIGGERS.push(mk(f)));
+    for (let i = 0; i < 16; i++) global.__TRIGGERS.push(mk('daily' + i));
+    delete P[PK.SELFUP_PENDING]; delete P[PK.EP_TRIG_FAIL];
+    const ntWas2 = ScriptApp.newTrigger;
+    ScriptApp.newTrigger = function (fn) {
+      const b = ntWas2(fn), cr = b.create;
+      b.create = function () { if (global.__TRIGGERS.length >= 20) throw new Error('This script has too many triggers.'); return cr.call(this); };
+      return b;
+    };
+    let threw2 = false;
+    try { scheduleSpecialContinue_(60000); } catch (e) { threw2 = true; }
+    const names = global.__TRIGGERS.map(t => t.getHandlerFunction());
+    ok('۴۱.۲۰ سقفِ پر: یک‌بارمصرف‌های جامانده پاک می‌شوند و ادامهٔ درس‌نامه ساخته می‌شود',
+       !threw2 && names.includes('produceSpecialContinue') && !names.includes('afterCodeSwap') &&
+       names.filter(n => n === 'sfxBulkRun').length === 1 && !P[PK.EP_TRIG_FAIL], names.join(','));
+    /* تعویضِ در راه: afterCodeSwap دست نمی‌خورد، و تریگرهای روزانه هرگز. */
+    global.__TRIGGERS.length = 0;
+    ['afterCodeSwap', 'afterCodeSwap'].forEach(f => global.__TRIGGERS.push(mk(f)));
+    for (let i = 0; i < 18; i++) global.__TRIGGERS.push(mk('daily' + i));
+    P[PK.SELFUP_PENDING] = '99.9';
+    let threw3 = false;
+    try { scheduleSpecialContinue_(60000); } catch (e) { threw3 = true; }
+    const n3 = global.__TRIGGERS.map(t => t.getHandlerFunction());
+    ok('۴۱.۲۱ تعویضِ در راه: afterCodeSwap و روزانه‌ها دست نمی‌خورند؛ شکست با شاهد',
+       threw3 && n3.filter(n => n === 'afterCodeSwap').length === 2 && n3.filter(n => /^daily/.test(n)).length === 18 &&
+       /too many/.test((JSON.parse(P[PK.EP_TRIG_FAIL] || 'null') || {}).msg || ''), n3.length);
+    ScriptApp.newTrigger = ntWas2;
+    delete P[PK.SELFUP_PENDING]; delete P[PK.EP_TRIG_FAIL]; delete P[PK.SP_CONT_DUE];
+    global.__TRIGGERS.length = 0; saved.forEach(t => global.__TRIGGERS.push(t));
+  }
 }
 
 console.log('\n=== ۴۲) «۴۲ دقیقه در برابرِ ۱۶» — هدفِ طول در حالتِ دو فایل هم در کد است (۹.۹۱) ===');

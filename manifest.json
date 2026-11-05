@@ -1,20 +1,23 @@
 {
- "version": "17.2",
- "codeFile": "engine.gs",
- "sha256": "85caf07e06ef51cfa8fc5548f1c0b43fbcbf56d4b917c83887fec3bf551cfc80",
- "releasedAt": "2026-11-05T06:03:37Z",
- "summary": "فایلِ جانبیِ رضوی/گلدوز برای هر قسمتِ تازه (≥۹۲) فقط در تلگرام (VBR_EP_HOLD برداشته شد)؛ کلیدِ «خیر» و ستونِ «ایراد» در تبِ صداها",
- "fixes": [
-  "VBR_EP_HOLD:false به تصمیمِ صاحبِ کانال؛ VBR_REPLACE و VBR_SEG_PITCH خاموش",
-  "ستونِ «فایلِ جانبیِ تلگرام»: خیر ⇒ پلِ خودکارِ آن گوینده خاموش",
-  "ستونِ «ایرادِ فایلِ جانبی» ⇒ یافتهٔ کد + تلگرامِ «دریافت شد»"
- ],
- "sourceReportIds": [
-  "R-20261105-02"
- ],
- "answers": [
-  "chronic-db45a020",
-  "variety-catchup-cap"
- ],
- "promptImpact": []
+  "version": "17.3",
+  "codeFile": "engine.gs",
+  "sha256": "7baffb58271e082f34c320ea02e79b0642e21a8d38b8a6764952e001b4db8309",
+  "releasedAt": "2026-11-05T08:16:07Z",
+  "summary": "سقفِ بیست تریگر: ادامهٔ درس‌نامه ۵ نوامبر با «too many triggers» پاره شد (۲۱ تریگر، afterCodeSwap×2 و sfxBulkRun×2)؛ تریگرهای یک‌بارمصرفِ جامانده پاک می‌شوند و ساختنِ ادامه یک بار جا باز می‌کند و دوباره می‌سازد",
+  "fixes": [
+    "trigMakeRoom_: afterCodeSwap/sfxBulkRunِ جامانده (afterCodeSwap فقط وقتی تعویضی در راه نیست) پاک می‌شوند؛ هرگز تریگرِ زمان‌بندی",
+    "trigAfterRoomy_: scheduleContinue_ و scheduleSpecialContinue_ با شکستِ سقف یک بار جا باز می‌کنند و دوباره می‌سازند",
+    "afterCodeSwap تریگرِ شلیک‌شدهٔ خودش را اولِ کار پاک می‌کند",
+    "selfUpdateDaily شبانه trigMakeRoom_ را صدا می‌زند",
+    "آزمون: run_oneshot_test ۴۱.۲۰ و ۴۱.۲۱",
+    "آزمون‌ها: نُه سنجهٔ VBR_EP_HOLD (v129…v160) با تصمیمِ ۱۷.۲ هم‌خوان شد؛ main پیش از این سرخ بود"
+  ],
+  "sourceReportIds": [
+    "epGuard.trigFail 2026-11-05 02:47",
+    "triggerNames.dups sfxBulkRun×2 afterCodeSwap×2"
+  ],
+  "answers": [
+    "ep-trig-fail"
+  ],
+  "promptImpact": []
 }

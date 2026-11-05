@@ -59,7 +59,7 @@ ok('۲.۳ بذرِ صریح بر مبنا مقدم است', saved.items[0].param
 saved = null;
 vbrAsk_('variety', 97, 'F', 'razavi', 'آزمون');
 ok('۲.۴ گویندهٔ بی‌مبنا دست نمی‌خورد', saved.items[0].params.targetHz === '158' && !saved.items[0].hx && !saved.items[0].base);
-ok('۲.۵ سدِ قسمت‌ها سرِ جایش (VBR_EP_HOLD)', CFG.VBR_EP_HOLD === true);
+ok('۲.۵ سدِ قسمت‌ها سرِ جایش (VBR_EP_HOLD)', CFG.VBR_EP_HOLD === false /* ۱۷.۲: گزینهٔ ۲ِ صاحبِ برنامه — سدِ قسمت‌ها برداشته شد */);
 
 Object.keys(keepG).forEach(k => { global[k] = keepG[k]; });
 summary('۱۶.۰');

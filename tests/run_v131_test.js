@@ -1,6 +1,6 @@
 /* ══ آزمونِ ۱۳.۱ — وارسیِ کیفیتِ صدا (شکستن، لرزش، مرز)، ساختِ دوبارهٔ تکهٔ خراب، و سدی که صوتِ خراب را واردِ قسمت نمی‌کند ══
  * صاحبِ کانال گلدوز را شنید: «لرزشِ خفیفِ مداوم … خروسی: ته‌ِ صدا ناگهان می‌شکند و به سوتِ نازک می‌پرد … قطعهٔ خراب دوباره ساخته
- * شود، نه اینکه وارد قسمت شود … تا تأیید VBR_EP_HOLD روشن.»
+ * شود، نه اینکه وارد قسمت شود … تا تأیید VBR_EP_HOLD برداشته (۱۷.۲).»
  */
 require('./lib/root.js');
 const fs = require('fs');
@@ -52,6 +52,6 @@ ok('۲.۴ آستانه‌ها از CFG به ردیف', /row\.params\.qCrackPerMi
 const sd = (CFG.VOICE_SOUL_SEED || []).filter((x) => x.qNoRetry && x.hx !== 'soft');   // ۱۳.۳: بذرِ «خ نرم» در run_v132
 ok('۳.۱ دو نمونهٔ خام: گامِ ۰، دستورِ تازهٔ او، Charon و صدای پایهٔ دیگر، بی پردازش', sd.length === 2 && sd.every((x) => x.pitchFix === '0' && x.cueFix === 'آرام، پایدار، بدونِ لرزش، با پایان‌بندیِ طبیعی' &&
    !x.f0cap && !x.colour && !x.segPitch && !x.calm && x.nospans) && sd.some((x) => x.voice === 'Charon') && sd.some((x) => x.voice !== 'Charon'));
-ok('۳.۲ تولید دست نخورد: VBR_EP_HOLD روشن، VBR_SEG_PITCH خاموش', CFG.VBR_EP_HOLD === true && CFG.VBR_SEG_PITCH === false);
+ok('۳.۲ تولید دست نخورد: VBR_EP_HOLD برداشته (۱۷.۲)، VBR_SEG_PITCH خاموش', CFG.VBR_EP_HOLD === false /* ۱۷.۲: گزینهٔ ۲ِ صاحبِ برنامه — سدِ قسمت‌ها برداشته شد */ && CFG.VBR_SEG_PITCH === false);
 
 summary('۱۳.۱');

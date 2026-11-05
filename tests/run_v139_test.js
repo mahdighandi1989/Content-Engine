@@ -144,7 +144,7 @@ print(json.dumps({"a":r,"b":r2,"one":vb.fricOne(d+"/dull.wav",d+"/s.wav")},ensur
   const sd = (CFG.VOICE_SOUL_SEED || []).filter(s => s.variants && !s.afterRetrain && !/\bhb\b/.test(s.variants));   // ۱۴.۷: بذرِ «ب» آزمونِ خودش را دارد
   ok('۲.۱۲ بذرِ مقایسهٔ گلدوز: Charonِ خام، مدلِ پیشین، تبدیلِ ملایم، و بهترینِ تازه (گامِ ۰، «خ» نرم) — فقط نمونه',
      sd.length === 1 && sd[0].speaker === 'spk-1g0r95d' && sd[0].variants === 'raw,old,mild:0.5/0.5' && sd[0].hx === 'soft' && sd[0].pitchFix === '0');
-  ok('۲.۱۳ مرزِ تولید سرِ جاست: VBR_EP_HOLD روشن، VBR_SEG_PITCH خاموش', CFG.VBR_EP_HOLD === true && CFG.VBR_SEG_PITCH !== true);
+  ok('۲.۱۳ مرزِ تولید سرِ جاست: VBR_EP_HOLD برداشته (۱۷.۲)، VBR_SEG_PITCH خاموش', CFG.VBR_EP_HOLD === false /* ۱۷.۲: گزینهٔ ۲ِ صاحبِ برنامه — سدِ قسمت‌ها برداشته شد */ && CFG.VBR_SEG_PITCH !== true);
 }
 
 summary('۱۳.۹');

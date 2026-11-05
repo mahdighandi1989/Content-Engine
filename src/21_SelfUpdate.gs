@@ -1208,6 +1208,9 @@ function selfUpdateDaily() {
   try { musicFeedDedup_(); } catch (eFD) {}
 
   }   // ── پایانِ کارهای ارزان؛ این‌ها فقط در نخستین اجرای هر شب می‌دوند ──
+  // تریگرهای یک‌بارمصرفِ جامانده، پیش از آنکه ادامهٔ قسمتِ صبح به سقفِ بیست بخورد (۱۷.۳)؛
+  // بیرونِ «نخستین اجرا» تا شبِ نصبِ خودش هم بدود. ارزان است: یک فهرستِ تریگر.
+  try { trigMakeRoom_(); } catch (eTR) {}
 
   /* ۱۳.۲: دیشب گشتنِ موسیقی اجرا نشد ⇒ امشب پیش از همهٔ بلوک‌های سنگین (بیرون از «نخستین اجرا»، تا شبِ نصب و اجرای ادامه هم برسد). */
   if (musicNightDue_()) musicNight_('گشتن و آوردنِ موسیقی (بدهیِ دیشب)');
@@ -1609,6 +1612,9 @@ function selfUpdateRetry() { return selfUpdateDaily(); }
  * راه‌اندازی، ثبت، و اطلاع‌رسانی؛ و اگر تعویض واقعاً ننشسته بود، اعلامِ صریح.
  */
 function afterCodeSwap() {
+  // تریگرِ یک‌بارمصرف پس از شلیک در فهرست می‌ماند و از سقفِ بیست‌تایی جا می‌گیرد (۱۷.۳)؛
+  // اول خودش را پاک می‌کند — راهِ «هنوز ننشسته» پایین‌تر یکی تازه می‌سازد.
+  try { clearRetryTriggers_('afterCodeSwap'); } catch (eCl) {}
   var want = props_().getProperty(PK.SELFUP_PENDING) || '';
   if (!want) return { ok: false, reason: 'nothing-pending' };
   if (String(CFG.CODE_VERSION) !== String(want)) {

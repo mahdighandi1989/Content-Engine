@@ -1978,7 +1978,7 @@ function scheduleSpecialContinue_(ms) {
   try { props_().setProperty(PK.SP_CONT_DUE, String(dueS)); } catch (e) {}
   try {
     clearSpecialTriggers_();
-    ScriptApp.newTrigger('produceSpecialContinue').timeBased().after(ms).create();
+    trigAfterRoomy_('produceSpecialContinue', ms);
   } catch (eT) {
     try { props_().setProperty(PK.SP_CONT_DUE, String(new Date().getTime() - 60 * 60 * 1000)); } catch (e2) {}
     epTrigFailNote_('produceSpecialContinue', eT);

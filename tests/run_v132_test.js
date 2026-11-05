@@ -33,7 +33,7 @@ const vb = fs.readFileSync('tools/voicebridge.py', 'utf8'), s36 = fs.readFileSyn
 ok('۱.۳ سیم: سقف از CFG به ردیف و به رانر؛ در امتیازِ ساختِ دوباره و خطِ تلگرام',
    CFG.VBR_Q_SHIMMER_DB === 2.8 && /row\.params\.qShimmerDb = String\(CFG\.VBR_Q_SHIMMER_DB/.test(s36) &&
    /pr\.get\("qShimmerDb", 2\.8\)/.test(vb) && /q\.get\("shimmerDb", 0\)\s*$/m.test(vb) && /لرزشِ بلندی ' \+ qo\.shimmerDb/.test(s36));
-ok('۱.۴ تولید دست نخورد: VBR_EP_HOLD روشن، VBR_SEG_PITCH خاموش', CFG.VBR_EP_HOLD === true && CFG.VBR_SEG_PITCH === false);
+ok('۱.۴ تولید دست نخورد: VBR_EP_HOLD برداشته (۱۷.۲)، VBR_SEG_PITCH خاموش', CFG.VBR_EP_HOLD === false /* ۱۷.۲: گزینهٔ ۲ِ صاحبِ برنامه — سدِ قسمت‌ها برداشته شد */ && CFG.VBR_SEG_PITCH === false);
 
 /* ── ۲) شبه‌علم ── */
 const W = SERIES_HEADERS.length;

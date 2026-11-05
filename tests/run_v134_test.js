@@ -148,7 +148,7 @@ ok('۸.۲ گزینشِ بی‌نخ هم از داورِ «علمی و محتوا
 ok('۸.۳ دستهٔ کم‌آمده امروز کنار و جبران با دستهٔ بعدی', /vgSkipAdd_\((?:picked\.combined \? SCI_COMBINE_KEY : )?picked\.title\)/.test(s03) && /if \(vgSkipNow_\(\)\.indexOf\(ranked\[t\]\.name\) !== -1\) continue;/.test(s03));
 vgSkipAdd_('علمی و آموزشی');
 ok('۸.۴ فهرستِ کنارِ امروز خوانده می‌شود', vgSkipToday_().indexOf('علمی و آموزشی') !== -1 && vgSkipNow_().indexOf('علمی و آموزشی') !== -1);
-ok('۸.۵ تولید دست نخورد: VBR_EP_HOLD روشن، VBR_SEG_PITCH خاموش', CFG.VBR_EP_HOLD === true && CFG.VBR_SEG_PITCH === false);
+ok('۸.۵ تولید دست نخورد: VBR_EP_HOLD برداشته (۱۷.۲)، VBR_SEG_PITCH خاموش', CFG.VBR_EP_HOLD === false /* ۱۷.۲: گزینهٔ ۲ِ صاحبِ برنامه — سدِ قسمت‌ها برداشته شد */ && CFG.VBR_SEG_PITCH === false);
 
 /* ── ۹) دفترِ درخواست‌ها در ایمیل: درخواستِ همین نسخه پشتِ ردیف‌های قدیمی گم نمی‌شود ── */
 const s12 = fs.readFileSync('src/12_Reports.gs', 'utf8');

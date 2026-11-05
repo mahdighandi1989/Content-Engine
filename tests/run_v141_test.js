@@ -160,7 +160,7 @@ console.log('\n=== ۴) پاک‌کردنِ ریلیز ===');
 console.log('\n=== ۵) گلدوز: پهنای باندِ واقعی ===');
 {
   const rt = CFG.VOICE_RETRAIN['spk-1g0r95d'];
-  ok('۵.۱ بازآموزیِ تازه با tagِ خودش (همان فایل‌های ۲۹ سپتامبر)؛ VBR_EP_HOLD روشن', rt.tag === 'r3-band' && rt.since === '2026-09-29' && CFG.VBR_EP_HOLD === true);
+  ok('۵.۱ بازآموزیِ تازه با tagِ خودش (همان فایل‌های ۲۹ سپتامبر)؛ VBR_EP_HOLD برداشته (۱۷.۲)', rt.tag === 'r3-band' && rt.since === '2026-09-29' && CFG.VBR_EP_HOLD === false /* ۱۷.۲: گزینهٔ ۲ِ صاحبِ برنامه — سدِ قسمت‌ها برداشته شد */);
   const py = `
 import sys, os, json
 sys.path.insert(0, "tools")

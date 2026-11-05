@@ -102,7 +102,7 @@ console.log('\n=== ۴) بذر و سیم‌کشی ===');
      sd[0].speaker === 'spk-1g0r95d' && sd[0].variants === 'raw,hb,hb:all' && !sd[0].afterRetrain && /گامِ ۰/.test(sd[0].tag) && sd[0].pitchFix === '0');
   const vb = fs.readFileSync('tools/voicebridge.py', 'utf8');
   ok('۴.۲ پل نسخهٔ hb را روی همان خروجیِ نهایی می‌سازد، بی تبدیلِ دوباره', /elif vv in \("hb", "hb:all"\):[\s\S]{0,600}hbRestore\(best, "vb\/src\.wav"/.test(vb));
-  ok('۴.۳ مرزِ تولید سرِ جاست: VBR_EP_HOLD روشن، VBR_SEG_PITCH خاموش، VBR_REPLACE خاموش', CFG.VBR_EP_HOLD === true && CFG.VBR_SEG_PITCH !== true && !CFG.VBR_REPLACE);
+  ok('۴.۳ مرزِ تولید سرِ جاست: VBR_EP_HOLD برداشته (۱۷.۲)، VBR_SEG_PITCH خاموش، VBR_REPLACE خاموش', CFG.VBR_EP_HOLD === false /* ۱۷.۲: گزینهٔ ۲ِ صاحبِ برنامه — سدِ قسمت‌ها برداشته شد */ && CFG.VBR_SEG_PITCH !== true && !CFG.VBR_REPLACE);
 }
 
 console.log('\n=== ۵) شنیدنِ کلیپ‌ها (رانر، ۲۹ اکتبر) — «از همه جا» ۸۷: ۱۸ کلیپ، ETIMEDOUT، هر ۵ لحظه رفت ===');

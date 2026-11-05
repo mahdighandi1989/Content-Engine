@@ -65,7 +65,7 @@ ok('۴.۳ تلگرام: خشِ هر مرحله با کنار/دورِ مرز، �
    /🎚 گامِ -1 \(-1 نیم‌پرده\): https:\/\/x\/y\.wav · میانه 120 هرتز/.test(tg), tg.slice(0, 400));
 
 /* ── ۵) تولید دست نخورد ── */
-ok('۵.۱ VBR_EP_HOLD روشن، VBR_SEG_PITCH خاموش، VBR_REPLACE خاموش', CFG.VBR_EP_HOLD === true && CFG.VBR_SEG_PITCH === false && CFG.VBR_REPLACE === false);
+ok('۵.۱ VBR_EP_HOLD برداشته (۱۷.۲)، VBR_SEG_PITCH خاموش، VBR_REPLACE خاموش', CFG.VBR_EP_HOLD === false /* ۱۷.۲: گزینهٔ ۲ِ صاحبِ برنامه — سدِ قسمت‌ها برداشته شد */ && CFG.VBR_SEG_PITCH === false && CFG.VBR_REPLACE === false);
 ok('۵.۲ `pitchAlt` فقط از بذرِ نمونه می‌آید: تنها نویسندهٔ `tagO.pitchAlt` انتخابِ بذر است و هیچ CFGِ قسمتی نیست',
    (s36.match(/tagO\.pitchAlt =/g) || []).length === 1 && /if \(se\.pitchAlt\) seedPAlt\[sk\]/.test(s36) && !/CFG\.VBR_PITCH_ALT/.test(s36));
 

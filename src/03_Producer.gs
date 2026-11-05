@@ -9622,6 +9622,44 @@ function epTrigFailNote_(fn, e) {
   } catch (eS) {}
 }
 
+/**
+ * جا باز کردن زیرِ سقفِ بیست تریگر (۱۷.۳). ۵ نوامبر ۰۲:۴۷ ساختنِ تریگرِ ادامهٔ درس‌نامه با
+ * «too many triggers» شکست خورد (۲۱ تریگر) و قسمت ۹۶ دقیقه بی‌راننده ماند تا درِ ساعتی.
+ * علت: تریگرِ یک‌بارمصرفِ `after()` پس از شلیک از فهرست بیرون نمی‌رود؛ `afterCodeSwap` هرگز
+ * تریگرِ خودش را پاک نمی‌کرد (و راهِ «هنوز ننشسته» یکی دیگر می‌افزود) و `sfxBulkRun` دوتایی ماند.
+ * فقط همین دستِ یک‌بارمصرف‌ها پاک می‌شود — تریگرهای زمان‌بندیِ روزانه هرگز —
+ * و `afterCodeSwap` تا وقتی تعویضی در راه است (`SELFUP_PENDING`) دست نمی‌خورد.
+ * خروجی: شمارِ پاک‌شده‌ها.
+ */
+var TRIG_DISPOSABLE_ = ['afterCodeSwap', 'sfxBulkRun'];
+function trigMakeRoom_() {
+  var freed = 0, seen = {}, swapPending = false;
+  try { swapPending = !!props_().getProperty(PK.SELFUP_PENDING); } catch (eP) { swapPending = true; }
+  var ts = [];
+  try { ts = ScriptApp.getProjectTriggers(); } catch (eT) { return 0; }
+  for (var i = 0; i < ts.length; i++) {
+    var fn = '';
+    try { fn = ts[i].getHandlerFunction(); } catch (eF) { continue; }
+    if (TRIG_DISPOSABLE_.indexOf(fn) < 0) continue;
+    if (fn === 'afterCodeSwap' && swapPending) continue;
+    var keep = fn !== 'afterCodeSwap' && !seen[fn];
+    seen[fn] = true;
+    if (keep) continue;
+    try { ScriptApp.deleteTrigger(ts[i]); freed++; } catch (eD) {}
+  }
+  if (freed) { try { logLine_('سقفِ تریگر: ' + freed + ' تریگرِ یک‌بارمصرفِ جامانده پاک شد.'); } catch (eL) {} }
+  return freed;
+}
+
+/** تریگرِ ادامه را بساز؛ اگر سقف پر بود، یک بار جا باز کن و دوباره بساز (۱۷.۳). */
+function trigAfterRoomy_(fn, ms) {
+  try { return ScriptApp.newTrigger(fn).timeBased().after(ms).create(); }
+  catch (e1) {
+    if (trigMakeRoom_() > 0) return ScriptApp.newTrigger(fn).timeBased().after(ms).create();
+    throw e1;
+  }
+}
+
 /** ادامهٔ عادی یا پایان: نگهبان برداشته می‌شود — کشته‌نشدن یعنی همین. */
 function epGuardDisarm_(show) {
   try {
@@ -9807,7 +9845,7 @@ function scheduleContinue_(ms) {
   try { props_().setProperty(PK.CONT_DUE, String(due)); } catch (e) {}
   try {
     clearAudioTriggers_();
-    ScriptApp.newTrigger('produceEpisodeContinue').timeBased().after(ms).create();
+    trigAfterRoomy_('produceEpisodeContinue', ms);
   } catch (eT) {
     // ساختنِ تریگر شکست خورد (سقفِ بیست‌تاییِ Apps Script؟) و حالا قسمت
     // بی‌راننده مانده. «نوبت» را به گذشته می‌بریم تا نگهبانِ دورِ بعد حتماً

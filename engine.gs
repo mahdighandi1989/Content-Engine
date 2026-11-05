@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 17.2
+ *  موتور محتوا و پادکست — نسخهٔ 17.3
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2385,7 +2385,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '17.2',
+  CODE_VERSION: '17.3',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -14628,6 +14628,44 @@ function epTrigFailNote_(fn, e) {
   } catch (eS) {}
 }
 
+/**
+ * جا باز کردن زیرِ سقفِ بیست تریگر (۱۷.۳). ۵ نوامبر ۰۲:۴۷ ساختنِ تریگرِ ادامهٔ درس‌نامه با
+ * «too many triggers» شکست خورد (۲۱ تریگر) و قسمت ۹۶ دقیقه بی‌راننده ماند تا درِ ساعتی.
+ * علت: تریگرِ یک‌بارمصرفِ `after()` پس از شلیک از فهرست بیرون نمی‌رود؛ `afterCodeSwap` هرگز
+ * تریگرِ خودش را پاک نمی‌کرد (و راهِ «هنوز ننشسته» یکی دیگر می‌افزود) و `sfxBulkRun` دوتایی ماند.
+ * فقط همین دستِ یک‌بارمصرف‌ها پاک می‌شود — تریگرهای زمان‌بندیِ روزانه هرگز —
+ * و `afterCodeSwap` تا وقتی تعویضی در راه است (`SELFUP_PENDING`) دست نمی‌خورد.
+ * خروجی: شمارِ پاک‌شده‌ها.
+ */
+var TRIG_DISPOSABLE_ = ['afterCodeSwap', 'sfxBulkRun'];
+function trigMakeRoom_() {
+  var freed = 0, seen = {}, swapPending = false;
+  try { swapPending = !!props_().getProperty(PK.SELFUP_PENDING); } catch (eP) { swapPending = true; }
+  var ts = [];
+  try { ts = ScriptApp.getProjectTriggers(); } catch (eT) { return 0; }
+  for (var i = 0; i < ts.length; i++) {
+    var fn = '';
+    try { fn = ts[i].getHandlerFunction(); } catch (eF) { continue; }
+    if (TRIG_DISPOSABLE_.indexOf(fn) < 0) continue;
+    if (fn === 'afterCodeSwap' && swapPending) continue;
+    var keep = fn !== 'afterCodeSwap' && !seen[fn];
+    seen[fn] = true;
+    if (keep) continue;
+    try { ScriptApp.deleteTrigger(ts[i]); freed++; } catch (eD) {}
+  }
+  if (freed) { try { logLine_('سقفِ تریگر: ' + freed + ' تریگرِ یک‌بارمصرفِ جامانده پاک شد.'); } catch (eL) {} }
+  return freed;
+}
+
+/** تریگرِ ادامه را بساز؛ اگر سقف پر بود، یک بار جا باز کن و دوباره بساز (۱۷.۳). */
+function trigAfterRoomy_(fn, ms) {
+  try { return ScriptApp.newTrigger(fn).timeBased().after(ms).create(); }
+  catch (e1) {
+    if (trigMakeRoom_() > 0) return ScriptApp.newTrigger(fn).timeBased().after(ms).create();
+    throw e1;
+  }
+}
+
 /** ادامهٔ عادی یا پایان: نگهبان برداشته می‌شود — کشته‌نشدن یعنی همین. */
 function epGuardDisarm_(show) {
   try {
@@ -14813,7 +14851,7 @@ function scheduleContinue_(ms) {
   try { props_().setProperty(PK.CONT_DUE, String(due)); } catch (e) {}
   try {
     clearAudioTriggers_();
-    ScriptApp.newTrigger('produceEpisodeContinue').timeBased().after(ms).create();
+    trigAfterRoomy_('produceEpisodeContinue', ms);
   } catch (eT) {
     // ساختنِ تریگر شکست خورد (سقفِ بیست‌تاییِ Apps Script؟) و حالا قسمت
     // بی‌راننده مانده. «نوبت» را به گذشته می‌بریم تا نگهبانِ دورِ بعد حتماً
@@ -29327,7 +29365,7 @@ function scheduleSpecialContinue_(ms) {
   try { props_().setProperty(PK.SP_CONT_DUE, String(dueS)); } catch (e) {}
   try {
     clearSpecialTriggers_();
-    ScriptApp.newTrigger('produceSpecialContinue').timeBased().after(ms).create();
+    trigAfterRoomy_('produceSpecialContinue', ms);
   } catch (eT) {
     try { props_().setProperty(PK.SP_CONT_DUE, String(new Date().getTime() - 60 * 60 * 1000)); } catch (e2) {}
     epTrigFailNote_('produceSpecialContinue', eT);
@@ -39014,6 +39052,9 @@ function selfUpdateDaily() {
   try { musicFeedDedup_(); } catch (eFD) {}
 
   }   // ── پایانِ کارهای ارزان؛ این‌ها فقط در نخستین اجرای هر شب می‌دوند ──
+  // تریگرهای یک‌بارمصرفِ جامانده، پیش از آنکه ادامهٔ قسمتِ صبح به سقفِ بیست بخورد (۱۷.۳)؛
+  // بیرونِ «نخستین اجرا» تا شبِ نصبِ خودش هم بدود. ارزان است: یک فهرستِ تریگر.
+  try { trigMakeRoom_(); } catch (eTR) {}
 
   /* ۱۳.۲: دیشب گشتنِ موسیقی اجرا نشد ⇒ امشب پیش از همهٔ بلوک‌های سنگین (بیرون از «نخستین اجرا»، تا شبِ نصب و اجرای ادامه هم برسد). */
   if (musicNightDue_()) musicNight_('گشتن و آوردنِ موسیقی (بدهیِ دیشب)');
@@ -39415,6 +39456,9 @@ function selfUpdateRetry() { return selfUpdateDaily(); }
  * راه‌اندازی، ثبت، و اطلاع‌رسانی؛ و اگر تعویض واقعاً ننشسته بود، اعلامِ صریح.
  */
 function afterCodeSwap() {
+  // تریگرِ یک‌بارمصرف پس از شلیک در فهرست می‌ماند و از سقفِ بیست‌تایی جا می‌گیرد (۱۷.۳)؛
+  // اول خودش را پاک می‌کند — راهِ «هنوز ننشسته» پایین‌تر یکی تازه می‌سازد.
+  try { clearRetryTriggers_('afterCodeSwap'); } catch (eCl) {}
   var want = props_().getProperty(PK.SELFUP_PENDING) || '';
   if (!want) return { ok: false, reason: 'nothing-pending' };
   if (String(CFG.CODE_VERSION) !== String(want)) {
