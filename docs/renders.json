@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-04 22:43",
+ "updatedAt": "2026-11-05 04:12",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -7653,6 +7653,79 @@
     "fade": 23
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-93-cover.jpg"
+  },
+  "special:94": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-94.mp4",
+   "bytes": 46193921,
+   "parts": 2,
+   "at": "2026-11-05 04:12",
+   "mode": "scenes",
+   "scenes": 56,
+   "want": 56,
+   "snapped": 43,
+   "seconds": 1310,
+   "qa": {
+    "n": 56,
+    "matched": 54,
+    "miss": [
+     6,
+     19
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 15,
+       "t": 296.4,
+       "own": 0.44,
+       "nb": 0.33,
+       "ok": true,
+       "heard": "بلکه کل شبکه باورها من با همم حکمی خود."
+      },
+      {
+       "n": 29,
+       "t": 660,
+       "own": 0.5,
+       "nb": 0.17,
+       "ok": true,
+       "heard": "در فصل توجی، اقلانیت و نگرشهای شناختی در باورهای دینی، اخلاقی و المی، آودی بین توجی و اقلانیت،"
+      },
+      {
+       "n": 43,
+       "t": 956.9,
+       "own": 0.47,
+       "nb": 0,
+       "ok": true,
+       "heard": "آودی میگه اینجا سی اصل قاتی شده.  اصل سدق که حرچی میدونی باید درست باشه و قبوله،  اصل زرورت که دانست..."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 20,
+    "placed": 13,
+    "busy": 7,
+    "failed": 0,
+    "kinds": {
+     "points": 8,
+     "compare": 1,
+     "headline": 4
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 48,
+   "xf": {
+    "smoothright": 28,
+    "fade": 22
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-94-cover.jpg"
   }
  },
  "art": {
@@ -10189,8 +10262,8 @@
   }
  },
  "release": {
-  "assets": 569,
-  "gb": 4.33,
-  "at": "2026-11-04 22:43"
+  "assets": 571,
+  "gb": 4.38,
+  "at": "2026-11-05 04:12"
  }
 }
