@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 17.3
+ *  موتور محتوا و پادکست — نسخهٔ 17.4
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2385,7 +2385,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '17.3',
+  CODE_VERSION: '17.4',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -64321,7 +64321,8 @@ function ytPublishTick() {
        یک سطرِ «هیچ». */
     if (r.collected || r.published || r.queued) {
       logLine_('یوتیوبِ دوره‌ای: ' + r.queued + ' به صف، ' + r.collected +
-               ' ویدئو برداشته شد، ' + r.published + ' منتشر شد.');
+               ' ویدئو برداشته شد، ' + r.published + ' منتشر شد.' +
+               (r.why && !r.published ? ' — ' + r.why : ''));   // ۱۷.۴: «۰ منتشر شد» علتش را هم بگوید
     } else if (r.why) {
       logLine_('یوتیوبِ دوره‌ای: کاری انجام نشد — ' + r.why);
     }
@@ -64384,6 +64385,9 @@ function ytTick_(budgetMs) {
     try {
       var r0 = ytRunDue_(Math.max(1, Number(CFG.YT_TICK_MAX) || 2), Math.max(20000, Math.min(left() - 30000, Number(CFG.YT_TICK_PUB_MS) || 150000)));
       out.published = r0.done; out.waiting = r0.waiting; pubDone = true;
+      /* ۱۷.۴ — special:95 ساعتِ ۱۷:۰۰ِ ۵ نوامبر پشتِ سقفِ واحد ماند (۷۱۵۱ + ۱۶۰۰ > ۹۰۰۰ − ۳۰۰) و دورِ دوره‌ای هیچ سطری
+         ننوشت، چون این علت فقط در `r0.quota` بود و به `why` نمی‌رسید. هر «نشد» یک علتِ نوشته دارد. */
+      if (r0.quota) out.why += (out.why ? ' · ' : '') + 'سهمیهٔ امروزِ یوتیوب پر است — پس از ریستِ ۱۲:۰۰ِ دبی ادامه می‌یابد (' + ytQuota_().units + ' واحد خرج شده)';
     } catch (e0) { out.why += (out.why ? ' · ' : '') + 'انتشار: ' + String(e0.message).slice(0, 60); }
   }
 
