@@ -1,5 +1,5 @@
 {
- "rev": 66,
+ "rev": 67,
  "items": {
   "special:49": {
    "urls": [
@@ -20006,8 +20006,315 @@
     "capHz": 127.1,
     "overPct": 41.6
    }
+  },
+  "variety:94": {
+   "urls": [
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-94-c113f437-1of3.wav",
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-94-c113f437-2of3.wav",
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-94-c113f437-3of3.wav"
+   ],
+   "pieceBytes": [
+    41922638,
+    41918542,
+    64654
+   ],
+   "bytes": 83905834,
+   "seconds": 1048.8,
+   "minutes": 28.3,
+   "parts": 2,
+   "pieces": 3,
+   "speaker": "spk-1g0r95d",
+   "at": "2026-11-06T09:56:07Z",
+   "mp3": {
+    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-94-c113f437.mp3",
+    "bytes": 16782358
+   },
+   "pitch": "0",
+   "loud": {
+    "rawLufs": -20.5,
+    "rawTp": -0.1,
+    "gainDb": 4.53,
+    "limited": true,
+    "lufs": -16.3,
+    "tp": -2.4
+   },
+   "hx": {
+    "ok": true,
+    "frames": 7871,
+    "pct": 11.0,
+    "gainDb": 0.0,
+    "thrDb": 14.0,
+    "mode": "soft",
+    "cutDb": 12.0
+   },
+   "quality": {
+    "sec": 1048.8,
+    "voicedPct": 60.6,
+    "cracks": [
+     {
+      "t": 27.69,
+      "fromHz": 109.6,
+      "toHz": 571.4,
+      "ms": 60
+     },
+     {
+      "t": 41.55,
+      "fromHz": 153.8,
+      "toHz": 333.3,
+      "ms": 60
+     },
+     {
+      "t": 43.03,
+      "fromHz": 89.9,
+      "toHz": 320.0,
+      "ms": 140
+     },
+     {
+      "t": 52.17,
+      "fromHz": 117.6,
+      "toHz": 266.7,
+      "ms": 260
+     },
+     {
+      "t": 53.21,
+      "fromHz": 90.9,
+      "toHz": 533.3,
+      "ms": 80
+     },
+     {
+      "t": 99.77,
+      "fromHz": 67.8,
+      "toHz": 150.9,
+      "ms": 60
+     },
+     {
+      "t": 119.45,
+      "fromHz": 163.3,
+      "toHz": 307.7,
+      "ms": 60
+     },
+     {
+      "t": 159.83,
+      "fromHz": 87.0,
+      "toHz": 571.4,
+      "ms": 60
+     },
+     {
+      "t": 173.89,
+      "fromHz": 137.9,
+      "toHz": 222.2,
+      "ms": 140
+     },
+     {
+      "t": 174.55,
+      "fromHz": 98.8,
+      "toHz": 250.0,
+      "ms": 60
+     },
+     {
+      "t": 180.25,
+      "fromHz": 105.3,
+      "toHz": 258.1,
+      "ms": 140
+     },
+     {
+      "t": 200.65,
+      "fromHz": 96.4,
+      "toHz": 205.1,
+      "ms": 60
+     },
+     {
+      "t": 205.91,
+      "fromHz": 112.7,
+      "toHz": 320.0,
+      "ms": 60
+     },
+     {
+      "t": 214.65,
+      "fromHz": 148.1,
+      "toHz": 275.9,
+      "ms": 60
+     },
+     {
+      "t": 243.35,
+      "fromHz": 50.0,
+      "toHz": 571.4,
+      "ms": 60
+     },
+     {
+      "t": 247.35,
+      "fromHz": 135.6,
+      "toHz": 266.7,
+      "ms": 60
+     },
+     {
+      "t": 253.63,
+      "fromHz": 166.7,
+      "toHz": 296.3,
+      "ms": 60
+     },
+     {
+      "t": 257.29,
+      "fromHz": 177.8,
+      "toHz": 533.3,
+      "ms": 60
+     },
+     {
+      "t": 299.73,
+      "fromHz": 140.4,
+      "toHz": 500.0,
+      "ms": 60
+     },
+     {
+      "t": 306.23,
+      "fromHz": 166.7,
+      "toHz": 307.7,
+      "ms": 60
+     },
+     {
+      "t": 317.33,
+      "fromHz": 170.2,
+      "toHz": 296.3,
+      "ms": 60
+     },
+     {
+      "t": 323.19,
+      "fromHz": 71.4,
+      "toHz": 153.8,
+      "ms": 80
+     },
+     {
+      "t": 340.19,
+      "fromHz": 242.4,
+      "toHz": 381.0,
+      "ms": 140
+     },
+     {
+      "t": 355.67,
+      "fromHz": 153.8,
+      "toHz": 275.9,
+      "ms": 60
+     },
+     {
+      "t": 374.69,
+      "fromHz": 258.1,
+      "toHz": 533.3,
+      "ms": 100
+     },
+     {
+      "t": 393.39,
+      "fromHz": 145.5,
+      "toHz": 275.9,
+      "ms": 60
+     },
+     {
+      "t": 413.91,
+      "fromHz": 88.9,
+      "toHz": 266.7,
+      "ms": 80
+     },
+     {
+      "t": 439.65,
+      "fromHz": 108.1,
+      "toHz": 242.4,
+      "ms": 60
+     },
+     {
+      "t": 485.93,
+      "fromHz": 112.7,
+      "toHz": 250.0,
+      "ms": 60
+     },
+     {
+      "t": 502.05,
+      "fromHz": 90.9,
+      "toHz": 258.1,
+      "ms": 60
+     },
+     {
+      "t": 546.97,
+      "fromHz": 129.0,
+      "toHz": 285.7,
+      "ms": 120
+     },
+     {
+      "t": 551.75,
+      "fromHz": 101.3,
+      "toHz": 195.1,
+      "ms": 140
+     },
+     {
+      "t": 614.07,
+      "fromHz": 150.9,
+      "toHz": 615.4,
+      "ms": 120
+     },
+     {
+      "t": 639.51,
+      "fromHz": 112.7,
+      "toHz": 250.0,
+      "ms": 180
+     },
+     {
+      "t": 664.37,
+      "fromHz": 102.6,
+      "toHz": 210.5,
+      "ms": 120
+     },
+     {
+      "t": 714.99,
+      "fromHz": 250.0,
+      "toHz": 533.3,
+      "ms": 60
+     },
+     {
+      "t": 721.09,
+      "fromHz": 140.4,
+      "toHz": 228.6,
+      "ms": 100
+     },
+     {
+      "t": 727.67,
+      "fromHz": 95.2,
+      "toHz": 242.4,
+      "ms": 80
+     },
+     {
+      "t": 745.75,
+      "fromHz": 148.1,
+      "toHz": 307.7,
+      "ms": 60
+     },
+     {
+      "t": 759.19,
+      "fromHz": 89.9,
+      "toHz": 228.6,
+      "ms": 60
+     }
+    ],
+    "crackPerMin": 3.32,
+    "jitterSt": 0.113,
+    "shimmerDb": 3.07,
+    "bounds": [],
+    "medianHz": 145.5,
+    "bad": "شکستنِ صدا 3.3 بار در دقیقه (سقف 2.5) · لرزشِ بلندی 3.07 دسی‌بل (سقف 2.80)"
+   },
+   "qualityFail": "شکستنِ صدا 3.3 بار در دقیقه (سقف 2.5) · لرزشِ بلندی 3.07 دسی‌بل (سقف 2.80)",
+   "ab": {
+    "indexRate": "",
+    "protect": "",
+    "nocolour": false,
+    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-94-ab-7e76f6f4.wav"
+   },
+   "f0Out": {
+    "medianHz": 145.5,
+    "lowPct": 1,
+    "frames": 1883,
+    "p95Hz": 274.9,
+    "highPct": 31.0
+   }
   }
  },
- "at": "2026-11-05T23:18:13Z",
+ "at": "2026-11-06T09:56:11Z",
  "note": "خروجیِ پلِ رنگِ صدا. گردش‌کارِ voice-bridge می‌نویسد و موتور (بخشِ ۳۶) از gitHub raw می‌خوانَد. دست‌نویس نکنید."
 }
