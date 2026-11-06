@@ -896,7 +896,8 @@ function menuStatus_() {
     if (c && c.failAt && now - parseWhen_(c.failAt) < wk && String(c.err || '') !== 'ناموفق') {
       out.fails.push({ name: name, label: menuLabel_(name), err: String(c.err || ''), at: c.failAt, fails: c.fails });
     }
-    if (c && c.open && now - Number(c.open) > 15 * 60000) {
+    /* ۱۷.۵: همان پنجرهٔ هفت‌روزهٔ `fails` — مرگِ runSyncNow در ۲۱ اکتبر شانزده روز بعد هنوز هر روز «❌» و `ok:false` می‌ساخت. */
+    if (c && c.open && now - Number(c.open) > 15 * 60000 && now - Number(c.open) < wk) {
       out.died.push({ name: name, label: menuLabel_(name), at: new Date(Number(c.open)).toISOString().slice(0, 16) });
     }
     if (name === 'healthCheck' && c && !isNaN(at) && now - at < 2 * 86400000) out.healthSeen = true;

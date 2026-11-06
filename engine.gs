@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 17.4
+ *  موتور محتوا و پادکست — نسخهٔ 17.5
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2385,7 +2385,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '17.4',
+  CODE_VERSION: '17.5',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -16755,7 +16755,8 @@ function menuStatus_() {
     if (c && c.failAt && now - parseWhen_(c.failAt) < wk && String(c.err || '') !== 'ناموفق') {
       out.fails.push({ name: name, label: menuLabel_(name), err: String(c.err || ''), at: c.failAt, fails: c.fails });
     }
-    if (c && c.open && now - Number(c.open) > 15 * 60000) {
+    /* ۱۷.۵: همان پنجرهٔ هفت‌روزهٔ `fails` — مرگِ runSyncNow در ۲۱ اکتبر شانزده روز بعد هنوز هر روز «❌» و `ok:false` می‌ساخت. */
+    if (c && c.open && now - Number(c.open) > 15 * 60000 && now - Number(c.open) < wk) {
       out.died.push({ name: name, label: menuLabel_(name), at: new Date(Number(c.open)).toISOString().slice(0, 16) });
     }
     if (name === 'healthCheck' && c && !isNaN(at) && now - at < 2 * 86400000) out.healthSeen = true;
@@ -28328,11 +28329,15 @@ function produceSpecialEpisode(opt) {
       return { ok: false, reason: 'already-today' };
     }
 
+    /* ۱۷.۵: کجا مُرد — قرینهٔ ۱۶.۶. آن درمان چهار مرحلهٔ «متن: …» را فقط به `produceEpisode` داد؛ مسیرِ نوشتنِ
+       درس‌نامه بی شاهد ماند و ۶ نوامبر «اجرای ناتمام: prepareSpecialEpisode … مرحله‌اش ثبت نشده» آمد. */
+    runStage_('متن: برداشتِ گزارش‌ها');
     var hub = getHub_();
     try { ingestReports_(hub, new Date().getTime() + 45000); } catch (eIn) {}
     var orders = [];
     try { orders = openInstructions_(hub); } catch (eOr) { orders = []; }
 
+    runStage_('متن: اسکن و داوریِ مجموعه‌ها');
     // رجیستری تازه؟ اگر مجموعهٔ تازه‌ای آمده یا قسمتی به مجموعهٔ تمام‌شده اضافه
     // شده، همین‌جا دیده می‌شود.
     try { scanSeries(false); } catch (eSc) { logLine_('اسکن مجموعه‌ها ناموفق: ' + eSc.message); }
@@ -28365,6 +28370,7 @@ function produceSpecialEpisode(opt) {
     var badSeries = Object.create(null);  // مجموعه‌هایی که امروز خوانده نشدند
     var badBySeries = Object.create(null); // شمارِ قسمت‌های خوانده‌نشدهٔ هر مجموعه
     var forcedRescan = false;
+    runStage_('متن: گزینشِ مجموعه و خواندنِ قطعه‌ها');
     var applyPlan = function (plan) {
       // نوشتن‌ها این‌جا انجام می‌شود، نه داخلِ انتخاب‌کننده — تا مسیرهای
       // صرفاً خواندنی (تخته، فایل وضعیت، وارسی سلامت) چیزی را عوض نکنند.
@@ -28631,6 +28637,7 @@ function produceSpecialEpisode(opt) {
     var allText = stream.map(function (c) { return c.text; }).join(' ');
     var terms = keyTerms_(allText, 18);
     var enrich = [];
+    runStage_('متن: جست‌وجوی مکمل');
     try {
       enrich = enrichFor_(hub, terms,
         list.map(function (p) { return String(p.vals[SP.FILE - 1]); }), CFG.SPECIAL_ENRICH);
@@ -28663,6 +28670,7 @@ function produceSpecialEpisode(opt) {
     try {
       /* از سراسرِ متن، نه از سرش (۶٫۸۱): با برشِ سرِ متن، نسبت‌هایی که با
          نیمهٔ دومِ درس داشتند هرگز پیدا نمی‌شدند. */
+      runStage_('متن: ارجاعِ میان‌مجموعه‌ای');
       var digest = bridgeDigest_(allText, 12000);
       var bctx = { seriesName: seriesName, partName: ctx.partName,
                    digest: digest, headings: [] };
@@ -28673,6 +28681,7 @@ function produceSpecialEpisode(opt) {
     } catch (eBr) { logLine_('ارجاع رد شد: ' + eBr.message); }
 
     var prompt = buildSpecialPrompt_(ctx);
+    runStage_('متن: نوشتنِ درس‌نامهٔ ' + epNum);
     var ep = geminiText_(prompt, SPECIAL_SCHEMA, 40960);
     if (!ep || !ep.sections || !ep.sections.length) throw new Error('متن درس‌نامه بدون بخش برگشت.');
     var repaired = !!ep.__repaired;
@@ -28726,6 +28735,7 @@ function produceSpecialEpisode(opt) {
     var spCap = specialMaxChars_();
     if (oneFile || specialNarration_(ep).length > spCap * overSlack) {
       try {
+        runStage_('متن: فشرده‌سازی');
         var cnd = specialCondense_(ep, spCap, epNum);
         ep = cnd.ep;
         var overNow = specialNarration_(ep).length - Math.round(spCap * overSlack);
@@ -28755,6 +28765,7 @@ function produceSpecialEpisode(opt) {
     // آن‌ها نقل کند. بی این، هر قسمتِ درست یک یافتهٔ «نقل‌قولِ بی‌پشتوانه»ی
     // «جدی» می‌ساخت و قسمت بعد به مدل دستور می‌داد همان قابلیت را کنار بگذارد.
     // `whole`: این خودِ متنِ درس است — عکسِ محتوا کاملش را نگه می‌دارد (۸.۶۶).
+    runStage_('متن: پاسِ وفاداری');
     var fakeItems = stream.map(function (c) {
       return { id: 'C' + c.idx, topic: '', msg: '', summary: '', body: c.text, whole: true }; });
     for (var ei = 0; ei < enrich.length; ei++) {

@@ -1,19 +1,17 @@
 {
-  "version": "17.4",
+  "version": "17.5",
   "codeFile": "engine.gs",
-  "sha256": "e3bd04d49b1aa5b2071c6c66842d8e33a5fdd9f4f243968011a83f4705905096",
-  "releasedAt": "2026-11-05T13:58:45Z",
-  "summary": "دورِ دوره‌ای یوتیوب وقتی پشتِ سهمیهٔ واحد می‌ماند علت را در سیاهه می‌نویسد (special:95، ۵ نوامبر ۱۷:۰۰ — ۷۱۵۱ + ۱۶۰۰ > ۸۷۰۰، بی هیچ سطری)",
+  "sha256": "eccb6d57a11f1a3315006ee00d63e70be15a0a877267e896ed79e5bbbf9c1d2b",
+  "releasedAt": "2026-11-06T08:18:35Z",
+  "summary": "مسیرِ نوشتنِ درس‌نامه هم «کجا مُرد» را روی مهرِ اجرا می‌نویسد — قرینهٔ ۱۶.۶ (۶ نوامبر: «اجرای ناتمام: prepareSpecialEpisode … مرحله‌اش ثبت نشده»، موتور ۱۷.۴)؛ و menu.died همان پنجرهٔ هفت‌روزهٔ fails را می‌گیرد (مرگِ ۲۱ اکتبرِ runSyncNow هر روز «❌» می‌ساخت)",
   "fixes": [
-    "ytTick_: r0.quota ⇒ why («سهمیهٔ امروزِ یوتیوب پر است — پس از ریستِ ۱۲:۰۰ِ دبی ادامه می‌یابد»)",
-    "ytPublishTick: سطرِ «۰ منتشر شد» علتش را می‌آورد",
-    "tests/run_v174_test.js"
+    "produceSpecialEpisode: هشت مرحلهٔ «متن: …» (گزارش‌ها، اسکن و داوری، گزینشِ مجموعه، مکمل، ارجاع، نوشتن، فشرده‌سازی، وفاداری) — روی هر دو مهر (prepareSpecialEpisode و produceSpecialEpisode) از راهِ RUN_STACK_ِ ۱۶.۶",
+    "menuStatus_: died فقط در ۷ روزِ اخیر — همان پنجرهٔ fails (§۴٫۱۷)",
+    "tests/run_v175_test.js — خودِ prepareSpecialEpisode اجرا می‌شود؛ روی کدِ پیشین ۵ سنجه سرخ"
   ],
   "sourceReportIds": [
-    "R-20261105-03"
+    "ENG-20261106-runs-prepareSpecialEpisode"
   ],
-  "answers": [
-    "ep-trig-fail"
-  ],
+  "answers": [],
   "promptImpact": []
 }
