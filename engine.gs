@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 17.5
+ *  موتور محتوا و پادکست — نسخهٔ 17.6
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2385,7 +2385,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '17.5',
+  CODE_VERSION: '17.6',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3891,6 +3891,10 @@ function runStage_(stage) {
       if (!m[fns[i]]) continue;
       m[fns[i]].st = s;
       m[fns[i]].stTs = nowMs;
+      /* ۱۷.۶: ردِ مرحله‌ها با ثانیه، نه فقط آخرینش. «آخرین مرحله: پاسِ وفاداری، ۳۵۰ ثانیه» (۷ نوامبر) می‌گفت کجا
+         سقف افتاد، نه اینکه کدام گام ۳۵۰ ثانیه را خورد — و دومی همان چیزی است که باید درمان شود. */
+      var trSec = Math.round((nowMs - (Number(m[fns[i]].ts) || nowMs)) / 1000);
+      m[fns[i]].tr = (Array.isArray(m[fns[i]].tr) ? m[fns[i]].tr : []).concat([[s.slice(0, 44), trSec]]).slice(-10);
       any = true;
     }
     if (!any) return;
@@ -3937,6 +3941,7 @@ function runStuck_(nowMs) {
     if ((m[k] || {}).st) {
       it.stage = String(m[k].st);
       it.stageSec = Math.round((Number(m[k].stTs || ts) - ts) / 1000);
+      if (Array.isArray(m[k].tr) && m[k].tr.length > 1) it.trail = m[k].tr.slice(-10);
     }
     out.items.push(it);
   }
@@ -3947,7 +3952,8 @@ function runStuck_(nowMs) {
       L.push(out.items[i].fn + ' (' + faDigitsOut_(String(out.items[i].mins)) +
              ' دقیقه پیش شروع شد و تمام نشد' +
              (out.items[i].stage ? '؛ آخرین مرحله: «' + out.items[i].stage + '»، ' +
-               faDigitsOut_(String(out.items[i].stageSec)) + ' ثانیه پس از شروع' : '') + ')');
+               faDigitsOut_(String(out.items[i].stageSec)) + ' ثانیه پس از شروع' : '') +
+             (out.items[i].trail ? '؛ مسیر: ' + runTrailText_(out.items[i].trail) : '') + ')');
     }
     out.line = '❌ اجرای ناتمام: ' + L.join(' · ') +
                ' — این یعنی آن تریگر وسطِ کار مُرد' +
@@ -3958,6 +3964,19 @@ function runStuck_(nowMs) {
     out.line = '✅ هیچ اجرای ناتمامی نیست.';
   }
   return out;
+}
+
+/** ۱۷.۶ — ردِ مرحله‌ها با زمانِ هر گام: «نوشتن ۲۱۰ث › فشرده‌سازی ۹۰ث › پاسِ وفاداری (از ۳۵۰ث)». گامِ آخر مدت ندارد، چون
+    اجرا همان‌جا مُرد؛ فقط نقطهٔ شروعش را می‌گوید. */
+function runTrailText_(tr) {
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  var L = [];
+  for (var i = 0; i < tr.length; i++) {
+    var nm = String((tr[i] || [])[0] || '').replace(/^متن: /, ''), at = Number((tr[i] || [])[1]) || 0;
+    L.push(i + 1 < tr.length ? nm + ' ' + fa(Math.max(0, (Number(tr[i + 1][1]) || 0) - at)) + 'ث'
+                             : nm + ' (از ' + fa(at) + 'ث)');
+  }
+  return L.join(' › ');
 }
 
 function logLine_(msg) {
@@ -14405,6 +14424,7 @@ function produceEpisode(opt) {
                  items.concat(refs), fid);
     } catch (eSn) { logLine_('عکسِ محتوا گرفته نشد: ' + eSn.message); }
 
+    runStage_('متن: پوشهٔ قسمت و گروهِ گویندگان');   // ۱۷.۶: پس از وفاداری هم مرحله (قرینهٔ درس‌نامه)
     var pad = ('0000' + epNum).slice(-4);
     var stamp = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyyMMdd');
     // پوشهٔ اختصاصیِ همین برنامه، تا با قسمت‌های درس‌نامه قاطی نشود
@@ -14435,6 +14455,7 @@ function produceEpisode(opt) {
     var cnt = { 'ویدیو': 0, 'عکس': 0, 'صدا': 0, 'سند': 0 };
     for (var q = 0; q < items.length; q++) cnt[kindOf_(items[q])]++;
 
+    runStage_('متن: ثبتِ قسمت در شیت‌ها');
     var pod = ensureTab_(hub, CFG.TAB_PODCASTS, PODCAST_HEADERS);
     pod.appendRow([epNum, nowStr_(), ep.title, picked.title, cnt['ویدیو'], cnt['عکس'],
                    '—', '', '', '', 'در حال ساخت صدا',
@@ -14459,6 +14480,7 @@ function produceEpisode(opt) {
     // مهمی است: انتظار نباید ساعتِ رسیدنِ پادکست را عقب بیندازد.
     // ترتیب مهم است: نشانهٔ دستی درونِ همین فراخوان مصرف می‌شود، پس پیش از آن
     // می‌پرسیم که آیا دستی بوده — تا دروازهٔ ساعت را برایش نگذاریم.
+    runStage_('متن: درخواستِ غنی‌سازی و ذخیرهٔ وضعیت');
     var manualNow = enrichForcePending_();
     var wantEnrich = enrichWorthWaiting_(CFG.EPISODE_HOUR || 7);
     var pend = { epNum: epNum, folderId: folder.getId(), podRow: pod.getLastRow(),
@@ -28817,6 +28839,7 @@ function produceSpecialEpisode(opt) {
      * از ۷٫۰۷ این سنجش زودتر از اینجا (پیش از عکسِ محتوا) اجرا می‌شود — نه
      * پس از آن — چون auditSnap_ به ctx.__bridgesUsed نیاز دارد تا ارجاعِ
      * واقعاً گفته‌شده را به‌عنوانِ منبع بشناسد؛ پایین‌تر ببین. */
+    runStage_('متن: وارسیِ ارجاع‌ها و سنجه‌های پس از نوشتن');   // ۱۷.۶: پس از وفاداری هم مرحله
     try {
       var bv = bridgeVerify_(ep, ctx.__bridges || []);
       ctx.__bridgesUsed = bv.used;
@@ -28980,6 +29003,7 @@ function produceSpecialEpisode(opt) {
     }
 
     // پوشه و فایل وضعیت
+    runStage_('متن: پوشهٔ قسمت و گروهِ گویندگان');
     var folder = seriesFolder_(reg, rec).createFolder(
       'قسمت ' + ('000' + epNum).slice(-3) + ' — ' +
       Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyyMMdd') + ' — ' +
@@ -29030,6 +29054,7 @@ function produceSpecialEpisode(opt) {
     // نشانه‌گذاریِ جداگانه — ستونِ درس‌نامه، نه ستونِ برنامهٔ متنوع
     try { markSpecialUsed_(hub, usedEnrich, epNum); } catch (eM) {}
 
+    runStage_('متن: ثبتِ قسمت در شیت‌ها');
     var sp = ensureTab_(hub, CFG.SPECIAL_TAB, SPECIAL_HEADERS);
     var tags = specialTags_(ep, seriesName, ctx.partSeq, epNum);
     var partsCell = coverInfo.map(function (x) {
@@ -29235,6 +29260,7 @@ function produceSpecialEpisode(opt) {
     props_().setProperty(PK.SP_EP_NUM, String(epNum));
 
     // ── پیش از صدا: پنجرهٔ غنی‌سازیِ اینترنتی ──
+    runStage_('متن: درخواستِ غنی‌سازی و ذخیرهٔ وضعیت');
     var manualNow = enrichForcePending_();
     var wantEnrich = enrichWorthWaiting_(CFG.SPECIAL_HOUR || 8);
     var pendSp = { epNum: epNum, folderId: folder.getId(), row: sp.getLastRow(),

@@ -2366,7 +2366,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '17.5',
+  CODE_VERSION: '17.6',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3872,6 +3872,10 @@ function runStage_(stage) {
       if (!m[fns[i]]) continue;
       m[fns[i]].st = s;
       m[fns[i]].stTs = nowMs;
+      /* ۱۷.۶: ردِ مرحله‌ها با ثانیه، نه فقط آخرینش. «آخرین مرحله: پاسِ وفاداری، ۳۵۰ ثانیه» (۷ نوامبر) می‌گفت کجا
+         سقف افتاد، نه اینکه کدام گام ۳۵۰ ثانیه را خورد — و دومی همان چیزی است که باید درمان شود. */
+      var trSec = Math.round((nowMs - (Number(m[fns[i]].ts) || nowMs)) / 1000);
+      m[fns[i]].tr = (Array.isArray(m[fns[i]].tr) ? m[fns[i]].tr : []).concat([[s.slice(0, 44), trSec]]).slice(-10);
       any = true;
     }
     if (!any) return;
@@ -3918,6 +3922,7 @@ function runStuck_(nowMs) {
     if ((m[k] || {}).st) {
       it.stage = String(m[k].st);
       it.stageSec = Math.round((Number(m[k].stTs || ts) - ts) / 1000);
+      if (Array.isArray(m[k].tr) && m[k].tr.length > 1) it.trail = m[k].tr.slice(-10);
     }
     out.items.push(it);
   }
@@ -3928,7 +3933,8 @@ function runStuck_(nowMs) {
       L.push(out.items[i].fn + ' (' + faDigitsOut_(String(out.items[i].mins)) +
              ' دقیقه پیش شروع شد و تمام نشد' +
              (out.items[i].stage ? '؛ آخرین مرحله: «' + out.items[i].stage + '»، ' +
-               faDigitsOut_(String(out.items[i].stageSec)) + ' ثانیه پس از شروع' : '') + ')');
+               faDigitsOut_(String(out.items[i].stageSec)) + ' ثانیه پس از شروع' : '') +
+             (out.items[i].trail ? '؛ مسیر: ' + runTrailText_(out.items[i].trail) : '') + ')');
     }
     out.line = '❌ اجرای ناتمام: ' + L.join(' · ') +
                ' — این یعنی آن تریگر وسطِ کار مُرد' +
@@ -3939,6 +3945,19 @@ function runStuck_(nowMs) {
     out.line = '✅ هیچ اجرای ناتمامی نیست.';
   }
   return out;
+}
+
+/** ۱۷.۶ — ردِ مرحله‌ها با زمانِ هر گام: «نوشتن ۲۱۰ث › فشرده‌سازی ۹۰ث › پاسِ وفاداری (از ۳۵۰ث)». گامِ آخر مدت ندارد، چون
+    اجرا همان‌جا مُرد؛ فقط نقطهٔ شروعش را می‌گوید. */
+function runTrailText_(tr) {
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  var L = [];
+  for (var i = 0; i < tr.length; i++) {
+    var nm = String((tr[i] || [])[0] || '').replace(/^متن: /, ''), at = Number((tr[i] || [])[1]) || 0;
+    L.push(i + 1 < tr.length ? nm + ' ' + fa(Math.max(0, (Number(tr[i + 1][1]) || 0) - at)) + 'ث'
+                             : nm + ' (از ' + fa(at) + 'ث)');
+  }
+  return L.join(' › ');
 }
 
 function logLine_(msg) {

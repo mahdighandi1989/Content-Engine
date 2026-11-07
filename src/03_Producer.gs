@@ -9399,6 +9399,7 @@ function produceEpisode(opt) {
                  items.concat(refs), fid);
     } catch (eSn) { logLine_('عکسِ محتوا گرفته نشد: ' + eSn.message); }
 
+    runStage_('متن: پوشهٔ قسمت و گروهِ گویندگان');   // ۱۷.۶: پس از وفاداری هم مرحله (قرینهٔ درس‌نامه)
     var pad = ('0000' + epNum).slice(-4);
     var stamp = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyyMMdd');
     // پوشهٔ اختصاصیِ همین برنامه، تا با قسمت‌های درس‌نامه قاطی نشود
@@ -9429,6 +9430,7 @@ function produceEpisode(opt) {
     var cnt = { 'ویدیو': 0, 'عکس': 0, 'صدا': 0, 'سند': 0 };
     for (var q = 0; q < items.length; q++) cnt[kindOf_(items[q])]++;
 
+    runStage_('متن: ثبتِ قسمت در شیت‌ها');
     var pod = ensureTab_(hub, CFG.TAB_PODCASTS, PODCAST_HEADERS);
     pod.appendRow([epNum, nowStr_(), ep.title, picked.title, cnt['ویدیو'], cnt['عکس'],
                    '—', '', '', '', 'در حال ساخت صدا',
@@ -9453,6 +9455,7 @@ function produceEpisode(opt) {
     // مهمی است: انتظار نباید ساعتِ رسیدنِ پادکست را عقب بیندازد.
     // ترتیب مهم است: نشانهٔ دستی درونِ همین فراخوان مصرف می‌شود، پس پیش از آن
     // می‌پرسیم که آیا دستی بوده — تا دروازهٔ ساعت را برایش نگذاریم.
+    runStage_('متن: درخواستِ غنی‌سازی و ذخیرهٔ وضعیت');
     var manualNow = enrichForcePending_();
     var wantEnrich = enrichWorthWaiting_(CFG.EPISODE_HOUR || 7);
     var pend = { epNum: epNum, folderId: folder.getId(), podRow: pod.getLastRow(),

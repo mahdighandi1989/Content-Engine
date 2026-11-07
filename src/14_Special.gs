@@ -1429,6 +1429,7 @@ function produceSpecialEpisode(opt) {
      * از ۷٫۰۷ این سنجش زودتر از اینجا (پیش از عکسِ محتوا) اجرا می‌شود — نه
      * پس از آن — چون auditSnap_ به ctx.__bridgesUsed نیاز دارد تا ارجاعِ
      * واقعاً گفته‌شده را به‌عنوانِ منبع بشناسد؛ پایین‌تر ببین. */
+    runStage_('متن: وارسیِ ارجاع‌ها و سنجه‌های پس از نوشتن');   // ۱۷.۶: پس از وفاداری هم مرحله
     try {
       var bv = bridgeVerify_(ep, ctx.__bridges || []);
       ctx.__bridgesUsed = bv.used;
@@ -1592,6 +1593,7 @@ function produceSpecialEpisode(opt) {
     }
 
     // پوشه و فایل وضعیت
+    runStage_('متن: پوشهٔ قسمت و گروهِ گویندگان');
     var folder = seriesFolder_(reg, rec).createFolder(
       'قسمت ' + ('000' + epNum).slice(-3) + ' — ' +
       Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyyMMdd') + ' — ' +
@@ -1642,6 +1644,7 @@ function produceSpecialEpisode(opt) {
     // نشانه‌گذاریِ جداگانه — ستونِ درس‌نامه، نه ستونِ برنامهٔ متنوع
     try { markSpecialUsed_(hub, usedEnrich, epNum); } catch (eM) {}
 
+    runStage_('متن: ثبتِ قسمت در شیت‌ها');
     var sp = ensureTab_(hub, CFG.SPECIAL_TAB, SPECIAL_HEADERS);
     var tags = specialTags_(ep, seriesName, ctx.partSeq, epNum);
     var partsCell = coverInfo.map(function (x) {
@@ -1847,6 +1850,7 @@ function produceSpecialEpisode(opt) {
     props_().setProperty(PK.SP_EP_NUM, String(epNum));
 
     // ── پیش از صدا: پنجرهٔ غنی‌سازیِ اینترنتی ──
+    runStage_('متن: درخواستِ غنی‌سازی و ذخیرهٔ وضعیت');
     var manualNow = enrichForcePending_();
     var wantEnrich = enrichWorthWaiting_(CFG.SPECIAL_HOUR || 8);
     var pendSp = { epNum: epNum, folderId: folder.getId(), row: sp.getLastRow(),

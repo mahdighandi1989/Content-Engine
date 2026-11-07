@@ -1,16 +1,18 @@
 {
-  "version": "17.5",
+  "version": "17.6",
   "codeFile": "engine.gs",
-  "sha256": "eccb6d57a11f1a3315006ee00d63e70be15a0a877267e896ed79e5bbbf9c1d2b",
-  "releasedAt": "2026-11-06T08:18:35Z",
-  "summary": "مسیرِ نوشتنِ درس‌نامه هم «کجا مُرد» را روی مهرِ اجرا می‌نویسد — قرینهٔ ۱۶.۶ (۶ نوامبر: «اجرای ناتمام: prepareSpecialEpisode … مرحله‌اش ثبت نشده»، موتور ۱۷.۴)؛ و menu.died همان پنجرهٔ هفت‌روزهٔ fails را می‌گیرد (مرگِ ۲۱ اکتبرِ runSyncNow هر روز «❌» می‌ساخت)",
+  "sha256": "3878133ba9d5058cc61a7330bc475769d7107c511280ac6741c6676bc70720a2",
+  "releasedAt": "2026-11-07T08:10:02Z",
+  "summary": "«اجرای ناتمام» مدتِ هر گام را می‌گوید، نه فقط آخرین مرحله را؛ و مسیرِ نوشتنِ هر دو برنامه از پاسِ وفاداری تا ذخیرهٔ وضعیت هم مرحله می‌زند (۷ نوامبر: «prepareSpecialEpisode … آخرین مرحله: «متن: پاسِ وفاداری»، ۳۵۰ ثانیه» — دومین شبِ پیاپی، و معلوم نبود کدام گام وقت را خورد)",
   "fixes": [
-    "produceSpecialEpisode: هشت مرحلهٔ «متن: …» (گزارش‌ها، اسکن و داوری، گزینشِ مجموعه، مکمل، ارجاع، نوشتن، فشرده‌سازی، وفاداری) — روی هر دو مهر (prepareSpecialEpisode و produceSpecialEpisode) از راهِ RUN_STACK_ِ ۱۶.۶",
-    "menuStatus_: died فقط در ۷ روزِ اخیر — همان پنجرهٔ fails (§۴٫۱۷)",
-    "tests/run_v175_test.js — خودِ prepareSpecialEpisode اجرا می‌شود؛ روی کدِ پیشین ۵ سنجه سرخ"
+    "runStage_: ردِ ده مرحلهٔ آخر با ثانیه (tr) روی هر مهرِ باز؛ runStuck_ ⇒ «مسیر: نوشتن ۲۱۰ث › فشرده‌سازی ۹۰ث › …»",
+    "produceSpecialEpisode: چهار مرحلهٔ تازه پس از وفاداری (ارجاع‌ها و سنجه‌ها، پوشه و گویندگان، ثبت در شیت‌ها، غنی‌سازی و ذخیرهٔ وضعیت) — ۴۸۰ خطِ بی‌مرحله",
+    "produceEpisode: سه قرینهٔ همان مرحله‌ها",
+    "tests/run_v176_test.js — روی کدِ پیشین ۵ سنجه سرخ"
   ],
   "sourceReportIds": [
-    "ENG-20261106-runs-prepareSpecialEpisode"
+    "ENG-20261107-runs-prepareSpecialEpisode-fidelity",
+    "run-died-special-nostage"
   ],
   "answers": [],
   "promptImpact": []
