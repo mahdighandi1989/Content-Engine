@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-07 07:37",
+ "updatedAt": "2026-11-07 08:35",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -7655,7 +7655,8 @@
     "smoothright": 28,
     "fade": 23
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-93-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-93-cover.jpg",
+   "pruned": "2026-11-07"
   },
   "special:94": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-94.mp4",
@@ -7728,7 +7729,8 @@
     "smoothright": 28,
     "fade": 22
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-94-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-94-cover.jpg",
+   "pruned": "2026-11-07"
   },
   "variety:93": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-93.mp4",
@@ -10269,6 +10271,22 @@
    "segs": 5,
    "subs": 16,
    "at": "2026-11-07 07:37"
+  },
+  "ig:special:65.9": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-65-9.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-65-9-cover.jpg",
+   "sig": "1e33c69f85dc",
+   "seconds": 36.7,
+   "bytes": 6734448,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-65-9-short.mp4",
+   "shortSeconds": 32.7,
+   "align": "faster-whisper",
+   "phrases": 18,
+   "trans": 4,
+   "imgs": 5,
+   "segs": 5,
+   "subs": 13,
+   "at": "2026-11-07 08:35"
   }
  },
  "musicPrev": {
@@ -11129,8 +11147,8 @@
   }
  },
  "release": {
-  "assets": 623,
-  "gb": 4.9,
-  "at": "2026-11-07 07:37"
+  "assets": 624,
+  "gb": 4.82,
+  "at": "2026-11-07 08:35"
  }
 }
