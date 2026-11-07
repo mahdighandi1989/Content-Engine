@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-06 22:36",
+ "updatedAt": "2026-11-07 05:37",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -8196,6 +8196,164 @@
     "fade": 31
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-96-cover.jpg"
+  },
+  "variety:95": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-95.mp4",
+   "bytes": 46791358,
+   "parts": 2,
+   "at": "2026-11-07 05:37",
+   "mode": "media",
+   "media": {
+    "clips": 20,
+    "photos": 19,
+    "found": 2,
+    "notFound": 0,
+    "failed": 0,
+    "why": [
+     "صحنهٔ 20: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر)",
+     "صحنهٔ 31: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)"
+    ],
+    "layouts": {
+     "fill": 19,
+     "center": 7,
+     "left": 7,
+     "right": 6
+    },
+    "teaserTiles": 4,
+    "teaserSec": 46.6,
+    "teaser": 3,
+    "cropped": 15,
+    "tailCut": 14,
+    "cardMoving": 12,
+    "cardOwn": 12,
+    "cards": 12,
+    "filled": 2,
+    "filledSec": 11,
+    "replayed": 1,
+    "mainPart": 1,
+    "cardFlat": 5,
+    "moments": {
+     "asked": 3,
+     "placed": 3,
+     "made": 2,
+     "why": [
+      "275s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 18٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 12٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا"
+     ],
+     "music": 1,
+     "separated": 2,
+     "replaced": 2,
+     "sec": 70,
+     "whole": 2,
+     "fallback": 2
+    },
+    "fit": {
+     "mb": 44.6,
+     "was": 136.4,
+     "how": "بازکدگذاری"
+    }
+   },
+   "inserts": [
+    {
+     "at": 382.5,
+     "d": 57.2,
+     "cut": 83.5
+    },
+    {
+     "at": 636.8,
+     "d": 12.6,
+     "cut": 66.4
+    }
+   ],
+   "scenes": 42,
+   "want": 42,
+   "snapped": 33,
+   "seconds": 845,
+   "qa": {
+    "n": 42,
+    "matched": 42,
+    "miss": [],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 5,
+       "t": 58.8,
+       "own": 0.32,
+       "nb": 0.26,
+       "ok": true,
+       "heard": "و از حوش مصنوی حرف میزنیم همه چیز از یک زیرساخت فیزیکی و سختافزاری ازیم شروع می شاورد.  در اولین ویدیوی ایمرو"
+      },
+      {
+       "n": 20,
+       "t": 368.6,
+       "own": 0.55,
+       "nb": 0.25,
+       "ok": true,
+       "heard": "ور ویدیوی سبوم گوینده با حیجان زیادی سراغی کابلیت رایگان در چت جیپیتی میرود  که برای جستجوی خود کار مشاقل و در..."
+      },
+      {
+       "n": 31,
+       "t": 606.9,
+       "own": 0.72,
+       "nb": 0.17,
+       "ok": true,
+       "heard": "سوحبت از مرز دقیق میان توانای ماشین و انسان است.  سوخنران این ویدوه با لحنی جدی و تحلیلی تفاوت بونی..."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    },
+    "freeze": [],
+    "clipSound": {
+     "clips": 20,
+     "asked": 3,
+     "made": 2,
+     "heard": 2,
+     "quiet": [],
+     "why": ""
+    }
+   },
+   "ov": {
+    "asked": 18,
+    "placed": 18,
+    "busy": 0,
+    "failed": 0,
+    "kinds": {
+     "points": 17,
+     "quote": 1
+    },
+    "forced": 7
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 42,
+    "used": 42,
+    "why": []
+   },
+   "xf": {
+    "circleopen": 6,
+    "dissolve": 9,
+    "slideright": 5,
+    "radial": 4,
+    "smoothright": 4,
+    "wiperight": 3,
+    "zoomin": 3,
+    "fade": 3
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-95-cover.jpg",
+   "notes": [
+    "صحنهٔ 32: زمینهٔ کارت یکدست بود (sd 11.4) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 34: زمینهٔ کارت یکدست بود (sd 11.7) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 36: زمینهٔ کارت یکدست بود (sd 9.8) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 38: زمینهٔ کارت یکدست بود (sd 11.4) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 40: زمینهٔ کارت یکدست بود (sd 11.8) ⇒ خودِ عکس، کنارِ کارت",
+    "برشِ کلیپ از آغاز: صحنهٔ 20: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر) · صحنهٔ 31: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)"
+   ]
   }
  },
  "art": {
@@ -10955,8 +11113,8 @@
   }
  },
  "release": {
-  "assets": 618,
-  "gb": 4.83,
-  "at": "2026-11-06 22:36"
+  "assets": 620,
+  "gb": 4.88,
+  "at": "2026-11-07 05:37"
  }
 }
