@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-07 09:33",
+ "updatedAt": "2026-11-07 11:45",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -8356,6 +8356,80 @@
     "صحنهٔ 40: زمینهٔ کارت یکدست بود (sd 11.8) ⇒ خودِ عکس، کنارِ کارت",
     "برشِ کلیپ از آغاز: صحنهٔ 20: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر) · صحنهٔ 31: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)"
    ]
+  },
+  "special:97": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-97.mp4",
+   "bytes": 50477060,
+   "parts": 3,
+   "at": "2026-11-07 11:45",
+   "mode": "scenes",
+   "scenes": 56,
+   "want": 56,
+   "snapped": 42,
+   "seconds": 1659,
+   "qa": {
+    "n": 56,
+    "matched": 55,
+    "miss": [
+     6
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0.1,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 15,
+       "t": 356.6,
+       "own": 0.71,
+       "nb": 0.12,
+       "ok": true,
+       "heard": "سلاحات کلیدی ابارتند از شرایت ابطال پذیری یا شکنندگی توجی  با شواهد جدی در کتاب اندیشه هارمن"
+      },
+      {
+       "n": 33,
+       "t": 777.7,
+       "own": 0.5,
+       "nb": 0,
+       "ok": true,
+       "heard": "ادامی صفحه شامل الیزا بت اندرسون، ناواغه اگرایی، حالت پدیداری، توماس اک ویناسی قدیس،"
+      },
+      {
+       "n": 47,
+       "t": 1176.9,
+       "own": 0.36,
+       "nb": 0.18,
+       "ok": true,
+       "heard": "آیان دره در سیو دو  کیث دیروز  رین دیکارت  تر و نزم در"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 24,
+    "placed": 16,
+    "busy": 8,
+    "failed": 0,
+    "kinds": {
+     "points": 10,
+     "quote": 1,
+     "steps": 3,
+     "compare": 1,
+     "headline": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 47,
+   "xf": {
+    "smoothright": 28,
+    "fade": 22
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-97-cover.jpg"
   }
  },
  "art": {
@@ -11163,8 +11237,8 @@
   }
  },
  "release": {
-  "assets": 627,
-  "gb": 4.85,
-  "at": "2026-11-07 09:33"
+  "assets": 629,
+  "gb": 4.9,
+  "at": "2026-11-07 11:45"
  }
 }
