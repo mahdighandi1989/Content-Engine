@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 17.6
+ *  موتور محتوا و پادکست — نسخهٔ 17.7
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2010,6 +2010,8 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   MUSIC_SFX_MIN_SPLIT: 40,     // نویسه — کوتاه‌تر از این، نصف نمی‌کنیم
 
   ONE_FILE_STRICT: true,
+  VG_CONDENSE: true,               // ۱۷.۷: «از همه جا» بلندتر از یک فایل ⇒ یک‌بار فشرده‌سازی در کد
+  VG_CONDENSE_MAX_SPENT_MS: 200000, // پس از این، فراخوانِ اضافه خطرِ سقفِ شش دقیقه دارد
 
   // «درس‌نامه» هدفش ۱۵ دقیقه است ≈ ۴۳ مگابایت — بالاتر از سقفِ ادغام، پس
   // ناگزیر دو فایل می‌شود. یک‌فایلی‌کردنش یعنی کوتاه‌کردنِ درس به ~۱۱٫۵ دقیقه،
@@ -2385,7 +2387,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '17.6',
+  CODE_VERSION: '17.7',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -13130,6 +13132,76 @@ function speechCalibStatus_() {
   return out;
 }
 
+/**
+ * ۱۷.۷ — قرینهٔ specialCondense_ برای «از همه جا از همه رنگ».
+ *
+ * قسمت‌های ۹۴، ۹۵ و ۹۶ (۶ تا ۸ نوامبر) ۱۷:۳۳، ۱۴:۰۵ و ۱۴:۵۹ شدند در برابرِ هدفِ ۱۰ دقیقه، و هر سه
+ * در چند فایل رفتند — سه روزِ پشتِ‌هم. پاسِ وفاداری هر بار «بلندتر از یک فایل: ۱» را **می‌دید** و
+ * فقط علامت می‌زد؛ درس‌نامه از ۵٫۹۰ فشرده‌سازی در کد داشت و این برنامه نداشت. همان شکلِ «قرینهٔ
+ * نصفه» که varietyTargetMin_ هم یک بار داشت، و همان درسِ «سقفی که فقط در پرامپت گفته شود سقف نیست».
+ *
+ * مرزها همان‌اند: هیچ بخشی نمی‌افتد (همان تعداد، هیچ روایتِ خالی)، شناسه‌ها و رسانه‌ها و لحن از
+ * متنِ اصلی می‌مانند و فقط «طرزِ گفتن» عوض می‌شود. اگر نسخهٔ فشرده شرط را نداشت یا کوتاه‌تر نشد،
+ * متنِ اصلی می‌ماند — دو فایل بدتر از یک کلیپِ گم‌شده نیست.
+ */
+function varietyLen_(ep, connection) {
+  var t = String(ep.hook || '') + ' \n ' + String(connection || '') + ' \n ' +
+          String(ep.intro || '') + ' \n ' + String(ep.outro || '');
+  for (var i = 0; i < (ep.sections || []).length; i++) t += ' ' + String((ep.sections[i] || {}).narration || '');
+  return t.length;
+}
+function varietyCondense_(ep, connection, capChars, epNum, gen) {
+  var res = { ep: ep, tried: false, from: 0, to: 0 };
+  var have = varietyLen_(ep, connection);
+  res.from = have; res.to = have;
+  if (CFG.VG_CONDENSE === false || !(capChars > 0) || have <= capChars) return res;
+  var need = Math.round(capChars * 0.93);
+  res.tried = true;
+  logLine_('قسمت ' + epNum + ': متن ' + have + ' نویسه است و سقفِ یک فایل ' + capChars +
+           '؛ یک‌بار فشرده‌سازی خواسته شد.');
+  var L = [
+    'این متنِ یک قسمتِ برنامهٔ فارسیِ «' + CFG.SHOW_NAME + '» است و ' + have + ' نویسه دارد.',
+    'باید به حدود ' + need + ' نویسه برسد — یعنی حدود ' + Math.round((1 - need / have) * 100) + ' درصد کوتاه‌تر.',
+    '',
+    'قواعدِ سختِ فشرده‌سازی:',
+    '۱) هیچ بخشی را حذف نکن. تعدادِ بخش‌ها و ترتیب و عنوان‌هایشان دقیقاً همان بماند.',
+    '۲) هیچ کلیپ، عکس، نام، عدد یا نقل‌قولی را نینداز و نقل‌قول را عیناً نگه دار. آنچه کوتاه می‌شود «طرزِ گفتن» است:',
+    '   توضیحِ تکراری، مقدمه‌چینی، جمع‌بندیِ دوباره و جمله‌های پرکننده.',
+    '۳) نامِ برنامه، روزِ هفته و تاریخ در قلاب بمانند.',
+    '۴) چیزِ تازه‌ای اضافه نکن. همان قواعدِ نگارشی: بی رقم، بی لاتین، بی مارک‌داون، جمله‌های کوتاه.',
+    '',
+    'متنِ فعلی، به‌شکلِ JSON:',
+    JSON.stringify({ title: ep.title || '', hook: ep.hook || '', outro: ep.outro || '', summary: ep.summary || '',
+                     sections: (ep.sections || []).map(function (x) {
+                       return { heading: x.heading || '', narration: x.narration || '', tone: x.tone || '',
+                                sourceIds: x.sourceIds || [] }; }) })
+  ];
+  var out = null;
+  try { out = (gen || geminiText_)(L.join('\n'), EPISODE_SCHEMA); }
+  catch (e) { logLine_('فشرده‌سازیِ قسمت ' + epNum + ' انجام نشد: ' + e.message); return res; }
+  var ok = !!(out && out.sections && out.sections.length === (ep.sections || []).length);
+  if (ok) for (var i = 0; i < out.sections.length; i++) {
+    if (!String((out.sections[i] || {}).narration || '').trim()) { ok = false; break; }
+  }
+  if (!ok) { logLine_('قسمت ' + epNum + ': نسخهٔ فشرده بخشی کم داشت؛ متنِ اصلی نگه داشته شد.'); return res; }
+  var m = {};
+  for (var k in ep) if (Object.prototype.hasOwnProperty.call(ep, k)) m[k] = ep[k];
+  if (String(out.hook || '').trim()) m.hook = out.hook;
+  if (String(out.outro || '').trim()) m.outro = out.outro;
+  m.sections = ep.sections.map(function (sec, j) {
+    var n = {};
+    for (var k2 in sec) if (Object.prototype.hasOwnProperty.call(sec, k2)) n[k2] = sec[k2];
+    n.narration = out.sections[j].narration;
+    return n;
+  });
+  var now = varietyLen_(m, connection);
+  if (now >= have) { logLine_('قسمت ' + epNum + ': نسخهٔ فشرده کوتاه‌تر نشد؛ متنِ اصلی نگه داشته شد.'); return res; }
+  logLine_('قسمت ' + epNum + ': متن از ' + have + ' به ' + now + ' نویسه فشرده شد' +
+           (now <= capChars ? ' — در یک فایل جا می‌شود.' : ' — هنوز از سقف بالاتر است.'));
+  res.ep = m; res.to = now;
+  return res;
+}
+
 function oneFileMaxChars_() {
   var capB = Number(CFG.MERGE_MAX_BYTES) || 33000000;
   // ── مسیرِ اندازه‌گیری‌شده ──
@@ -14350,6 +14422,19 @@ function produceEpisode(opt) {
     // نویسه‌های عربیِ ناخوانا و جمله‌های بیش از حد بلند علامت می‌خورند و
     // به‌عنوان یافتهٔ خودِ موتور در تب گزارش‌ها ثبت می‌شوند، تا قسمت بعد
     // همان‌ها به‌شکل دستور به پرامپت برگردند.
+    /* ۱۷.۷ — سقفِ یک فایل در کد، نه فقط علامتِ پاسِ وفاداری (قسمت‌های ۹۴–۹۶). پیش از وفاداری، تا وفاداری
+       متنِ نهایی را بسنجد؛ فقط وقتی وقت هست — یک فراخوانِ اضافه نباید اجرا را از سقفِ شش دقیقه رد کند. */
+    try {
+      if (new Date().getTime() - tStart < (Number(CFG.VG_CONDENSE_MAX_SPENT_MS) || 200000)) {
+        runStage_('متن: فشرده‌سازی تا سقفِ یک فایل');
+        var vcd = varietyCondense_(ep, connection, oneFileMaxChars_(), epNum);
+        if (vcd.ep !== ep) ep = vcd.ep;
+      } else if (varietyLen_(ep, connection) > oneFileMaxChars_()) {
+        logLine_('قسمت ' + epNum + ': بلندتر از یک فایل است ولی وقتِ فشرده‌سازی نماند (' +
+                 Math.round((new Date().getTime() - tStart) / 1000) + ' ثانیه گذشته).');
+      }
+    } catch (eVc) { logLine_('فشرده‌سازیِ قسمت ' + epNum + ' نشد: ' + eVc.message); }
+
     runStage_('متن: پاسِ وفاداری و زمین‌گیری');
     var fid = [];
     try {
