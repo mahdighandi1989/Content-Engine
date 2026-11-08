@@ -1,5 +1,5 @@
 {
- "rev": 73,
+ "rev": 74,
  "items": {
   "special:49": {
    "urls": [
@@ -22060,8 +22060,327 @@
     "p95Hz": 275.9,
     "highPct": 30.6
    }
+  },
+  "special:98": {
+   "urls": [
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/special-98-85b6ce96-1of4.wav",
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/special-98-85b6ce96-2of4.wav",
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/special-98-85b6ce96-3of4.wav",
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/special-98-85b6ce96-4of4.wav"
+   ],
+   "pieceBytes": [
+    41922638,
+    41918542,
+    41922638,
+    37383984
+   ],
+   "bytes": 163147802,
+   "seconds": 2039.3,
+   "minutes": 47.0,
+   "parts": 3,
+   "pieces": 4,
+   "speaker": "razavi",
+   "at": "2026-11-08T23:21:36Z",
+   "mp3": {
+    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/special-98-85b6ce96.mp3",
+    "bytes": 32630534
+   },
+   "pitch": "-5",
+   "loud": {
+    "rawLufs": -19.7,
+    "rawTp": 0.1,
+    "gainDb": 3.73,
+    "limited": true,
+    "lufs": -16.6,
+    "tp": -1.1
+   },
+   "pitchAuto": {
+    "srcHz": 146.8,
+    "targetHz": 106.9,
+    "pitch": -5,
+    "groups": [
+     {
+      "hz": 146.8,
+      "pitch": -5,
+      "secs": 1961.5
+     }
+    ],
+    "by": "speech-only"
+   },
+   "mix": {
+    "speechSec": 1961.5,
+    "keptSec": 77.9,
+    "lagSec": [
+     -0.99
+    ],
+    "lagCorr": [
+     0.43
+    ],
+    "alignCorr": 0.82
+   },
+   "quality": {
+    "sec": 2035.1,
+    "voicedPct": 59.6,
+    "cracks": [
+     {
+      "t": 8.35,
+      "fromHz": 163.3,
+      "toHz": 500.0,
+      "ms": 80
+     },
+     {
+      "t": 42.07,
+      "fromHz": 242.4,
+      "toHz": 500.0,
+      "ms": 80
+     },
+     {
+      "t": 42.79,
+      "fromHz": 235.3,
+      "toHz": 470.6,
+      "ms": 120
+     },
+     {
+      "t": 44.57,
+      "fromHz": 150.9,
+      "toHz": 381.0,
+      "ms": 80
+     },
+     {
+      "t": 120.71,
+      "fromHz": 94.1,
+      "toHz": 186.0,
+      "ms": 120
+     },
+     {
+      "t": 135.29,
+      "fromHz": 81.6,
+      "toHz": 296.3,
+      "ms": 80
+     },
+     {
+      "t": 200.83,
+      "fromHz": 42.8,
+      "toHz": 205.1,
+      "ms": 60
+     },
+     {
+      "t": 246.81,
+      "fromHz": 93.0,
+      "toHz": 242.4,
+      "ms": 80
+     },
+     {
+      "t": 260.57,
+      "fromHz": 60.6,
+      "toHz": 363.6,
+      "ms": 80
+     },
+     {
+      "t": 323.25,
+      "fromHz": 150.9,
+      "toHz": 615.4,
+      "ms": 60
+     },
+     {
+      "t": 339.47,
+      "fromHz": 74.8,
+      "toHz": 333.3,
+      "ms": 60
+     },
+     {
+      "t": 353.77,
+      "fromHz": 250.0,
+      "toHz": 615.4,
+      "ms": 60
+     },
+     {
+      "t": 376.91,
+      "fromHz": 153.8,
+      "toHz": 296.3,
+      "ms": 60
+     },
+     {
+      "t": 382.91,
+      "fromHz": 65.6,
+      "toHz": 333.3,
+      "ms": 60
+     },
+     {
+      "t": 384.15,
+      "fromHz": 59.7,
+      "toHz": 500.0,
+      "ms": 60
+     },
+     {
+      "t": 399.21,
+      "fromHz": 89.9,
+      "toHz": 173.9,
+      "ms": 60
+     },
+     {
+      "t": 408.41,
+      "fromHz": 75.5,
+      "toHz": 333.3,
+      "ms": 80
+     },
+     {
+      "t": 412.29,
+      "fromHz": 69.6,
+      "toHz": 381.0,
+      "ms": 60
+     },
+     {
+      "t": 442.21,
+      "fromHz": 97.6,
+      "toHz": 533.3,
+      "ms": 60
+     },
+     {
+      "t": 465.29,
+      "fromHz": 160.0,
+      "toHz": 235.3,
+      "ms": 140
+     },
+     {
+      "t": 489.19,
+      "fromHz": 63.5,
+      "toHz": 363.6,
+      "ms": 60
+     },
+     {
+      "t": 492.21,
+      "fromHz": 65.6,
+      "toHz": 200.0,
+      "ms": 60
+     },
+     {
+      "t": 529.41,
+      "fromHz": 250.0,
+      "toHz": 470.6,
+      "ms": 80
+     },
+     {
+      "t": 576.53,
+      "fromHz": 67.2,
+      "toHz": 421.1,
+      "ms": 60
+     },
+     {
+      "t": 622.37,
+      "fromHz": 68.4,
+      "toHz": 333.3,
+      "ms": 60
+     },
+     {
+      "t": 647.27,
+      "fromHz": 106.7,
+      "toHz": 195.1,
+      "ms": 100
+     },
+     {
+      "t": 650.97,
+      "fromHz": 75.5,
+      "toHz": 181.8,
+      "ms": 60
+     },
+     {
+      "t": 763.71,
+      "fromHz": 114.3,
+      "toHz": 186.0,
+      "ms": 60
+     },
+     {
+      "t": 771.31,
+      "fromHz": 71.4,
+      "toHz": 347.8,
+      "ms": 80
+     },
+     {
+      "t": 772.51,
+      "fromHz": 77.7,
+      "toHz": 381.0,
+      "ms": 60
+     },
+     {
+      "t": 845.09,
+      "fromHz": 59.7,
+      "toHz": 123.1,
+      "ms": 100
+     },
+     {
+      "t": 864.69,
+      "fromHz": 69.6,
+      "toHz": 115.9,
+      "ms": 100
+     },
+     {
+      "t": 892.31,
+      "fromHz": 62.0,
+      "toHz": 119.4,
+      "ms": 60
+     },
+     {
+      "t": 913.31,
+      "fromHz": 84.2,
+      "toHz": 163.3,
+      "ms": 60
+     },
+     {
+      "t": 1005.91,
+      "fromHz": 156.9,
+      "toHz": 250.0,
+      "ms": 180
+     },
+     {
+      "t": 1013.49,
+      "fromHz": 137.9,
+      "toHz": 470.6,
+      "ms": 60
+     },
+     {
+      "t": 1024.31,
+      "fromHz": 79.2,
+      "toHz": 333.3,
+      "ms": 100
+     },
+     {
+      "t": 1042.41,
+      "fromHz": 88.9,
+      "toHz": 500.0,
+      "ms": 80
+     },
+     {
+      "t": 1085.01,
+      "fromHz": 90.9,
+      "toHz": 181.8,
+      "ms": 60
+     },
+     {
+      "t": 1098.43,
+      "fromHz": 195.1,
+      "toHz": 381.0,
+      "ms": 80
+     }
+    ],
+    "crackPerMin": 1.71,
+    "jitterSt": 0.111,
+    "shimmerDb": 2.54,
+    "bounds": [],
+    "medianHz": 114.3,
+    "bad": ""
+   },
+   "f0Out": {
+    "medianHz": 112.7,
+    "lowPct": 9,
+    "frames": 1839,
+    "p95Hz": 228.6,
+    "highPct": 34.3,
+    "capHz": 127.1,
+    "overPct": 41.5
+   }
   }
  },
- "at": "2026-11-08T06:41:27Z",
+ "at": "2026-11-08T23:21:36Z",
  "note": "خروجیِ پلِ رنگِ صدا. گردش‌کارِ voice-bridge می‌نویسد و موتور (بخشِ ۳۶) از gitHub raw می‌خوانَد. دست‌نویس نکنید."
 }
