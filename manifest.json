@@ -1,17 +1,17 @@
 {
-  "version": "17.7",
+  "version": "17.8",
   "codeFile": "engine.gs",
-  "sha256": "d05039c65e011e3af5ed60bfb544943c7c3a15156fb2d2485dcd02582c8507f5",
-  "releasedAt": "2026-11-08T06:54:58Z",
-  "summary": "«از همه جا» بلندتر از سقفِ یک فایل ⇒ یک‌بار فشرده‌سازی در کد (قرینهٔ درس‌نامه)؛ قسمت‌های ۹۴–۹۶ سه روزِ پشتِ‌هم ۱۴ تا ۱۷ دقیقه و چندفایلی شدند",
+  "sha256": "2c32f7873890859676b78c4f4511c899b10d73d073bb5d8572eb5d3cac24a416",
+  "releasedAt": "2026-11-08T09:46:22Z",
+  "summary": "درس‌نامه: پس از تمام‌شدنِ مجموعهٔ جاری، اول مجموعه‌های شماره‌دارِ همان دستهٔ دستی به ترتیبِ شماره، بعد بقیه (آئودی ← تحلیلِ فلسفی، نه خداشناسی)",
   "fixes": [
-    "varietyCondense_ / varietyLen_ در بخشِ ۳: هیچ بخشی نمی‌افتد، شناسه/لحن/رسانه از اصل",
-    "produceEpisode: پیش از پاسِ وفاداری، پشتِ VG_CONDENSE_MAX_SPENT_MS",
-    "CFG.VG_CONDENSE (کلیدِ خاموش‌کردن)",
-    "tests/run_v177_test.js"
+    "seriesCurCat_ / seriesSameCatRank_ در pickSeriesPlan_ (فقط ردیف‌های شماره‌دار؛ فعال، «قسمتِ تازه» و سنجاق مقدم)",
+    "seriesQueuePlan_: همان قاعده در پیش‌بینیِ صف",
+    "CFG.SERIES_SAME_CAT_FIRST",
+    "tests/run_v178_test.js"
   ],
   "sourceReportIds": [
-    "R-20261108-01"
+    "R-20261108-02"
   ],
   "answers": [],
   "promptImpact": []

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 17.7
+ *  موتور محتوا و پادکست — نسخهٔ 17.8
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2177,6 +2177,8 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   FB_TRY_MAX: 5,                 // تلاشِ دوبارهٔ یک بازنشرِ ناموفق، بعد کنار (علتش در برنامهٔ همان ریلز)
   /* ۱۱.۵ — تولیدِ موازیِ درس‌نامه: حداکثر چند مجموعهٔ تیک‌خورده کنارِ مجموعهٔ جاری. هیچ تیکی ⇒ رفتارِ پیشین. */
   SERIES_PAR_MAX: 3,
+  /* ۱۷.۸ — پس از تمام‌شدنِ مجموعهٔ جاری، اول مجموعه‌های شماره‌دارِ همان دستهٔ دستی (R-20261108-02). false ⇒ فقط شمارهٔ دستی. */
+  SERIES_SAME_CAT_FIRST: true,
   /* ۱۱.۷ — «دسته‌بندیِ خودکارِ خیلی از مجموعه‌ها غلط بوده؛ هیچ تصمیمی را روی دستهٔ خودکار پایه نگذارید. فقط دسته‌هایی که
      دستی گذاشته معتبرند.» false ⇒ دستهٔ خودکار فقط «پیشنهاد» است: مجموعهٔ تازه فقط با دسته یا شمارهٔ دستی شروع می‌شود،
      سنجاقِ دسته و انتخابِ گوینده فقط دستهٔ دستی را می‌بینند، و تخته بی‌دسته‌دستی‌ها را جدا نشان می‌دهد. true ⇒ رفتارِ پیش از ۱۱.۷. */
@@ -2387,7 +2389,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '17.7',
+  CODE_VERSION: '17.8',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -27052,6 +27054,18 @@ function lastEpNo_(cell) {
   return mx;
 }
 
+/** ۱۷.۸ — دستهٔ دستیِ مجموعه‌ای که آخرین قسمت را گرفت؛ خالی ⇒ قاعدهٔ دسته بی‌اثر. */
+function seriesCurCat_(reg, lastKey) {
+  if (CFG.SERIES_SAME_CAT_FIRST === false) return '';
+  var rec = lastKey && reg && reg.byKey ? reg.byKey[lastKey] : null;
+  return rec ? String(rec.vals[SC.MCAT - 1] || '').trim() : '';
+}
+/** ۰ = همان دستهٔ دستی و شمارهٔ دستی دارد (اول)، ۱ = بقیه. */
+function seriesSameCatRank_(vals, cat) {
+  if (!cat) return 1;
+  return (String(vals[SC.MCAT - 1] || '').trim() === cat && isFinite(seriesMOrder_(vals))) ? 0 : 1;
+}
+
 function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt, optsOpt) {
   var out = { rec: null, pinExhausted: false, pinBlocked: false, spent: [] };
   var reg = regOpt || readSeriesReg_(hub);
@@ -27189,7 +27203,14 @@ function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt, optsOpt) {
     var k = String(r.vals[SC.LEVEL - 1] || '').trim();
     return Object.prototype.hasOwnProperty.call(lvlRank, k) ? lvlRank[k] : 1;
   };
+  /* ۱۷.۸ — «وقتی درس‌نامهٔ فعلیِ یک دسته تمام شد، اول مجموعهٔ بعدیِ همان دسته» (R-20261108-02، «بله» سه بار):
+     دستهٔ دستیِ آخرین مجموعه‌ای که ساخته شد (PK.SP_SERIES) جلو می‌افتد، فقط میانِ ردیف‌هایی که شمارهٔ دستی دارند —
+     دسته هیچ مجموعه‌ای را وارد نوبت نمی‌کند (R-20261025-42 سرِ جایش). درونِ هر گروه همان ترتیبِ پیشین. */
+  var curCat = seriesCurCat_(reg, lastKey);
+  out.curCat = curCat;
   queue.sort(function (a, b) {
+    var sc = seriesSameCatRank_(a.vals, curCat) - seriesSameCatRank_(b.vals, curCat);
+    if (sc) return sc;
     var d = eff(a) - eff(b);
     if (d) return d;
     var lv = lvOf(a) - lvOf(b);
@@ -27463,8 +27484,10 @@ function seriesQueuePlan_(hub, regOpt, partsOpt) {
      بعد ردیف. پیش‌بینی‌ای که گره را جورِ دیگری باز کند، ترتیبی می‌گوید که موتور نمی‌سازد. */
   var lvR = { 'مقدماتی': 0, 'میانی': 1, 'پیشرفته': 2 };
   var lvO = function (r) { var k = String(r.vals[SC.LEVEL - 1] || '').trim(); return Object.prototype.hasOwnProperty.call(lvR, k) ? lvR[k] : 1; };
+  var curCatQ = seriesCurCat_(reg, (function () { try { return props_().getProperty(PK.SP_SERIES) || ''; } catch (eK) { return ''; } })());
   que.sort(function (a, b) {
-    return seriesEffOrder_(a.vals) - seriesEffOrder_(b.vals) || lvO(a) - lvO(b) ||
+    return seriesSameCatRank_(a.vals, curCatQ) - seriesSameCatRank_(b.vals, curCatQ) ||   // ۱۷.۸: همان قاعدهٔ pickSeriesPlan_
+           seriesEffOrder_(a.vals) - seriesEffOrder_(b.vals) || lvO(a) - lvO(b) ||
            (Number(b.vals[SC.CSCORE - 1]) || 0) - (Number(a.vals[SC.CSCORE - 1]) || 0) || a.row - b.row;
   });
   var order = act.concat(reo, que), out = { rows: [], days: 0, held: held, medPer: Math.round(medPer * 10) / 10 }, day = 0;
