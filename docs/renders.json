@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-09 09:18",
+ "updatedAt": "2026-11-09 13:00",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -8928,6 +8928,15 @@
    "h": 1400,
    "art": true,
    "at": "2026-10-20 09:33"
+  },
+  "series:an introduction to philosophical analysis": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/pl-series-an-introduction-to-philosophical-analysis.jpg",
+   "req": "55887f6ff285",
+   "sig": "55887f6ff285|special:99|f2",
+   "w": 1400,
+   "h": 1400,
+   "art": true,
+   "at": "2026-11-09 13:00"
   }
  },
  "reels": {
@@ -11879,8 +11888,8 @@
   }
  },
  "release": {
-  "assets": 669,
+  "assets": 670,
   "gb": 5.21,
-  "at": "2026-11-09 09:18"
+  "at": "2026-11-09 13:00"
  }
 }
