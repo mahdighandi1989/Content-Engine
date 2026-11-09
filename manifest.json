@@ -1,17 +1,15 @@
 {
-  "version": "17.8",
+  "version": "17.9",
   "codeFile": "engine.gs",
-  "sha256": "2c32f7873890859676b78c4f4511c899b10d73d073bb5d8572eb5d3cac24a416",
-  "releasedAt": "2026-11-08T09:46:22Z",
-  "summary": "درس‌نامه: پس از تمام‌شدنِ مجموعهٔ جاری، اول مجموعه‌های شماره‌دارِ همان دستهٔ دستی به ترتیبِ شماره، بعد بقیه (آئودی ← تحلیلِ فلسفی، نه خداشناسی)",
+  "sha256": "0d7a708dfc316ac261b5e78b2bee607f281b138613dc92a2bd185a4d67c920dd",
+  "releasedAt": "2026-11-09T08:27:04Z",
+  "summary": "نوشتنِ _STATUS در پایانِ تولیدِ هر دو برنامه به اجرای جدا (statusLater) سپرده شد — درس‌نامهٔ ۹۹ پس از ارسالِ ایمیل سرِ «وضعیت: contentAudit» در ثانیهٔ ۳۴۹ کشته شده بود",
   "fixes": [
-    "seriesCurCat_ / seriesSameCatRank_ در pickSeriesPlan_ (فقط ردیف‌های شماره‌دار؛ فعال، «قسمتِ تازه» و سنجاق مقدم)",
-    "seriesQueuePlan_: همان قاعده در پیش‌بینیِ صف",
-    "CFG.SERIES_SAME_CAT_FIRST",
-    "tests/run_v178_test.js"
+    "statusAfterRun_: اول statusLaterArm_() (تریگرِ یک‌باره + بدهیِ STATUS_DUE ۱۶.۴)؛ فقط اگر تریگر ساخته نشد، سدِ زمانیِ ۹.۹۸",
+    "ردِ ده‌مرحله‌ایِ ۱۷.۶ دیگر با «وضعیت: …» پر نمی‌شود؛ گامِ گرانِ تولید دیده می‌ماند"
   ],
   "sourceReportIds": [
-    "R-20261108-02"
+    "RPT-202610281214#2"
   ],
   "answers": [],
   "promptImpact": []

@@ -604,6 +604,15 @@ function runWriteStatusNow() {
 }
 
 function statusAfterRun_(hub, note) {
+  /* ۱۷.۹ — همان درمانِ ۱۶.۲ (سینک) و ۱۶.۹ (وارسیِ سلامت)، این بار برای پایانِ تولید. ۹ نوامبر `produceSpecialContinue`
+     (درس‌نامهٔ ۹۹، ایمیل ۰۹:۰۷ رفته بود) سرِ «وضعیت: contentAudit» در ثانیهٔ ۳۴۹ کشته شد: سدِ زیر با `STATUS_COST` (۶۸–۷۳ث،
+     اندازه‌گیری‌شده در اجرای گرمِ ۰۹:۳۰/۱۰:۰۰) اجازه داد، و نوشتن در تهِ اجرای تولید بیش از ۹۵ ثانیه شد. ۲۸ اکتبر هم
+     `produceEpisodeContinue` سرِ «وضعیت: handout» در ۲۵۲ث. عددِ اجرای دیگر برآوردِ این اجرا نیست؛ پس این‌جا هم نوشتن اجرای خودش
+     را می‌گیرد. فقط اگر تریگر ساخته نشد، سدِ قدیمی. و ردِ ده‌مرحله‌ایِ ۱۷.۶ دیگر با «وضعیت: …» پر نمی‌شود. */
+  if (statusLaterArm_()) {
+    try { logLine_('نوشتنِ وضعیت به اجرای جدا سپرده شد (' + String(note || '') + ').'); } catch (eL) {}
+    return null;
+  }
   var cost = 150;
   try { cost = Math.max(60, Number((JSON.parse(props_().getProperty(PK.STATUS_COST) || '{}') || {}).totalSec) || 150); } catch (e) {}
   var used = RUN_T0_ ? (new Date().getTime() - RUN_T0_) / 1000 : 0;

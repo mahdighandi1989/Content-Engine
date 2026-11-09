@@ -2387,14 +2387,16 @@ console.log('=== ۲۸) نوشتنِ وضعیتِ میانِ روز پیمایش�
   ok('۲۸.۸ درس‌نامه: SP_LAST، بدهیِ جزوه و یوتیوب پیش از نوشتنِ وضعیت',
      a14 > 0 && h14 > 0 && s14 > 0 && b14 > a14 && b14 > h14 && b14 > s14);
   /* ۹.۹۸: نوشتنِ وضعیت در پایانِ تولید فقط اگر وقتش هست — ۲۱ اکتبر دو اجرای ادامه سرِ همین نوشتن کشته شدند. */
-  const wsWas = global.writeStatus_, t0Was = RUN_T0_; let wrote = 0;
+  /* ۱۷.۹: نخست اجرای جدا (`statusLaterArm_`)؛ این سنجه سدِ پشتیبان را می‌سنجد — وقتی تریگر ساخته نشد. */
+  const wsWas = global.writeStatus_, t0Was = RUN_T0_, armWas = global.statusLaterArm_; let wrote = 0;
+  global.statusLaterArm_ = () => false;
   global.writeStatus_ = () => { wrote++; return {}; };
   global.__PROPS[PK.STATUS_COST] = JSON.stringify({ totalSec: 146 });
   RUN_T0_ = Date.now() - 230 * 1000; statusAfterRun_(null, 'x');
   const skipped = wrote === 0;
   RUN_T0_ = Date.now() - 40 * 1000; statusAfterRun_(null, 'x');
   ok('۲۸.۹ (۹.۹۸) ۲۳۰ ثانیه گذشته و نوشتن ~۱۴۶ ⇒ سپرده به اجرای بعد؛ ۴۰ ثانیه ⇒ نوشته می‌شود', skipped && wrote === 1, wrote);
-  global.writeStatus_ = wsWas; RUN_T0_ = t0Was;
+  global.writeStatus_ = wsWas; RUN_T0_ = t0Was; global.statusLaterArm_ = armWas;
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');
