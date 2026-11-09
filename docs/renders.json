@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-08 22:58",
+ "updatedAt": "2026-11-09 09:05",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -8126,7 +8126,8 @@
     "صحنهٔ 47: زمینهٔ کارت یکدست بود (sd 5.1) ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 49: زمینهٔ کارت یکدست بود (sd 7.1) ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 51: زمینهٔ کارت یکدست بود (sd 7) ⇒ خودِ عکس، کنارِ کارت"
-   ]
+   ],
+   "pruned": "2026-11-09"
   },
   "special:96": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-96.mp4",
@@ -8199,7 +8200,8 @@
     "smoothright": 39,
     "fade": 31
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-96-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-96-cover.jpg",
+   "pruned": "2026-11-09"
   },
   "variety:95": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-95.mp4",
@@ -8673,6 +8675,84 @@
     "fade": 34
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-98-cover.jpg"
+  },
+  "special:99": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-99.mp4",
+   "bytes": 48625134,
+   "parts": 3,
+   "at": "2026-11-09 09:05",
+   "mode": "scenes",
+   "scenes": 71,
+   "want": 71,
+   "snapped": 61,
+   "seconds": 1582,
+   "qa": {
+    "n": 71,
+    "matched": 66,
+    "miss": [
+     13,
+     30,
+     36,
+     37,
+     41
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 18,
+       "t": 323.9,
+       "own": 0.5,
+       "nb": 0.1,
+       "ok": true,
+       "heard": "بای بایی جامه برای پوشش همه مسائل فلسفی حتى در حضار سفه هم نمی گونجت.  اختصاصه چن سفه به هر مسا..."
+      },
+      {
+       "n": 36,
+       "t": 849.5,
+       "own": 0.29,
+       "nb": 0.07,
+       "ok": true,
+       "heard": "تای مطالعه در سفحات هفدادونو، سدو پنجهو چهار، دیویستو چهار ده، دیویستو هفدادو پنج، سی سدو هفدادو چهار، چه..."
+      },
+      {
+       "n": 54,
+       "t": 1221,
+       "own": 0.61,
+       "nb": 0.22,
+       "ok": true,
+       "heard": "در واقعه ما اینجا داریم یاد میگیریم قبل از این که وارد ایک بحس سنگین و احساسی بشهویم اول ما."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 29,
+    "placed": 20,
+    "busy": 9,
+    "failed": 0,
+    "kinds": {
+     "points": 11,
+     "steps": 1,
+     "quote": 2,
+     "headline": 5,
+     "compare": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 59,
+   "xf": {
+    "smoothright": 35,
+    "fade": 28
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-99-cover.jpg"
   }
  },
  "art": {
@@ -8685,6 +8765,11 @@
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/art-show-variety.jpg",
    "from": "variety:77",
    "at": "2026-10-20 09:33"
+  },
+  "series:an introduction to philosophical analysis": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/art-series-an-introduction-to-philosophical-analysis.jpg",
+   "from": "special:99",
+   "at": "2026-11-09 09:05"
   }
  },
  "plCovers": {
@@ -11665,8 +11750,8 @@
   }
  },
  "release": {
-  "assets": 666,
-  "gb": 5.21,
-  "at": "2026-11-08 22:58"
+  "assets": 667,
+  "gb": 5.17,
+  "at": "2026-11-09 09:05"
  }
 }
