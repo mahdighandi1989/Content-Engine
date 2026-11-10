@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-10 10:17",
+ "updatedAt": "2026-11-10 10:40",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -9110,6 +9110,81 @@
     "صحنهٔ 20: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 22: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت"
    ]
+  },
+  "special:101": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-101.mp4",
+   "bytes": 45408407,
+   "parts": 2,
+   "at": "2026-11-10 10:40",
+   "mode": "scenes",
+   "scenes": 50,
+   "want": 50,
+   "snapped": 41,
+   "seconds": 1312,
+   "qa": {
+    "n": 50,
+    "matched": 47,
+    "miss": [
+     7,
+     14,
+     33
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 13,
+       "t": 296.8,
+       "own": 0.61,
+       "nb": 0.22,
+       "ok": true,
+       "heard": "و علامت گچ سفید روی تیرک چوبی هصار  برای تحویز آن در بحار آیندل  فقط نماد اختیاری و قیر اورفیست"
+      },
+      {
+       "n": 26,
+       "t": 619.8,
+       "own": 0.63,
+       "nb": 0.21,
+       "ok": true,
+       "heard": "انتظائی دلالت دارند که بباور اکسر مردم بدون تعلق با اشیا اینزمامی وجود خارجی ندارند.  منند سفیدی یا حوشم."
+      },
+      {
+       "n": 38,
+       "t": 964.1,
+       "own": 0.4,
+       "nb": 0.2,
+       "ok": true,
+       "heard": "فین و لند هست  حال اگر سندلی زیر پای امرو چراق به نامم  قلت نیست  اگر منظورتان از چراق همون معنای آر فه"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 21,
+    "placed": 11,
+    "busy": 10,
+    "failed": 0,
+    "kinds": {
+     "points": 6,
+     "quote": 3,
+     "headline": 1,
+     "compare": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 40,
+   "xf": {
+    "smoothright": 25,
+    "fade": 20
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-101-cover.jpg"
   }
  },
  "art": {
@@ -12168,8 +12243,8 @@
   }
  },
  "release": {
-  "assets": 682,
-  "gb": 5.26,
-  "at": "2026-11-10 10:17"
+  "assets": 684,
+  "gb": 5.3,
+  "at": "2026-11-10 10:40"
  }
 }
