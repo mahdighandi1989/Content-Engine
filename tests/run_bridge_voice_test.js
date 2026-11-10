@@ -152,8 +152,21 @@ const ing = vbrIngest_(hub);
 ok('۵.۱ خروجی برداشته شد', ing.got.length === 1 && ing.got[0].key === 'variety:47');
 ok('۵.۲ ردیف بسته شد',
    vbrRead_().items.filter(x => x.key === 'variety:47')[0].status === 'رسید');
-ok('۵.۳ اشتراکِ موقتِ صوت پس گرفته شد', ing.unshared >= 1,
-   'اشتراکی که پس گرفته نشود، صوتِ قسمت را برای همیشه عمومی می‌گذارد');
+/* ۱۸.۰: در این فیکسچر «variety:48» هم در انتظار است و **همان** WAV را دارد (یک پوشهٔ قسمت). بستنش همان باگِ variety:93
+   است (۶ نوامبر: یک صف صوتِ صفِ دیگر را بست و پل چهار روز قرمز ماند). پس اینجا نباید بسته شود — و وقتی دیگر کسی
+   لازمش ندارد، باید بسته شود. */
+const sharedId = vbrRead_().items.filter(x => x.key === 'variety:47')[0].audio[0].id;
+ok('۵.۳-الف صوتی که ردیفِ در انتظارِ دیگر لازم دارد باز می‌ماند', ing.unshared === 0 &&
+   String(DriveApp.getFileById(sharedId).getSharingAccess()) === String(DriveApp.Access.ANYONE_WITH_LINK));
+{
+  const q53 = vbrRead_(), r48 = q53.items.filter(x => x.key === 'variety:48')[0];
+  const st48 = r48.status; r48.status = 'رهاشده'; vbrSave_(q53);
+  const n53 = vbrUnshare_(q53.items.filter(x => x.key === 'variety:47')[0]);
+  ok('۵.۳ اشتراکِ موقتِ صوت پس گرفته شد', n53 >= 1,
+     'اشتراکی که پس گرفته نشود، صوتِ قسمت را برای همیشه عمومی می‌گذارد');
+  const q53b = vbrRead_(); q53b.items.filter(x => x.key === 'variety:48')[0].status = st48; vbrSave_(q53b);
+  driveShareOn_(sharedId);
+}
 ok('۵.۴ کارنامه ردیف گرفت', (function () {
    const sh = hub.getSheetByName(VBR_TAB);
    return sh && sh.getLastRow() >= 2;

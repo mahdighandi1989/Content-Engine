@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 17.9
+ *  موتور محتوا و پادکست — نسخهٔ 18.0
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2389,7 +2389,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '17.9',
+  CODE_VERSION: '18.0',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -54330,7 +54330,7 @@ function ytRenderShare_(item, on, keep) {
 }
 
 /** شناسه‌هایی که ردیف‌های در انتظار (و هنوز نه کهنه) لازم دارند — هیچ پس‌گرفتنی به این‌ها دست نمی‌زند (۹.۰۲). */
-function ytShareKeep_(d, exceptKey) {
+function ytShareKeep_(d, exceptKey, vbrExceptKey) {
   var keep = {}, now = new Date().getTime();
   var maxD = Math.max(1, Number(CFG.YT_SHARE_DAYS) || 3);
   var items = (d && d.items) || [];
@@ -54342,6 +54342,26 @@ function ytShareKeep_(d, exceptKey) {
     var ids = ytRenderShare_(it, false, 'ids');
     for (var j = 0; j < ids.length; j++) keep[ids[j]] = 1;
   }
+  /* ══ صفِ دوم هم همان صوت را لازم دارد (۱۸.۰) ══
+     ۹.۰۲ فقط ردیف‌های همین صف را می‌دید. ۶ نوامبر ۰۲:۳۱ پلِ صدا «variety:93» را با همان WAV در صف گذاشت و
+     ۰۲:۴۶ `ytShareSweep_` — چون ردیفِ رندرِ همان قسمت «رسید» بود — همان WAV را خصوصی کرد. از آن شب هر اجرای
+     voice-bridge با «چیزی که رسید فایل نبود» قرمز شد و ردیف با tries=0 چهار روز «در انتظار» ماند: رانر شکست را
+     به هیچ‌جا نمی‌نویسد، پس موتور هرگز نمی‌شمردش. حالا ردیف‌های در انتظارِ پل هم در `keep` می‌آیند.
+     بخشِ ۳۶ جلوتر از این بخش است؛ پس با `typeof` و در try — بارگیرِ ناقصِ آزمون نباید بشکند. */
+  try {
+    if (typeof vbrRead_ === 'function') {
+      var vd = vbrRead_(), vmax = Math.max(1, Number(CFG.VBR_SHARE_KEEP_DAYS) || 7);
+      for (var v = 0; v < vd.items.length; v++) {
+        var vi = vd.items[v];
+        if (String(vi.status || '') !== 'در انتظار') continue;
+        if (vbrExceptKey && String(vi.key) === String(vbrExceptKey)) continue;
+        var vt = parseWhen_(String(vi.redoAt || vi.at || ''));
+        if (!isNaN(vt) && (now - vt) / 86400000 > vmax) continue;
+        var vau = vi.audio || [];
+        for (var a = 0; a < vau.length; a++) if (vau[a] && vau[a].id) keep[String(vau[a].id)] = 1;
+      }
+    }
+  } catch (eV) {}
   return keep;
 }
 
@@ -82084,9 +82104,40 @@ function vbrUnshare_(item) {
   var n = 0;
   var au = ((item && item.audio) || []).concat((item && item.colour && item.colour.refs) || [])
              .concat((item && item.modelOld && item.modelOld.ids) || []);   // ۱۳.۹
+  /* ۱۸.۰: همان قاعدهٔ ۹.۰۲ از این سو — فایلی که ردیفِ در انتظارِ رندرِ یوتیوب یا ردیفِ دیگرِ پل (نمونه‌ها یک صوت دارند)
+     لازمش دارد بسته نمی‌شود. خودِ این ردیف استثناست: در فایل هنوز «در انتظار» است چون ذخیره پس از این می‌آید. */
+  var keep = {};
+  try { keep = ytShareKeep_(ytRenderRead_(), '', item && item.key) || {}; } catch (eK) { keep = {}; }
   for (var i = 0; i < au.length; i++) {
+    if (au[i] && keep[String(au[i].id)]) continue;
     try { if (driveShareOff_(au[i].id)) n++; } catch (e) {}
   }
+  return n;
+}
+
+/**
+ * ردیفِ در انتظاری که صوتش بسته شده، دوباره باز می‌شود (۱۸.۰).
+ *
+ * رانر فایلِ بسته را «فایل نبود» می‌بیند و فقط قرمز می‌شود؛ هیچ شکستی به صف برنمی‌گردد، پس `tries` صفر می‌ماند و ردیف
+ * هرگز «رهاشده» هم نمی‌شود — گیرِ بی‌پایان (variety:93، از ۶ نوامبر). `driveShareOn_` بی‌اثر است اگر باز باشد.
+ * ⇒ شمارِ فایل‌هایی که باز شدند.
+ */
+function vbrShareHeal_() {
+  var d = vbrRead_(), n = 0;
+  for (var i = 0; i < d.items.length; i++) {
+    var it = d.items[i];
+    if (String(it.status || '') !== 'در انتظار') continue;
+    var au = it.audio || [];
+    for (var a = 0; a < au.length; a++) {
+      if (!au[a] || !au[a].id) continue;
+      try {
+        var f = DriveApp.getFileById(String(au[a].id));
+        if (f.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK) continue;
+        if (driveShareOn_(au[a].id)) n++;
+      } catch (eS) {}
+    }
+  }
+  if (n) { try { logLine_('پل: ' + n + ' صوتِ ردیفِ در انتظار بسته شده بود و دوباره باز شد.'); } catch (eL) {} }
   return n;
 }
 
@@ -83443,6 +83494,8 @@ function vbrNightly_(hub) {
   catch (eQ) { try { logLine_('صفِ پل نوشته نشد: ' + eQ.message); } catch (eQb) {} }
   try { out.ingest = vbrIngest_(h); }
   catch (e1) { try { logLine_('برداشتِ پل ناموفق: ' + e1.message); } catch (e1b) {} }
+  try { out.healed = vbrShareHeal_(); }
+  catch (eHl) { try { logLine_('بازکردنِ اشتراکِ صفِ پل ناموفق: ' + eHl.message); } catch (eHl2) {} }
   /* پیش از `vbrAskDue_`: درخواستِ صریح باید جلوتر از جاروبِ خودکار بنشیند،
      همان ترتیبی که ۷٫۵۹ برای تیک‌ها گذاشت — وگرنه چیزی که خواسته شده پشتِ
      قسمت‌هایی می‌مانَد که کسی انتخابشان نکرده. */

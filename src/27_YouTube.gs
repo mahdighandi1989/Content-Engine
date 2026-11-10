@@ -1960,7 +1960,7 @@ function ytRenderShare_(item, on, keep) {
 }
 
 /** شناسه‌هایی که ردیف‌های در انتظار (و هنوز نه کهنه) لازم دارند — هیچ پس‌گرفتنی به این‌ها دست نمی‌زند (۹.۰۲). */
-function ytShareKeep_(d, exceptKey) {
+function ytShareKeep_(d, exceptKey, vbrExceptKey) {
   var keep = {}, now = new Date().getTime();
   var maxD = Math.max(1, Number(CFG.YT_SHARE_DAYS) || 3);
   var items = (d && d.items) || [];
@@ -1972,6 +1972,26 @@ function ytShareKeep_(d, exceptKey) {
     var ids = ytRenderShare_(it, false, 'ids');
     for (var j = 0; j < ids.length; j++) keep[ids[j]] = 1;
   }
+  /* ══ صفِ دوم هم همان صوت را لازم دارد (۱۸.۰) ══
+     ۹.۰۲ فقط ردیف‌های همین صف را می‌دید. ۶ نوامبر ۰۲:۳۱ پلِ صدا «variety:93» را با همان WAV در صف گذاشت و
+     ۰۲:۴۶ `ytShareSweep_` — چون ردیفِ رندرِ همان قسمت «رسید» بود — همان WAV را خصوصی کرد. از آن شب هر اجرای
+     voice-bridge با «چیزی که رسید فایل نبود» قرمز شد و ردیف با tries=0 چهار روز «در انتظار» ماند: رانر شکست را
+     به هیچ‌جا نمی‌نویسد، پس موتور هرگز نمی‌شمردش. حالا ردیف‌های در انتظارِ پل هم در `keep` می‌آیند.
+     بخشِ ۳۶ جلوتر از این بخش است؛ پس با `typeof` و در try — بارگیرِ ناقصِ آزمون نباید بشکند. */
+  try {
+    if (typeof vbrRead_ === 'function') {
+      var vd = vbrRead_(), vmax = Math.max(1, Number(CFG.VBR_SHARE_KEEP_DAYS) || 7);
+      for (var v = 0; v < vd.items.length; v++) {
+        var vi = vd.items[v];
+        if (String(vi.status || '') !== 'در انتظار') continue;
+        if (vbrExceptKey && String(vi.key) === String(vbrExceptKey)) continue;
+        var vt = parseWhen_(String(vi.redoAt || vi.at || ''));
+        if (!isNaN(vt) && (now - vt) / 86400000 > vmax) continue;
+        var vau = vi.audio || [];
+        for (var a = 0; a < vau.length; a++) if (vau[a] && vau[a].id) keep[String(vau[a].id)] = 1;
+      }
+    }
+  } catch (eV) {}
   return keep;
 }
 

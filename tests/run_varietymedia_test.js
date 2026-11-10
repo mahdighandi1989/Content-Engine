@@ -682,4 +682,50 @@ console.log('=== ۱۸) نمونهٔ ۷ِ ۷۳: لحظهٔ کلیپِ سخنگو 
   delete CFG.VM_MOMENT_GAP;
 }
 
+console.log('=== ۱۹) دو صفِ یک صوت: رندرِ یوتیوب و پلِ صدا (۱۸.۰) ===');
+{
+  /* ۶ نوامبر: پل ۰۲:۳۱ «variety:93» را با WAVِ کاملِ قسمت در صف گذاشت؛ ۰۲:۴۶ `ytShareSweep_` چون ردیفِ رندرِ همان قسمت
+     «رسید» بود همان WAV را خصوصی کرد. چهار روز هر اجرای پل «چیزی که رسید فایل نبود (946115 بایت)» و tries=0. */
+  const now = nowStr_();
+  const yd = { items: [{ key: 'variety:93', status: 'رسید', shared: true, sharedAt: now, audio: [{ id: 'W93' }], scenes: [{ fileId: 'S93' }] }] };
+  const vq = { rev: 3, items: [{ key: 'variety:93', status: 'در انتظار', at: now, audio: [{ id: 'W93' }] }] };
+  const kRead = global.ytRenderRead_, kSave = global.ytRenderSave_, kOn = global.ytShareOn_, kOff = global.ytShareOff_, kV = global.vbrRead_;
+  const kDOff = global.driveShareOff_;
+  const off = [];
+  global.ytRenderRead_ = () => yd; global.ytRenderSave_ = () => {};
+  global.ytShareOff_ = id => { off.push(id); return true; }; global.ytShareOn_ = () => true;
+  global.vbrRead_ = () => vq;
+  try {
+    ytShareSweep_();
+    ok('۱۹.۱ جاروبِ رندر صوتی را که ردیفِ در انتظارِ پل لازم دارد نمی‌بندد', off.indexOf('W93') === -1 && off.indexOf('S93') !== -1, JSON.stringify(off));
+    vq.items[0].status = 'رسید'; off.length = 0; yd.items[0].shared = true;
+    ytShareSweep_();
+    ok('۱۹.۲ وقتی پل هم کارش تمام شد، بسته می‌شود', off.indexOf('W93') !== -1, JSON.stringify(off));
+    /* از آن سو: پل ردیفش را می‌بندد ولی رندرِ در انتظار همان صوت را لازم دارد؛ خودِ ردیفِ پل استثناست. */
+    vq.items[0].status = 'در انتظار';
+    yd.items[0].status = 'در انتظار';
+    const doff = []; global.driveShareOff_ = id => { doff.push(id); return true; };
+    vbrUnshare_({ key: 'variety:93', audio: [{ id: 'W93' }] });
+    ok('۱۹.۳ بستنِ پل صوتِ ردیفِ در انتظارِ رندر را نمی‌بندد', doff.indexOf('W93') === -1, JSON.stringify(doff));
+    yd.items[0].status = 'رسید'; doff.length = 0;
+    vbrUnshare_({ key: 'variety:93', audio: [{ id: 'W93' }] });
+    ok('۱۹.۴ ردیفِ خودِ پل (هنوز «در انتظار» در فایل) جلوی بستنِ خودش را نمی‌گیرد', doff.indexOf('W93') !== -1, JSON.stringify(doff));
+  } finally {
+    global.ytRenderRead_ = kRead; global.ytRenderSave_ = kSave; global.ytShareOn_ = kOn; global.ytShareOff_ = kOff;
+    global.vbrRead_ = kV; global.driveShareOff_ = kDOff;
+  }
+  /* و ردیفی که پیش از این درمان بسته شد، شبانه دوباره باز می‌شود. */
+  const f = global.__ROOT_FOLDER.createFile(Utilities.newBlob('RIFF....WAVE', 'audio/wav', 'p93.wav'));
+  const kV2 = global.vbrRead_;
+  global.vbrRead_ = () => ({ rev: 1, items: [{ key: 'variety:93', status: 'در انتظار', audio: [{ id: f.getId() }] },
+                                              { key: 'x', status: 'رسید', audio: [{ id: 'nope' }] }] });
+  try {
+    const n1 = vbrShareHeal_();
+    ok('۱۹.۵ صوتِ بستهٔ ردیفِ در انتظار باز می‌شود', n1 === 1 && f.getSharingAccess() === 'ANYONE_WITH_LINK', n1 + ' ' + f.getSharingAccess());
+    ok('۱۹.۶ بارِ دوم کاری نمی‌کند', vbrShareHeal_() === 0);
+  } finally { global.vbrRead_ = kV2; }
+  const e = fs.readFileSync('src/36_VoiceBridge.gs', 'utf8');
+  ok('۱۹.۷ کارِ شبانهٔ پل `vbrShareHeal_` را صدا می‌زند', /out\.healed = vbrShareHeal_\(\);/.test(e));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ رسانه‌های منبع گذشت.');

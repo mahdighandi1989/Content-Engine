@@ -1361,9 +1361,40 @@ function vbrUnshare_(item) {
   var n = 0;
   var au = ((item && item.audio) || []).concat((item && item.colour && item.colour.refs) || [])
              .concat((item && item.modelOld && item.modelOld.ids) || []);   // ۱۳.۹
+  /* ۱۸.۰: همان قاعدهٔ ۹.۰۲ از این سو — فایلی که ردیفِ در انتظارِ رندرِ یوتیوب یا ردیفِ دیگرِ پل (نمونه‌ها یک صوت دارند)
+     لازمش دارد بسته نمی‌شود. خودِ این ردیف استثناست: در فایل هنوز «در انتظار» است چون ذخیره پس از این می‌آید. */
+  var keep = {};
+  try { keep = ytShareKeep_(ytRenderRead_(), '', item && item.key) || {}; } catch (eK) { keep = {}; }
   for (var i = 0; i < au.length; i++) {
+    if (au[i] && keep[String(au[i].id)]) continue;
     try { if (driveShareOff_(au[i].id)) n++; } catch (e) {}
   }
+  return n;
+}
+
+/**
+ * ردیفِ در انتظاری که صوتش بسته شده، دوباره باز می‌شود (۱۸.۰).
+ *
+ * رانر فایلِ بسته را «فایل نبود» می‌بیند و فقط قرمز می‌شود؛ هیچ شکستی به صف برنمی‌گردد، پس `tries` صفر می‌ماند و ردیف
+ * هرگز «رهاشده» هم نمی‌شود — گیرِ بی‌پایان (variety:93، از ۶ نوامبر). `driveShareOn_` بی‌اثر است اگر باز باشد.
+ * ⇒ شمارِ فایل‌هایی که باز شدند.
+ */
+function vbrShareHeal_() {
+  var d = vbrRead_(), n = 0;
+  for (var i = 0; i < d.items.length; i++) {
+    var it = d.items[i];
+    if (String(it.status || '') !== 'در انتظار') continue;
+    var au = it.audio || [];
+    for (var a = 0; a < au.length; a++) {
+      if (!au[a] || !au[a].id) continue;
+      try {
+        var f = DriveApp.getFileById(String(au[a].id));
+        if (f.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK) continue;
+        if (driveShareOn_(au[a].id)) n++;
+      } catch (eS) {}
+    }
+  }
+  if (n) { try { logLine_('پل: ' + n + ' صوتِ ردیفِ در انتظار بسته شده بود و دوباره باز شد.'); } catch (eL) {} }
   return n;
 }
 
@@ -2720,6 +2751,8 @@ function vbrNightly_(hub) {
   catch (eQ) { try { logLine_('صفِ پل نوشته نشد: ' + eQ.message); } catch (eQb) {} }
   try { out.ingest = vbrIngest_(h); }
   catch (e1) { try { logLine_('برداشتِ پل ناموفق: ' + e1.message); } catch (e1b) {} }
+  try { out.healed = vbrShareHeal_(); }
+  catch (eHl) { try { logLine_('بازکردنِ اشتراکِ صفِ پل ناموفق: ' + eHl.message); } catch (eHl2) {} }
   /* پیش از `vbrAskDue_`: درخواستِ صریح باید جلوتر از جاروبِ خودکار بنشیند،
      همان ترتیبی که ۷٫۵۹ برای تیک‌ها گذاشت — وگرنه چیزی که خواسته شده پشتِ
      قسمت‌هایی می‌مانَد که کسی انتخابشان نکرده. */
