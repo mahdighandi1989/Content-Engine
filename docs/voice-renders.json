@@ -1,5 +1,5 @@
 {
- "rev": 79,
+ "rev": 80,
  "items": {
   "special:49": {
    "urls": [
@@ -23660,8 +23660,313 @@
     "capHz": 127.1,
     "overPct": 37.9
    }
+  },
+  "variety:98": {
+   "urls": [
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-98-8b63af20-1of2.wav",
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-98-8b63af20-2of2.wav"
+   ],
+   "pieceBytes": [
+    41922638,
+    6586318
+   ],
+   "bytes": 48508956,
+   "seconds": 606.4,
+   "minutes": 11.1,
+   "parts": 1,
+   "pieces": 2,
+   "speaker": "spk-1g0r95d",
+   "at": "2026-11-11T02:05:30Z",
+   "mp3": {
+    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-98-8b63af20.mp3",
+    "bytes": 9702965
+   },
+   "pitch": "0",
+   "loud": {
+    "rawLufs": -20.3,
+    "rawTp": -0.7,
+    "gainDb": 4.27,
+    "limited": true,
+    "lufs": -16.4,
+    "tp": -2.4
+   },
+   "hx": {
+    "ok": true,
+    "frames": 4554,
+    "pct": 11.4,
+    "gainDb": 0.0,
+    "thrDb": 14.0,
+    "mode": "soft",
+    "cutDb": 12.0
+   },
+   "quality": {
+    "sec": 606.4,
+    "voicedPct": 60.1,
+    "cracks": [
+     {
+      "t": 0.83,
+      "fromHz": 133.3,
+      "toHz": 421.1,
+      "ms": 100
+     },
+     {
+      "t": 7.33,
+      "fromHz": 148.1,
+      "toHz": 500.0,
+      "ms": 60
+     },
+     {
+      "t": 14.47,
+      "fromHz": 363.6,
+      "toHz": 571.4,
+      "ms": 80
+     },
+     {
+      "t": 43.27,
+      "fromHz": 61.5,
+      "toHz": 285.7,
+      "ms": 60
+     },
+     {
+      "t": 43.65,
+      "fromHz": 51.0,
+      "toHz": 296.3,
+      "ms": 60
+     },
+     {
+      "t": 48.07,
+      "fromHz": 205.1,
+      "toHz": 615.4,
+      "ms": 60
+     },
+     {
+      "t": 74.93,
+      "fromHz": 200.0,
+      "toHz": 571.4,
+      "ms": 60
+     },
+     {
+      "t": 80.63,
+      "fromHz": 96.4,
+      "toHz": 347.8,
+      "ms": 140
+     },
+     {
+      "t": 90.43,
+      "fromHz": 123.1,
+      "toHz": 205.1,
+      "ms": 80
+     },
+     {
+      "t": 111.51,
+      "fromHz": 119.4,
+      "toHz": 285.7,
+      "ms": 200
+     },
+     {
+      "t": 159.19,
+      "fromHz": 177.8,
+      "toHz": 615.4,
+      "ms": 60
+     },
+     {
+      "t": 165.57,
+      "fromHz": 112.7,
+      "toHz": 222.2,
+      "ms": 60
+     },
+     {
+      "t": 197.69,
+      "fromHz": 173.9,
+      "toHz": 615.4,
+      "ms": 60
+     },
+     {
+      "t": 225.27,
+      "fromHz": 142.9,
+      "toHz": 266.7,
+      "ms": 60
+     },
+     {
+      "t": 240.23,
+      "fromHz": 142.9,
+      "toHz": 363.6,
+      "ms": 80
+     },
+     {
+      "t": 252.45,
+      "fromHz": 109.6,
+      "toHz": 266.7,
+      "ms": 120
+     },
+     {
+      "t": 254.57,
+      "fromHz": 93.0,
+      "toHz": 235.3,
+      "ms": 60
+     },
+     {
+      "t": 281.83,
+      "fromHz": 102.6,
+      "toHz": 222.2,
+      "ms": 60
+     },
+     {
+      "t": 285.61,
+      "fromHz": 195.1,
+      "toHz": 571.4,
+      "ms": 60
+     },
+     {
+      "t": 290.51,
+      "fromHz": 109.6,
+      "toHz": 258.1,
+      "ms": 60
+     },
+     {
+      "t": 301.23,
+      "fromHz": 82.5,
+      "toHz": 296.3,
+      "ms": 60
+     },
+     {
+      "t": 317.15,
+      "fromHz": 117.6,
+      "toHz": 266.7,
+      "ms": 120
+     },
+     {
+      "t": 322.01,
+      "fromHz": 258.1,
+      "toHz": 533.3,
+      "ms": 60
+     },
+     {
+      "t": 326.81,
+      "fromHz": 133.3,
+      "toHz": 266.7,
+      "ms": 100
+     },
+     {
+      "t": 369.81,
+      "fromHz": 88.9,
+      "toHz": 307.7,
+      "ms": 60
+     },
+     {
+      "t": 380.77,
+      "fromHz": 103.9,
+      "toHz": 307.7,
+      "ms": 60
+     },
+     {
+      "t": 386.27,
+      "fromHz": 148.1,
+      "toHz": 296.3,
+      "ms": 60
+     },
+     {
+      "t": 389.97,
+      "fromHz": 195.1,
+      "toHz": 533.3,
+      "ms": 80
+     },
+     {
+      "t": 394.87,
+      "fromHz": 112.7,
+      "toHz": 285.7,
+      "ms": 60
+     },
+     {
+      "t": 424.85,
+      "fromHz": 140.4,
+      "toHz": 320.0,
+      "ms": 140
+     },
+     {
+      "t": 451.29,
+      "fromHz": 266.7,
+      "toHz": 381.0,
+      "ms": 60
+     },
+     {
+      "t": 471.25,
+      "fromHz": 97.6,
+      "toHz": 258.1,
+      "ms": 60
+     },
+     {
+      "t": 480.95,
+      "fromHz": 60.6,
+      "toHz": 307.7,
+      "ms": 80
+     },
+     {
+      "t": 485.15,
+      "fromHz": 228.6,
+      "toHz": 444.4,
+      "ms": 60
+     },
+     {
+      "t": 497.07,
+      "fromHz": 115.9,
+      "toHz": 228.6,
+      "ms": 120
+     },
+     {
+      "t": 515.29,
+      "fromHz": 166.7,
+      "toHz": 421.1,
+      "ms": 100
+     },
+     {
+      "t": 524.17,
+      "fromHz": 163.3,
+      "toHz": 307.7,
+      "ms": 60
+     },
+     {
+      "t": 526.73,
+      "fromHz": 127.0,
+      "toHz": 571.4,
+      "ms": 60
+     },
+     {
+      "t": 534.81,
+      "fromHz": 103.9,
+      "toHz": 205.1,
+      "ms": 80
+     },
+     {
+      "t": 536.81,
+      "fromHz": 50.0,
+      "toHz": 571.4,
+      "ms": 60
+     }
+    ],
+    "crackPerMin": 4.75,
+    "jitterSt": 0.116,
+    "shimmerDb": 2.93,
+    "bounds": [],
+    "medianHz": 153.8,
+    "bad": "شکستنِ صدا 4.8 بار در دقیقه (سقف 2.5) · لرزشِ بلندی 2.93 دسی‌بل (سقف 2.80)"
+   },
+   "qualityFail": "شکستنِ صدا 4.8 بار در دقیقه (سقف 2.5) · لرزشِ بلندی 2.93 دسی‌بل (سقف 2.80)",
+   "ab": {
+    "indexRate": "",
+    "protect": "",
+    "nocolour": false,
+    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-98-ab-cd74efa5.wav"
+   },
+   "f0Out": {
+    "medianHz": 150.9,
+    "lowPct": 2,
+    "frames": 1869,
+    "p95Hz": 285.7,
+    "highPct": 34.8
+   }
   }
  },
- "at": "2026-11-10T23:27:25Z",
+ "at": "2026-11-11T02:05:32Z",
  "note": "خروجیِ پلِ رنگِ صدا. گردش‌کارِ voice-bridge می‌نویسد و موتور (بخشِ ۳۶) از gitHub raw می‌خوانَد. دست‌نویس نکنید."
 }
