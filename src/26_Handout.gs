@@ -2851,6 +2851,26 @@ function handoutCatchUpArm_() {
   return true;
 }
 
+/**
+ * پایانِ درس‌نامه جزوه را درجا نمی‌سازد، به اجرای خودش می‌سپارد (۱۸.۱).
+ *
+ * شاهد: ۱۲ نوامبر، درس‌نامهٔ ۱۰۳ تحویل شد و `produceSpecialContinue` سرِ «مرحلهٔ deliver» کشته شد؛ همان بدهی
+ * ۰۹:۲۷ در `handoutCatchUp` پرداخت شد. پایانِ تحویل ~۹۰ ثانیه وقت داشت و ساختِ یک فصل (پرسش از مدل + نوشتنِ
+ * HTML) بیش از آن است. این همان تریگرِ `handoutCatchUpArm_` است، بی سدِ سه‌ساعته: آن سد برای تیکِ ساعتی است که
+ * مدام تکرار می‌شود، نه برای یک بار در پایانِ هر قسمت. ساخته نشد (سقفِ بیست تریگر، ۱۷.۳) ⇒ `false`، و فراخوان
+ * به ساختِ درجا با سدِ پیشین برمی‌گردد — بدهی در هر حال پیش از این ثبت شده است.
+ */
+function handoutDeferArm_() {
+  if (CFG.HANDOUT_ENABLED === false || CFG.HANDOUT_DEFER === false) return false;
+  if (!handoutDueList_().length) return false;
+  try {
+    clearRetryTriggers_('handoutCatchUp');
+    ScriptApp.newTrigger('handoutCatchUp').timeBased().after(60000).create();
+  } catch (e) { return false; }
+  try { props_().setProperty(PK.HANDOUT_CATCHUP_AT, String(new Date().getTime())); } catch (eP) {}
+  return true;
+}
+
 /** تریگرِ یک‌بارمصرف: بدهیِ جزوه، با مهلتِ کاملِ یک اجرا. */
 function handoutCatchUp() {
   runEnter_('handoutCatchUp');

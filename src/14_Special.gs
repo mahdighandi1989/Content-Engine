@@ -2811,12 +2811,29 @@ function renderSpecialAudioStep_() {
        برابر می‌کند بی آنکه چیزی به آن بیفزاید — و بدتر، شمارشِ پوششِ جزوه
        را برای همیشه به‌هم می‌ریزد: قسمتی که هرگز فصلی ندارد، هر شب «عقب»
        شمرده می‌شود و هشدارِ handout-stuck هرگز بسته نمی‌شود. */
+    /* ══ ۱۸.۱: کارِ ارزانِ مهم پیش از کارِ گرانِ اختیاری، و جزوه در اجرای خودش ══
+       شاهد: ۱۲ نوامبر، `produceSpecialContinue` ۰۸:۵۸ — درس‌نامهٔ ۱۰۳ ساعتِ ۰۹:۰۱ «کامل شد» (ایمیل و تلگرام رفته)
+       و اجرا با آخرین مرحلهٔ «مرحلهٔ deliver» کشته شد. بدهیِ جزوهٔ همان درس ۰۹:۲۷ با `handoutCatchUp` پرداخت شد
+       («۱ درس وارد شد») ⇒ ساختِ جزوه در همین اجرا تمام نشده بود. ساختِ درجای جزوه بی بودجه صدا زده می‌شد
+       («دستِ‌کم یکی همیشه») با فقط ~۹۰ ثانیه تا مهلت؛ و `ytDueAdd_` **پس از** آن بود، پس بدهیِ یوتیوب هم با
+       اجرا مُرد و فقط پیمایشِ پشتیبان (`ytBackfill`) آن را برگرداند. حالا: یوتیوب اول؛ جزوه به اجرای یک‌بارهٔ
+       `handoutCatchUp` با شش دقیقهٔ خودش؛ و فقط اگر آن تریگر ساخته نشد، همان ساختِ درجا با سدِ پیشین. */
+    runStage_('تحویل: بدهیِ یوتیوب');
+    try { ytDueAdd_(ENRICH_SHOW_SPECIAL, epNum, folder.getId(),
+                    meta.seriesKey, meta.seriesName); }
+    catch (eY) { logLine_('صفِ یوتیوب برای درس‌نامه ثبت نشد: ' + eY.message); }
+
     if (meta.recap) {
       logLine_('جزوه: قسمت ' + epNum + ' مرورِ بزرگ است، نه درسِ تازه؛ فصلی اضافه نشد.');
     } else try {
+      runStage_('تحویل: جزوه');
       handoutDueAdd_(meta.seriesKey, epNum);
+      var hdArmed = false;
+      try { hdArmed = handoutDeferArm_(); } catch (eHa) { hdArmed = false; }
       var leftMs = deadline - new Date().getTime();
-      if (leftMs > (Number(CFG.HANDOUT_MIN_MS) || 90000)) {
+      if (hdArmed) {
+        logLine_('جزوه: درسِ ' + epNum + ' در صف ماند؛ اجرای جدای جزوه یک دقیقهٔ دیگر می‌سازدش.');
+      } else if (leftMs > (Number(CFG.HANDOUT_MIN_MS) || 90000)) {
         var hr = handoutRunDue_(1);
         logLine_('جزوه: ' + hr.done + ' به‌روز شد، ' + hr.left + ' در صف' +
                  (hr.notes.length ? ' — ' + hr.notes.join(' · ') : '') + '.');
@@ -2825,14 +2842,7 @@ function renderSpecialAudioStep_() {
       }
     } catch (eH) { logLine_('جزوهٔ مجموعه ساخته نشد: ' + eH.message); }
 
-    /* یوتیوب: فقط **بدهی** ثبت می‌شود، نه بیشتر.
-       آپلود چند ده مگابایت است و ویدئویش هم هنوز ساخته نشده؛ انجامش در
-       همین اجرا یعنی ریسکِ کشته‌شدنِ اجرا وسطِ تحویلِ قسمت. کارِ شبانه
-       پرداختش می‌کند. (فراخوانِ رو به جلو ۱۴ ← ۲۷، پس در try.) */
-    try { ytDueAdd_(ENRICH_SHOW_SPECIAL, epNum, folder.getId(),
-                    meta.seriesKey, meta.seriesName); }
-    catch (eY) { logLine_('صفِ یوتیوب برای درس‌نامه ثبت نشد: ' + eY.message); }
-
+    runStage_('تحویل: نوشتنِ وضعیت');
     /* نوشتنِ وضعیت **آخرین** کار است (۹.۷۱)، نه پیش از بدهیِ جزوه و یوتیوب و `SP_LAST`: نوشتنی که
        ۲۰ اکتبر ۳۵۳ ثانیه شد و اجرا را کُشت، هر چه پس از خودش بود را می‌بُرد — و وقتِ ساختِ جزوه را هم می‌خورد. */
     try { statusAfterRun_(hub, 'درس‌نامه ' + epNum + ' کامل شد'); } catch (eS) {}

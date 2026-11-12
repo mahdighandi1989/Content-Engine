@@ -2188,6 +2188,7 @@ function ytRenderCollect_(budgetMs) {
       out.got++;
       ytRenderDone_(pend[i].show, pend[i].ep);
       ytRenderShare_(pend[i], false);
+      try { vmRenderSeen_(pend[i].key, rec); } catch (eVs) {}   // ۱۸.۱: عددِ لحظه‌ها از رانر (۲۷ ← ۳۷، پس در try)
       logLine_('ویدئوی «' + pend[i].key + '» رسید و در پوشهٔ قسمت نشست.');
     } else {
       logLine_('ویدئوی «' + pend[i].key + '» برداشته نشد: ' + r.why);

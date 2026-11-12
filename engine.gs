@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 18.0
+ *  موتور محتوا و پادکست — نسخهٔ 18.1
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1627,6 +1627,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // عددِ کوچک یعنی برای سیزده درس، دوازده تا ساخته شود و یکی بماند — و
   // همان یکی دوباره فشردن می‌خواهد، که هدفِ این تغییر را از بین می‌برد.
   HANDOUT_MANUAL_MAX: 40,
+  HANDOUT_DEFER: true,          // ۱۸.۱: پایانِ درس‌نامه جزوه را به اجرای جدای handoutCatchUp می‌سپارد
   HANDOUT_DAY_CATCHUP: true,    // ۸.۷۶: بدهیِ جزوه روزِ روشن هم در اجرای جدا پرداخت می‌شود
   HANDOUT_MANUAL_MS: 180000,
 
@@ -2389,7 +2390,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '18.0',
+  CODE_VERSION: '18.1',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -30338,12 +30339,29 @@ function renderSpecialAudioStep_() {
        برابر می‌کند بی آنکه چیزی به آن بیفزاید — و بدتر، شمارشِ پوششِ جزوه
        را برای همیشه به‌هم می‌ریزد: قسمتی که هرگز فصلی ندارد، هر شب «عقب»
        شمرده می‌شود و هشدارِ handout-stuck هرگز بسته نمی‌شود. */
+    /* ══ ۱۸.۱: کارِ ارزانِ مهم پیش از کارِ گرانِ اختیاری، و جزوه در اجرای خودش ══
+       شاهد: ۱۲ نوامبر، `produceSpecialContinue` ۰۸:۵۸ — درس‌نامهٔ ۱۰۳ ساعتِ ۰۹:۰۱ «کامل شد» (ایمیل و تلگرام رفته)
+       و اجرا با آخرین مرحلهٔ «مرحلهٔ deliver» کشته شد. بدهیِ جزوهٔ همان درس ۰۹:۲۷ با `handoutCatchUp` پرداخت شد
+       («۱ درس وارد شد») ⇒ ساختِ جزوه در همین اجرا تمام نشده بود. ساختِ درجای جزوه بی بودجه صدا زده می‌شد
+       («دستِ‌کم یکی همیشه») با فقط ~۹۰ ثانیه تا مهلت؛ و `ytDueAdd_` **پس از** آن بود، پس بدهیِ یوتیوب هم با
+       اجرا مُرد و فقط پیمایشِ پشتیبان (`ytBackfill`) آن را برگرداند. حالا: یوتیوب اول؛ جزوه به اجرای یک‌بارهٔ
+       `handoutCatchUp` با شش دقیقهٔ خودش؛ و فقط اگر آن تریگر ساخته نشد، همان ساختِ درجا با سدِ پیشین. */
+    runStage_('تحویل: بدهیِ یوتیوب');
+    try { ytDueAdd_(ENRICH_SHOW_SPECIAL, epNum, folder.getId(),
+                    meta.seriesKey, meta.seriesName); }
+    catch (eY) { logLine_('صفِ یوتیوب برای درس‌نامه ثبت نشد: ' + eY.message); }
+
     if (meta.recap) {
       logLine_('جزوه: قسمت ' + epNum + ' مرورِ بزرگ است، نه درسِ تازه؛ فصلی اضافه نشد.');
     } else try {
+      runStage_('تحویل: جزوه');
       handoutDueAdd_(meta.seriesKey, epNum);
+      var hdArmed = false;
+      try { hdArmed = handoutDeferArm_(); } catch (eHa) { hdArmed = false; }
       var leftMs = deadline - new Date().getTime();
-      if (leftMs > (Number(CFG.HANDOUT_MIN_MS) || 90000)) {
+      if (hdArmed) {
+        logLine_('جزوه: درسِ ' + epNum + ' در صف ماند؛ اجرای جدای جزوه یک دقیقهٔ دیگر می‌سازدش.');
+      } else if (leftMs > (Number(CFG.HANDOUT_MIN_MS) || 90000)) {
         var hr = handoutRunDue_(1);
         logLine_('جزوه: ' + hr.done + ' به‌روز شد، ' + hr.left + ' در صف' +
                  (hr.notes.length ? ' — ' + hr.notes.join(' · ') : '') + '.');
@@ -30352,14 +30370,7 @@ function renderSpecialAudioStep_() {
       }
     } catch (eH) { logLine_('جزوهٔ مجموعه ساخته نشد: ' + eH.message); }
 
-    /* یوتیوب: فقط **بدهی** ثبت می‌شود، نه بیشتر.
-       آپلود چند ده مگابایت است و ویدئویش هم هنوز ساخته نشده؛ انجامش در
-       همین اجرا یعنی ریسکِ کشته‌شدنِ اجرا وسطِ تحویلِ قسمت. کارِ شبانه
-       پرداختش می‌کند. (فراخوانِ رو به جلو ۱۴ ← ۲۷، پس در try.) */
-    try { ytDueAdd_(ENRICH_SHOW_SPECIAL, epNum, folder.getId(),
-                    meta.seriesKey, meta.seriesName); }
-    catch (eY) { logLine_('صفِ یوتیوب برای درس‌نامه ثبت نشد: ' + eY.message); }
-
+    runStage_('تحویل: نوشتنِ وضعیت');
     /* نوشتنِ وضعیت **آخرین** کار است (۹.۷۱)، نه پیش از بدهیِ جزوه و یوتیوب و `SP_LAST`: نوشتنی که
        ۲۰ اکتبر ۳۵۳ ثانیه شد و اجرا را کُشت، هر چه پس از خودش بود را می‌بُرد — و وقتِ ساختِ جزوه را هم می‌خورد. */
     try { statusAfterRun_(hub, 'درس‌نامه ' + epNum + ' کامل شد'); } catch (eS) {}
@@ -51555,6 +51566,26 @@ function handoutCatchUpArm_() {
   return true;
 }
 
+/**
+ * پایانِ درس‌نامه جزوه را درجا نمی‌سازد، به اجرای خودش می‌سپارد (۱۸.۱).
+ *
+ * شاهد: ۱۲ نوامبر، درس‌نامهٔ ۱۰۳ تحویل شد و `produceSpecialContinue` سرِ «مرحلهٔ deliver» کشته شد؛ همان بدهی
+ * ۰۹:۲۷ در `handoutCatchUp` پرداخت شد. پایانِ تحویل ~۹۰ ثانیه وقت داشت و ساختِ یک فصل (پرسش از مدل + نوشتنِ
+ * HTML) بیش از آن است. این همان تریگرِ `handoutCatchUpArm_` است، بی سدِ سه‌ساعته: آن سد برای تیکِ ساعتی است که
+ * مدام تکرار می‌شود، نه برای یک بار در پایانِ هر قسمت. ساخته نشد (سقفِ بیست تریگر، ۱۷.۳) ⇒ `false`، و فراخوان
+ * به ساختِ درجا با سدِ پیشین برمی‌گردد — بدهی در هر حال پیش از این ثبت شده است.
+ */
+function handoutDeferArm_() {
+  if (CFG.HANDOUT_ENABLED === false || CFG.HANDOUT_DEFER === false) return false;
+  if (!handoutDueList_().length) return false;
+  try {
+    clearRetryTriggers_('handoutCatchUp');
+    ScriptApp.newTrigger('handoutCatchUp').timeBased().after(60000).create();
+  } catch (e) { return false; }
+  try { props_().setProperty(PK.HANDOUT_CATCHUP_AT, String(new Date().getTime())); } catch (eP) {}
+  return true;
+}
+
 /** تریگرِ یک‌بارمصرف: بدهیِ جزوه، با مهلتِ کاملِ یک اجرا. */
 function handoutCatchUp() {
   runEnter_('handoutCatchUp');
@@ -54558,6 +54589,7 @@ function ytRenderCollect_(budgetMs) {
       out.got++;
       ytRenderDone_(pend[i].show, pend[i].ep);
       ytRenderShare_(pend[i], false);
+      try { vmRenderSeen_(pend[i].key, rec); } catch (eVs) {}   // ۱۸.۱: عددِ لحظه‌ها از رانر (۲۷ ← ۳۷، پس در try)
       logLine_('ویدئوی «' + pend[i].key + '» رسید و در پوشهٔ قسمت نشست.');
     } else {
       logLine_('ویدئوی «' + pend[i].key + '» برداشته نشد: ' + r.why);
@@ -85872,6 +85904,25 @@ function vmBuild_(folder, meta, plan, ctx) {
   return out;
 }
 
+/* ══ آنچه رانر واقعاً ساخت، نه آنچه نقشه خواست (۱۸.۱) ══
+   `vmNote_` سرِ ساختِ نقشه نوشته می‌شود؛ رانر پس از آن هر لحظه‌ای را که صدای کلیپش موسیقی دارد کنار می‌گذارد
+   (Content-ID، ۱۴.۱). خطِ روزانه «۴ لحظهٔ با صدای کلیپ» گفت و `docs/renders.json` برای variety:100 `made: 0` (۱۲ نوامبر؛
+   ۱۱ نوامبر برای variety:99 «۶» در برابرِ ۳). عددی که هرگز طولِ واقعیِ چیزی نیست، خبر نیست. وقتی ویدئو برداشته شد،
+   عددِ رانر روی همان مهر می‌نشیند. */
+function vmRenderSeen_(key, rec) {
+  try {
+    var r = JSON.parse(props_().getProperty(PK.VM_LAST) || 'null');
+    if (!r || String(r.key) !== String(key)) return false;
+    var mm = rec && rec.media && rec.media.moments;
+    if (!mm || typeof mm.made === 'undefined') return false;
+    r.made = Number(mm.made) || 0;
+    r.musicOut = Number(mm.music) || 0;
+    r.renderAt = nowStr_();
+    props_().setProperty(PK.VM_LAST, JSON.stringify(r).slice(0, 2000));
+    return true;
+  } catch (e) { return false; }
+}
+
 /** خطِ روزانه (بی درایو). */
 function vmStatus_() {
   var r = null;
@@ -85890,8 +85941,12 @@ function vmStatus_() {
           'ویدئوی ساده رفت و درست همین است؛ ایراد نیست.' };
   var line = r.ok
     ? '🎞 «از همه جا» با رسانه‌های منبع — آخرین (' + r.key + '، ' + r.at + '): ' + faDigitsOut_(String(r.scenes || 0)) +
-      ' صحنه، ' + faDigitsOut_(String(r.clips || 0)) + ' کلیپ، ' + faDigitsOut_(String(r.moments || 0)) +
-      ' لحظهٔ با صدای کلیپ، کاور ' + (r.cover ? 'ساخته شد' : 'کارتی') +
+      ' صحنه، ' + faDigitsOut_(String(r.clips || 0)) + ' کلیپ، ' +
+      (typeof r.made === 'number'
+        ? faDigitsOut_(String(r.made)) + ' از ' + faDigitsOut_(String(r.moments || 0)) + ' لحظهٔ با صدای کلیپ ساخته شد' +
+          (r.musicOut ? ' (' + faDigitsOut_(String(r.musicOut)) + ' به‌خاطرِ موسیقی در صدای کلیپ کنار رفت)' : '')
+        : faDigitsOut_(String(r.moments || 0)) + ' لحظهٔ با صدای کلیپ در نقشه (ویدئو هنوز نرسیده)') +
+      '، کاور ' + (r.cover ? 'ساخته شد' : 'کارتی') +
       (r.skipped ? ' · ' + faDigitsOut_(String(r.skipped)) + ' رسانه رونوشت نشد' : '') +
       (r.broadcast ? ' · ' + faDigitsOut_(String(r.broadcast)) + ' رسانهٔ برش از سریال/فیلم کنار رفت (Content-ID)' : '') + '.'
     : '🎞 ❌ «از همه جا» (' + r.key + ') با رسانهٔ منبع ساخته نشد و ویدئوی ساده رفت — علت: ' + String(r.why || 'بی علت');

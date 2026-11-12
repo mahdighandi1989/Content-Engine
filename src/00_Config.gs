@@ -1608,6 +1608,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // عددِ کوچک یعنی برای سیزده درس، دوازده تا ساخته شود و یکی بماند — و
   // همان یکی دوباره فشردن می‌خواهد، که هدفِ این تغییر را از بین می‌برد.
   HANDOUT_MANUAL_MAX: 40,
+  HANDOUT_DEFER: true,          // ۱۸.۱: پایانِ درس‌نامه جزوه را به اجرای جدای handoutCatchUp می‌سپارد
   HANDOUT_DAY_CATCHUP: true,    // ۸.۷۶: بدهیِ جزوه روزِ روشن هم در اجرای جدا پرداخت می‌شود
   HANDOUT_MANUAL_MS: 180000,
 
@@ -2370,7 +2371,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '18.0',
+  CODE_VERSION: '18.1',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,

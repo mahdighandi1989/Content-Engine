@@ -1046,6 +1046,25 @@ function vmBuild_(folder, meta, plan, ctx) {
   return out;
 }
 
+/* ══ آنچه رانر واقعاً ساخت، نه آنچه نقشه خواست (۱۸.۱) ══
+   `vmNote_` سرِ ساختِ نقشه نوشته می‌شود؛ رانر پس از آن هر لحظه‌ای را که صدای کلیپش موسیقی دارد کنار می‌گذارد
+   (Content-ID، ۱۴.۱). خطِ روزانه «۴ لحظهٔ با صدای کلیپ» گفت و `docs/renders.json` برای variety:100 `made: 0` (۱۲ نوامبر؛
+   ۱۱ نوامبر برای variety:99 «۶» در برابرِ ۳). عددی که هرگز طولِ واقعیِ چیزی نیست، خبر نیست. وقتی ویدئو برداشته شد،
+   عددِ رانر روی همان مهر می‌نشیند. */
+function vmRenderSeen_(key, rec) {
+  try {
+    var r = JSON.parse(props_().getProperty(PK.VM_LAST) || 'null');
+    if (!r || String(r.key) !== String(key)) return false;
+    var mm = rec && rec.media && rec.media.moments;
+    if (!mm || typeof mm.made === 'undefined') return false;
+    r.made = Number(mm.made) || 0;
+    r.musicOut = Number(mm.music) || 0;
+    r.renderAt = nowStr_();
+    props_().setProperty(PK.VM_LAST, JSON.stringify(r).slice(0, 2000));
+    return true;
+  } catch (e) { return false; }
+}
+
 /** خطِ روزانه (بی درایو). */
 function vmStatus_() {
   var r = null;
@@ -1064,8 +1083,12 @@ function vmStatus_() {
           'ویدئوی ساده رفت و درست همین است؛ ایراد نیست.' };
   var line = r.ok
     ? '🎞 «از همه جا» با رسانه‌های منبع — آخرین (' + r.key + '، ' + r.at + '): ' + faDigitsOut_(String(r.scenes || 0)) +
-      ' صحنه، ' + faDigitsOut_(String(r.clips || 0)) + ' کلیپ، ' + faDigitsOut_(String(r.moments || 0)) +
-      ' لحظهٔ با صدای کلیپ، کاور ' + (r.cover ? 'ساخته شد' : 'کارتی') +
+      ' صحنه، ' + faDigitsOut_(String(r.clips || 0)) + ' کلیپ، ' +
+      (typeof r.made === 'number'
+        ? faDigitsOut_(String(r.made)) + ' از ' + faDigitsOut_(String(r.moments || 0)) + ' لحظهٔ با صدای کلیپ ساخته شد' +
+          (r.musicOut ? ' (' + faDigitsOut_(String(r.musicOut)) + ' به‌خاطرِ موسیقی در صدای کلیپ کنار رفت)' : '')
+        : faDigitsOut_(String(r.moments || 0)) + ' لحظهٔ با صدای کلیپ در نقشه (ویدئو هنوز نرسیده)') +
+      '، کاور ' + (r.cover ? 'ساخته شد' : 'کارتی') +
       (r.skipped ? ' · ' + faDigitsOut_(String(r.skipped)) + ' رسانه رونوشت نشد' : '') +
       (r.broadcast ? ' · ' + faDigitsOut_(String(r.broadcast)) + ' رسانهٔ برش از سریال/فیلم کنار رفت (Content-ID)' : '') + '.'
     : '🎞 ❌ «از همه جا» (' + r.key + ') با رسانهٔ منبع ساخته نشد و ویدئوی ساده رفت — علت: ' + String(r.why || 'بی علت');
