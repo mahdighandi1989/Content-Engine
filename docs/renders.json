@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-12 13:39",
+ "updatedAt": "2026-11-12 23:38",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -8960,7 +8960,8 @@
     "smoothright": 30,
     "fade": 24
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-100-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-100-cover.jpg",
+   "pruned": "2026-11-12"
   },
   "variety:98": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-98.mp4",
@@ -9188,7 +9189,8 @@
     "smoothright": 25,
     "fade": 20
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-101-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-101-cover.jpg",
+   "pruned": "2026-11-12"
   },
   "variety:99": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-99.mp4",
@@ -12031,6 +12033,22 @@
    "segs": 4,
    "subs": 13,
    "at": "2026-11-12 13:39"
+  },
+  "ig:special:78": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-78.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-78-cover.jpg",
+   "sig": "d64a1e6557be",
+   "seconds": 172.2,
+   "bytes": 34331994,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-78-short.mp4",
+   "shortSeconds": 168.2,
+   "align": "faster-whisper",
+   "phrases": 100,
+   "trans": 6,
+   "imgs": 7,
+   "segs": 7,
+   "subs": 98,
+   "at": "2026-11-12 23:38"
   }
  },
  "musicPrev": {
@@ -12946,8 +12964,8 @@
   }
  },
  "release": {
-  "assets": 732,
-  "gb": 5.66,
-  "at": "2026-11-12 13:39"
+  "assets": 733,
+  "gb": 5.63,
+  "at": "2026-11-12 23:38"
  }
 }
