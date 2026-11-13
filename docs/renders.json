@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-13 00:37",
+ "updatedAt": "2026-11-13 05:31",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -9656,6 +9656,181 @@
     "fade": 19
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-103-cover.jpg"
+  },
+  "variety:101": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-101.mp4",
+   "bytes": 43328387,
+   "parts": 1,
+   "at": "2026-11-13 05:31",
+   "mode": "media",
+   "media": {
+    "clips": 16,
+    "photos": 12,
+    "found": 5,
+    "notFound": 1,
+    "failed": 0,
+    "why": [
+     "صحنهٔ 11: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر)",
+     "صحنهٔ 19: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر)",
+     "صحنهٔ 26: شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-D",
+     "صحنهٔ 28: کلیپ ساکن بود (10.3ث) ⇒ همان قاب با حرکتِ دوربین"
+    ],
+    "layouts": {
+     "fill": 12,
+     "center": 6,
+     "left": 7,
+     "right": 3
+    },
+    "teaserTiles": 5,
+    "teaserSec": 39.9,
+    "teaser": 3,
+    "filled": 2,
+    "filledSec": 58,
+    "tailCut": 16,
+    "cardTrim": 2,
+    "cardMoving": 6,
+    "cardOwn": 6,
+    "cards": 6,
+    "replayed": 2,
+    "cropped": 7,
+    "cardFlat": 4,
+    "stillFix": 1,
+    "moments": {
+     "asked": 6,
+     "placed": 6,
+     "made": 4,
+     "why": [
+      "157s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 28٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 14٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا",
+      "523s: عبارت در کلیپ پیدا نشد (شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-D)"
+     ],
+     "separated": 4,
+     "replaced": 4,
+     "sec": 121,
+     "whole": 4,
+     "fallback": 2,
+     "music": 1
+    },
+    "fit": {
+     "mb": 41.3,
+     "was": 97.2,
+     "how": "بازکدگذاری"
+    }
+   },
+   "inserts": [
+    {
+     "at": 53.1,
+     "d": 3.3,
+     "cut": 78.7
+    },
+    {
+     "at": 218.8,
+     "d": 58,
+     "cut": 32.8
+    },
+    {
+     "at": 274.8,
+     "d": 12.6,
+     "cut": 26.8
+    },
+    {
+     "at": 370,
+     "d": 47.3,
+     "cut": 58.1
+    }
+   ],
+   "scenes": 31,
+   "want": 31,
+   "snapped": 26,
+   "seconds": 634,
+   "qa": {
+    "n": 31,
+    "matched": 30,
+    "miss": [
+     22
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 8,
+       "t": 132.6,
+       "own": 0.45,
+       "nb": 0.14,
+       "ok": true,
+       "heard": "موچرا در ویڈیوی باعدی گفته میشه ود  حشتا در سد آدمها از حوش مصنوی نتیجه نمی گیرند  چون سی تیکنیک را بلد نیستند"
+      },
+      {
+       "n": 14,
+       "t": 268.2,
+       "own": 0.4,
+       "nb": 0.07,
+       "ok": true,
+       "heard": "و ویدیوی بقیدی سو خنران میگوید هوشم اصنوی هر دیتای بهشمیدی میاد دیتاها رو تحلیل میگنه."
+      },
+      {
+       "n": 19,
+       "t": 370.8,
+       "own": 0.32,
+       "nb": 0.05,
+       "ok": true,
+       "heard": "قادم ایتا وانیم کاره علمی غیر داستانی بخانیم بایت کتاب داستان بخانیم.  گویند پاسخ میدهت مهمترین دارای زندگی،  یعنی تخ..."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    },
+    "freeze": [],
+    "clipSound": {
+     "clips": 16,
+     "asked": 6,
+     "made": 4,
+     "heard": 4,
+     "quiet": [],
+     "why": ""
+    }
+   },
+   "ov": {
+    "asked": 15,
+    "placed": 15,
+    "busy": 0,
+    "failed": 0,
+    "kinds": {
+     "headline": 2,
+     "points": 11,
+     "quote": 2
+    },
+    "forced": 5
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 31,
+    "used": 31,
+    "why": []
+   },
+   "xf": {
+    "circleopen": 3,
+    "dissolve": 9,
+    "slideright": 3,
+    "radial": 3,
+    "smoothright": 3,
+    "wiperight": 3,
+    "zoomin": 2,
+    "fade": 1
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-101-cover.jpg",
+   "notes": [
+    "صحنهٔ 15: زمینهٔ کارت یکدست بود (sd 8.5) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 17: زمینهٔ کارت یکدست بود (sd 9.8) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 22: زمینهٔ کارت یکدست بود (sd 10) ⇒ خودِ عکس، کنارِ کارت",
+    "صحنهٔ 24: زمینهٔ کارت یکدست بود (sd 9.1) ⇒ خودِ عکس، کنارِ کارت",
+    "برشِ کلیپ از آغاز: صحنهٔ 11: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر) · صحنهٔ 19: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر) · صحنهٔ 26: شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-D · صحنهٔ 28: کلیپ ساکن بود (10.3ث) ⇒ همان قاب با حرکتِ دوربین",
+    "لحظهٔ 53s: موسیقی جدا شد (28.7ث)؛ فقط گفتارِ کلیپ پخش می‌شود"
+   ]
   }
  },
  "art": {
@@ -12969,8 +13144,8 @@
   }
  },
  "release": {
-  "assets": 734,
-  "gb": 5.63,
-  "at": "2026-11-13 00:37"
+  "assets": 736,
+  "gb": 5.68,
+  "at": "2026-11-13 05:31"
  }
 }
