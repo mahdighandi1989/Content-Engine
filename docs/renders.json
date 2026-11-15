@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-15 03:21",
+ "updatedAt": "2026-11-15 06:33",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -12785,6 +12785,22 @@
    "segs": 3,
    "subs": 15,
    "at": "2026-11-15 00:32"
+  },
+  "ig:special:85.2": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-85-2.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-85-2-cover.jpg",
+   "sig": "029f28b01bcb",
+   "seconds": 80.7,
+   "bytes": 15455050,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-85-2-short.mp4",
+   "shortSeconds": 76.8,
+   "align": "faster-whisper",
+   "phrases": 45,
+   "trans": 4,
+   "imgs": 5,
+   "segs": 5,
+   "subs": 41,
+   "at": "2026-11-15 06:33"
   }
  },
  "musicPrev": {
@@ -13715,8 +13731,8 @@
   }
  },
  "release": {
-  "assets": 785,
-  "gb": 6.09,
-  "at": "2026-11-15 03:21"
+  "assets": 788,
+  "gb": 6.12,
+  "at": "2026-11-15 06:33"
  }
 }
