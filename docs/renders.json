@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-15 12:12",
+ "updatedAt": "2026-11-15 14:59",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -10232,6 +10232,12 @@
     "fade": 24
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-106-cover.jpg"
+  },
+  "variety:103": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-103.mp4",
+   "bytes": 9662083,
+   "parts": 1,
+   "at": "2026-11-15 14:59"
   }
  },
  "art": {
@@ -13859,8 +13865,8 @@
   }
  },
  "release": {
-  "assets": 797,
-  "gb": 6.17,
-  "at": "2026-11-15 12:12"
+  "assets": 798,
+  "gb": 6.18,
+  "at": "2026-11-15 14:59"
  }
 }
