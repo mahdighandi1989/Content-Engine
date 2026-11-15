@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-15 10:38",
+ "updatedAt": "2026-11-15 12:12",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -9834,7 +9834,8 @@
     "صحنهٔ 24: زمینهٔ کارت یکدست بود (sd 9.1) ⇒ خودِ عکس، کنارِ کارت",
     "برشِ کلیپ از آغاز: صحنهٔ 11: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر) · صحنهٔ 19: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر) · صحنهٔ 26: شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-D · صحنهٔ 28: کلیپ ساکن بود (10.3ث) ⇒ همان قاب با حرکتِ دوربین",
     "لحظهٔ 53s: موسیقی جدا شد (28.7ث)؛ فقط گفتارِ کلیپ پخش می‌شود"
-   ]
+   ],
+   "pruned": "2026-11-15"
   },
   "special:104": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-104.mp4",
@@ -9909,7 +9910,8 @@
     "smoothright": 33,
     "fade": 27
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-104-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-104-cover.jpg",
+   "pruned": "2026-11-15"
   },
   "variety:102": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-102.mp4",
@@ -10152,6 +10154,84 @@
     "fade": 27
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-105-cover.jpg"
+  },
+  "special:106": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-106.mp4",
+   "bytes": 45940695,
+   "parts": 2,
+   "at": "2026-11-15 12:12",
+   "mode": "scenes",
+   "scenes": 59,
+   "want": 59,
+   "snapped": 48,
+   "seconds": 1356,
+   "qa": {
+    "n": 59,
+    "matched": 53,
+    "miss": [
+     12,
+     23,
+     32,
+     46,
+     49,
+     52
+    ],
+    "blank": [],
+    "ok": false,
+    "why": "فقط 53 از 59 صحنه سرِ جای خودش دیده شد",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 15,
+       "t": 353.5,
+       "own": 0.55,
+       "nb": 0.23,
+       "ok": true,
+       "heard": "اگون تو یه گروه پیامرسان ساختمون  از شانز روزگار  همه یه همسایهای که مشین شاسیبولند دارن  شارج ساختمون رو هم دیر میدن  و"
+      },
+      {
+       "n": 30,
+       "t": 660.2,
+       "own": 0.69,
+       "nb": 0.31,
+       "ok": true,
+       "heard": "که که ویجگی تحریف کننده از همراه بنیادین است.  چون نوع مخالفت با یک ادعا بسن خویده"
+      },
+      {
+       "n": 45,
+       "t": 996,
+       "own": 0.8,
+       "nb": 0.13,
+       "ok": true,
+       "heard": "وقتا کلنجا رفدن و آوردن مثال جدید هیچ فایدهی نداره  چون طرف با بازی کردن با کلمات"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 26,
+    "placed": 14,
+    "busy": 12,
+    "failed": 0,
+    "kinds": {
+     "points": 5,
+     "headline": 5,
+     "quote": 3,
+     "compare": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 51,
+   "xf": {
+    "smoothright": 29,
+    "fade": 24
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-106-cover.jpg"
   }
  },
  "art": {
@@ -13780,7 +13860,7 @@
  },
  "release": {
   "assets": 797,
-  "gb": 6.21,
-  "at": "2026-11-15 10:38"
+  "gb": 6.17,
+  "at": "2026-11-15 12:12"
  }
 }
