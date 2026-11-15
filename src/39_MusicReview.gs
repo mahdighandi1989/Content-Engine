@@ -921,6 +921,7 @@ var MR_HELP = ['❓ راهنمای بانکِ موسیقی',
   '• «⌨️ بازه با نوشتن»، یا در یادداشت و توضیحِ رد: «از ثانیهٔ ۱۰ تا ۴۰». قطعهٔ بی‌بازه مثلِ قبل به تشخیصِ موتور بریده می‌شود.',
   '• «✍️ رد با توضیح» خوانده می‌شود: «این جلوهٔ صوتی است» یعنی به بانکِ جلوه برود، نه دور ریخته شود.',
   '• دکمه‌های پایینِ صفحه هر فهرست را باز می‌کنند؛ روی هر قطعه بزنید تا کارتش دوباره بیاید.',
+  '• «#کارگاه …» — فرستادن تمرین، عکس دست‌نوشته یا سؤال به مربی نویسندگی DeepTutor',
   '• موسیقی یا جلوهٔ خودتان را همین‌جا بفرستید — هر قالبی (MP3، M4A، OGG، WAV …، تا ۲۰ مگ). زیرش هرچه بنویسید خوانده می‌شود: وایب، «جلوه است»، «از ثانیهٔ ۱۰ تا ۴۰». مجوزش را می‌پرسم؛ تا نگویید پخش نمی‌شود.'].join('\n');
 
 /** متنِ دکمه‌های منوی ثابت ⇒ کار. */
@@ -1264,8 +1265,12 @@ function tgPollRun_() {
           } else {
             /* چتِ موتور ممکن است کانال باشد: آنجا نوشتهٔ او `channel_post` است، نه `message`. */
             var um = u.message || u.channel_post;
+            /* کارگاهِ DeepTutor (۱۸.۲): پیش از همهٔ شاخه‌ها، و پیامی که این‌جا برداشته شد به هیچ پردازشِ دیگری نمی‌رود. */
+            var dtHit = null;
+            try { dtHit = dtMatch_(um, st); } catch (eDm) { dtHit = null; }
             /* بازه از صفحهٔ پخش‌کننده (۹.۸۳): از چتِ خصوصیِ ربات می‌آید، نه لزوماً چتِ موتور — امضای پیام جای سدِ چت است. */
-            if (um && /^\/start\s+r/.test(String(um.text || ''))) { if (mrStartRange_(getHub(), st, um)) out.got++; }
+            if (dtHit) { try { if (dtInbox_(um, dtHit)) out.got++; } catch (eDt) { st.lastWhy = 'dt: ' + String(eDt.message || eDt).slice(0, 100); } }
+            else if (um && /^\/start\s+r/.test(String(um.text || ''))) { if (mrStartRange_(getHub(), st, um)) out.got++; }
             /* موسیقیِ خودِ او (۹.۸۵): از چتِ موتور، یا از چتِ خصوصیِ ربات که با پیوندِ امضاشدهٔ بازه شناخته شد. */
             else if (um && (mrChatOk_(um.chat) || (st.ownerDm && String(um.chat && um.chat.id) === String(st.ownerDm))) && mrUpOf_(um)) { if (mrOnUpload_(getHub(), st, um)) out.got++; }
             else if (um && mrChatOk_(um.chat) && mrOnText_(getHub(), st, um)) out.got++;
@@ -1364,4 +1369,66 @@ function mrHealth_(problems, notes) {
   if (!st.polledAt || idle > 3 * 3600000) problems.push('🎵 خواندنِ دکمه‌های تلگرام ' + (st.polledAt ? Math.round(idle / 3600000) + ' ساعت است' : 'هرگز') + ' ندویده (tgPollTick)');
   if (s.pollWhy) problems.push('🎵 تلگرام جوابِ getUpdates نداد: ' + s.pollWhy);
   return s;
+}
+
+
+/* ═══ کارگاهِ DeepTutor — صندوقِ ورودی از تلگرام (۱۸.۲) ═══
+   مالک: «#کارگاه» یا «/dt» در آغازِ متن یا زیرنویس، یا پاسخ به پیامی از ربات که با «🎓» شروع شده ⇒ این پیام مالِ
+   مربیِ نویسندگی است، نه موسیقی و نه منو. همان دو سدِ چتِ شاخه‌های دیگر: چتِ موتور، یا چتِ خصوصیِ شناخته‌شدهٔ مالک.
+   فقط افزودن در پوشهٔ صندوق: یک JSON و، اگر بود، فایلِ پیوست با همان پیشوند. */
+var DT_PREFIX_RE = /^\s*(?:#کارگاه|\/dt(?:@[A-Za-z0-9_]+)?)(?=\s|$)/;
+
+/** پیامِ کارگاه است؟ ⇒ { text } (بی پیشوند)، وگرنه null. */
+function dtMatch_(um, st) {
+  if (!um || CFG.DT_ON === false) return null;
+  var okChat = mrChatOk_(um.chat) || !!(st && st.ownerDm && String(um.chat && um.chat.id) === String(st.ownerDm));
+  if (!okChat) return null;
+  var raw = String(um.text != null ? um.text : (um.caption || ''));
+  if (DT_PREFIX_RE.test(raw)) return { text: raw.replace(DT_PREFIX_RE, '').trim() };
+  var rp = um.reply_to_message;
+  if (rp && rp.from && rp.from.is_bot && /^\s*🎓/.test(String(rp.text || rp.caption || ''))) return { text: raw.trim() };
+  return null;
+}
+
+/** پیوستِ پیام: بزرگ‌ترین عکس، سند، یا صدا. */
+function dtAttach_(um) {
+  if (um.photo && um.photo.length) {
+    var big = um.photo.slice().sort(function (a, b) { return (Number(a.file_size) || a.width * a.height || 0) - (Number(b.file_size) || b.width * b.height || 0); }).pop();
+    return { kind: 'photo', fid: big.file_id, size: Number(big.file_size) || 0, name: 'photo.jpg' };
+  }
+  if (um.document) return { kind: 'document', fid: um.document.file_id, size: Number(um.document.file_size) || 0, name: String(um.document.file_name || 'document') };
+  if (um.voice) return { kind: 'voice', fid: um.voice.file_id, size: Number(um.voice.file_size) || 0, name: 'voice.ogg' };
+  return null;
+}
+
+/** ثبت در صندوق + رسید در همان چت. خطای هر گام علت دارد و حلقه را نمی‌شکند. */
+function dtInbox_(um, hit) {
+  var folder = DriveApp.getFolderById(CFG.DT_INBOX_FOLDER);
+  var unix = Math.floor(Date.now() / 1000), stem = 'tg_' + unix + '_' + um.message_id;
+  var at = dtAttach_(um);
+  var rec = { text: hit.text, date: Number(um.date) || unix, chat_id: um.chat && um.chat.id, message_id: um.message_id,
+              kind: at ? at.kind : 'text', file_name: '' };
+  if (at) {
+    var maxB = Math.max(1, Number(CFG.MR_UP_MAX_MB) || 20) * 1048576;
+    var ext = (/\.[A-Za-z0-9]{1,6}$/.exec(at.name) || [''])[0];
+    rec.file_name = stem + ext;
+    if (at.size > maxB) rec.too_large = true;
+    else {
+      var gf = null;
+      try { gf = tgApi_('getFile', { file_id: at.fid }); } catch (eG) { gf = null; }
+      var fp = gf && gf.result && gf.result.file_path;
+      if (fp && !ext) { ext = (/\.[A-Za-z0-9]{1,6}$/.exec(fp) || [''])[0]; rec.file_name = stem + ext; }
+      var res = null;
+      /* نشانیِ دانلود توکن دارد؛ هرگز ثبت نمی‌شود — فقط کدِ پاسخ. */
+      try { res = fp ? UrlFetchApp.fetch('https://api.telegram.org/file/bot' + tgToken_() + '/' + fp, { muteHttpExceptions: true }) : null; } catch (eF) { res = null; }
+      if (res && res.getResponseCode() === 200) {
+        var bl = res.getBlob(); bl.setName(rec.file_name);
+        folder.createFile(bl);
+      } else rec.download_error = fp ? ('HTTP ' + (res ? res.getResponseCode() : 'شبکه')) : 'getFile';
+    }
+  }
+  folder.createFile(Utilities.newBlob(JSON.stringify(rec, null, 2), 'application/json', stem + '.json'));
+  try { tgApi_('sendMessage', { chat_id: um.chat.id, reply_to_message_id: um.message_id,
+        text: '🎓 رسید به کارگاه. وقتی کامپیوتر روشن باشد، مربی بررسی می‌کند و نتیجه همین‌جا می‌آید.' }); } catch (eS) {}
+  return true;
 }
