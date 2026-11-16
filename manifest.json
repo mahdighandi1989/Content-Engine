@@ -1,17 +1,20 @@
 {
-  "version": "18.3",
+  "version": "18.4",
   "codeFile": "engine.gs",
-  "sha256": "81c3eb502e2ec5d4a02d4cb14bd742e0baa9e91b8c19d02a35a67051018a4784",
-  "releasedAt": "2026-11-16T06:55:30Z",
-  "summary": "«از همه جا»ی کم‌رسانه (variety:103) در حلقه می‌ماند: نقشهٔ رسانه نشد ⇒ ویدئوی ساده ⇒ ساده منتشر نمی‌شود و کنار رفت ⇒ از نو. شکستِ نهاییِ رسانه حالا به نقاشیِ صحنه‌ها می‌رود، همان راهِ قسمتِ بی‌رسانه.",
+  "sha256": "fa51a0d56f9fe20d30eabca59c5f3ee65ea1b02ddb8297f63cdb9f673b2e62b8",
+  "releasedAt": "2026-11-16T08:16:16Z",
+  "summary": "منبعِ کم‌رسانهٔ «از همه جا» (variety:103، ۲ رسانه) ایراد نیست: از ۱۸.۳ نقاشی می‌رود، ولی خطِ وضعیت هنوز «❌ ویدئوی ساده رفت» می‌گفت و یافتهٔ «جدی»ِ vm-fallback هر بار ساخته می‌شد. حالا few مثلِ none رفتار می‌کند؛ شکستِ واقعی همچنان یافته است.",
   "fixes": [
-    "vmBuild_: fail ⇒ out.final (شکستِ نهایی، نه خطای گذرا)",
-    "ytRunOne_: vmr.final ⇒ ctx.forceScene — نقاشی، نه ویدئوی سادهٔ همیشه‌نگه‌داشته",
-    "tests/run_v183_test.js"
+    "vmBuild_: منبع زیرِ VM_MIN_SCENES رسانه ⇒ few و نهایی در همان بار (نه سه بار انتظار)",
+    "vmStatus_: few (یا علتِ «فقط N صحنه از M رسانه» با M زیرِ کف) ⇒ ok با خطِ «ایراد نیست»؛ شکستِ final ⇒ «نقاشیِ صحنه‌ها» نه «ویدئوی ساده»",
+    "vmHealth_: کم‌رسانه یافتهٔ vm-fallback نمی‌سازد",
+    "tests/run_v184_test.js"
   ],
-  "sourceReportIds": [],
+  "sourceReportIds": [
+    "ENG-20261019-1010#vm-fallback"
+  ],
   "answers": [
-    "run-died"
+    "vm-fallback"
   ],
   "promptImpact": []
 }

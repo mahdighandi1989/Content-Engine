@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 18.3
+ *  موتور محتوا و پادکست — نسخهٔ 18.4
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2394,7 +2394,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '18.3',
+  CODE_VERSION: '18.4',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -85756,19 +85756,24 @@ function vmBuild_(folder, meta, plan, ctx) {
   var fail = function (w) {
     /* `final` (۱۸.۳): نقشهٔ رسانه نهایی نشد — نه خطای گذرا. فراخوان آن را به نقاشی می‌برد، نه به ویدئوی ساده. */
     out.fallback = true; out.final = true; out.why = w;
-    vmNote_(key, { ok: false, why: w });
+    /* `few` (۱۸.۴): خودِ منبع کمتر از VM_MIN_SCENES رسانه داشت — مثلِ `none`، کمیِ منبع است نه خرابیِ کد. */
+    vmNote_(key, { ok: false, final: true, few: !!out.few, why: w });
     try { logLine_('رسانه‌های منبعِ ' + key + ' نشد — ' + w + ' — ویدئو با مسیرِ قبلی می‌رود.'); } catch (e) {}
     return out;
   };
   var planFail = function (w, final) {
     var n1 = ((d && Number(d.failed)) || 0) + 1;
     if (final) n1 = Math.max(n1, failMax);
-    vmWrite_(folder, { v: 1, key: key, at: nowStr_(), phase: 'plan', failed: n1, why: w, scenes: [] });
+    vmWrite_(folder, { v: 1, key: key, at: nowStr_(), phase: 'plan', failed: n1, why: w, few: !!out.few, scenes: [] });
     if (n1 >= failMax) return fail(w + ' (' + n1 + ' بار)');
+    out.few = false;
     out.why = 'نقشهٔ رسانه نشد (' + n1 + ' از ' + failMax + '): ' + w + ' — دوباره پس از ' + Math.round(gapMs / 60000) + ' دقیقه';
     return out;
   };
-  if (d && d.phase === 'plan' && Number(d.failed) >= failMax) return fail(String(d.why || 'نقشهٔ رسانه نشد'));
+  if (d && d.phase === 'plan' && Number(d.failed) >= failMax) {
+    out.few = !!d.few || vmFewWhy_(d.why);
+    return fail(String(d.why || 'نقشهٔ رسانه نشد'));
+  }
   if (d && d.phase === 'plan' && Number(d.failed) > 0) {
     var lastF = parseWhen_(String(d.at || ''));
     if (!isNaN(lastF) && new Date().getTime() - lastF < gapMs) {
@@ -85821,6 +85826,11 @@ function vmBuild_(folder, meta, plan, ctx) {
     }
     var vs = vmScenes_(raw, sents, items, rp.secs, rp.music);
     if (vs.scenes.length < Math.max(1, Number(CFG.VM_MIN_SCENES) || 3)) {
+      /* ۱۸.۴: منبعی که خودش کمتر از کف رسانه دارد، با تلاشِ دوباره رسانهٔ بیشتری پیدا نمی‌کند ⇒ همین بار نهایی. */
+      if (items.length < Math.max(1, Number(CFG.VM_MIN_SCENES) || 3)) {
+        out.few = true;
+        return planFail('فقط ' + vs.scenes.length + ' صحنه از ' + items.length + ' رسانه درآمد', true);
+      }
       return planFail('فقط ' + vs.scenes.length + ' صحنه از ' + items.length + ' رسانه درآمد');
     }
     d = { v: 1, key: key, at: nowStr_(), phase: 'copy', failed: 0, secs: rp.secs, align: rp.how,
@@ -85933,6 +85943,12 @@ function vmRenderSeen_(key, rec) {
 }
 
 /** خطِ روزانه (بی درایو). */
+/** ۱۸.۴ — سابقهٔ پیش از ۱۸.۴ پرچمِ `few` ندارد؛ علتِ «فقط N صحنه از M رسانه» با M زیرِ کف همان کمیِ منبع است. */
+function vmFewWhy_(why) {
+  var m = String(why || '').match(/فقط\s*(\d+)\s*صحنه از\s*(\d+)\s*رسانه/);
+  return !!m && Number(m[2]) < Math.max(1, Number(CFG.VM_MIN_SCENES) || 3);
+}
+
 function vmStatus_() {
   var r = null;
   try { r = JSON.parse(props_().getProperty(PK.VM_LAST) || 'null'); } catch (e) { r = null; }
@@ -85948,6 +85964,12 @@ function vmStatus_() {
   if (!r.ok && r.none) return { on: true, ok: true, none: true, last: r,
     line: '🎞 «از همه جا» (' + r.key + '، ' + r.at + '): منبعِ این قسمت کلیپ یا عکس نداشت (فقط صدا/متن) — ' +
           'ویدئوی ساده رفت و درست همین است؛ ایراد نیست.' };
+  /* ۱۸.۴: منبعِ کم‌رسانه (variety:103، ۲ رسانه) — از ۱۸.۳ نقاشیِ صحنه‌ها می‌رود، نه ویدئوی ساده. هشدارِ «جدی» برای
+     راهی که درست رفته، همان هشداری است که آدم یاد می‌گیرد نخوانَد. */
+  if (!r.ok && (r.few || vmFewWhy_(r.why))) return { on: true, ok: true, few: true, last: r,
+    line: '🎞 «از همه جا» (' + r.key + '، ' + r.at + '): منبعِ این قسمت کمتر از ' +
+          faDigitsOut_(String(Math.max(1, Number(CFG.VM_MIN_SCENES) || 3))) + ' رسانه داشت — ویدئو با نقاشیِ صحنه‌ها می‌رود ' +
+          '(همان راهِ قسمتِ بی‌رسانه)؛ ایراد نیست.' };
   var line = r.ok
     ? '🎞 «از همه جا» با رسانه‌های منبع — آخرین (' + r.key + '، ' + r.at + '): ' + faDigitsOut_(String(r.scenes || 0)) +
       ' صحنه، ' + faDigitsOut_(String(r.clips || 0)) + ' کلیپ، ' +
@@ -85958,7 +85980,8 @@ function vmStatus_() {
       '، کاور ' + (r.cover ? 'ساخته شد' : 'کارتی') +
       (r.skipped ? ' · ' + faDigitsOut_(String(r.skipped)) + ' رسانه رونوشت نشد' : '') +
       (r.broadcast ? ' · ' + faDigitsOut_(String(r.broadcast)) + ' رسانهٔ برش از سریال/فیلم کنار رفت (Content-ID)' : '') + '.'
-    : '🎞 ❌ «از همه جا» (' + r.key + ') با رسانهٔ منبع ساخته نشد و ویدئوی ساده رفت — علت: ' + String(r.why || 'بی علت');
+    : '🎞 ❌ «از همه جا» (' + r.key + ') با رسانهٔ منبع ساخته نشد و ' +
+      (r.final ? 'ویدئو با نقاشیِ صحنه‌ها می‌رود' : 'ویدئوی ساده رفت') + ' — علت: ' + String(r.why || 'بی علت');
   return { on: true, ok: !!r.ok, last: r, line: line };
 }
 
@@ -86002,7 +86025,7 @@ function vmHealth_(problems, notes) {
     var vmS = vmStatus_();
     if ((vmS.on || vmS.off) && vmS.line) notes.push(vmS.line);
     if (vmS.on && !vmS.ok && vmS.last) {
-      problems.push('🎞 قسمتِ ' + vmS.last.key + ' بی رسانه‌های منبع (ویدئوی ساده) ساخته شد: ' + vmS.last.why);
+      problems.push('🎞 قسمتِ ' + vmS.last.key + ' بی رسانه‌های منبع ساخته شد (' + (vmS.last.final ? 'نقاشیِ صحنه‌ها' : 'ویدئوی ساده') + '): ' + vmS.last.why);
       logSelfFinding_(getHub_(), {
         priority: 'جدی', category: 'ویدئوی از همه جا', key: 'vm-fallback',
         title: 'ویدئوی «از همه جا» با رسانه‌های منبع ساخته نشد',
