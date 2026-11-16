@@ -888,7 +888,8 @@ function vmBuild_(folder, meta, plan, ctx) {
   var gapMs = Math.max(1, Number(CFG.VM_RETRY_MIN) || 45) * 60000;
   var d = vmRead_(folder);
   var fail = function (w) {
-    out.fallback = true; out.why = w;
+    /* `final` (۱۸.۳): نقشهٔ رسانه نهایی نشد — نه خطای گذرا. فراخوان آن را به نقاشی می‌برد، نه به ویدئوی ساده. */
+    out.fallback = true; out.final = true; out.why = w;
     vmNote_(key, { ok: false, why: w });
     try { logLine_('رسانه‌های منبعِ ' + key + ' نشد — ' + w + ' — ویدئو با مسیرِ قبلی می‌رود.'); } catch (e) {}
     return out;

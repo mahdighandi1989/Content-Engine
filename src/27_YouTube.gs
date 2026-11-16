@@ -10332,6 +10332,10 @@ function ytUploadOne_(item, hub, pub) {
     if (vmr && vmr.active && vmr.fallback) sceneFb = 'رسانهٔ منبع: ' + String(vmr.why || 'بی علت');
     /* ۹.۶۵: منبعِ بی تصویر ⇒ نقاشی، همان راهِ درس‌نامه (قسمتِ ۷۷: «بدون تصویر … مانند اوایل»). */
     if (vmr && vmr.active && vmr.fallback && vmr.none) { ctx.forceScene = true; sceneFb = ''; }
+    /* ══ رسانهٔ کم ⇒ نقاشی، نه حلقه (۱۸.۳) ══ variety:103 (۱۵–۱۶ نوامبر) فقط ۲ رسانه داشت؛ نقشه سه بار «فقط ۲ صحنه از ۲
+       رسانه» شد و به ویدئوی ساده افتاد. ولی ویدئوی ساده منتشر نمی‌شود (۹.۶۵/۹.۷۰): رسید، کنار رفت، نقشه دوباره افتاد —
+       هر چند دقیقه همان سطر و قسمتی که هرگز بالا نمی‌رفت. شکستِ **نهاییِ** رسانه همان راهِ «بی‌رسانه» را می‌رود: نقاشی. */
+    else if (vmr && vmr.active && vmr.fallback && vmr.final) ctx.forceScene = true;
     if (vmr && vmr.active && !vmr.fallback) {
       if (!vmr.done) { res.waiting = true; res.why = vmr.why || 'رسانه‌های منبع در حالِ آماده‌شدن'; return res; }
       var askedVm = ytRenderAsk_({ show: item.show, ep: item.ep, title: String(ep.title || ''),

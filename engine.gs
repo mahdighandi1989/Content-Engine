@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 18.2
+ *  موتور محتوا و پادکست — نسخهٔ 18.3
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2394,7 +2394,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '18.2',
+  CODE_VERSION: '18.3',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -62737,6 +62737,10 @@ function ytUploadOne_(item, hub, pub) {
     if (vmr && vmr.active && vmr.fallback) sceneFb = 'رسانهٔ منبع: ' + String(vmr.why || 'بی علت');
     /* ۹.۶۵: منبعِ بی تصویر ⇒ نقاشی، همان راهِ درس‌نامه (قسمتِ ۷۷: «بدون تصویر … مانند اوایل»). */
     if (vmr && vmr.active && vmr.fallback && vmr.none) { ctx.forceScene = true; sceneFb = ''; }
+    /* ══ رسانهٔ کم ⇒ نقاشی، نه حلقه (۱۸.۳) ══ variety:103 (۱۵–۱۶ نوامبر) فقط ۲ رسانه داشت؛ نقشه سه بار «فقط ۲ صحنه از ۲
+       رسانه» شد و به ویدئوی ساده افتاد. ولی ویدئوی ساده منتشر نمی‌شود (۹.۶۵/۹.۷۰): رسید، کنار رفت، نقشه دوباره افتاد —
+       هر چند دقیقه همان سطر و قسمتی که هرگز بالا نمی‌رفت. شکستِ **نهاییِ** رسانه همان راهِ «بی‌رسانه» را می‌رود: نقاشی. */
+    else if (vmr && vmr.active && vmr.fallback && vmr.final) ctx.forceScene = true;
     if (vmr && vmr.active && !vmr.fallback) {
       if (!vmr.done) { res.waiting = true; res.why = vmr.why || 'رسانه‌های منبع در حالِ آماده‌شدن'; return res; }
       var askedVm = ytRenderAsk_({ show: item.show, ep: item.ep, title: String(ep.title || ''),
@@ -85750,7 +85754,8 @@ function vmBuild_(folder, meta, plan, ctx) {
   var gapMs = Math.max(1, Number(CFG.VM_RETRY_MIN) || 45) * 60000;
   var d = vmRead_(folder);
   var fail = function (w) {
-    out.fallback = true; out.why = w;
+    /* `final` (۱۸.۳): نقشهٔ رسانه نهایی نشد — نه خطای گذرا. فراخوان آن را به نقاشی می‌برد، نه به ویدئوی ساده. */
+    out.fallback = true; out.final = true; out.why = w;
     vmNote_(key, { ok: false, why: w });
     try { logLine_('رسانه‌های منبعِ ' + key + ' نشد — ' + w + ' — ویدئو با مسیرِ قبلی می‌رود.'); } catch (e) {}
     return out;
