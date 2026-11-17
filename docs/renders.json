@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-17 09:29",
+ "updatedAt": "2026-11-17 10:40",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -10695,6 +10695,80 @@
     "صحنهٔ 28: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 30: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت"
    ]
+  },
+  "special:108": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-108.mp4",
+   "bytes": 45709283,
+   "parts": 2,
+   "at": "2026-11-17 10:40",
+   "mode": "scenes",
+   "scenes": 59,
+   "want": 59,
+   "snapped": 45,
+   "seconds": 1368,
+   "qa": {
+    "n": 59,
+    "matched": 57,
+    "miss": [
+     23,
+     26
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0.1,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 15,
+       "t": 331.7,
+       "own": 0.45,
+       "nb": 0.3,
+       "ok": true,
+       "heard": "قادیه بینولملالی شیمی محس و کاربوردی، آیو پاک،  انسور را گونه از اتومها میداند،  که همه شمار یکسانی پوروطون در حسید."
+      },
+      {
+       "n": 30,
+       "t": 644.9,
+       "own": 0.48,
+       "nb": 0.1,
+       "ok": true,
+       "heard": "با جهایی منند مسلس یا عدد هفت چینینند.  اما اکسریت کلمات روزمر رق این قدر دقیق نیستند.  در انها بجای مجردی..."
+      },
+      {
+       "n": 45,
+       "t": 985.3,
+       "own": 0.57,
+       "nb": 0.13,
+       "ok": true,
+       "heard": "اما ایها اصلا فهرست مشخصی از ویجگیها فردرا روان رنجور میصاد.  اگر کسی فهرستی به نوی سد، چتور مطمئن شه و تمام مییارهای زی"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 21,
+    "placed": 14,
+    "busy": 7,
+    "failed": 0,
+    "kinds": {
+     "points": 7,
+     "headline": 5,
+     "quote": 1,
+     "compare": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 48,
+   "xf": {
+    "smoothright": 29,
+    "fade": 24
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-108-cover.jpg"
   }
  },
  "art": {
@@ -14492,8 +14566,8 @@
   }
  },
  "release": {
-  "assets": 835,
-  "gb": 6.54,
-  "at": "2026-11-17 09:29"
+  "assets": 837,
+  "gb": 6.58,
+  "at": "2026-11-17 10:40"
  }
 }
