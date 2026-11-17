@@ -1693,6 +1693,18 @@ function ytRenderAsk_(item) {
       var mm0 = ytRenderMapCached_();
       if (!(mm0 && mm0[key] && mm0[key].url)) { replaceAt = i; break; }
     }
+    /* ══ ویدئوی ساده‌ای که کنار رفت، جای صحنه را نمی‌بندد (۱۸.۵) ══ variety:103: ویدئوی ساده رسید (ردیف «رسید»)، شاخهٔ ۹.۷۰
+       کنارش گذاشت و ۱۸.۳ نقاشی را ساخت — ولی درخواستِ صحنه همین‌جا با «قبلاً خواسته شده» رد می‌شد و رانر هم کلیدِ دارای نشانی را
+       «ساخته‌شده» می‌دانست. دو روز `dueKeys` بی هیچ خطا. ردیفِ بی‌صحنه‌ای که نقشه‌اش ساده است (همان تعریفِ `ytPlainVideo_`)،
+       با برچسبِ جایگزینی بازنویسی می‌شود تا رانر بسازدش؛ همان برچسب نمی‌گذارد دوباره خواسته شود. */
+    /* فقط ردیفِ «رسید»: ویدئوی ساده‌ای که رسید و شاخهٔ ۹.۷۰ از پوشه بیرونش برد. ردیفِ «در انتظار»ِ ساخته‌شده (کارتی که
+       هنوز برداشته نشده) جایگزین نمی‌شود — قاعدهٔ ۸.۳۱ و آزمونِ ۷۱.۷. */
+    if (scNew && !scOld && !item.replace && String(old.status || '') === 'رسید' &&
+        ytPlainVideo_({ key: key, show: item.show, ep: item.ep })) {
+      item.replace = 'plain-' + String(CFG.CODE_VERSION || '');
+      if (String(old.replace || '') === item.replace) return false;
+      replaceAt = i; break;
+    }
     var nNew = (item.visuals || []).length, nOld = (old.visuals || []).length;
     var specNew = !!(item.spec && item.spec.cards && item.spec.cards.length);
     if (ytRenderRedoable_(old, Number((item.visInfo || {}).asked) || 0) &&
