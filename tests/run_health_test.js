@@ -1255,15 +1255,22 @@ console.log('\n=== ۱۸) ایرادِ مزمن: «گزارش‌شده» با «�
      بازنشسته را پوشاند. */
   const d3 = {}; ch3.forEach((c) => { d3[c.sig] = c.days; });
   ok18('۱۸.۶ اجرای دوم در همان روز روز نمی‌شمارد — و زنجیره را هم از نو شروع نمی‌کند',
-       ch3b.length === ch3.length && ch3b.every((c) => d3[c.sig] === c.days),
+       /* ۱۸.۷: فهرست از ایرادهای همین اجرا ساخته می‌شود — ایرادی که اجرای اولِ همان روز رفعش کرد (قسمتِ نیمه‌تمامی که
+          دوباره زمان‌بندی شد) دیگر نیست؛ سنجه همان است که بود: هیچ روزی دو بار شمرده نشد و هیچ زنجیره‌ای از نو شروع نشد. */
+       ch3b.length >= ch3.length - 1 && ch3b.length >= 1 && ch3b.every((c) => d3[c.sig] === c.days),
        ch3.map((c) => c.days).join(',') + ' ⇒ ' + ch3b.map((c) => c.days).join(','));
 
   /* و ردیفِ صف تکراری نمی‌شود: فردا همان کلید «تکرار» می‌خورد. */
   onDay(33, () => healthCheck());
   const rows2 = rt.getRange(2, 1, Math.max(1, rt.getLastRow() - 1), rt.getLastColumn()).getValues()
                   .filter((r) => r.join(' ').indexOf('ایرادِ مزمن (') !== -1);
-  ok18('۱۸.۷ روزِ بعد ردیفِ تازه نمی‌سازد — همان ردیف تکرار می‌خورد',
-       rows2.length === chRows.length, chRows.length + ' ⇒ ' + rows2.length);
+  /* ۱۸.۷: ردیف برای **همان** ایراد تکرار نمی‌شود. ایرادِ مزمنِ دیگری که دیروز پشتِ سقفِ پنج‌تایی مانده بود و امروز جا پیدا
+     کرد، ردیفِ خودش را می‌گیرد — آن ایراد تازه نیست، تازه نوبت گرفته. پس سنجه «هیچ کلیدی دو ردیف ندارد» است. */
+  const keyOf = (r) => (r.join(' ').match(/chronic-[0-9a-f]{8}/) || [r.join(' ').match(/ایرادِ مزمن \([^)]*\): ([^|]{0,60})/)[1]])[0];
+  const ks = rows2.map(keyOf);
+  ok18('۱۸.۷ روزِ بعد ردیفِ تازه برای همان ایراد نمی‌سازد — همان ردیف تکرار می‌خورد',
+       rows2.length >= chRows.length && new Set(ks).size === ks.length && rows2.length <= chRows.length + 1,
+       chRows.length + ' ⇒ ' + rows2.length);
 
   /* دو روز غیبت یعنی رفع شده؛ یک روز غیبت یعنی «سنجیده نشد» و زنجیره را نمی‌بُرد. */
   delete P[PK.HEALTH_CHRONIC];
@@ -1274,6 +1281,23 @@ console.log('\n=== ۱۸) ایرادِ مزمن: «گزارش‌شده» با «�
   ok18('۱۸.۸ یک روز غیبت زنجیره را نگه می‌دارد؛ دو روز می‌بُرد',
        g1.list.length === 1 && g1.list[0].days === 3 && g2.n === 0 && /هیچ ایرادی/.test(g2.line),
        JSON.stringify(g1.list.map((c) => c.days)) + ' · ' + g2.line);
+  delete P[PK.HEALTH_CHRONIC];
+
+  /* ۱۸.۷: ۱۷ نوامبر ۱۱۱ ایراد بود و سقفِ ۶۰ امضا **قدیمی‌ترین** را می‌انداخت — شش روزِ پیاپی، فقط ۹ تا «مزمن» با بیشینهٔ ۲ روز. */
+  const many = Array.from({ length: 111 }, (_, i) => 'ایرادِ پایدارِ شمارهٔ ' + 'الفبپتثجچحخدذرزژسشصضطظعغفقکگلمنوهی'.slice(i % 30, i % 30 + 3) +
+    ' ' + 'ک'.repeat(1 + Math.floor(i / 30)) + ' — متنی بلند برای پر کردنِ جا تا صد و شصت نویسه که در وضعیت می‌ماند و تکرار می‌شود');
+  let gm;
+  for (let d = 0; d < 6; d++) gm = onDay(60 + d, () => healthChronic_(many));
+  ok18('۱۸.۹ ۱۱۱ ایرادِ پایدار، شش روز ⇒ همه مزمن با ۶ روز (نه قدیمی‌ترین‌ها بیرون)',
+       gm.n === 111 && gm.list.every((c) => c.days === 6), gm.n + ' · ' + Math.max(0, ...gm.list.map((c) => c.days)));
+  ok18('۱۸.۱۰ حافظه زیرِ نُه کیلوبایتِ Script Properties ذخیره شد',
+       gm.saved === true && Buffer.byteLength(P[PK.HEALTH_CHRONIC], 'utf8') <= 8500, Buffer.byteLength(P[PK.HEALTH_CHRONIC], 'utf8') + ' بایت');
+  const g3 = onDay(66, () => healthChronic_(['📒 درخواستِ R-20261016-05 («…») ۳۲ روز است سنجیده نشده'].concat(many.slice(0, 2))));
+  ok18('۱۸.۱۱ سطرِ «📒» دفترِ درخواست‌ها مزمن شمرده نمی‌شود', g3.list.every((c) => !/📒/.test(c.text)) && g3.n === 2);
+  delete P[PK.HEALTH_CHRONIC];
+  P[PK.HEALTH_CHRONIC] = JSON.stringify({ [healthSig_('الف ۱')]: { f: onDay(70, () => Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd')), l: onDay(71, () => Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd')), d: 2, t: 'الف ۱' } });
+  const g4 = onDay(72, () => healthChronic_(['الف ۲']));
+  ok18('۱۸.۱۲ قالبِ پیشین بی سوختنِ روزها به قالبِ فشرده می‌رود', g4.n === 1 && g4.list[0].days === 3, JSON.stringify(g4.list));
   delete P[PK.HEALTH_CHRONIC];
   console.log('  ✅ بندِ ۱۸: ' + p18 + ' سنجه');
 }

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 18.6
+ *  موتور محتوا و پادکست — نسخهٔ 18.7
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1062,6 +1062,7 @@ var CFG = {
      `HEALTH_CHRONIC_FIND_DAYS` یافتهٔ کد می‌شود. */
   HEALTH_CHRONIC_DAYS: 2,
   HEALTH_CHRONIC_FIND_DAYS: 3,
+  HEALTH_CHRONIC_KEEP: 300,   // ۱۸.۷ — شمارِ امضاهای به‌خاطرسپرده؛ ذخیرهٔ فشرده زیرِ نُه کیلوبایت
 
   /* ══ کارنامهٔ قابلیت‌ها (۸.۰۵) ══
    * خواستهٔ صریحِ صاحبِ برنامه: «حتی ممکن خیلی گزینه‌های که اضافه کردی
@@ -2395,7 +2396,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '18.6',
+  CODE_VERSION: '18.7',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -19458,7 +19459,9 @@ function saveHealthSnapshot_(problems, notes, chronic) {
      دو روز غیبت یعنی رفع شده.
    • دو اجرا در یک روز یک روز است، نه دو.
    • خودِ سطرِ «مزمن» در شمارش نمی‌آید، وگرنه از روزِ دوم خودش مزمن می‌شد.
-   • سقفِ ۶۰ امضا و ۱۶۰ نویسه: Script Properties نُه کیلوبایت جا دارد.
+   • ذخیرهٔ فشرده (۱۸.۷): کلیدِ هشت‌هگز و [آغاز، آخرین، روزها]؛ تا ۳۰۰ امضا زیرِ نُه کیلوبایتِ Script Properties.
+     سقف اول نیامده‌های امروز را می‌اندازد، بعد تازه‌ترین — هرگز قدیمی‌ترین را.
+   • «📒» (دفترِ درخواست‌ها) بیرون است: شمارِ روزِ خودش را دارد و کارِ ناظر است.
 */
 var CHRONIC_HEAD_ = 'ایرادهای مزمن';
 
@@ -19481,45 +19484,78 @@ function healthChronic_(problems) {
     var need = Math.max(2, Number(CFG.HEALTH_CHRONIC_DAYS) || 2);
     var tz = CFG.TIMEZONE;            // همان قراردادِ بقیهٔ موتور (`speakSkipRecord_`)
     var day = function (t) { return Utilities.formatDate(new Date(t), tz, 'yyyy-MM-dd'); };
+    /* ۱۸.۷: روز به‌صورتِ عدد (روزهای پس از ۱۹۷۰) — ذخیرهٔ فشرده؛ نمایش باز همان yyyy-MM-dd. */
+    var dn = function (s) { var q = String(s).split('-'); return Math.round(Date.UTC(+q[0], +q[1] - 1, +q[2]) / 86400000); };
+    var ds = function (n) { var x = new Date(Number(n) * 86400000); return x.getUTCFullYear() + '-' + ('0' + (x.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + x.getUTCDate()).slice(-2); };
     var nowT = new Date().getTime();
-    var today = day(nowT), d1 = day(nowT - 86400000), d2 = day(nowT - 2 * 86400000);
-    var m = {};
-    try { m = JSON.parse(props_().getProperty(PK.HEALTH_CHRONIC) || '{}') || {}; } catch (e0) { m = {}; }
-    var seen = {};
+    var today = dn(day(nowT));
+    var m = {}, raw = {};
+    try { raw = JSON.parse(props_().getProperty(PK.HEALTH_CHRONIC) || '{}') || {}; } catch (e0) { raw = {}; }
+    /* قالبِ پیش از ۱۸.۷ ({f,l,d,t} با کلیدِ امضا) یک بار به قالبِ فشرده برمی‌گردد — روزهای شمرده‌شده نمی‌سوزند. */
+    for (var rk in raw) if (Object.prototype.hasOwnProperty.call(raw, rk)) {
+      var rv = raw[rk];
+      if (Array.isArray(rv)) m[rk] = rv;
+      else if (rv && rv.f) m[healthSigKey_(rk)] = [dn(rv.f), dn(rv.l || rv.f), Number(rv.d) || 1];
+    }
+    var seen = {}, todayList = [];
     for (var i = 0; i < (problems || []).length; i++) {
       var p = String(problems[i] || '');
-      if (!p || p.indexOf(HY_) === 0 || p.indexOf(CHRONIC_HEAD_) === 0) continue;
-      var k = healthSig_(p);
-      if (!k || seen[k]) continue;
+      /* «📒» بیرون است (۱۸.۷): سطرِ دفترِ درخواست‌ها شمارِ روزِ خودش را دارد و کارِ ناظر است، نه کد —
+         ۲۸ سطرِ آن فهرستِ مزمن را پر کرده بود و ایرادِ کدِ واقعی زیرِ آن‌ها گم می‌شد. */
+      if (!p || p.indexOf(HY_) === 0 || p.indexOf(CHRONIC_HEAD_) === 0 || /^\s*📒/.test(p)) continue;
+      var sg = healthSig_(p);
+      if (!sg) continue;
+      var k = healthSigKey_(sg);
+      if (seen[k]) continue;
       seen[k] = true;
+      todayList.push({ k: k, sig: sg, text: p.slice(0, 160) });
       var r = m[k];
-      if (r && r.l === today) { r.t = p.slice(0, 160); continue; }       // اجرای دومِ همان روز
-      if (r && (r.l === d1 || r.l === d2)) { r.d = (Number(r.d) || 1) + 1; r.l = today; r.t = p.slice(0, 160); }
-      else m[k] = { f: today, l: today, d: 1, t: p.slice(0, 160) };
+      if (r && r[1] === today) continue;                                  // اجرای دومِ همان روز
+      if (r && (r[1] === today - 1 || r[1] === today - 2)) { r[2] = (Number(r[2]) || 1) + 1; r[1] = today; }
+      else m[k] = [today, today, 1];
     }
-    /* زنجیرهٔ بریده (دو روز غیبت) پاک می‌شود — **این جاروست، نه سد**: سدِ
-       واقعی شرطِ «دیروز یا پریروز» در بالاست، و شکستنِ عمدیِ این خط هیچ سنجه‌ای
-       را سرخ نمی‌کند چون رکوردِ کهنه به‌هرحال از نو شروع می‌شود. کارش فقط این
-       است که Script Properties (نُه کیلوبایت) از امضای مرده پر نشود. */
+    /* زنجیرهٔ بریده (دو روز غیبت) پاک می‌شود. */
     for (var k2 in m) if (Object.prototype.hasOwnProperty.call(m, k2)) {
-      if (m[k2].l !== today && m[k2].l !== d1 && m[k2].l !== d2) delete m[k2];
+      if (!(m[k2][1] >= today - 2)) delete m[k2];
     }
-    var keys = Object.keys(m).sort(function (a, b) { return String(m[a].f).localeCompare(String(m[b].f)); });
-    while (keys.length > 60) delete m[keys.shift()];
-    try { props_().setProperty(PK.HEALTH_CHRONIC, JSON.stringify(m)); } catch (eW) {}
-    for (var j = 0; j < keys.length; j++) {
-      var q = m[keys[j]];
-      if (!q || q.l !== today || (Number(q.d) || 0) < need) continue;
-      out.list.push({ sig: keys[j], since: q.f, days: Number(q.d) || 0, text: q.t });
+    /* سقف (۱۸.۷): پیش از این، با بیش از ۶۰ امضا **قدیمی‌ترین** پاک می‌شد — یعنی درست همان که مزمن بود. ۱۷ نوامبر
+       ۱۱۱ ایراد بود و هیچ چیز از دو روز بالاتر نرفت. حالا اول آن‌که امروز نیامد، بعد تازه‌ترین؛ قدیمی‌ترین می‌مانَد. */
+    var cap = Math.max(60, Number(CFG.HEALTH_CHRONIC_KEEP) || 300);
+    var order = Object.keys(m).sort(function (a, b) {
+      var ta = m[a][1] === today ? 1 : 0, tb = m[b][1] === today ? 1 : 0;
+      if (ta !== tb) return ta - tb;                     // نیامده‌های امروز اول بیرون می‌روند
+      return m[b][0] - m[a][0];                          // بعد تازه‌ترین
+    });
+    while (order.length > cap) delete m[order.shift()];
+    var js = JSON.stringify(m);
+    while (order.length && Utilities.newBlob(js).getBytes().length > 8500) { delete m[order.shift()]; js = JSON.stringify(m); }
+    try { props_().setProperty(PK.HEALTH_CHRONIC, js); out.saved = true; }
+    catch (eW) { out.saved = false; out.saveWhy = String(eW.message || eW).slice(0, 100); }
+    for (var j = 0; j < todayList.length; j++) {
+      var q = m[todayList[j].k];
+      if (!q || q[1] !== today || (Number(q[2]) || 0) < need) continue;
+      out.list.push({ sig: todayList[j].sig, since: ds(q[0]), days: Number(q[2]) || 0, text: todayList[j].text });
     }
+    /* ترتیبِ پایدار: آغاز، بعد امضا — ترتیبِ سطرهای امروز عوض می‌شود و پنج یافتهٔ کدِ روز (`healthChronicFind_`) باید همان پنج بمانند. */
+    out.list.sort(function (a, b) { return String(a.since).localeCompare(String(b.since)) || (a.sig < b.sig ? -1 : a.sig > b.sig ? 1 : 0); });
     out.n = out.list.length;
     var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
     out.line = out.n
       ? CHRONIC_HEAD_ + ': ' + fa(out.n) + ' ایراد دست‌کم ' + fa(need) + ' روزِ پیاپی تکرار شده و هنوز رفع نشده — ' +
         'قدیمی‌ترین: «' + auditCut_(out.list[0].text, 90) + '» (از ' + out.list[0].since + '، ' + fa(out.list[0].days) + ' روز).'
       : 'ایرادِ مزمن: هیچ ایرادی دو روزِ پیاپی تکرار نشده.';
+    if (out.saved === false) out.line += ' ⚠ حافظهٔ روزها ذخیره نشد (' + out.saveWhy + ') — فردا از صفر می‌شمارد.';
   } catch (e) { out.line = 'ایرادِ مزمن: سنجیده نشد (' + e.message + ').'; }
   return out;
+}
+
+/** کلیدِ فشردهٔ امضا: هشت نویسهٔ هگزِ MD5. */
+function healthSigKey_(sig) {
+  try {
+    var dg = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, String(sig), Utilities.Charset.UTF_8), hx = '';
+    for (var b = 0; b < 4; b++) hx += ('0' + ((dg[b] + 256) % 256).toString(16)).slice(-2);
+    return hx;
+  } catch (e) { return String(sig).slice(0, 40); }
 }
 
 /**

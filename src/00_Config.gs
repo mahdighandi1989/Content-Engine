@@ -1043,6 +1043,7 @@ var CFG = {
      `HEALTH_CHRONIC_FIND_DAYS` یافتهٔ کد می‌شود. */
   HEALTH_CHRONIC_DAYS: 2,
   HEALTH_CHRONIC_FIND_DAYS: 3,
+  HEALTH_CHRONIC_KEEP: 300,   // ۱۸.۷ — شمارِ امضاهای به‌خاطرسپرده؛ ذخیرهٔ فشرده زیرِ نُه کیلوبایت
 
   /* ══ کارنامهٔ قابلیت‌ها (۸.۰۵) ══
    * خواستهٔ صریحِ صاحبِ برنامه: «حتی ممکن خیلی گزینه‌های که اضافه کردی
@@ -2376,7 +2377,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '18.6',
+  CODE_VERSION: '18.7',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
