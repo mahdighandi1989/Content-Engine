@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 18.5
+ *  موتور محتوا و پادکست — نسخهٔ 18.6
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1887,6 +1887,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
      تنها نوشتنِ بیرون از OUTPUT؛ فقط افزودن، هرگز جابه‌جایی یا پاک‌کردن. */
   DT_ON: true,
   DT_INBOX_FOLDER: '1Q_3S7pT6bRlGhN5Bp5yw4BMQD90yFkCy',   // DeepTutor/08 - صندوق ورودی کارگاه
+  DT_WS_FILE: 'workshops.json',   // ۱۸.۶ — فهرستِ کارگاه‌ها در پوشهٔ پدرِ صندوق؛ برنامهٔ کامپیوترِ مالک می‌نویسد
   MR_UP_FOLDER: 'اصلِ فایل‌های فرستاده‌شده',   // زیرِ پوشهٔ موسیقی؛ اصلِ غیرِWAV پس از تبدیل همان‌جا می‌مانَد
   MR_UP_KICK_MIN: 60,           // تبدیلی که نرسیده، پس از این‌قدر دقیقه رانر دوباره راه می‌افتد
   MR_UP_STUCK_H: 6,             // و پس از این‌قدر ساعت به او گفته می‌شود
@@ -2394,7 +2395,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '18.5',
+  CODE_VERSION: '18.6',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -90186,7 +90187,7 @@ function mrAudUpgrade_(hub, st, budgetMs) {
  * دوم نیست؛ دکمهٔ هر فهرست کارتِ همان قطعه را دوباره می‌فرستد تا بشنود و ویرایش کند. */
 
 var MR_MENU_KB = [['🎵 منوی موسیقی', '⏳ معلق‌ها'], ['⭐ پسندیده‌ها', '❌ ردشده‌ها'], ['🔊 جلوه‌ها', '🔎 بر اساسِ وایب'],
-                  ['📝 یادداشت‌دارها', '✂️ بازه‌دارها'], ['➕ ۵ تای بعدی', '❓ راهنما']];
+                  ['📝 یادداشت‌دارها', '✂️ بازه‌دارها'], ['➕ ۵ تای بعدی', '❓ راهنما'], ['🎓 کارگاه‌ها']];
 var MR_FILTERS = { p: '⏳ معلق (فرستاده و بی‌جواب)', a: '✅ تأییدشده', r: '❌ ردشده', s4: '⭐ چهار ستاره و بالاتر', s2: '☆ یک و دو ستاره',
                    x: '🔊 جلوه‌های صوتی', m: '🎵 همهٔ موسیقی‌ها', g: '✂️ دارای بازه', n: '📝 دارای یادداشت', u: '📭 هنوز فرستاده‌نشده' };
 var MR_PAGE = 8;
@@ -90299,6 +90300,7 @@ function mrFixedMenu_(st) {
   try {
     tgApi_('setMyCommands', { commands: [{ command: 'music', description: 'منوی موسیقی و جلوه' },
                                          { command: 'pending', description: 'قطعه‌های معلق' },
+                                         { command: 'workshops', description: 'کارگاه‌ها' },
                                          { command: 'help', description: 'راهنما' }] });
   } catch (eC) {}
   var ok = false;
@@ -90329,6 +90331,7 @@ var MR_HELP = ['❓ راهنمای بانکِ موسیقی',
   '• «✍️ رد با توضیح» خوانده می‌شود: «این جلوهٔ صوتی است» یعنی به بانکِ جلوه برود، نه دور ریخته شود.',
   '• دکمه‌های پایینِ صفحه هر فهرست را باز می‌کنند؛ روی هر قطعه بزنید تا کارتش دوباره بیاید.',
   '• «#کارگاه …» — فرستادن تمرین، عکس دست‌نوشته یا سؤال به مربی نویسندگی DeepTutor',
+  '• 🎓 کارگاه‌ها — دیدن و انتخاب کارگاه فعال (نویسندگی، سیر تکامل ذهن و کارگاه‌های بعدی)',
   '• موسیقی یا جلوهٔ خودتان را همین‌جا بفرستید — هر قالبی (MP3، M4A، OGG، WAV …، تا ۲۰ مگ). زیرش هرچه بنویسید خوانده می‌شود: وایب، «جلوه است»، «از ثانیهٔ ۱۰ تا ۴۰». مجوزش را می‌پرسم؛ تا نگویید پخش نمی‌شود.'].join('\n');
 
 /** متنِ دکمه‌های منوی ثابت ⇒ کار. */
@@ -90347,6 +90350,7 @@ function mrOnMenuText_(hub, st, txt, chatId) {
     tgApi_('sendMessage', { chat_id: chatId, text: '➕ پنج کارتِ تازه تا یکی‌دو دقیقهٔ دیگر.' });
     return true;
   }
+  if (dtMenuText_(t)) { dtMenu_(chatId); return true; }
   if (/^\/(help|start)\b/.test(t) || t === '❓ راهنما') { tgApi_('sendMessage', { chat_id: chatId, text: MR_HELP }); return true; }
   return false;
 }
@@ -90631,6 +90635,7 @@ function mrAckText_(data) {
   var p = String(data || '').split('|');
   if (p[0] === 'mm') return p[1] === 'more' ? 'تا چند دقیقهٔ دیگر' : '';
   if (p[0] === 'mu') return '⚖️ مجوز ثبت شد';
+  if (p[0] === 'dk') return '🎓 کارگاه فعال شد';
   if (p[0] === 'mb') return '';
   if (p[0] === 'mc') return 'کارتش همین الان می‌آید';
   if (p[2] === 's') { var n = Math.max(1, Math.min(5, Number(p[3]) || 1)); return new Array(n + 1).join('⭐') + ' ثبت شد'; }
@@ -90664,7 +90669,8 @@ function tgPollRun_() {
             if (!mrChatOk_(m.chat) && !(st.ownerDm && String(m.chat && m.chat.id) === String(st.ownerDm))) continue;
             try { tgApi_('answerCallbackQuery', { callback_query_id: cq.id, text: mrAckText_(cq.data) }); } catch (eA) {}
             st.hotUntil = Date.now() + (Number(CFG.MR_HOT_MIN) || 10) * 60000;
-            if (/^mu\|/.test(String(cq.data || ''))) mrOnUpLic_(getHub(), cq.data, m.chat.id, m.message_id);
+            if (/^dk\|/.test(String(cq.data || ''))) { try { dtOnPick_(cq.data, m.chat.id, m.message_id); } catch (eDk) { st.lastWhy = 'dk: ' + String(eDk.message || eDk).slice(0, 100); } }
+            else if (/^mu\|/.test(String(cq.data || ''))) mrOnUpLic_(getHub(), cq.data, m.chat.id, m.message_id);
             else if (/^m[mbc]\|/.test(String(cq.data || ''))) mrOnMenuButton_(getHub(), st, cq.data, m.chat.id, m.message_id);
             else mrOnButton_(getHub(), st, cq.data, m.chat.id, m.message_id, !m.audio && !m.document);
             st.clickAt = Date.now();
@@ -90677,6 +90683,7 @@ function tgPollRun_() {
             try { dtHit = dtMatch_(um, st); } catch (eDm) { dtHit = null; }
             /* بازه از صفحهٔ پخش‌کننده (۹.۸۳): از چتِ خصوصیِ ربات می‌آید، نه لزوماً چتِ موتور — امضای پیام جای سدِ چت است. */
             if (dtHit) { try { if (dtInbox_(um, dtHit)) out.got++; } catch (eDt) { st.lastWhy = 'dt: ' + String(eDt.message || eDt).slice(0, 100); } }
+            else if (um && dtMenuText_(um.text) && (mrChatOk_(um.chat) || (st.ownerDm && String(um.chat && um.chat.id) === String(st.ownerDm)))) { try { if (dtMenu_(um.chat.id)) out.got++; } catch (eDw) { st.lastWhy = 'dt-menu: ' + String(eDw.message || eDw).slice(0, 100); } }
             else if (um && /^\/start\s+r/.test(String(um.text || ''))) { if (mrStartRange_(getHub(), st, um)) out.got++; }
             /* موسیقیِ خودِ او (۹.۸۵): از چتِ موتور، یا از چتِ خصوصیِ ربات که با پیوندِ امضاشدهٔ بازه شناخته شد. */
             else if (um && (mrChatOk_(um.chat) || (st.ownerDm && String(um.chat && um.chat.id) === String(st.ownerDm))) && mrUpOf_(um)) { if (mrOnUpload_(getHub(), st, um)) out.got++; }
@@ -90815,6 +90822,11 @@ function dtInbox_(um, hit) {
   var at = dtAttach_(um);
   var rec = { text: hit.text, date: Number(um.date) || unix, chat_id: um.chat && um.chat.id, message_id: um.message_id,
               kind: at ? at.kind : 'text', file_name: '' };
+  /* ۱۸.۶: کارگاهِ فعالِ همین چت در «kb»؛ متن دست نمی‌خورد — نامِ نوشته‌شده در متن را برنامهٔ کامپیوتر خودش مقدم می‌داند. */
+  var dtList = null; try { dtList = dtWorkshops_(); } catch (eW) { dtList = DT_DEFAULT_WS; }
+  var active = dtActive_(um.chat && um.chat.id, dtList);
+  if (active) rec.kb = active;
+  var said = dtNamedIn_(String(um.text != null ? um.text : (um.caption || '')), dtList);
   if (at) {
     var maxB = Math.max(1, Number(CFG.MR_UP_MAX_MB) || 20) * 1048576;
     var ext = (/\.[A-Za-z0-9]{1,6}$/.exec(at.name) || [''])[0];
@@ -90836,6 +90848,98 @@ function dtInbox_(um, hit) {
   }
   folder.createFile(Utilities.newBlob(JSON.stringify(rec, null, 2), 'application/json', stem + '.json'));
   try { tgApi_('sendMessage', { chat_id: um.chat.id, reply_to_message_id: um.message_id,
-        text: '🎓 رسید به کارگاه. وقتی کامپیوتر روشن باشد، مربی بررسی می‌کند و نتیجه همین‌جا می‌آید.' }); } catch (eS) {}
+        text: '🎓 رسید به کارگاه «' + (said || active || dtDefaultName_(dtList)) + '». وقتی کامپیوتر روشن باشد، مربی بررسی می‌کند و نتیجه همین‌جا می‌آید.' }); } catch (eS) {}
   return true;
+}
+
+
+/* ═══ کارگاه‌ها — فهرست و کارگاهِ فعال (۱۸.۶) ═══
+   فهرست مالِ برنامهٔ کامپیوترِ مالک است: «DeepTutor/workshops.json» در پوشهٔ پدرِ صندوق، هر پنج دقیقه تازه می‌شود.
+   هیچ نامی در کد ثابت نیست جز همین دو که فقط وقتی فایل نیست نشان داده می‌شوند. کارگاهِ فعال برای هر چت جدا در
+   Script Properties می‌ماند. فقط افزودن: هیچ شاخهٔ قبلیِ ربات عوض نشد. */
+var DT_MENU_BTN = '🎓 کارگاه‌ها';
+var DT_DEFAULT_WS = [{ name: 'کارگاه نویسندگی', hashtag: '#کارگاه نویسندگی', default: true },
+                     { name: 'سیر تکامل ذهن', hashtag: '#کارگاه ذهن' }];
+
+function dtMenuText_(t) {
+  var x = String(t || '').trim();
+  return x === DT_MENU_BTN || /^\/workshops(?:@[A-Za-z0-9_]+)?$/.test(x);
+}
+
+/** فهرستِ کارگاه‌ها از درایو؛ نبودِ فایل یا خرابیِ آن ⇒ همان دو کارگاهِ پیش‌فرض. */
+function dtWorkshops_() {
+  var list = null;
+  try {
+    var par = DriveApp.getFolderById(CFG.DT_INBOX_FOLDER).getParents();
+    if (par.hasNext()) {
+      var it = par.next().getFilesByName(CFG.DT_WS_FILE || 'workshops.json');
+      if (it.hasNext()) {
+        var j = JSON.parse(it.next().getBlob().getDataAsString());
+        list = ((j && j.workshops) || []).filter(function (w) { return w && String(w.name || '').trim(); });
+      }
+    }
+  } catch (e) { list = null; }
+  return list && list.length ? list : DT_DEFAULT_WS;
+}
+
+function dtDefaultName_(list) {
+  var d = (list || []).filter(function (w) { return w.default; })[0];
+  return d ? String(d.name) : 'کارگاه نویسندگی';
+}
+
+function dtActiveMap_() { try { return JSON.parse(props_().getProperty('DT_ACTIVE') || '{}') || {}; } catch (e) { return {}; } }
+
+/** کارگاهِ فعالِ این چت (فقط اگر انتخاب شده). کارگاهی که از فهرست رفته، همچنان نامش می‌ماند — حذف تصمیمِ برنامهٔ کامپیوتر است. */
+function dtActive_(chatId) {
+  var v = dtActiveMap_()[String(chatId)];
+  return v ? String(v) : '';
+}
+
+/** نامِ کارگاهی که خودِ متن آورده: هشتگِ کاملش در آغاز (بلندترین برنده)، یا نامِ کاملش در متن. */
+function dtNamedIn_(raw, list) {
+  var t = String(raw || '').replace(/\s+/g, ' ').trim(), best = '', bl = 0;
+  (list || []).forEach(function (w) {
+    var h = String(w.hashtag || '').replace(/\s+/g, ' ').trim();
+    if (h && h !== '#کارگاه' && t.indexOf(h) === 0 && (t.length === h.length || /\s/.test(t.charAt(h.length))) && h.length > bl) { best = String(w.name); bl = h.length; }
+  });
+  if (best) return best;
+  (list || []).forEach(function (w) { var n = String(w.name || '').trim(); if (!best && n && t.indexOf(n) !== -1) best = n; });
+  return best;
+}
+
+/** callback_data حداکثر ۶۴ بایت: شماره + تکه‌ای از نام، تا فهرستی که در این فاصله عوض شد، کارگاهِ دیگری را فعال نکند. */
+function dtCb_(i, name) {
+  var head = 'dk|' + i + '|', n = String(name || ''), out = head;
+  for (var k = 0; k < n.length; k++) {
+    var nx = out + n.charAt(k);
+    if (Utilities.newBlob(nx).getBytes().length > 60) break;
+    out = nx;
+  }
+  return out;
+}
+
+function dtKb_(list, active) {
+  return list.map(function (w, i) { var n = String(w.name); return [{ text: (n === active ? '✅ ' : '') + n, callback_data: dtCb_(i, n) }]; });
+}
+
+/** «🎓 کارگاه‌ها» ⇒ یک دکمه برای هر کارگاه. متن با 🎓 شروع می‌شود، پس پاسخ به آن هم به کارگاه می‌رود. */
+function dtMenu_(chatId) {
+  var list = dtWorkshops_(), active = dtActive_(chatId);
+  tgApi_('sendMessage', { chat_id: chatId,
+    text: '🎓 کارگاه‌ها — ' + (active ? 'کارگاه فعال: «' + active + '»' : 'هنوز کارگاهی انتخاب نشده') + '\nروی کارگاهی بزنید تا فعال شود.',
+    reply_markup: JSON.stringify({ inline_keyboard: dtKb_(list, active) }) });
+  return true;
+}
+
+/** زدنِ دکمهٔ یک کارگاه ⇒ کارگاهِ فعالِ همین چت، و همان پیام با ✅ روی آن. */
+function dtOnPick_(data, chatId, msgId) {
+  var p = String(data || '').split('|'), list = dtWorkshops_(), idx = Number(p[1]), frag = p.slice(2).join('|');
+  var w = null;
+  if (list[idx] && String(list[idx].name).indexOf(frag) === 0) w = list[idx];
+  if (!w && frag) w = list.filter(function (x) { return String(x.name).indexOf(frag) === 0; })[0] || null;
+  if (!w) return dtMenu_(chatId);
+  var name = String(w.name), map = dtActiveMap_();
+  map[String(chatId)] = name;
+  props_().setProperty('DT_ACTIVE', JSON.stringify(map));
+  return mrShow_(chatId, msgId, '✅ کارگاه فعال: «' + name + '». از این به بعد هر پیامی که با #کارگاه شروع شود (یا پاسخ به پیام 🎓) به همین کارگاه می‌رود. برای کارگاه دیگر دوباره «🎓 کارگاه‌ها» را بزن.', dtKb_(list, name));
 }
