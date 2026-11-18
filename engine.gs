@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 18.7
+ *  موتور محتوا و پادکست — نسخهٔ 18.8
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1468,7 +1468,8 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
      بالا بردنش هر سه کاور را از نو می‌کشاند؛ این یکی فقط تلاش‌های شمرده‌شده را صفر می‌کند. ۸.۵۵ با
      کاورِ درست هم «500» گرفت و سقفِ تلاش پر شد؛ «پرسیدن و به‌روزرسانی» سازوکارِ تازه است و همان شب
      امتحان می‌شود، نه هفتهٔ بعد. */
-  YT_PL_COVER_MECH: 2,
+  /* ۱۸.۸: بدنهٔ کمینه پس از «400: invalid field» و پرسشِ `part=snippet` — سازوکارِ تازه، تلاش‌ها از نو. */
+  YT_PL_COVER_MECH: 3,
   YT_PL_COVER_MIN: 1280,
   /* ══ ترتیبِ پلی‌لیست از خودِ پلی‌لیست سنجیده می‌شود (۸.۵۷) ══
      `ytWantPos_` از ۶ سپتامبر همیشه صفر می‌داد و هر ویدئوی تازه بالای پلی‌لیست
@@ -2396,7 +2397,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '18.7',
+  CODE_VERSION: '18.8',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -65160,7 +65161,10 @@ function ytHealth_(problems, notes) {
      ساختاری اشکال دارد و باید دیده شود. */
   if (st.noPodcast && st.playlists && ytTodoDue_()) {
     problems.push('‏' + faDigitsOut_(String(st.noPodcast)) + ' پلی‌لیست هنوز پادکست نشده‌اند — ' +
-      'تا پادکست نشوند نه در تبِ Podcasts می‌آیند نه در YouTube Music.');
+      'تا پادکست نشوند نه در تبِ Podcasts می‌آیند نه در YouTube Music.' +
+      /* ۱۸.۸: این سطر ۳۶ روز «ایرادِ مزمن» بود بی هیچ علتی در خودش — علت در `plWhy` بود و این‌جا نمی‌رسید. */
+      ((st.plWhy && st.plWhy.length) ? ' علت: ' + st.plWhy.slice(0, 2).map(function (w) {
+        return auditCut_(String(w), 120); }).join(' · ') : ''));
   }
 
   /* ══ تحلیلی که به تصمیمی وصل نشده بود — نمونهٔ هفتم (۶٫۱۲) ══
@@ -65190,14 +65194,16 @@ function ytHealth_(problems, notes) {
       if (!capWhy) capWhy = cT ? 'کاور: ' + String(rc.coverWhy || '') : 'پادکست: ' + String(rc.podWhy || '');
       if (pT && rc.cover) ownerJob = true;
       /* ۸.۸۷: کاوری که یوتیوب با «۵۰۰» رد می‌کند، کارِ یک‌بارهٔ آدم است — با نشانیِ پلی‌لیست و کاورِ آماده. */
-      if (cT && !rc.cover && /\(500\)|Internal error/i.test(String(rc.coverWhy || '')) && rc.id) {
+      /* ۱۸.۸: «400: invalid field» هم ردِ سمتِ یوتیوب برای کاورِ مربعِ درست است — تا امروز فقط «500» به این در
+         می‌رسید و ردِ تازه «علت در موتور است» می‌خورد، بی آنکه راهِ یک‌باره را بگوید. */
+      if (cT && !rc.cover && /\(500\)|Internal error|invalid field/i.test(String(rc.coverWhy || '')) && rc.id) {
         handJob.push('«' + String(rc.title || ck).slice(0, 50) + '»: https://studio.youtube.com/playlist/' +
                      rc.id + '/edit' + ((pcsCap[ck] || {}).url ? ' ← کاورِ آماده: ' + pcsCap[ck].url : ''));
       }
     }
     if (handJob.length) {
       problems.push(HY_ + 'کاورِ ' + faDigitsOut_(String(handJob.length)) + ' پلی‌لیست را یوتیوب از راهِ API ' +
-        'نمی‌پذیرد («500: Internal error» برای درخواستِ درست، از ۹ اکتبر) — کارِ یک‌باره: در YouTube Studio ' +
+        'نمی‌پذیرد («500: Internal error» یا «400: invalid field» برای درخواستِ درست) — کارِ یک‌باره: در YouTube Studio ' +
         'کاورِ آماده را روی همان پلی‌لیست بگذارید؛ موتور در تلاشِ هفتگیِ بعد آن را می‌بیند، دیگر جایگزینش ' +
         'نمی‌کند و پلی‌لیست را پادکست می‌کند. ' + handJob.join(' · '));
       capped = Math.max(0, capped - handJob.length);
@@ -67128,6 +67134,14 @@ function ytPlaylistCover_(plId, title, kicker, cat, redo, showName, styleKey, ke
     var lr = ytHttp_('https://www.googleapis.com/youtube/v3/playlistImages?part=id,snippet&parent=' +
                      encodeURIComponent(String(plId)), 'get');
     listCode = lr.code;
+    /* ۱۸.۸: از ۱۶ اکتبر هر پرسش با «part=id,snippet» «400» گرفته (`coverLast.list`) — یعنی درِ ۸.۸۷ («تصویرِ
+       دستیِ صاحبِ برنامه کاور است») هرگز باز نشد. `id` همیشه در پاسخ هست و جزوِ part نیست؛ یک بار با
+       `part=snippet` تنها. */
+    if (listCode === 400 && ytQuotaTake_(YT_COST.videosList, false)) {
+      lr = ytHttp_('https://www.googleapis.com/youtube/v3/playlistImages?part=snippet&parent=' +
+                   encodeURIComponent(String(plId)), 'get');
+      listCode = lr.code;
+    }
     var its = (lr.json && lr.json.items) || [];
     for (var ii = 0; ii < its.length; ii++) {
       var sn = its[ii].snippet || {};
@@ -67156,21 +67170,34 @@ function ytPlaylistCover_(plId, title, kicker, cat, redo, showName, styleKey, ke
      لزوماً نداردش. بایت‌ها به‌هم چسبانده می‌شوند، نه رشته‌ها: هر تبدیلِ
      رشته‌ایِ داده‌های دودویی، تصویر را خراب می‌کند. */
   var boundary = '----ytpl' + String(plId).replace(/[^A-Za-z0-9]/g, '').slice(-10);
-  var head = '--' + boundary + '\r\n' +
-             'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-             JSON.stringify(ytPlImgBody_(existing, plId, sz)) +
-             '\r\n--' + boundary + '\r\n' +
-             'Content-Type: ' + sz.mime + '\r\n\r\n';
-  var tail = '\r\n--' + boundary + '--\r\n';
-  var bytes = Utilities.newBlob(head).getBytes()
-                .concat(blob.getBytes())
-                .concat(Utilities.newBlob(tail).getBytes());
   var nBytes = blob.getBytes().length;
-  var r = ytHttp_('https://www.googleapis.com/upload/youtube/v3/playlistImages' +
-                  '?uploadType=multipart&part=snippet',
-                  existing ? 'put' : 'post', Utilities.newBlob(bytes).getBytes(),
-                  'multipart/related; boundary=' + boundary);
-  var last = { at: nowStr_(), how: how, code: r.code, list: listCode,
+  var send = function (body) {
+    var head = '--' + boundary + '\r\n' +
+               'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+               JSON.stringify(body) +
+               '\r\n--' + boundary + '\r\n' +
+               'Content-Type: ' + sz.mime + '\r\n\r\n';
+    var tail = '\r\n--' + boundary + '--\r\n';
+    var bytes = Utilities.newBlob(head).getBytes()
+                  .concat(blob.getBytes())
+                  .concat(Utilities.newBlob(tail).getBytes());
+    return ytHttp_('https://www.googleapis.com/upload/youtube/v3/playlistImages' +
+                   '?uploadType=multipart&part=snippet',
+                   existing ? 'put' : 'post', Utilities.newBlob(bytes).getBytes(),
+                   'multipart/related; boundary=' + boundary);
+  };
+  var r = send(ytPlImgBody_(existing, plId, sz)), shape = 'کامل';
+  /* ══ «The request specifies an invalid field» (۱۸.۸) ══
+     از ۱۷ نوامبر همان بدنه‌ای که هفته‌ها «500» می‌گرفت «400: invalid field» گرفت — یوتیوب حالا یکی از فیلدهای
+     snippet را نمی‌پذیرد و نامش را نمی‌گوید. `width`/`height`/`type` را خودِ یوتیوب از تصویر می‌خواند؛ یک بار با
+     بدنهٔ کمینه (فقط `playlistId`، و شناسه در به‌روزرسانی) — و شکلِ پذیرفته‌شده در `coverLast.shape` ثبت می‌شود
+     تا شبِ بعد معلوم باشد کدام فیلد بود، نه حدس. */
+  var why0 = '';
+  try { why0 = String((((r.json || {}).error || {}).message) || ''); } catch (eW0) {}
+  if (r.code === 400 && /invalid field/i.test(why0) && ytQuotaTake_(YT_COST.thumbSet, false)) {
+    r = send(ytPlImgBodyMin_(existing, plId)); shape = 'کمینه (پس از invalid field)';
+  }
+  var last = { at: nowStr_(), how: how, code: r.code, list: listCode, shape: shape,
                size: sz.w + '×' + sz.h, kb: Math.round(nBytes / 1024), mime: sz.mime };
   if (r.code === 200 || r.code === 201) {
     try {
@@ -67196,6 +67223,13 @@ function ytPlaylistCover_(plId, title, kicker, cat, redo, showName, styleKey, ke
 /** بدنهٔ `playlistImages`: درج بی شناسه، به‌روزرسانی با شناسهٔ تصویرِ موجود (سندِ discovery). */
 function ytPlImgBody_(existing, plId, sz) {
   var b = { snippet: { playlistId: String(plId), type: 'hero', width: sz.w, height: sz.h } };
+  if (existing) b.id = String(existing);
+  return b;
+}
+
+/** بدنهٔ کمینهٔ `playlistImages` (۱۸.۸): فقط پلی‌لیست — برای وقتی که یوتیوب فیلدی از بدنهٔ کامل را «invalid» می‌خواند. */
+function ytPlImgBodyMin_(existing, plId) {
+  var b = { snippet: { playlistId: String(plId) } };
   if (existing) b.id = String(existing);
   return b;
 }

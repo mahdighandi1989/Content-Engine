@@ -1,17 +1,23 @@
 {
-  "version": "18.7",
+  "version": "18.8",
   "codeFile": "engine.gs",
-  "sha256": "da848ebbb4e8b21d287d658bdf84d5a6e27526c5f14027ef2fa3dc52d3528829",
-  "releasedAt": "2026-11-17T18:57:34Z",
-  "summary": "ایرادِ مزمن هرگز از دو روز بالاتر نمی‌رفت: با ۱۱۱ ایراد، سقفِ ۶۰ امضا قدیمی‌ترین‌ها را پاک می‌کرد و حافظه از سقفِ Script Properties بزرگ‌تر بود. حالا ذخیرهٔ فشرده و قدیمی‌ترین می‌مانَد.",
+  "sha256": "5bbfb14697809ffa8ff3136beb45c7742fa58faa276153f8bc28457c58cd54ec",
+  "releasedAt": "2026-11-18T08:15:48Z",
+  "summary": "کاورِ پلی‌لیستِ «An Introduction To Philosophical Analysis» با «400: The request specifies an invalid field» رد می‌شد و پرسشِ تصویرِ موجود از ۱۶ اکتبر همیشه 400 بود؛ حالا تلاشِ دوم با بدنهٔ کمینه، پرسش با part=snippet، و علت در سطرِ «پادکست نشده‌اند».",
   "fixes": [
-    "healthChronic_: ذخیرهٔ فشرده تا ۳۰۰ امضا، بیرون‌انداختنِ تازه‌ترین نه قدیمی‌ترین، شکستِ ذخیره در خطِ سلامت",
-    "«📒» دفترِ درخواست‌ها از ایرادِ مزمن بیرون",
-    "tests/run_health_test.js ۱۸.۹–۱۸.۱۲"
+    "ytPlaylistCover_: پس از 400 invalid field یک بار با snippet.playlistId تنها (ytPlImgBodyMin_)؛ شکل در coverLast.shape",
+    "ytPlaylistCover_: پرسشِ playlistImages با 400 یک بار با part=snippet تکرار می‌شود",
+    "سطرِ سلامتِ «پلی‌لیست هنوز پادکست نشده‌اند» علت (plWhy) را می‌گوید؛ invalid field هم به درِ کارِ یک‌بارهٔ Studio می‌رسد",
+    "YT_PL_COVER_MECH 2⇒3 (تلاش‌ها از نو)",
+    "tests/run_youtube_test.js ۸۲.۴-ج، ۸۲.۴-ج۲"
   ],
-  "sourceReportIds": [],
+  "sourceReportIds": [
+    "ENG-20261013-1009#chronic-34dc8629",
+    "ENG-20261013-1009#chronic-29d366cc"
+  ],
   "answers": [
-    "vm-fallback"
+    "chronic-34dc8629",
+    "chronic-29d366cc"
   ],
   "promptImpact": []
 }

@@ -8096,6 +8096,36 @@ console.log('\n=== ۸۲) کاورِ پلی‌لیست مربع است، و پا�
      r2p + ' · ' + JSON.stringify(lastP));
   listCode = 200; imgReply = null; existingImg = '';
 
+  /* ۸۲.۴-ج (۱۸.۸) — «400: The request specifies an invalid field» ⇒ یک بار با بدنهٔ کمینه (فقط playlistId)،
+     و شکلِ پذیرفته‌شده در شاهد؛ پرسشِ «400» با `part=snippet` تنها تکرار می‌شود. */
+  {
+    fresh(); runnerImg = { b: jpg(1400, 1400), m: 'image/jpeg' }; existingImg = ''; listCode = 400;
+    ytPlMapSave_({ kQ: { id: 'PLQ', title: 'معرفت‌شناسی' } });
+    const kStub2 = global.__STUB; let nPost = 0;
+    global.__STUB = (url, body, opt) => {
+      if (/upload\/youtube\/v3\/playlistImages/.test(url)) {
+        nPost++; imgCalls.push(opt);
+        return nPost === 1 ? { code: 400, json: { error: { message: 'The request specifies an invalid field.' } } }
+                           : { code: 200, json: { id: 'img2' } };
+      }
+      return kStub2(url, body, opt);
+    };
+    const r2v = ytPlaylistCover_('PLQ', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', true, 'درس‌نامه', '', 'kQ');
+    global.__STUB = kStub2;
+    const hd = o => o && o.payload ? Buffer.from(o.payload.slice(0, 400).map(x => x & 255)).toString('utf8') : '';
+    const h1 = hd(imgCalls[0]), h2 = hd(imgCalls[1]);
+    const lastV = (ytPlMap_()['kQ'] || {}).coverLast || {};
+    ok('۸۲.۴-ج invalid field ⇒ تلاشِ دوم با بدنهٔ کمینه (بی width/type) و «نشست» با شکلِ ثبت‌شده',
+       r2v === 'نشست' && imgCalls.length === 2 && h1.indexOf('"width":1400') !== -1 &&
+       h2.indexOf('"playlistId":"PLQ"') !== -1 && h2.indexOf('width') === -1 && h2.indexOf('hero') === -1 &&
+       /کمینه/.test(String(lastV.shape || '')),
+       r2v + ' · ' + imgCalls.length + ' · ' + h2.slice(0, 160).replace(/\r?\n/g, ' ') + ' · ' + JSON.stringify(lastV));
+    ok('۸۲.۴-ج۲ پرسشِ «400» یک بار با part=snippet تنها تکرار می‌شود',
+       listCalls.length === 2 && /part=id,snippet/.test(listCalls[0]) && /part=snippet&/.test(listCalls[1]),
+       listCalls.join(' , '));
+    listCode = 200; imgReply = null; existingImg = '';
+  }
+
   /* ۸۲.۴-ت (۸.۸۷) — تصویری که صاحبِ برنامه دستی در Studio گذاشته، کاور است: نه جایگزین (همان ۵۰۰)، نه درجِ دوم. */
   fresh(); runnerImg = { b: jpg(1400, 1400), m: 'image/jpeg' }; existingImg = 'HAND1';
   ytPlMapSave_({ kQ: { id: 'PLQ', title: 'معرفت‌شناسی' } });
