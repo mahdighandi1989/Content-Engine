@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-18 12:33",
+ "updatedAt": "2026-11-18 23:36",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -10469,7 +10469,8 @@
     "لحظهٔ 365s: موسیقی جدا شد (23.2ث)؛ فقط گفتارِ کلیپ پخش می‌شود",
     "لحظه‌ها: 69s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 31٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 15٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 479s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 17٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 19٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا",
     "اندازه: 87.5 ⇒ 41.8 مگابایت"
-   ]
+   ],
+   "pruned": "2026-11-18"
   },
   "special:107": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-107.mp4",
@@ -10545,7 +10546,8 @@
     "smoothright": 34,
     "fade": 27
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-107-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-107-cover.jpg",
+   "pruned": "2026-11-18"
   },
   "variety:105": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-105.mp4",
@@ -13985,6 +13987,22 @@
    "segs": 4,
    "subs": 40,
    "at": "2026-11-18 12:33"
+  },
+  "ig:special:95.2": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-95-2.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-95-2-cover.jpg",
+   "sig": "7f00a27e46a1",
+   "seconds": 55,
+   "bytes": 11347422,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-95-2-short.mp4",
+   "shortSeconds": 51.3,
+   "align": "faster-whisper",
+   "phrases": 31,
+   "trans": 4,
+   "imgs": 5,
+   "segs": 5,
+   "subs": 28,
+   "at": "2026-11-18 23:36"
   }
  },
  "musicPrev": {
@@ -14935,8 +14953,8 @@
   }
  },
  "release": {
-  "assets": 866,
-  "gb": 6.9,
-  "at": "2026-11-18 12:33"
+  "assets": 867,
+  "gb": 6.83,
+  "at": "2026-11-18 23:36"
  }
 }
