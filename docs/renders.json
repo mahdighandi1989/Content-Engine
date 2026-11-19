@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-19 16:37",
+ "updatedAt": "2026-11-19 22:51",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -10306,7 +10306,8 @@
     "smoothright": 4,
     "fade": 4
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-103-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-103-cover.jpg",
+   "pruned": "2026-11-19"
   },
   "variety:104": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-104.mp4",
@@ -10697,7 +10698,8 @@
     "صحنهٔ 26: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 28: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 30: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت"
-   ]
+   ],
+   "pruned": "2026-11-19"
   },
   "special:108": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-108.mp4",
@@ -10771,7 +10773,8 @@
     "smoothright": 29,
     "fade": 24
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-108-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-108-cover.jpg",
+   "pruned": "2026-11-19"
   },
   "special:109": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-109.mp4",
@@ -15211,11 +15214,26 @@
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1HbGQIiM5JMds6QXz65fXV3CtbNWfscvd.mp3",
    "bytes": 224930,
    "at": "2026-11-19 00:38"
+  },
+  "1J4M8Mi_Oe7pm2kRDiL6iigGVzOBBUcy5": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1J4M8Mi-Oe7pm2kRDiL6iigGVzOBBUcy5.mp3",
+   "bytes": 641257,
+   "at": "2026-11-19 22:50"
+  },
+  "1OhDF_qpZUEdAItyJA1GQcjQceVn41uAX": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1OhDF-qpZUEdAItyJA1GQcjQceVn41uAX.mp3",
+   "bytes": 721546,
+   "at": "2026-11-19 22:51"
+  },
+  "1QAAOat6FoXLzJ8px34-5SHCKln0poqa1": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1QAAOat6FoXLzJ8px34-5SHCKln0poqa1.mp3",
+   "bytes": 1192795,
+   "at": "2026-11-19 22:51"
   }
  },
  "release": {
   "assets": 879,
-  "gb": 6.98,
-  "at": "2026-11-19 16:37"
+  "gb": 6.84,
+  "at": "2026-11-19 22:51"
  }
 }
