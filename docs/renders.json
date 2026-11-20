@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-20 05:33",
+ "updatedAt": "2026-11-20 06:01",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -11363,6 +11363,81 @@
     "صحنهٔ 17: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 19: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت"
    ]
+  },
+  "special:111": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-111.mp4",
+   "bytes": 44501829,
+   "parts": 2,
+   "at": "2026-11-20 06:01",
+   "mode": "scenes",
+   "scenes": 57,
+   "want": 57,
+   "snapped": 44,
+   "seconds": 1200,
+   "qa": {
+    "n": 57,
+    "matched": 53,
+    "miss": [
+     13,
+     26,
+     33,
+     40
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0.1,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 15,
+       "t": 272.7,
+       "own": 0.64,
+       "nb": 0.07,
+       "ok": true,
+       "heard": "او با اینسان ابتدا صورتی حسی و جوزیی چون رنگ سبزه یک برگ را درک می کند  و زین با انتضا و راحا کردن خصوصیات جوزی."
+      },
+      {
+       "n": 29,
+       "t": 522.4,
+       "own": 0.33,
+       "nb": 0.11,
+       "ok": true,
+       "heard": "بسرا هرکس با تجربی شخصی میشناصد، اما با واجهها تعریف نمیشهد.  بیان ایلمی شرایت بروزه هیس وضییت دستقاه اتفاید."
+      },
+      {
+       "n": 43,
+       "t": 828,
+       "own": 0.37,
+       "nb": 0.26,
+       "ok": true,
+       "heard": "تریفان نیست. همان تور که فولاد کنار گزاشتشده از ساختو ساز همچنان فولاد هست,  قرمزی که با تولموج مؤیینی همبستیگی نداره."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 20,
+    "placed": 15,
+    "busy": 5,
+    "failed": 0,
+    "kinds": {
+     "points": 6,
+     "headline": 4,
+     "quote": 5
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 48,
+   "xf": {
+    "smoothright": 28,
+    "fade": 23
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-111-cover.jpg"
   }
  },
  "art": {
@@ -15392,8 +15467,8 @@
   }
  },
  "release": {
-  "assets": 885,
-  "gb": 6.91,
-  "at": "2026-11-20 05:33"
+  "assets": 887,
+  "gb": 6.95,
+  "at": "2026-11-20 06:01"
  }
 }
