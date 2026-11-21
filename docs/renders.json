@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-21 07:35",
+ "updatedAt": "2026-11-21 08:40",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -11572,6 +11572,79 @@
     "صحنهٔ 24: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 27: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت"
    ]
+  },
+  "special:112": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-112.mp4",
+   "bytes": 44294924,
+   "parts": 2,
+   "at": "2026-11-21 08:40",
+   "mode": "scenes",
+   "scenes": 44,
+   "want": 44,
+   "snapped": 39,
+   "seconds": 982,
+   "qa": {
+    "n": 44,
+    "matched": 43,
+    "miss": [
+     28
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 12,
+       "t": 234.9,
+       "own": 0.47,
+       "nb": 0.12,
+       "ok": true,
+       "heard": "واند در مجموئی مرفتش ناسی ربرت آودی زیر اونوان تمایوز یادگیری مفهومی از یادگیری گوزاریی در بحث گواهی بررسی."
+      },
+      {
+       "n": 23,
+       "t": 472,
+       "own": 0.68,
+       "nb": 0.21,
+       "ok": true,
+       "heard": "از دستور زبان و ترکی به واجگان یعنی چگونگی بیان بحس می کنیم موزو اما جوملات است.  اما وقتی به خود مآانی"
+      },
+      {
+       "n": 34,
+       "t": 728.8,
+       "own": 0.54,
+       "nb": 0.15,
+       "ok": true,
+       "heard": "و اوشترک سادق یا کازب میان جملی راور یک سگ است  و تمام جمالات هممقنیان است."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 15,
+    "placed": 10,
+    "busy": 5,
+    "failed": 0,
+    "kinds": {
+     "points": 6,
+     "steps": 1,
+     "quote": 2,
+     "headline": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 40,
+   "xf": {
+    "smoothright": 22,
+    "fade": 17
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-112-cover.jpg"
   }
  },
  "art": {
@@ -15712,8 +15785,8 @@
   }
  },
  "release": {
-  "assets": 908,
-  "gb": 7.08,
-  "at": "2026-11-21 07:35"
+  "assets": 910,
+  "gb": 7.12,
+  "at": "2026-11-21 08:40"
  }
 }
