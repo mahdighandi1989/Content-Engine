@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-21 08:40",
+ "updatedAt": "2026-11-21 17:31",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -11148,7 +11148,8 @@
     "صحنهٔ 28: زمینهٔ کارت یکدست بود (sd 2) ⇒ خودِ عکس، کنارِ کارت",
     "برشِ کلیپ از آغاز: صحنهٔ 6: کلیپ ساکن بود (11.2ث) ⇒ همان قاب با حرکتِ دوربین · صحنهٔ 8: کلیپ ساکن بود (19.2ث) ⇒ همان قاب با حرکتِ دوربین · صحنهٔ 10: کلیپ ساکن بود (10.4ث) ⇒ همان قاب با حرکتِ دوربین · صحنهٔ 19: شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-P",
     "لحظه‌ها: 66s: تصویرِ کلیپ ساکن بود (22.8ث) — لحظه کنار رفت · 178s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 60٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 24٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 286s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 15٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 14٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 390s: عبارت در کلیپ پیدا نشد (شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-P)"
-   ]
+   ],
+   "pruned": "2026-11-21"
   },
   "special:110": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-110.mp4",
@@ -11225,7 +11226,8 @@
     "smoothright": 27,
     "fade": 21
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-110-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-110-cover.jpg",
+   "pruned": "2026-11-21"
   },
   "variety:108": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-108.mp4",
@@ -14790,6 +14792,22 @@
    "segs": 4,
    "subs": 38,
    "at": "2026-11-21 07:35"
+  },
+  "ig:special:101": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-101.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-101-cover.jpg",
+   "sig": "ff436b78d8c3",
+   "seconds": 78.1,
+   "bytes": 15052283,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-101-short.mp4",
+   "shortSeconds": 74.1,
+   "align": "faster-whisper",
+   "phrases": 41,
+   "trans": 4,
+   "imgs": 5,
+   "segs": 5,
+   "subs": 37,
+   "at": "2026-11-21 17:31"
   }
  },
  "musicPrev": {
@@ -15785,8 +15803,8 @@
   }
  },
  "release": {
-  "assets": 910,
-  "gb": 7.12,
-  "at": "2026-11-21 08:40"
+  "assets": 911,
+  "gb": 7.07,
+  "at": "2026-11-21 17:31"
  }
 }
