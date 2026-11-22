@@ -9,9 +9,14 @@
     "tests/run_youtube_test.js ۸۲.۴-ج"
   ],
   "sourceReportIds": [],
-  "answers": [
-    "chronic-34dc8629",
-    "chronic-29d366cc"
-  ],
+  "answers": {
+    "18.8": [
+      "chronic-34dc8629",
+      "chronic-29d366cc"
+    ],
+    "18.9": [
+      "RPT-202611101414#1"
+    ]
+  },
   "promptImpact": []
 }
