@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-22 05:37",
+ "updatedAt": "2026-11-22 08:16",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -11801,6 +11801,88 @@
     "صحنهٔ 29: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
     "برشِ کلیپ از آغاز: صحنهٔ 3: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر) · صحنهٔ 4: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر) · صحنهٔ 6: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر) · صحنهٔ 14: کلیپ ساکن بود (35.2ث) ⇒ همان قاب با حرکتِ دوربین"
    ]
+  },
+  "special:113": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-113.mp4",
+   "bytes": 48086360,
+   "parts": 3,
+   "at": "2026-11-22 08:15",
+   "mode": "scenes",
+   "scenes": 71,
+   "want": 71,
+   "snapped": 53,
+   "seconds": 1572,
+   "qa": {
+    "n": 71,
+    "matched": 61,
+    "miss": [
+     7,
+     11,
+     33,
+     39,
+     42,
+     51,
+     54,
+     55,
+     62,
+     65
+    ],
+    "blank": [],
+    "ok": false,
+    "why": "فقط 61 از 71 صحنه سرِ جای خودش دیده شد",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 18,
+       "t": 348.4,
+       "own": 0.4,
+       "nb": 0.07,
+       "ok": true,
+       "heard": "فرس کن رفتی نون وائی، نون داقی رفتی و میپرسی این سنگک چند مگا پیکسلی؟  کلمیگه مگا پیکسل واقعییه"
+      },
+      {
+       "n": 36,
+       "t": 729.6,
+       "own": 0.67,
+       "nb": 0.08,
+       "ok": true,
+       "heard": "این عبزار معناش ناختی در فصل مارفت اخلاقی و چالش نسبی گرایی و ناشناخت گرایی"
+      },
+      {
+       "n": 54,
+       "t": 1131,
+       "own": 0.5,
+       "nb": 0.17,
+       "ok": true,
+       "heard": "اگر کسی جملی درون ساعت موچی تو یک شاہزاد خانوم پریان بسیار کوچکنش است  و ساعت را بکار میندازدرا شناخت."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 31,
+    "placed": 17,
+    "busy": 14,
+    "failed": 0,
+    "kinds": {
+     "points": 9,
+     "quote": 3,
+     "headline": 4,
+     "steps": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 60,
+   "xf": {
+    "smoothright": 35,
+    "fade": 28
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-113-cover.jpg"
   }
  },
  "art": {
@@ -15042,6 +15124,22 @@
    "segs": 5,
    "subs": 35,
    "at": "2026-11-22 05:37"
+  },
+  "ig:special:102.9": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-102-9.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-102-9-cover.jpg",
+   "sig": "6f62b8196cd5",
+   "seconds": 36,
+   "bytes": 7406613,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-102-9-short.mp4",
+   "shortSeconds": 32.2,
+   "align": "faster-whisper",
+   "phrases": 17,
+   "trans": 3,
+   "imgs": 4,
+   "segs": 4,
+   "subs": 13,
+   "at": "2026-11-22 08:16"
   }
  },
  "musicPrev": {
@@ -16042,8 +16140,8 @@
   }
  },
  "release": {
-  "assets": 929,
-  "gb": 7.3,
-  "at": "2026-11-22 05:37"
+  "assets": 934,
+  "gb": 7.36,
+  "at": "2026-11-22 08:16"
  }
 }
