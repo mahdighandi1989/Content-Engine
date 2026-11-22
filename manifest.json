@@ -1,20 +1,14 @@
 {
-  "version": "18.8",
+  "version": "18.9",
   "codeFile": "engine.gs",
-  "sha256": "5bbfb14697809ffa8ff3136beb45c7742fa58faa276153f8bc28457c58cd54ec",
-  "releasedAt": "2026-11-18T08:15:48Z",
-  "summary": "کاورِ پلی‌لیستِ «An Introduction To Philosophical Analysis» با «400: The request specifies an invalid field» رد می‌شد و پرسشِ تصویرِ موجود از ۱۶ اکتبر همیشه 400 بود؛ حالا تلاشِ دوم با بدنهٔ کمینه، پرسش با part=snippet، و علت در سطرِ «پادکست نشده‌اند».",
+  "sha256": "e2cab668ad39a4c11aa74b02b75cf152d5d7db5f4c3dd6c503d4325cfd954ef6",
+  "releasedAt": "2026-11-22T06:56:32Z",
+  "summary": "کاورِ پلی‌لیست: بدنهٔ کمینه با type و بی width/height — یوتیوب بی type «Playlist image type is required» و با width/height «invalid field» داد.",
   "fixes": [
-    "ytPlaylistCover_: پس از 400 invalid field یک بار با snippet.playlistId تنها (ytPlImgBodyMin_)؛ شکل در coverLast.shape",
-    "ytPlaylistCover_: پرسشِ playlistImages با 400 یک بار با part=snippet تکرار می‌شود",
-    "سطرِ سلامتِ «پلی‌لیست هنوز پادکست نشده‌اند» علت (plWhy) را می‌گوید؛ invalid field هم به درِ کارِ یک‌بارهٔ Studio می‌رسد",
-    "YT_PL_COVER_MECH 2⇒3 (تلاش‌ها از نو)",
-    "tests/run_youtube_test.js ۸۲.۴-ج، ۸۲.۴-ج۲"
+    "ytPlImgBodyMin_: {playlistId, type:hero}",
+    "tests/run_youtube_test.js ۸۲.۴-ج"
   ],
-  "sourceReportIds": [
-    "ENG-20261013-1009#chronic-34dc8629",
-    "ENG-20261013-1009#chronic-29d366cc"
-  ],
+  "sourceReportIds": [],
   "answers": [
     "chronic-34dc8629",
     "chronic-29d366cc"

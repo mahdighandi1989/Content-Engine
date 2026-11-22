@@ -14752,7 +14752,7 @@ function ytPlaylistCover_(plId, title, kicker, cat, redo, showName, styleKey, ke
   var why0 = '';
   try { why0 = String((((r.json || {}).error || {}).message) || ''); } catch (eW0) {}
   if (r.code === 400 && /invalid field/i.test(why0) && ytQuotaTake_(YT_COST.thumbSet, false)) {
-    r = send(ytPlImgBodyMin_(existing, plId)); shape = 'کمینه (پس از invalid field)';
+    r = send(ytPlImgBodyMin_(existing, plId)); shape = 'کمینه: playlistId+type (پس از invalid field)';
   }
   var last = { at: nowStr_(), how: how, code: r.code, list: listCode, shape: shape,
                size: sz.w + '×' + sz.h, kb: Math.round(nBytes / 1024), mime: sz.mime };
@@ -14784,9 +14784,11 @@ function ytPlImgBody_(existing, plId, sz) {
   return b;
 }
 
-/** بدنهٔ کمینهٔ `playlistImages` (۱۸.۸): فقط پلی‌لیست — برای وقتی که یوتیوب فیلدی از بدنهٔ کامل را «invalid» می‌خواند. */
+/** بدنهٔ کمینهٔ `playlistImages` (۱۸.۸): برای وقتی که یوتیوب فیلدی از بدنهٔ کامل را «invalid» می‌خواند.
+ *  ۱۸.۹ — دادهٔ واقعیِ ۱۸ تا ۲۲ نوامبر دو سرِ ماجرا را نشان داد: بدنهٔ کامل (type+width+height) ⇒ «invalid field»؛
+ *  بدنهٔ بی type ⇒ «Playlist image type is required». پس `type` لازم است و `width`/`height` همان فیلدِ ردشده‌اند. */
 function ytPlImgBodyMin_(existing, plId) {
-  var b = { snippet: { playlistId: String(plId) } };
+  var b = { snippet: { playlistId: String(plId), type: 'hero' } };
   if (existing) b.id = String(existing);
   return b;
 }

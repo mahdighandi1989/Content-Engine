@@ -923,6 +923,7 @@ mistake shows as a repeat instead of a fresh row every night.
 `run_wiring_test.js` §۱۷ سقفِ اندازهٔ این فایل را نگه می‌دارد. هیچ‌چیز پاک نشد: ۱۱۸ بخشِ پیشین عیناً در
 `docs/claude_history.md` است و هر سطرِ زیر نامِ همان بخش است — پیش از کار روی همان حوزه، بخشش را بخوان.
 
+- type کاور (18.9)
 - «پادکست نشده‌اند» — 400 invalid field (18.8)
 - «ایرادِ مزمن» که قدیمی‌ترین را دور می‌ریخت (18.7)
 - «🎓 کارگاه‌ها» — فهرستِ کارگاه از درایو و کارگاهِ فعالِ هر چت (18.6)
@@ -1263,7 +1264,6 @@ mistake shows as a repeat instead of a fresh row every night.
 - The analysis existed; nobody wired it to the decision (5.96)
 - A report that cannot be read is worse than no report (5.96)
 - A twin fixed once is a twin fixed once (5.95)
-- A hand-written list of what the code does will go stale (5.95)
 
 ## پیش از هر آموزشِ صدا: فهرستِ چیزهایی که یک بار شکسته‌اند (8.43)
 

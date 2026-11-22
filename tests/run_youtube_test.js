@@ -8115,9 +8115,11 @@ console.log('\n=== ۸۲) کاورِ پلی‌لیست مربع است، و پا�
     const hd = o => o && o.payload ? Buffer.from(o.payload.slice(0, 400).map(x => x & 255)).toString('utf8') : '';
     const h1 = hd(imgCalls[0]), h2 = hd(imgCalls[1]);
     const lastV = (ytPlMap_()['kQ'] || {}).coverLast || {};
-    ok('۸۲.۴-ج invalid field ⇒ تلاشِ دوم با بدنهٔ کمینه (بی width/type) و «نشست» با شکلِ ثبت‌شده',
+    /* ۱۸.۹: بدنهٔ بی type پاسخِ «Playlist image type is required» گرفت (۱۸–۲۲ نوامبر) — type می‌ماند، width/height نه. */
+    ok('۸۲.۴-ج invalid field ⇒ تلاشِ دوم با بدنهٔ کمینه (playlistId + type، بی width/height) و «نشست» با شکلِ ثبت‌شده',
        r2v === 'نشست' && imgCalls.length === 2 && h1.indexOf('"width":1400') !== -1 &&
-       h2.indexOf('"playlistId":"PLQ"') !== -1 && h2.indexOf('width') === -1 && h2.indexOf('hero') === -1 &&
+       h2.indexOf('"playlistId":"PLQ"') !== -1 && h2.indexOf('width') === -1 && h2.indexOf('height') === -1 &&
+       h2.indexOf('"type":"hero"') !== -1 &&
        /کمینه/.test(String(lastV.shape || '')),
        r2v + ' · ' + imgCalls.length + ' · ' + h2.slice(0, 160).replace(/\r?\n/g, ' ') + ' · ' + JSON.stringify(lastV));
     ok('۸۲.۴-ج۲ پرسشِ «400» یک بار با part=snippet تنها تکرار می‌شود',
