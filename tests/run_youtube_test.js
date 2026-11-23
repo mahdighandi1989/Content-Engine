@@ -8122,6 +8122,10 @@ console.log('\n=== ۸۲) کاورِ پلی‌لیست مربع است، و پا�
        h2.indexOf('"type":"hero"') !== -1 &&
        /کمینه/.test(String(lastV.shape || '')),
        r2v + ' · ' + imgCalls.length + ' · ' + h2.slice(0, 160).replace(/\r?\n/g, ' ') + ' · ' + JSON.stringify(lastV));
+    /* ۱۹.۰ — درمانِ بدنه بی بالا بردنِ سازوکار، تا پایانِ مهلتِ هفت‌روزه اجرا نمی‌شود: ۱۸.۹ همین را جا انداخت. */
+    ok('۸۲.۴-ج۳ بدنهٔ کمینهٔ با type (۱۸.۹) با سازوکارِ ≥ ۴ می‌آید، تا تلاش‌های پرشده همان شب صفر شوند',
+       Number(CFG.YT_PL_COVER_MECH) >= 4 && JSON.stringify(ytPlImgBodyMin_('', 'P')).indexOf('"type":"hero"') !== -1,
+       String(CFG.YT_PL_COVER_MECH));
     ok('۸۲.۴-ج۲ پرسشِ «400» یک بار با part=snippet تنها تکرار می‌شود',
        listCalls.length === 2 && /part=id,snippet/.test(listCalls[0]) && /part=snippet&/.test(listCalls[1]),
        listCalls.join(' , '));

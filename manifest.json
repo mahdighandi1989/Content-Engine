@@ -1,12 +1,12 @@
 {
-  "version": "18.9",
+  "version": "19.0",
   "codeFile": "engine.gs",
-  "sha256": "e2cab668ad39a4c11aa74b02b75cf152d5d7db5f4c3dd6c503d4325cfd954ef6",
-  "releasedAt": "2026-11-22T06:56:32Z",
-  "summary": "کاورِ پلی‌لیست: بدنهٔ کمینه با type و بی width/height — یوتیوب بی type «Playlist image type is required» و با width/height «invalid field» داد.",
+  "sha256": "2cf348bc363f61d9d09d6b268a2b11e20fe1c02fd562827e782e427588cca422",
+  "releasedAt": "2026-11-23T06:36:43Z",
+  "summary": "سازوکارِ کاورِ پلی‌لیست بالا رفت (۳⇐۴) تا درمانِ ۱۸.۹ همان شب امتحان شود، نه پس از مهلتِ هفت‌روزه.",
   "fixes": [
-    "ytPlImgBodyMin_: {playlistId, type:hero}",
-    "tests/run_youtube_test.js ۸۲.۴-ج"
+    "YT_PL_COVER_MECH: 4",
+    "tests/run_youtube_test.js ۸۲.۴-ج۳"
   ],
   "sourceReportIds": [],
   "answers": {
