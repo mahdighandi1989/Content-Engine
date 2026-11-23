@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-23 02:29",
+ "updatedAt": "2026-11-23 05:25",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -11885,6 +11885,152 @@
     "fade": 28
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-113-cover.jpg"
+  },
+  "variety:111": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-111.mp4",
+   "bytes": 45585306,
+   "parts": 1,
+   "at": "2026-11-23 05:24",
+   "mode": "media",
+   "media": {
+    "clips": 17,
+    "photos": 15,
+    "found": 3,
+    "notFound": 1,
+    "failed": 0,
+    "why": [
+     "صحنهٔ 6: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر)",
+     "صحنهٔ 29: شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-C"
+    ],
+    "layouts": {
+     "fill": 15,
+     "right": 6,
+     "center": 6,
+     "left": 5
+    },
+    "teaserTiles": 5,
+    "teaserSec": 42.3,
+    "teaser": 4,
+    "tailCut": 17,
+    "replayed": 1,
+    "cardMoving": 13,
+    "cardOwn": 13,
+    "cards": 13,
+    "filled": 1,
+    "filledSec": 0,
+    "cropped": 8,
+    "moments": {
+     "asked": 4,
+     "placed": 4,
+     "made": 1,
+     "why": [
+      "54s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 32٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 32٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا",
+      "362s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 50٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 16٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا",
+      "570s: عبارت در کلیپ پیدا نشد (شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-C)"
+     ],
+     "music": 2,
+     "replaced": 1,
+     "sec": 35
+    },
+    "fit": {
+     "mb": 43.5,
+     "was": 97.8,
+     "how": "بازکدگذاری"
+    }
+   },
+   "inserts": [
+    {
+     "at": 197.3,
+     "d": 34.8,
+     "cut": 76.9
+    }
+   ],
+   "scenes": 36,
+   "want": 36,
+   "snapped": 25,
+   "seconds": 714,
+   "qa": {
+    "n": 36,
+    "matched": 36,
+    "miss": [],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 13,
+       "t": 198,
+       "own": 0.6,
+       "nb": 0.16,
+       "ok": true,
+       "heard": "در اینکه دو وم امروز، سراغ فورمول نویسی در نرمفزار اکسل با کما که حوش مصنوی میرود.  در یکی از قسمتهای پیشین همین برنامه "
+      },
+      {
+       "n": 18,
+       "t": 336.5,
+       "own": 0.52,
+       "nb": 0.1,
+       "ok": true,
+       "heard": "بایدوی سی ووم مهم دقیغاً در باری همین روش دستور دادن است.  اما ان بار در چت جیپیتی و برای توالید محتوى اینستاگرامی."
+      },
+      {
+       "n": 29,
+       "t": 552.3,
+       "own": 0.4,
+       "nb": 0.1,
+       "ok": true,
+       "heard": "دست میگوزارد روی کلافگی کاربرانی که میخا هند حوش مصنوی همه اتلاعات کاری آنها را بخاتر بس پارد.  گوینده که خودشت..."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    },
+    "freeze": [],
+    "clipSound": {
+     "clips": 17,
+     "asked": 4,
+     "made": 1,
+     "heard": 1,
+     "quiet": [],
+     "why": ""
+    }
+   },
+   "ov": {
+    "asked": 15,
+    "placed": 15,
+    "busy": 0,
+    "failed": 0,
+    "kinds": {
+     "points": 13,
+     "headline": 2
+    },
+    "forced": 3
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 36,
+    "used": 36,
+    "why": []
+   },
+   "xf": {
+    "circleopen": 4,
+    "dissolve": 11,
+    "radial": 3,
+    "smoothright": 4,
+    "wiperight": 4,
+    "slideright": 3,
+    "fade": 3
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-111-cover.jpg",
+   "notes": [
+    "برشِ کلیپ از آغاز: صحنهٔ 6: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر) · صحنهٔ 29: شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-C",
+    "لحظه‌ها: 54s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 32٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 32٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 362s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 50٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 16٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 570s: عبارت در کلیپ پیدا نشد (شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-C)",
+    "اندازه: 97.8 ⇒ 43.5 مگابایت"
+   ]
   }
  },
  "art": {
@@ -16284,8 +16430,8 @@
   }
  },
  "release": {
-  "assets": 959,
-  "gb": 7.51,
-  "at": "2026-11-23 02:29"
+  "assets": 961,
+  "gb": 7.56,
+  "at": "2026-11-23 05:25"
  }
 }
