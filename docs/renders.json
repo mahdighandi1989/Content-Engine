@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-23 06:12",
+ "updatedAt": "2026-11-23 08:30",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -11575,7 +11575,8 @@
     "صحنهٔ 20: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 24: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 27: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت"
-   ]
+   ],
+   "pruned": "2026-11-23"
   },
   "special:112": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-112.mp4",
@@ -15477,6 +15478,22 @@
    "segs": 4,
    "subs": 13,
    "at": "2026-11-23 02:29"
+  },
+  "ig:special:106.2": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-106-2.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-106-2-cover.jpg",
+   "sig": "8382ad41e273",
+   "seconds": 83,
+   "bytes": 17054053,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-106-2-short.mp4",
+   "shortSeconds": 78.9,
+   "align": "faster-whisper",
+   "phrases": 48,
+   "trans": 4,
+   "imgs": 5,
+   "segs": 5,
+   "subs": 43,
+   "at": "2026-11-23 08:30"
   }
  },
  "musicPrev": {
@@ -16507,8 +16524,8 @@
   }
  },
  "release": {
-  "assets": 963,
+  "assets": 965,
   "gb": 7.6,
-  "at": "2026-11-23 06:12"
+  "at": "2026-11-23 08:30"
  }
 }
