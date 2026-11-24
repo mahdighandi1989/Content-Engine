@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 19.1
+ *  موتور محتوا و پادکست — نسخهٔ 19.2
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2398,7 +2398,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '19.1',
+  CODE_VERSION: '19.2',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -21501,7 +21501,9 @@ function healthCheck() {
   try { var hyp = ytHypoRun_(); if (hyp && hyp.line) notes.push(hyp.line); } catch (eHy) {}   // ۱۲.۰: فقط سنجش
   try { bioSuggest_(false); } catch (eBio) {}   // ۱۲.۲: پیشنهادِ بیوها، هفتگی به تلگرام
   try { var clL = ytClaimLine_(); if (clL) notes.push(clL); } catch (eCl) {}   // ۱۲.۵: فقط سنجش
-  try { var clW = ytClaimWatchLine_(); if (clW && clW.line) (clW.hit.length || clW.blind.length ? problems : notes).push(clW.line); } catch (eCw) {}   // ۱۴.۱
+  /* ۱۹.۲ (chronic-d71aef3f): «کور»ِ خودآزمون حدِ ثابتِ Data API است، نه ایرادِ امروز — هیچ نسخه و هیچ کارِ صاحبِ کانال آن را
+     عوض نمی‌کند، و در «ایرادها» هر روز یک یافتهٔ مزمنِ کد می‌ساخت. فقط مسدودیِ دیده‌شده (`hit`) ایراد است؛ خطِ کور هر روز در یادداشت‌ها می‌مانَد. */
+  try { var clW = ytClaimWatchLine_(); if (clW && clW.line) (clW.hit.length ? problems : notes).push(clW.line); } catch (eCw) {}   // ۱۴.۱
   try { var fbS = fbStatus_(); if (fbS.on || fbS.queued) notes.push(fbS.line); } catch (eFs) {}
   try { var spS = seriesParStatus_(); if (spS.line) notes.push(spS.line); } catch (eSp) {}
   try { var ytOffL = ytShowsOffLine_(); if (ytOffL) notes.push(ytOffL); } catch (eYo) {}

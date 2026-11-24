@@ -344,8 +344,7 @@ overwritten. Any layout change ships as: edit `docs/drive_layout.md` **in the
 same commit** as the code, plus a row in its «تاریخچهٔ تغییرهای چیدمان» table.
 
 Prompt texts live in Drive (`_PROMPT-*-v<N>.md`, append-only — a new version is a
-new file, never an overwrite). A copy of each goes in `docs/prompts/` so git has
-the history.
+new file, never an overwrite). Their source is `docs/prompts/` (5.85).
 
 ## The handout — one per series, not per episode (section 26)
 The owner's ask: «نسبت به هر مجموعه‌ای که یاد می‌گیرم … یک جزوه باشد که هر سری با
@@ -923,6 +922,7 @@ mistake shows as a repeat instead of a fresh row every night.
 `run_wiring_test.js` §۱۷ سقفِ اندازهٔ این فایل را نگه می‌دارد. هیچ‌چیز پاک نشد: ۱۱۸ بخشِ پیشین عیناً در
 `docs/claude_history.md` است و هر سطرِ زیر نامِ همان بخش است — پیش از کار روی همان حوزه، بخشش را بخوان.
 
+- «کور»ِ حقِ نشر (19.2)
 - هفت ویدئوی خصوصیِ شما «در انتظارِ وارسی» نیستند (19.1)
 - سازوکارِ کاور بالا نرفت (19.0)
 - type کاور (18.9)

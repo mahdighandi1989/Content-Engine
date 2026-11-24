@@ -115,8 +115,8 @@ console.log('\n=== ۳) Content-ID پس از انتشار ===');
   const keepK = CFG.YT_CLAIM_KNOWN;
   CFG.YT_CLAIM_KNOWN = ['V85'];
   const lb = ytClaimWatchLine_();
-  ok('۳.۷ ویدئویی که Studio مسدود گفته و این راه سالم دید ⇒ خطِ «Data API نشان نمی‌دهد» (و ایراد، نه یادداشت)',
-     lb.blind.join() === 'V85' && /نشان نمی‌دهد/.test(lb.line) && /clW\.hit\.length \|\| clW\.blind\.length \? problems : notes/.test(src('08_')), lb.line);
+  ok('۳.۷ ویدئویی که Studio مسدود گفته و این راه سالم دید ⇒ خطِ «Data API نشان نمی‌دهد» (از ۱۹.۲ یادداشت، نه ایراد؛ فقط hit ایراد است)',
+     lb.blind.join() === 'V85' && /نشان نمی‌دهد/.test(lb.line) && /clW\.hit\.length \? problems : notes/.test(src('08_')), lb.line);
   CFG.YT_CLAIM_KNOWN = keepK;
   ok('۳.۶ در ytPublishTick و در _STATUS.youtube', /ytClaimDue_\(\)\) \{\s*\n\s*try \{ ytClaimScan_\(\); \}/.test(src('27_')) && /out\.claims = ytClaimWatchLine_\(\);/.test(src('27_')));
   global.ytSvc_ = keepS; global.ytQuotaTake_ = keepQ; global.tgSend_ = keepT; global.tgEnabled_ = keepE; global.logSelfFinding_ = keepF; global.mailQueue_ = keepM;

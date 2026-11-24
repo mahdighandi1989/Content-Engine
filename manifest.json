@@ -1,14 +1,17 @@
 {
-  "version": "19.1",
+  "version": "19.2",
   "codeFile": "engine.gs",
-  "sha256": "d0068930816610059abee65bff9d05c89eec217d3fbefae411796a7a356f910b",
-  "releasedAt": "2026-11-24T06:55:19Z",
-  "summary": "ویدئوی خصوصی‌شده به دستِ صاحبِ کانال دیگر «در انتظارِ وارسی» شمرده نمی‌شود — هفت تا از هشتِ ایرادِ مزمن همین‌ها بودند.",
+  "sha256": "d567672aa6bed34602864c721e653f4f1a7abbc9c37f4cf98c2d30428a4ff3d1",
+  "releasedAt": "2026-11-24T08:05:29Z",
+  "summary": "خطِ «کور»ِ حقِ نشر (مسدودیِ Studio که Data API نمی‌بیند) دیگر ایرادِ روزانه و یافتهٔ مزمنِ کد نمی‌سازد؛ فقط مسدودیِ دیده‌شده ایراد است.",
   "fixes": [
-    "ytStatus_: ownerPrivate جدا از unlisted",
-    "tests/run_v191_test.js"
+    "08_Health: clW.blind فقط به notes؛ hit به problems",
+    "tests/run_v192_test.js",
+    "tests/run_v141_test.js ۳.۷ هم‌راستا شد"
   ],
-  "sourceReportIds": [],
+  "sourceReportIds": [
+    "ENG-20261122-1008#chronic-d71aef3f"
+  ],
   "answers": {
     "18.8": [
       "chronic-34dc8629",
@@ -16,6 +19,9 @@
     ],
     "18.9": [
       "RPT-202611101414#1"
+    ],
+    "19.2": [
+      "chronic-d71aef3f"
     ]
   },
   "promptImpact": []
