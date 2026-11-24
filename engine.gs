@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 19.0
+ *  موتور محتوا و پادکست — نسخهٔ 19.1
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2398,7 +2398,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '19.0',
+  CODE_VERSION: '19.1',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -64925,13 +64925,22 @@ function ytStatus_() {
   try {
     var hub = getHub_();
     var pub = ytPublished_(hub);
+    var ownPriv = [];
+    try { ownPriv = ytOwnerPrivList_(); } catch (eOp) { ownPriv = []; }
     for (var k in pub) {
       if (!Object.prototype.hasOwnProperty.call(pub, k)) continue;
       if (pub[k].videoId) {
         out.published++;
         if (String(pub[k].privacy || '') !== (CFG.YT_PRIVACY_FINAL || 'public')) {
-          out.unlisted++;
-          (out.unlistedKeys = out.unlistedKeys || []).push(k);
+          /* ۱۹.۱: ویدئویی که صاحبِ کانال در Studio خصوصی کرده (۱۱.۰) «در انتظارِ وارسی» نیست — هیچ وارسی‌ای قرار نیست
+             عمومی‌اش کند. ۲۴ نوامبر هفت تا از هشت «در انتظار» همین‌ها بودند (variety:74…82) و ایرادِ مزمنِ هشت‌روزه می‌ساختند. */
+          if (ownPriv.indexOf(String(pub[k].videoId)) !== -1) {
+            out.ownerPrivate = (out.ownerPrivate || 0) + 1;
+            (out.ownerPrivateKeys = out.ownerPrivateKeys || []).push(k);
+          } else {
+            out.unlisted++;
+            (out.unlistedKeys = out.unlistedKeys || []).push(k);
+          }
         }
       } else if (pub[k].tries >= Math.max(1, Number(CFG.YT_TRY_MAX) || 3)) {
         out.failed++;
@@ -64992,6 +65001,7 @@ function ytLine_(st) {
   if (!st.service) return 'یوتیوب: ' + st.why + '.';
   var L = ['یوتیوب: منتشرشده ' + faDigitsOut_(String(st.published)) + ' ویدئو'];
   if (st.unlisted) L.push('در انتظارِ وارسی ' + faDigitsOut_(String(st.unlisted)));
+  if (st.ownerPrivate) L.push('خصوصی به دستِ شما ' + faDigitsOut_(String(st.ownerPrivate)));
   if (st.due) L.push('در صف ' + faDigitsOut_(String(st.due)));
   if (st.waitingRender) {
     L.push('منتظرِ ساختِ ویدئو ' + faDigitsOut_(String(st.waitingRender)) +

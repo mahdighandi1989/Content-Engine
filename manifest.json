@@ -1,12 +1,12 @@
 {
-  "version": "19.0",
+  "version": "19.1",
   "codeFile": "engine.gs",
-  "sha256": "2cf348bc363f61d9d09d6b268a2b11e20fe1c02fd562827e782e427588cca422",
-  "releasedAt": "2026-11-23T06:36:43Z",
-  "summary": "سازوکارِ کاورِ پلی‌لیست بالا رفت (۳⇐۴) تا درمانِ ۱۸.۹ همان شب امتحان شود، نه پس از مهلتِ هفت‌روزه.",
+  "sha256": "d0068930816610059abee65bff9d05c89eec217d3fbefae411796a7a356f910b",
+  "releasedAt": "2026-11-24T06:55:19Z",
+  "summary": "ویدئوی خصوصی‌شده به دستِ صاحبِ کانال دیگر «در انتظارِ وارسی» شمرده نمی‌شود — هفت تا از هشتِ ایرادِ مزمن همین‌ها بودند.",
   "fixes": [
-    "YT_PL_COVER_MECH: 4",
-    "tests/run_youtube_test.js ۸۲.۴-ج۳"
+    "ytStatus_: ownerPrivate جدا از unlisted",
+    "tests/run_v191_test.js"
   ],
   "sourceReportIds": [],
   "answers": {
