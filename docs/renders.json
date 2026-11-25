@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-25 12:17",
+ "updatedAt": "2026-11-25 12:38",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -13618,7 +13618,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 35,
-   "at": "2026-10-27 22:45"
+   "at": "2026-10-27 22:45",
+   "pruned": "2026-11-25"
   },
   "ig:special:39.2": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-39-2.mp4",
@@ -13634,7 +13635,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 38,
-   "at": "2026-10-27 23:38"
+   "at": "2026-10-27 23:38",
+   "pruned": "2026-11-25"
   },
   "ig:special:40": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-40.mp4",
@@ -13650,7 +13652,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 34,
-   "at": "2026-10-28 01:01"
+   "at": "2026-10-28 01:01",
+   "pruned": "2026-11-25"
   },
   "ig:special:40.2": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-40-2.mp4",
@@ -13666,7 +13669,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 42,
-   "at": "2026-10-28 09:28"
+   "at": "2026-10-28 09:28",
+   "pruned": "2026-11-25"
   },
   "ig:special:41": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-41.mp4",
@@ -13682,7 +13686,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 42,
-   "at": "2026-10-28 10:28"
+   "at": "2026-10-28 10:28",
+   "pruned": "2026-11-25"
   },
   "ig:special:40.9": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-40-9.mp4",
@@ -13698,7 +13703,8 @@
    "imgs": 4,
    "segs": 4,
    "subs": 14,
-   "at": "2026-10-28 12:26"
+   "at": "2026-10-28 12:26",
+   "pruned": "2026-11-25"
   },
   "ig:special:41.2": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-41-2.mp4",
@@ -13714,7 +13720,8 @@
    "imgs": 3,
    "segs": 3,
    "subs": 37,
-   "at": "2026-10-29 01:28"
+   "at": "2026-10-29 01:28",
+   "pruned": "2026-11-25"
   },
   "ig:special:42": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-42.mp4",
@@ -13730,7 +13737,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 35,
-   "at": "2026-10-29 05:41"
+   "at": "2026-10-29 05:41",
+   "pruned": "2026-11-25"
   },
   "ig:special:42.2": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-42-2.mp4",
@@ -13746,7 +13754,8 @@
    "imgs": 4,
    "segs": 4,
    "subs": 35,
-   "at": "2026-10-29 10:28"
+   "at": "2026-10-29 10:28",
+   "pruned": "2026-11-25"
   },
   "ig:special:43": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-43.mp4",
@@ -13762,7 +13771,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 36,
-   "at": "2026-10-29 11:28"
+   "at": "2026-10-29 11:28",
+   "pruned": "2026-11-25"
   },
   "ig:special:43.2": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-43-2.mp4",
@@ -16233,6 +16243,22 @@
    "segs": 5,
    "subs": 35,
    "at": "2026-11-25 11:22"
+  },
+  "ig:special:111.2": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-111-2.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-111-2-cover.jpg",
+   "sig": "071f9d2071f5",
+   "seconds": 72.8,
+   "bytes": 13414130,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-111-2-short.mp4",
+   "shortSeconds": 68.8,
+   "align": "faster-whisper",
+   "phrases": 42,
+   "trans": 4,
+   "imgs": 5,
+   "segs": 5,
+   "subs": 39,
+   "at": "2026-11-25 12:38"
   }
  },
  "musicPrev": {
@@ -17283,8 +17309,8 @@
   }
  },
  "release": {
-  "assets": 940,
-  "gb": 7.39,
-  "at": "2026-11-25 12:17"
+  "assets": 913,
+  "gb": 7.15,
+  "at": "2026-11-25 12:38"
  }
 }
