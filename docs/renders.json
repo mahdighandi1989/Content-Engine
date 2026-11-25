@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-25 22:37",
+ "updatedAt": "2026-11-25 22:49",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -16377,6 +16377,22 @@
    "segs": 5,
    "subs": 35,
    "at": "2026-11-25 22:37"
+  },
+  "ig:special:113.2": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-113-2.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-113-2-cover.jpg",
+   "sig": "c6d126e8d609",
+   "seconds": 78.5,
+   "bytes": 15582162,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-113-2-short.mp4",
+   "shortSeconds": 75,
+   "align": "faster-whisper",
+   "phrases": 42,
+   "trans": 4,
+   "imgs": 5,
+   "segs": 5,
+   "subs": 38,
+   "at": "2026-11-25 22:48"
   }
  },
  "musicPrev": {
@@ -17424,11 +17440,26 @@
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1GKO14I-ftBF765KeZMbRCYBd3VJvaKJq.mp3",
    "bytes": 40272,
    "at": "2026-11-25 02:12"
+  },
+  "130c8ZW3udxurKk65wUG-o7YsVKxzBdT8": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-130c8ZW3udxurKk65wUG-o7YsVKxzBdT8.mp3",
+   "bytes": 321515,
+   "at": "2026-11-25 22:48"
+  },
+  "1MovMio0qbcSzCbBB5PYxb0E_xZgPUdCU": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1MovMio0qbcSzCbBB5PYxb0E-xZgPUdCU.mp3",
+   "bytes": 427573,
+   "at": "2026-11-25 22:48"
+  },
+  "18NUFjTAR-NxuOKLWR_fu3OF8mGAAhTUd": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-18NUFjTAR-NxuOKLWR-fu3OF8mGAAhTUd.mp3",
+   "bytes": 319912,
+   "at": "2026-11-25 22:48"
   }
  },
  "release": {
-  "assets": 763,
-  "gb": 5.67,
-  "at": "2026-11-25 22:37"
+  "assets": 769,
+  "gb": 5.71,
+  "at": "2026-11-25 22:49"
  }
 }
