@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-25 03:52",
+ "updatedAt": "2026-11-25 04:41",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -12514,6 +12514,82 @@
     "صحنهٔ 21: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 33: کلیپِ پیشین پس از محو تیره بود ⇒ خودِ عکس، کنارِ کارت"
    ]
+  },
+  "special:116": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-116.mp4",
+   "bytes": 45272135,
+   "parts": 2,
+   "at": "2026-11-25 04:40",
+   "mode": "scenes",
+   "scenes": 61,
+   "want": 61,
+   "snapped": 50,
+   "seconds": 1269,
+   "qa": {
+    "n": 61,
+    "matched": 57,
+    "miss": [
+     11,
+     17,
+     31,
+     53
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 16,
+       "t": 278.7,
+       "own": 0.5,
+       "nb": 0.12,
+       "ok": true,
+       "heard": "تفقی که هاسپرز میان معناوی قراردادی کلمات و حقیقت گوزاره ها دقیقا همون تفقی که اوالم سگانی واقعی فا"
+      },
+      {
+       "n": 31,
+       "t": 598.9,
+       "own": 0.52,
+       "nb": 0.1,
+       "ok": true,
+       "heard": "امه گنگی وقتی پیش میاد که تو طبیعت یک تیف پیی وسته داریم.  مثلا از چی سور اتی ببد انترنت بو."
+      },
+      {
+       "n": 46,
+       "t": 926.1,
+       "own": 0.37,
+       "nb": 0.16,
+       "ok": true,
+       "heard": "اینجاو به عبزار دفاع شخصی در بروابار طبیح، قوت و اخبار جعلي میرسیم.  تفقی که معنوی شناقتي، از معنوی آوتفی و معنوی تصفیم."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 26,
+    "placed": 12,
+    "busy": 14,
+    "failed": 0,
+    "kinds": {
+     "headline": 3,
+     "quote": 1,
+     "points": 7,
+     "compare": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 55,
+   "xf": {
+    "smoothright": 30,
+    "fade": 24
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-116-cover.jpg"
   }
  },
  "art": {
@@ -17077,8 +17153,8 @@
   }
  },
  "release": {
-  "assets": 996,
-  "gb": 7.84,
-  "at": "2026-11-25 03:52"
+  "assets": 998,
+  "gb": 7.89,
+  "at": "2026-11-25 04:41"
  }
 }
