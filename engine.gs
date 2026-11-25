@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 19.2
+ *  موتور محتوا و پادکست — نسخهٔ 19.3
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1557,6 +1557,10 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   IG_TRY_MAX: 3,                 // پس از این شمار شکست، آن درس کنار می‌رود (در _STATUS دیده می‌شود)
   IG_VOICE_NEED_SEC: 170,       // ۹.۸۷: گامِ صدا فقط با این‌قدر وقتِ باقی‌مانده آغاز می‌شود (وگرنه اجرای تازه تا یک دقیقه)
   IG_QUICK_PER_H: 6,            // ۹.۸۷: سقفِ اجرای تازهٔ یک‌دقیقه‌ای در هر ساعت
+  IG_REL_PRUNE: true,            // ۱۹.۳: فایل‌های ریلیزِ ریلزهای تمام‌شده (اینستاگرام + شورتز + نسخهٔ درایو) پاک می‌شوند
+  IG_REL_PRUNE_DAYS: 2,          // ۱۹.۳: چند روز پس از پایانِ ریلز
+  IG_REL_PRUNE_HOURS: 6,         // ۱۹.۳: هر چند ساعت یک دورِ علامت‌گذاری (ادامهٔ دورِ ناتمام بی‌درنگ)
+  IG_REL_PRUNE_MAX: 120,         // ۱۹.۳: سقفِ کلیدِ تازه در هر دور
   IG_TICK_SEC: 240,              // بودجهٔ هر اجرای جدا
   IG_INFLIGHT: 2,                // ریلزهای هم‌زمان در جریان
   IG_IDLE_H: 6,                  // روشن و بی اجرا بیش از این ⇒ مسئلهٔ روز
@@ -2398,7 +2402,7 @@ VBR_RESEND_SET: { tag: 'b-golduz-mp3-1102', items: [
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '19.2',
+  CODE_VERSION: '19.3',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -19948,9 +19952,11 @@ function watchdog_(st, problems, notes) {
     var w = hb[i];
     if (w.key === 'render') {
       if (w.relBad) {
-        problems.push(HY_ + 'ریلیزِ «renders» در گیت‌هاب ' + faDigitsOut_(String(w.rel.assets)) + ' فایل دارد (' +
+        /* ۱۹.۳: کارِ موتور است، نه «⟨شما⟩» — ۶۵۰ از ۱۰۰۰ فایل ریلز بود و هیچ دری برای پاک‌شدن نداشت. */
+        problems.push('ریلیزِ «renders» در گیت‌هاب ' + faDigitsOut_(String(w.rel.assets)) + ' فایل دارد (' +
           faDigitsOut_(String(w.rel.gb)) + ' گیگ) — سقفِ گیت‌هاب ۱۰۰۰ است و پس از آن هیچ ویدئویی بالا نمی‌رود. ' +
-          'فایل‌های قسمت‌های منتشرشده قابلِ حذف‌اند (نسخهٔ درایو هست).');
+          'پاک‌کردنِ خودکار: mp4ِ قسمت‌های منتشرشده (۱۴.۱) و فایل‌های ریلزهای تمام‌شده (۱۹.۳) — هر دو با نسخهٔ درایوِ سنجیده؛ ' +
+          'پیشرفتش در خطِ اینستاگرام («ریلیزِ ریلزها») است. اگر عدد چند روز پایین نیامد، ایرادِ کد است.');
       }
       if (w.made) {
         problems.push(HY_ + faDigitsOut_(String(w.made)) + ' ویدئو ساخته شده ولی ' + faDigitsOut_(String(w.madeHours)) +
@@ -87686,7 +87692,8 @@ function igStepAsk_(it, fo, plan) {
 
 function igStepGot_(it, fo, plan) {
   var doc = ytRenderDocFetch_(), r = doc && doc.reels && doc.reels[it.key];
-  if (!r || !r.url || String(r.sig) !== String(plan.sig)) {
+  /* ۱۹.۳: فایلی که از ریلیز پاک شده («pruned») دیگر برداشتنی نیست — رانر همان کلید را از نو می‌سازد. */
+  if (!r || !r.url || r.pruned || String(r.sig) !== String(plan.sig)) {
     var hrs = (Date.now() - parseWhen_(String(plan.askedAt || ''))) / 3600000;
     return { wait: 'رانر هنوز نساخته' + (isFinite(hrs) ? ' (' + Math.round(hrs) + ' ساعت)' : '') };
   }
@@ -88032,6 +88039,77 @@ function igShortThumbRetro_(st, deadline) {
   return did;
 }
 
+/* ══ ریلیزِ renders پر شد — و ریلزها هرگز پاک نمی‌شدند (۱۹.۳) ══
+ * ۲۵ نوامبر ریلیز ۱۰۰۰ از ۱۰۰۰ بود (سقفِ گیت‌هاب؛ پس از آن هیچ ویدئویی بالا نمی‌رود) و ۶۵۰ تایش فایل‌های ریلز بود — mp4،
+ * نسخهٔ شورتز و کاور، سه تا برای هر بخش. پاک‌کردنِ ۱۴.۱ (`ytRenderPruneMark_`) فقط mp4ِ قسمت‌های یوتیوب را می‌شناخت؛ ریلز
+ * هیچ دری نداشت و هشدارِ روزانه کار را «⟨شما⟩» به گردنِ صاحبِ برنامه می‌انداخت. حالا همان الگو: موتور می‌سنجد، رانر فقط
+ * فهرست را پاک می‌کند. ریلزی پاک‌شدنی است که (۱) `_ig.json`ش «done» است — در اینستاگرام منتشر شده، (۲) شورتزش دیگر به
+ * فایل نیازی ندارد — رفته یا علتِ نرفتنش ثبت است، در صف نیست، و کاورِ شورتز نشسته یا علتش ثبت است، (۳) دست‌کم
+ * `IG_REL_PRUNE_DAYS` روز از پایانش گذشته، (۴) امضایش همان است که در نقشهٔ رانر است، و (۵) **نسخهٔ درایوِ ریلز** (mp4 ≥ یک مگ)
+ * کنارِ همان `_ig.json` هست. کلید همان `ig:special:N` است و به همان `queue.prune` می‌رود.
+ * `filesIn`/`docIn` فقط برای آزمون (ماکِ درایو `searchFiles` ندارد).
+ */
+function igReelPruneDue_(st) {
+  if (CFG.IG_REL_PRUNE === false) return false;
+  var t = Number((st && st.relPrune && st.relPrune.ms) || 0);
+  return !t || (Date.now() - t) / 3600000 >= Math.max(1, Number(CFG.IG_REL_PRUNE_HOURS) || 6);
+}
+function igReelPruneMark_(st, budgetMs, filesIn, docIn) {
+  var out = { added: 0, checked: 0, noDrive: 0, held: 0, why: '', at: nowStr_(), ms: Date.now() };
+  if (CFG.IG_REL_PRUNE === false) { out.why = 'خاموش'; return out; }
+  var doc = docIn || ytRenderDocFetch_(), reels = (doc && doc.reels) || {};
+  var byUrl = {};
+  Object.keys(reels).forEach(function (k) { var r = reels[k]; if (r && r.url && !r.pruned) byUrl[String(r.url)] = k; });
+  var d = ytRenderRead_();
+  d.prune = Array.isArray(d.prune) ? d.prune : [];
+  var minMs = Math.max(1, Number(CFG.IG_REL_PRUNE_DAYS) || 2) * 86400000, t0 = Date.now();
+  var budget = Math.max(5000, Number(budgetMs) || 30000), cap = Math.max(1, Number(CFG.IG_REL_PRUNE_MAX) || 120);
+  var queued = {};
+  (st && st.shortQ || []).forEach(function (x) { if (x && x.key) queued[String(x.key)] = 1; });
+  var it = null, arr = Array.isArray(filesIn) ? filesIn.slice() : null, token = String((st && st.relPrune && st.relPrune.tok) || '');
+  if (!arr) {
+    try { it = token ? DriveApp.continueFileIterator(token) : null; } catch (eTk) { it = null; }
+    if (!it) it = DriveApp.searchFiles('title = "_ig.json" and trashed = false');
+  }
+  var next = function () { return arr ? (arr.length ? arr.shift() : null) : (it.hasNext() ? it.next() : null); };
+  var f, ended = false;
+  while (out.added < cap) {
+    if (Date.now() - t0 > budget) { out.why = 'وقتِ این دور تمام شد'; break; }
+    f = next();
+    if (!f) { ended = true; break; }
+    var p = null;
+    try { p = JSON.parse(f.getBlob().getDataAsString()); } catch (eJ) { continue; }
+    if (!p || !p.video) continue;
+    var k = byUrl[String(p.video)];
+    if (!k || d.prune.indexOf(k) !== -1) continue;
+    if (String((reels[k] || {}).sig || '') !== String(p.sig || '')) continue;
+    var tDone = parseWhen_(String(p.doneAt || ''));
+    var shortBusy = p.short && !p.shortId && !p.shortWhy;
+    var thumbBusy = p.shortId && !p.shortThumb && !p.shortThumbWhy;
+    if (p.phase !== 'done' || !p.reelId || p.shortQueued || queued[k] || shortBusy || thumbBusy ||
+        isNaN(tDone) || Date.now() - tDone < minMs) { out.held++; continue; }
+    out.checked++;
+    var big = false;
+    try {
+      var pa = f.getParents(), fo = pa && pa.hasNext() ? pa.next() : null, fs = fo ? fo.getFiles() : null;
+      while (fs && fs.hasNext()) {
+        var g = fs.next(), nm = String(g.getName() || '');
+        if (/^ریلز — .*\.mp4$/.test(nm) && g.getSize() >= 1000000) { big = true; break; }
+      }
+    } catch (eD) { big = false; }
+    if (!big) { out.noDrive++; continue; }
+    d.prune.push(k); out.added++;
+  }
+  out.tok = '';
+  if (!arr && !ended) { try { out.tok = it.getContinuationToken(); } catch (eCt) { out.tok = ''; } }
+  if (d.prune.length > 1200) d.prune = d.prune.slice(-1200);
+  if (out.added) ytRenderSave_(d);
+  if (st) st.relPrune = { at: out.at, ms: ended || !out.tok ? out.ms : 0, tok: out.tok, added: out.added, checked: out.checked,
+                          noDrive: out.noDrive, held: out.held, total: d.prune.length, why: out.why,
+                          sum: Number((st.relPrune && st.relPrune.sum) || 0) + out.added };
+  return out;
+}
+
 /** یک ردیف در تبِ «انتشار در اینستاگرام». */
 function igLog_(it, plan) {
   var sh = igSheet_(CFG.IG_TAB || 'انتشار در اینستاگرام',
@@ -88190,6 +88268,11 @@ function igTick() {
     try { fbQueueRun_(deadline); } catch (eFq) {}
     if ((st.shortQ || []).length) { try { igShortQueueRun_(st, deadline); } catch (eSq) { st.shortWhy = String(eSq.message || eSq).slice(0, 120); } }
     if (deadline - Date.now() > 40000) { try { igShortThumbRetro_(st, deadline); } catch (eTr) { st.thumbWhy = String(eTr.message || eTr).slice(0, 120); } }
+    /* ۱۹.۳: فایل‌های ریلیزِ ریلزهای تمام‌شده — بی این، ریلیزِ renders به سقفِ ۱۰۰۰ رسید و هیچ ویدئویی بالا نمی‌رفت. */
+    if (deadline - Date.now() > 50000 && igReelPruneDue_(st)) {
+      try { igReelPruneMark_(st, Math.min(40000, deadline - Date.now() - 30000)); }
+      catch (eRp) { st.relPrune = { at: nowStr_(), ms: Date.now(), why: 'خطا: ' + String(eRp.message || eRp).slice(0, 100) }; }
+    }
     if (deadline - Date.now() > 60000) { try { igInsights_(st, deadline); } catch (eIn) { st.lastWhy = 'آمار: ' + String(eIn.message || eIn).slice(0, 120); } }
     try { igStuckTell_(st); } catch (eSt) {}
     try { igDayTell_(st); } catch (eDt) {}
@@ -88445,6 +88528,14 @@ function igStatus_() {
   /* ۱۳.۷: دفترِ بیرونیِ NotebookLM — چه چیزی خوانده شد و کدام مجموعه کنار رفت، در همان خط. */
   try { out.ext = extNlmStatus_(); if (a && out.ext && out.ext.line) out.line += ' · ' + out.ext.line; } catch (eX) {}
   try { out.ear = igEarStatus_(); if (a && out.ear && out.ear.list.length) out.line += ' · ' + out.ear.line; } catch (eE) {}
+  /* ۱۹.۳: پاک‌کردنِ فایل‌های ریلیزِ ریلزهای تمام‌شده — شاهدش هر روز در همین خط، حتی صفر. */
+  var rp = st.relPrune || null;
+  out.relPrune = rp ? { at: rp.at || '', added: Number(rp.added) || 0, sum: Number(rp.sum) || 0, held: Number(rp.held) || 0,
+                        noDrive: Number(rp.noDrive) || 0, why: rp.why || '' } : null;
+  if (a) out.line += ' · ریلیزِ ریلزها: ' + (rp ? 'آخرین علامت‌گذاری ' + (rp.at || '') + ' — ' + (Number(rp.added) || 0) +
+    ' کلیدِ تازه برای پاک‌شدن (جمعاً ' + (Number(rp.sum) || 0) + ')، ' + (Number(rp.held) || 0) + ' هنوز لازم' +
+    (Number(rp.noDrive) ? '، ' + rp.noDrive + ' بی نسخهٔ درایو (پاک نمی‌شود)' : '') + (rp.why ? ' — ' + rp.why : '')
+    : 'هنوز اجرا نشده');
   return out;
 }
 

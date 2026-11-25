@@ -138,14 +138,38 @@ function ensureRelease() {
 
 /** ۱۴.۱: کلیدهای `queue.prune` (موتور درایو و یوتیوب را سنجیده) ⇒ mp4ِ همان قسمت از ریلیز پاک و در نقشه `pruned` می‌شود.
     نشانیِ نقشه می‌ماند (تاریخچه)، فقط پشتش فایلی نیست — موتور ردیفِ «رسید» را دیگر برنمی‌دارد. */
-function pruneRelease(queue, map, relIn, cap) {
+function pruneRelease(queue, map, relIn, cap, delIn) {
   const out = { deleted: 0, failed: 0, skipped: 0 };
+  /* ۱۹.۳: `delIn` فقط برای آزمون — آزمون هرگز نباید DELETEِ واقعی به گیت‌هاب بفرستد. */
+  const del = delIn || (id => gh(['-X', 'DELETE', 'https://api.github.com/repos/' + REPO + '/releases/assets/' + id]));
   const keys = Array.isArray(queue && queue.prune) ? queue.prune : [];
   if (!keys.length) return out;
   const rel = relIn || ensureRelease();
   const max = Math.max(1, Number(cap) || 60);
   for (const k of keys) {
     if (out.deleted >= max) break;
+    /* ۱۹.۳: کلیدِ ریلز (`ig:…`) — mp4، نسخهٔ شورتز و کاور، هر سه. موتور سنجیده که ریلز در اینستاگرام رفته، شورتز و کاورش
+       دیگر به فایل نیاز ندارند و نسخهٔ درایو هست. ۲۵ نوامبر ۶۵۰ از ۱۰۰۰ فایلِ ریلیز همین‌ها بودند. */
+    if (/^ig:/.test(String(k))) {
+      const r = (map.reels || {})[k];
+      if (!r || !r.url || r.pruned) { out.skipped++; continue; }
+      let bad = 0;
+      for (const u of [r.url, r.short, r.cover]) {
+        if (!u) continue;
+        const name = decodeURIComponent(String(u).split('/').pop() || '');
+        if (!/^reel-.*\.(mp4|jpg)$/i.test(name)) continue;
+        const a = (rel.assets || []).find(x => x.name === name);
+        if (!a) continue;
+        try {
+          del(a.id);
+          rel.assets = rel.assets.filter(x => x.id !== a.id);
+          RELSTAT.assets = Math.max(0, RELSTAT.assets - 1); RELSTAT.bytes = Math.max(0, RELSTAT.bytes - (Number(a.size) || 0));
+          out.deleted++;
+        } catch (e) { bad++; out.failed++; }
+      }
+      if (!bad) r.pruned = new Date().toISOString().slice(0, 10);
+      continue;
+    }
     const it = map.items[k];
     if (!it || !it.url || it.pruned) { out.skipped++; continue; }
     const name = decodeURIComponent(String(it.url).split('/').pop() || '');
@@ -153,7 +177,7 @@ function pruneRelease(queue, map, relIn, cap) {
     const a = (rel.assets || []).find(x => x.name === name);
     if (!a) { it.pruned = new Date().toISOString().slice(0, 10); out.skipped++; continue; }
     try {
-      gh(['-X', 'DELETE', 'https://api.github.com/repos/' + REPO + '/releases/assets/' + a.id]);
+      del(a.id);
       it.pruned = new Date().toISOString().slice(0, 10);
       rel.assets = rel.assets.filter(x => x.id !== a.id);
       RELSTAT.assets = Math.max(0, RELSTAT.assets - 1); RELSTAT.bytes = Math.max(0, RELSTAT.bytes - (Number(a.size) || 0));
@@ -1594,8 +1618,9 @@ const REEL_MAX_PER_RUN = 4;
 function reelsTodo(queue, map) {
   const list = Array.isArray(queue && queue.reels) ? queue.reels : [];
   const have = map.reels || {};
+  /* ۱۹.۳: ریلزی که فایلش از ریلیز پاک شده (`pruned`) و دوباره خواسته شده، از نو ساخته می‌شود — حتی با همان امضا. */
   return list.filter(r => r && r.key && r.sig && r.audio && r.audio.url &&
-                     String((have[r.key] || {}).sig || '') !== String(r.sig));
+                     (String((have[r.key] || {}).sig || '') !== String(r.sig) || !!(have[r.key] || {}).pruned));
 }
 
 /** زمانِ واژه‌های متنِ ریلز (بی جملهٔ دعوت) — tools/reelalign.py؛ نشد ⇒ null و رندر نسبتِ نویسه می‌گیرد. */
@@ -1688,8 +1713,19 @@ function brandMark(queue) {
 }
 
 /** پاسخِ پروب: «کاری هست» = ویدئوی ساخته‌نشده یا کاورِ پلی‌لیستِ کشیده‌نشده. */
+/** ۱۹.۳: کلیدهای `queue.prune` که هنوز پاک نشده‌اند — بی این، پروب «کاری نیست» می‌گفت و پاک‌کردن فقط وقتی می‌دوید که
+    کارِ دیگری هم بود؛ روزی که ریلیز پر است، کارِ دیگری هم بالا نمی‌رود. */
+function pruneTodo(queue, map) {
+  const keys = Array.isArray(queue && queue.prune) ? queue.prune : [];
+  return keys.filter(k => {
+    const m = /^ig:/.test(String(k)) ? (map.reels || {})[k] : (map.items || {})[k];
+    return !!(m && m.url && !m.pruned);
+  });
+}
+
 function probeWork(queue, map, hold, now) {
   return (itemsTodo(queue, map, hold, now).todo.length || plCoversTodo(queue, map).length || reelsTodo(queue, map).length ||
+          pruneTodo(queue, map).length ||
           bannerTodo(queue, map) || musicConvTodo(queue, map).length || musicPrevTodo(queue, map).length) ? '1' : '0';
 }
 
@@ -1779,7 +1815,8 @@ function main() {
   const muTodo = musicConvTodo(queue, map), mpTodo = musicPrevTodo(queue, map);
   if (muTodo.length) log('موسیقیِ صاحبِ برنامه برای تبدیل: ' + muTodo.length + ' تا.');
   /* ۱۴.۱: فایل‌های ریلیزِ قسمت‌هایی که موتور برداشته، در درایو دارد و در یوتیوب منتشر کرده (`queue.prune`). گیت‌هاب بیش از
-     ۱۰۰۰ فایل در یک ریلیز نمی‌پذیرد و ۲۷ اکتبر ۵۲۸ فایل و ۵٫۸ گیگ بود. فقط mp4ِ قسمت؛ کاور و نقشه دست نمی‌خورند. */
+     ۱۰۰۰ فایل در یک ریلیز نمی‌پذیرد و ۲۷ اکتبر ۵۲۸ فایل و ۵٫۸ گیگ بود. فقط mp4ِ قسمت؛ کاور و نقشه دست نمی‌خورند.
+     ۱۹.۳: و کلیدهای ریلز (`ig:…`): mp4، شورتز و کاورِ همان ریلز. */
   try { const pr = pruneRelease(queue, map); if (pr.deleted || pr.failed) { log('ریلیز: ' + pr.deleted + ' فایلِ قسمتِ منتشرشده پاک شد' + (pr.failed ? '، ' + pr.failed + ' نشد' : '') + '.'); writeMap(map); } }
   catch (ePr) { log('پاک‌کردنِ ریلیز نشد: ' + String(ePr.message).split('\n')[0].slice(0, 120)); }
   if (!todo.length && !plTodo.length && !bannerTodo(queue, map) && !rlTodo.length && !muTodo.length && !mpTodo.length) { log('کاری نیست.'); return; }
@@ -1976,7 +2013,7 @@ function main() {
 if (require.main === module) main();
 
 module.exports = {
-  pruneRelease, musicGateOf, vocalsOf, clipSoundOf, meanDbAt, relStat, RELSTAT, isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
+  pruneRelease, pruneTodo, musicGateOf, vocalsOf, clipSoundOf, meanDbAt, relStat, RELSTAT, isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
   specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo, prepMedia, spliceMoments, fitSize,
   momentSize, plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, brandMark, itemsTodo, slugOf, probeWork, builtFor,

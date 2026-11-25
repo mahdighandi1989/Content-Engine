@@ -1392,9 +1392,11 @@ function watchdog_(st, problems, notes) {
     var w = hb[i];
     if (w.key === 'render') {
       if (w.relBad) {
-        problems.push(HY_ + 'ریلیزِ «renders» در گیت‌هاب ' + faDigitsOut_(String(w.rel.assets)) + ' فایل دارد (' +
+        /* ۱۹.۳: کارِ موتور است، نه «⟨شما⟩» — ۶۵۰ از ۱۰۰۰ فایل ریلز بود و هیچ دری برای پاک‌شدن نداشت. */
+        problems.push('ریلیزِ «renders» در گیت‌هاب ' + faDigitsOut_(String(w.rel.assets)) + ' فایل دارد (' +
           faDigitsOut_(String(w.rel.gb)) + ' گیگ) — سقفِ گیت‌هاب ۱۰۰۰ است و پس از آن هیچ ویدئویی بالا نمی‌رود. ' +
-          'فایل‌های قسمت‌های منتشرشده قابلِ حذف‌اند (نسخهٔ درایو هست).');
+          'پاک‌کردنِ خودکار: mp4ِ قسمت‌های منتشرشده (۱۴.۱) و فایل‌های ریلزهای تمام‌شده (۱۹.۳) — هر دو با نسخهٔ درایوِ سنجیده؛ ' +
+          'پیشرفتش در خطِ اینستاگرام («ریلیزِ ریلزها») است. اگر عدد چند روز پایین نیامد، ایرادِ کد است.');
       }
       if (w.made) {
         problems.push(HY_ + faDigitsOut_(String(w.made)) + ' ویدئو ساخته شده ولی ' + faDigitsOut_(String(w.madeHours)) +

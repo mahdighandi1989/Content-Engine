@@ -1,16 +1,18 @@
 {
-  "version": "19.2",
+  "version": "19.3",
   "codeFile": "engine.gs",
-  "sha256": "d567672aa6bed34602864c721e653f4f1a7abbc9c37f4cf98c2d30428a4ff3d1",
-  "releasedAt": "2026-11-24T08:05:29Z",
-  "summary": "خطِ «کور»ِ حقِ نشر (مسدودیِ Studio که Data API نمی‌بیند) دیگر ایرادِ روزانه و یافتهٔ مزمنِ کد نمی‌سازد؛ فقط مسدودیِ دیده‌شده ایراد است.",
+  "sha256": "9751c0f72bb24a19d14adbb2ba62273e0e8eaf09467c690c0824124648a48204",
+  "releasedAt": "2026-11-25T08:08:12Z",
+  "summary": "ریلیزِ renders به سقفِ ۱۰۰۰ فایلِ گیت‌هاب رسید (۶۵۰ فایلش ریلز): ریلزِ تمام‌شده با نسخهٔ درایوِ سنجیده به صفِ پاک‌کردن می‌رود و رانر mp4، شورتز و کاورش را از ریلیز پاک می‌کند؛ پروبِ رانر کارِ پاک‌کردن را هم می‌بیند.",
   "fixes": [
-    "08_Health: clW.blind فقط به notes؛ hit به problems",
-    "tests/run_v192_test.js",
-    "tests/run_v141_test.js ۳.۷ هم‌راستا شد"
+    "38_Instagram: igReelPruneMark_/igReelPruneDue_ — ریلزِ done + شورتز/کاورِ تمام + mp4ِ درایو ⇒ queue.prune؛ شاهد در instagram.relPrune و خطِ اینستاگرام",
+    "38_Instagram: igStepGot_ فایلِ pruned را برنمی‌دارد",
+    "tools/render.js: pruneRelease کلیدِ ig:… را می‌شناسد (mp4، شورتز، کاور)؛ pruneTodo در پروب؛ reelsTodo ریلزِ pruned را از نو می‌سازد",
+    "08_Health: هشدارِ ریلیز دیگر «⟨شما⟩» نیست",
+    "tests/run_v193_test.js"
   ],
   "sourceReportIds": [
-    "ENG-20261122-1008#chronic-d71aef3f"
+    "RPT-202611221414#1"
   ],
   "answers": {
     "18.8": [
@@ -22,6 +24,9 @@
     ],
     "19.2": [
       "chronic-d71aef3f"
+    ],
+    "19.3": [
+      "RPT-202611221414#1"
     ]
   },
   "promptImpact": []
