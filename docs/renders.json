@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-24 22:35",
+ "updatedAt": "2026-11-25 02:12",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -11804,7 +11804,8 @@
     "صحنهٔ 27: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
     "صحنهٔ 29: کارت پس از عکس ⇒ خودِ عکس، کنارِ کارت",
     "برشِ کلیپ از آغاز: صحنهٔ 3: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر) · صحنهٔ 4: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر) · صحنهٔ 6: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر) · صحنهٔ 14: کلیپ ساکن بود (35.2ث) ⇒ همان قاب با حرکتِ دوربین"
-   ]
+   ],
+   "pruned": "2026-11-25"
   },
   "special:113": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-113.mp4",
@@ -11886,7 +11887,8 @@
     "smoothright": 35,
     "fade": 28
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-113-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-113-cover.jpg",
+   "pruned": "2026-11-25"
   },
   "variety:111": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-111.mp4",
@@ -16906,11 +16908,16 @@
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-17v2cHCjIhBaDdPTP-RzXjZC-DhXIgREX.mp3",
    "bytes": 56991,
    "at": "2026-11-23 22:48"
+  },
+  "1GKO14I-ftBF765KeZMbRCYBd3VJvaKJq": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/mprev-1GKO14I-ftBF765KeZMbRCYBd3VJvaKJq.mp3",
+   "bytes": 40272,
+   "at": "2026-11-25 02:12"
   }
  },
  "release": {
-  "assets": 995,
-  "gb": 7.88,
-  "at": "2026-11-24 22:35"
+  "assets": 994,
+  "gb": 7.8,
+  "at": "2026-11-25 02:12"
  }
 }
