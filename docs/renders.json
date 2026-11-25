@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-25 13:33",
+ "updatedAt": "2026-11-25 18:31",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -13298,7 +13298,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 38,
-   "at": "2026-10-23 22:43"
+   "at": "2026-10-23 22:43",
+   "pruned": "2026-11-25"
   },
   "ig:special:29.2": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-29-2.mp4",
@@ -13314,7 +13315,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 38,
-   "at": "2026-10-23 23:33"
+   "at": "2026-10-23 23:33",
+   "pruned": "2026-11-25"
   },
   "ig:special:30": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-30.mp4",
@@ -13330,7 +13332,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 33,
-   "at": "2026-10-24 07:56"
+   "at": "2026-10-24 07:56",
+   "pruned": "2026-11-25"
   },
   "ig:special:30.2": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-30-2.mp4",
@@ -13346,7 +13349,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 39,
-   "at": "2026-10-24 09:19"
+   "at": "2026-10-24 09:19",
+   "pruned": "2026-11-25"
   },
   "ig:special:31": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-31.mp4",
@@ -13362,7 +13366,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 36,
-   "at": "2026-10-24 13:28"
+   "at": "2026-10-24 13:28",
+   "pruned": "2026-11-25"
   },
   "ig:special:31.2": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-31-2.mp4",
@@ -13378,7 +13383,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 37,
-   "at": "2026-10-24 16:36"
+   "at": "2026-10-24 16:36",
+   "pruned": "2026-11-25"
   },
   "ig:special:32": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-32.mp4",
@@ -13394,7 +13400,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 37,
-   "at": "2026-10-24 19:05"
+   "at": "2026-10-24 19:05",
+   "pruned": "2026-11-25"
   },
   "ig:special:32.2": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-32-2.mp4",
@@ -13410,7 +13417,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 36,
-   "at": "2026-10-25 05:36"
+   "at": "2026-10-25 05:36",
+   "pruned": "2026-11-25"
   },
   "ig:special:33": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-33.mp4",
@@ -13426,7 +13434,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 36,
-   "at": "2026-10-25 06:37"
+   "at": "2026-10-25 06:37",
+   "pruned": "2026-11-25"
   },
   "ig:special:33.2": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-33-2.mp4",
@@ -13442,7 +13451,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 39,
-   "at": "2026-10-25 07:36"
+   "at": "2026-10-25 07:36",
+   "pruned": "2026-11-25"
   },
   "ig:special:34": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-34.mp4",
@@ -13458,7 +13468,8 @@
    "imgs": 8,
    "segs": 8,
    "subs": 90,
-   "at": "2026-10-25 09:32"
+   "at": "2026-10-25 09:32",
+   "pruned": "2026-11-25"
   },
   "ig:special:35": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-35.mp4",
@@ -13474,7 +13485,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 40,
-   "at": "2026-10-25 13:27"
+   "at": "2026-10-25 13:27",
+   "pruned": "2026-11-25"
   },
   "ig:special:35.2": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-35-2.mp4",
@@ -13490,7 +13502,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 33,
-   "at": "2026-10-25 16:02"
+   "at": "2026-10-25 16:02",
+   "pruned": "2026-11-25"
   },
   "ig:special:36": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-36.mp4",
@@ -13506,7 +13519,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 41,
-   "at": "2026-10-25 18:56"
+   "at": "2026-10-25 18:56",
+   "pruned": "2026-11-25"
   },
   "ig:special:36.2": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-36-2.mp4",
@@ -13522,7 +13536,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 33,
-   "at": "2026-10-25 21:20"
+   "at": "2026-10-25 21:20",
+   "pruned": "2026-11-25"
   },
   "ig:special:33.9": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-33-9.mp4",
@@ -13538,7 +13553,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 12,
-   "at": "2026-10-25 22:47"
+   "at": "2026-10-25 22:47",
+   "pruned": "2026-11-25"
   },
   "ig:special:37": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-37.mp4",
@@ -13554,7 +13570,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 36,
-   "at": "2026-10-25 23:36"
+   "at": "2026-10-25 23:36",
+   "pruned": "2026-11-25"
   },
   "ig:special:37.2": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-37-2.mp4",
@@ -13570,7 +13587,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 36,
-   "at": "2026-10-26 23:32"
+   "at": "2026-10-26 23:32",
+   "pruned": "2026-11-25"
   },
   "ig:special:38": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-38.mp4",
@@ -13586,7 +13604,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 39,
-   "at": "2026-10-27 19:53"
+   "at": "2026-10-27 19:53",
+   "pruned": "2026-11-25"
   },
   "ig:special:38.2": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-38-2.mp4",
@@ -13602,7 +13621,8 @@
    "imgs": 5,
    "segs": 5,
    "subs": 37,
-   "at": "2026-10-27 19:57"
+   "at": "2026-10-27 19:57",
+   "pruned": "2026-11-25"
   },
   "ig:special:39": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-39.mp4",
@@ -16275,6 +16295,22 @@
    "segs": 5,
    "subs": 40,
    "at": "2026-11-25 13:33"
+  },
+  "ig:special:111.9": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-111-9.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-111-9-cover.jpg",
+   "sig": "fe804670dcb7",
+   "seconds": 38.4,
+   "bytes": 6357581,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-111-9-short.mp4",
+   "shortSeconds": 34.6,
+   "align": "faster-whisper",
+   "phrases": 15,
+   "trans": 3,
+   "imgs": 4,
+   "segs": 4,
+   "subs": 11,
+   "at": "2026-11-25 18:31"
   }
  },
  "musicPrev": {
@@ -17325,8 +17361,8 @@
   }
  },
  "release": {
-  "assets": 916,
-  "gb": 7.19,
-  "at": "2026-11-25 13:33"
+  "assets": 859,
+  "gb": 6.64,
+  "at": "2026-11-25 18:31"
  }
 }
