@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-25 22:49",
+ "updatedAt": "2026-11-26 03:01",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -12034,7 +12034,8 @@
     "برشِ کلیپ از آغاز: صحنهٔ 6: لحظه کلیپ را تمام کرده بود ⇒ تکهٔ بی‌صدا همان کلیپ از آغاز (نه ثانیهٔ آخر) · صحنهٔ 29: شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-C",
     "لحظه‌ها: 54s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 32٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 32٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 362s: موسیقی در صدای کلیپ (نُتِ نگه‌داشته در 50٪ قاب‌ها (سقف 12٪)؛ پس از جداسازی هم: نُتِ نگه‌داشته در 16٪ قاب‌ها (سقف 12٪)) — لحظه کنار رفت، کلیپ بی‌صدا · 570s: عبارت در کلیپ پیدا نشد (شنیدن نشد: Command '['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-i', '/tmp/yt-C)",
     "اندازه: 97.8 ⇒ 43.5 مگابایت"
-   ]
+   ],
+   "pruned": "2026-11-26"
   },
   "special:114": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-114.mp4",
@@ -12111,7 +12112,8 @@
     "smoothright": 32,
     "fade": 25
    },
-   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-114-cover.jpg"
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-114-cover.jpg",
+   "pruned": "2026-11-26"
   },
   "variety:112": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-112.mp4",
@@ -17458,8 +17460,8 @@
   }
  },
  "release": {
-  "assets": 769,
-  "gb": 5.71,
-  "at": "2026-11-25 22:49"
+  "assets": 767,
+  "gb": 5.62,
+  "at": "2026-11-26 03:01"
  }
 }
