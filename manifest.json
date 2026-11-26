@@ -1,19 +1,13 @@
 {
-  "version": "19.3",
+  "version": "19.4",
   "codeFile": "engine.gs",
-  "sha256": "9751c0f72bb24a19d14adbb2ba62273e0e8eaf09467c690c0824124648a48204",
-  "releasedAt": "2026-11-25T08:08:12Z",
-  "summary": "ریلیزِ renders به سقفِ ۱۰۰۰ فایلِ گیت‌هاب رسید (۶۵۰ فایلش ریلز): ریلزِ تمام‌شده با نسخهٔ درایوِ سنجیده به صفِ پاک‌کردن می‌رود و رانر mp4، شورتز و کاورش را از ریلیز پاک می‌کند؛ پروبِ رانر کارِ پاک‌کردن را هم می‌بیند.",
+  "sha256": "d874be3b5ec10f8b8af3a87d7f1bd0244cc84c10f4fc1cd21753a79e22c6f0b8",
+  "releasedAt": "2026-11-26T08:16:04Z",
+  "summary": "بدهیِ منو: «نمایش وضعیت» (showStatus) حالا آزمونِ واقعی دارد — بی‌پنجره نمی‌افتد، شیتِ منبعِ ناخوانا را با نام می‌گوید و زمان‌بندی‌ها را با نام می‌شمارد؛ بدهیِ منو از ۳۳ به ۳۲. رفتارِ موتور عوض نشده.",
   "fixes": [
-    "38_Instagram: igReelPruneMark_/igReelPruneDue_ — ریلزِ done + شورتز/کاورِ تمام + mp4ِ درایو ⇒ queue.prune؛ شاهد در instagram.relPrune و خطِ اینستاگرام",
-    "38_Instagram: igStepGot_ فایلِ pruned را برنمی‌دارد",
-    "tools/render.js: pruneRelease کلیدِ ig:… را می‌شناسد (mp4، شورتز، کاور)؛ pruneTodo در پروب؛ reelsTodo ریلزِ pruned را از نو می‌سازد",
-    "08_Health: هشدارِ ریلیز دیگر «⟨شما⟩» نیست",
-    "tests/run_v193_test.js"
+    "tests/run_menu_test.js §۸: اجرای واقعیِ showStatus با چهار سنجه (۸.۱–۸.۴)؛ showStatus از MENU_DEBT بیرون رفت و BUILD_MENU_ = {total:63, debt:32}."
   ],
-  "sourceReportIds": [
-    "RPT-202611221414#1"
-  ],
+  "sourceReportIds": [],
   "answers": {
     "18.8": [
       "chronic-34dc8629",

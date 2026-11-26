@@ -367,7 +367,7 @@ const MENU_DEBT = [
   'runShowSourceVerdict', 'runSyncNow', 'runVoiceAudition',
   'runVoiceIntake', 'runYouTubeStats',
   'setApiKey', 'showEnrichStatus', 'showPersonaBoard',
-  'showStatus', 'testGemini',   // testTelegram پرداخت شد (۸.۸۶)
+  'testGemini',   // testTelegram پرداخت شد (۸.۸۶)، showStatus (۱۹.۴)
 ];
 {
   const menu = fs.readFileSync('src/05_Setup.gs', 'utf8');

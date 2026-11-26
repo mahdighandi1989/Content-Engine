@@ -243,4 +243,31 @@ console.log('=== ۷) تریگرِ تکراری/گم‌شده را خودِ مو�
   global.__TRIGGERS.length = 0;
 }
 
+console.log('=== ۸) «نمایش وضعیت» — بدهیِ منو، پرداخت‌شده (۱۹.۴) ===');
+{
+  /* ناظر ده روزِ پیاپی وارسیِ `menu` را «نشد» زد چون بدهیِ روزانه پرداخت نمی‌شد.
+     این گزینه فقط می‌خوانَد و نشان می‌دهد؛ پس سه چیز از خودِ اجرایش پرسیده می‌شود:
+     بی‌پنجره هم نمی‌افتد، شیتِ منبعِ ناخوانا را با نام می‌گوید (نه اینکه کلِ پنجره
+     را بکُشد)، و زمان‌بندی‌ها را **با نام** می‌شمارد — همان چیزی که سال‌ها دیده نشد. */
+  global.__TRIGGERS.length = 0;
+  global.__UI = null;
+  installTriggers();
+  const names = global.__TRIGGERS.map(t => t.getHandlerFunction());
+  const said = []; const oLog = console.log;
+  console.log = (...a) => said.push(a.join(' '));
+  let boom = '';
+  try { showStatus(); } catch (e) { boom = e.message; }
+  console.log = oLog;
+  const out = said.join('\n');
+  ok('۸.۱ نمایشِ وضعیت بی‌پنجره هم نمی‌افتد', !boom, boom);
+  ok('۸.۲ هر شیتِ منبعِ ناخوانا با نامِ خودش گفته می‌شود',
+     CFG.SOURCES.every(s => out.indexOf(s.title) !== -1) && out.indexOf('خوانده نشد') !== -1);
+  ok('۸.۳ و زمان‌بندی‌ها با نام شمرده می‌شوند، نه فقط با عدد',
+     names.length >= 8 && names.every(n => out.indexOf(n) !== -1),
+     names.filter(n => out.indexOf(n) === -1).join('، '));
+  ok('۸.۴ و کلید و قسمتِ نیمه‌تمام را هم می‌گوید',
+     out.indexOf('کلید Gemini') !== -1 && out.indexOf('قسمت نیمه‌تمام') !== -1);
+  global.__TRIGGERS.length = 0;
+}
+
 console.log('\n✅ ' + pass + ' سنجهٔ منو و بازسازی، همه سبز.');
