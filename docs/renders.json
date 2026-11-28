@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-11-28 05:32",
+ "updatedAt": "2026-11-28 06:02",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -13304,6 +13304,82 @@
     "لحظهٔ 149s: موسیقی جدا شد (46.1ث)؛ فقط گفتارِ کلیپ پخش می‌شود",
     "لحظهٔ 437s: موسیقی جدا شد (12.7ث)؛ فقط گفتارِ کلیپ پخش می‌شود"
    ]
+  },
+  "special:120": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-120.mp4",
+   "bytes": 45698827,
+   "parts": 2,
+   "at": "2026-11-28 06:02",
+   "mode": "scenes",
+   "scenes": 62,
+   "want": 62,
+   "snapped": 49,
+   "seconds": 1156,
+   "qa": {
+    "n": 62,
+    "matched": 58,
+    "miss": [
+     13,
+     16,
+     24,
+     45
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0.1,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 16,
+       "t": 304.6,
+       "own": 0.57,
+       "nb": 0.14,
+       "ok": true,
+       "heard": "بیم جانمون رو شرط ببندیم.  زیرا بر خلاف نقاشی کلاق سفید  تصور یا ترسیم چیزی شکل دار  اما بیندازه نمومکن اصد."
+      },
+      {
+       "n": 32,
+       "t": 603.3,
+       "own": 0.37,
+       "nb": 0.32,
+       "ok": true,
+       "heard": "اته مقدم بر هر تجربه یه از جهان مارا به تمائیوز و سو اتفاهم دو وم میرسانه.  از نظر زمانی و تقریم."
+      },
+      {
+       "n": 47,
+       "t": 850.5,
+       "own": 0.46,
+       "nb": 0.25,
+       "ok": true,
+       "heard": "اقب افداده یعنی بده کاری  ولی یکی بگن  هر مستجری که اجارش اقب بیوفته  صاحب هون جواب سلام اشرونی میده  این رو دیگه با فکر"
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 24,
+    "placed": 13,
+    "busy": 11,
+    "failed": 0,
+    "kinds": {
+     "compare": 2,
+     "points": 7,
+     "quote": 2,
+     "headline": 2
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 55,
+   "xf": {
+    "smoothright": 31,
+    "fade": 24
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-120-cover.jpg"
   }
  },
  "art": {
@@ -18276,8 +18352,8 @@
   }
  },
  "release": {
-  "assets": 793,
-  "gb": 5.84,
-  "at": "2026-11-28 05:32"
+  "assets": 795,
+  "gb": 5.89,
+  "at": "2026-11-28 06:02"
  }
 }
